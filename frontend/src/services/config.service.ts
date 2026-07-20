@@ -1,0 +1,111 @@
+import axios from "axios";
+import Config, { AdminConfig, UpdateConfig } from "../types/config.type";
+import api from "./api.service";
+import { stringToTimespan } from "../utils/date.util";
+
+const categories = [
+  "general",
+  "appearance",
+  "email",
+  "share",
+  "smtp",
+  "oauth",
+  "ldap",
+  "s3",
+  "legal",
+  "cache",
+];
+
+const list = async (): Promise<Config[]> => {
+  return (await api.get("/configs")).data;
+};
+
+const getByCategory = async (categoryInput: string): Promise<AdminConfig[]> => {
+  let category: string;
+  if (categories.indexOf(categoryInput.trim()) === -1) {
+    category = "general";
+  } else {
+    category = categoryInput.trim();
+  }
+
+  return (await api.get(`/configs/admin/${category}`)).data;
+};
+
+const updateMany = async (data: UpdateConfig[]): Promise<AdminConfig[]> => {
+  return (await api.patch("/configs/admin", data)).data;
+};
+
+const get = (
+  key: string,
+  configVariables: Config[],
+  returnDefault: boolean = false,
+): any => {
+  if (!configVariables) return null;
+
+  const configVariable = configVariables.filter(
+    (variable) => variable.key == key,
+  )[0];
+
+  if (!configVariable) throw new Error(`Config variable ${key} not found`);
+
+  const value = returnDefault
+    ? configVariable.defaultValue
+    : (configVariable.value ?? configVariable.defaultValue);
+
+  if (configVariable.type == "number" || configVariable.type == "filesize")
+    return parseInt(value);
+  if (configVariable.type == "boolean") return value == "true";
+  if (configVariable.type == "string" || configVariable.type == "text")
+    return value;
+  if (configVariable.type == "timespan") return stringToTimespan(value);
+};
+
+const finishSetup = async (): Promise<AdminConfig[]> => {
+  return (await api.post("/configs/admin/finishSetup")).data;
+};
+
+const sendTestEmail = async (email: string) => {
+  await api.post("/configs/admin/testEmail", { email });
+};
+
+const testRedisConnection = async () => {
+  return (await api.post("/configs/admin/testRedis")).data as {
+    ok: boolean;
+    enabled: boolean;
+  };
+};
+
+const isNewReleaseAvailable = async () => {
+  const response = (
+    await axios.get(
+      "https://api.github.com/repos/smp46/pingvin-share-x/releases/latest",
+    )
+  ).data;
+  return response.tag_name.replace("v", "") != process.env.VERSION;
+};
+
+const changeLogo = async (file: File) => {
+  const form = new FormData();
+  form.append("file", file);
+
+  await api.post("/configs/admin/logo", form);
+};
+
+const changeDarkLogo = async (file: File) => {
+  const form = new FormData();
+  form.append("file", file);
+
+  await api.post("/configs/admin/logoDark", form);
+};
+export default {
+  list,
+  getByCategory,
+  updateMany,
+  get,
+  finishSetup,
+  sendTestEmail,
+  testRedisConnection,
+  isNewReleaseAvailable,
+  changeLogo,
+  changeDarkLogo,
+};
