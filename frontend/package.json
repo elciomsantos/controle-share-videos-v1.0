@@ -1,6 +1,6 @@
 {
-  "name": "pingvin-share-frontend",
-  "version": "1.21.1",
+  "name": "controle-share-videos-frontend",
+  "version": "1.0.0",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

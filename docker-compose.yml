@@ -1,16 +1,15 @@
 services:
   controle-share-videos-v1.0:
     container_name: controle-share-videos-v1.0
-    image: controle-share-videos-v1.0 
-    restart: unless-stopped
-    ports:
-      - 3000:3000
-    environment:
-      - TRUST_PROXY=false # Set to true if a reverse proxy is in front of the container
-    volumes:
-      - "./data:/opt/app/backend/data:rw,z"
-      - "./data/images:/opt/app/frontend/public/img:rw,z"
-  #      - "./config.yaml:/opt/app/config.yaml" # Add this line, if you want to configure pingvin-share via config file and not via UI
-
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: controle-share-videos-v1.0
   # To add ClamAV, to scan your shares for malicious files,
 
+
+  
+#docker compose build --no-cache
+#docker compose up
+#
+#
