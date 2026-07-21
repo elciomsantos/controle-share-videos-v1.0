@@ -155,3 +155,23 @@ model Config {
 
   @@id([name, category])
 }
+
+model DownloadLog {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  shareId  String
+  fileId   String?
+  fileName String
+
+  userId   String?
+  username String?
+  ip       String
+
+  success  Boolean
+  reason   String?
+
+  @@index([shareId])
+  @@index([userId])
+  @@index([createdAt])
+}

@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
+import { DownloadLogModule } from "src/download-log/download-log.module";
 import { EmailModule } from "src/email/email.module";
 import { ReverseShareModule } from "src/reverseShare/reverseShare.module";
 import { ShareModule } from "src/share/share.module";
@@ -15,6 +16,7 @@ import { DownloadLimitGuard } from "./guard/downloadLimit.guard";
     EmailModule,
     ReverseShareModule,
     ShareModule,
+    DownloadLogModule,
   ],
   controllers: [FileController],
   providers: [FileService, LocalFileService, S3FileService, DownloadLimitGuard],

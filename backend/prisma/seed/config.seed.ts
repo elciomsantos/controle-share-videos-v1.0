@@ -132,6 +132,11 @@ export const configVariables = {
       defaultValue: "0",
       secret: false,
     },
+    downloadLogRetentionDays: {
+      type: "number",
+      defaultValue: "0",
+      secret: false,
+    },
   },
   cache: {
     "redis-enabled": {

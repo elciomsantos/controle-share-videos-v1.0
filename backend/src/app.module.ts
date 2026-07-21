@@ -13,6 +13,7 @@ import { AppCacheModule } from "./cache/cache.module";
 import { AppController } from "./app.controller";
 import { ClamScanModule } from "./clamscan/clamscan.module";
 import { ConfigModule } from "./config/config.module";
+import { DownloadLogModule } from "./download-log/download-log.module";
 import { EmailModule } from "./email/email.module";
 import { FileModule } from "./file/file.module";
 import { JobsModule } from "./jobs/jobs.module";
@@ -49,6 +50,7 @@ const i18nPath = existsSync(join(__dirname, "../i18n"))
     ClamScanModule,
     ReverseShareModule,
     AppCacheModule,
+    DownloadLogModule,
     I18nModule.forRoot({
       fallbackLanguage: "pt-BR",
       loaderOptions: {

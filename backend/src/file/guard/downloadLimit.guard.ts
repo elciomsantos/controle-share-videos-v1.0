@@ -3,7 +3,9 @@ import {
   ForbiddenException,
   Injectable,
 } from "@nestjs/common";
+import { Request } from "express";
 import { I18nService } from "nestjs-i18n";
+import { DownloadLogService } from "src/download-log/download-log.service";
 import { PrismaService } from "src/prisma/prisma.service";
 
 @Injectable()
@@ -11,10 +13,11 @@ export class DownloadLimitGuard {
   constructor(
     private prisma: PrismaService,
     private readonly i18n: I18nService,
+    private downloadLogService: DownloadLogService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request: Request = context.switchToHttp().getRequest();
     const shareId = request.params.shareId;
 
     const share = await this.prisma.share.findUnique({
@@ -29,6 +32,17 @@ export class DownloadLimitGuard {
       share.security.maxDownloads > 0 &&
       share.downloads >= share.security.maxDownloads
     ) {
+      const user = (request as any).user;
+      void this.downloadLogService.record({
+        shareId,
+        fileName: "",
+        userId: user?.id,
+        username: user?.username,
+        ip: request.ip || request.socket.remoteAddress || "unknown",
+        success: false,
+        reason: "maxDownloadsExceeded",
+      });
+
       throw new ForbiddenException(
         this.i18n.t("share.maxDownloadsExceeded"),
         "share_max_downloads_exceeded",
