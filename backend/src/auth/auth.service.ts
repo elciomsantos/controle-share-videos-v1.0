@@ -12,6 +12,7 @@ import * as argon from "argon2";
 import { Request, Response } from "express";
 import * as moment from "moment";
 import { I18nService } from "nestjs-i18n";
+import { ARGON2_OPTIONS } from "src/constants";
 import { ConfigService } from "src/config/config.service";
 import { EmailService } from "src/email/email.service";
 import { PrismaService } from "src/prisma/prisma.service";
@@ -41,7 +42,7 @@ export class AuthService {
     );
     const email = dto.email.toLowerCase().trim();
 
-    const hash = dto.password ? await argon.hash(dto.password) : null;
+    const hash = dto.password ? await argon.hash(dto.password, ARGON2_OPTIONS) : null;
     try {
       const needsVerification =
         !isFirstUser && !skipVerification && enableEmailVerification;
@@ -177,7 +178,7 @@ export class AuthService {
     if (!user)
       throw new BadRequestException(this.i18n.t("auth.tokenInvalidOrExpired"));
 
-    const newPasswordHash = await argon.hash(newPassword);
+    const newPasswordHash = await argon.hash(newPassword, ARGON2_OPTIONS);
 
     await this.prisma.resetPasswordToken.delete({
       where: { token },
@@ -250,7 +251,7 @@ export class AuthService {
     if (!isPasswordValid)
       throw new ForbiddenException(this.i18n.t("auth.invalidPassword"));
 
-    const hash = await argon.hash(newPassword);
+    const hash = await argon.hash(newPassword, ARGON2_OPTIONS);
 
     await this.prisma.refreshToken.deleteMany({
       where: { userId: user.id },
@@ -304,10 +305,24 @@ export class AuthService {
     if (!refreshTokenMetaData || refreshTokenMetaData.expiresAt < new Date())
       throw new UnauthorizedException();
 
-    return this.createAccessToken(
-      refreshTokenMetaData.user,
-      refreshTokenMetaData.id,
+    // JWT rotation: delete old refresh token and create new one
+    await this.prisma.refreshToken.delete({
+      where: { id: refreshTokenMetaData.id },
+    });
+
+    const newRefreshToken = await this.createRefreshToken(
+      refreshTokenMetaData.user.id,
     );
+
+    const accessToken = await this.createAccessToken(
+      refreshTokenMetaData.user,
+      newRefreshToken.refreshTokenId,
+    );
+
+    return {
+      accessToken,
+      ...newRefreshToken,
+    };
   }
 
   async createRefreshToken(
@@ -346,7 +361,8 @@ export class AuthService {
     const isSecure = this.config.get("general.secureCookies");
     if (accessToken)
       response.cookie("access_token", accessToken, {
-        sameSite: "lax",
+        httpOnly: true,
+        sameSite: "strict",
         secure: isSecure,
         maxAge: 1000 * 60 * 60 * 24 * 30 * 3, // 3 months
       });

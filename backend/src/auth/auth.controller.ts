@@ -188,11 +188,15 @@ export class AuthController {
   ) {
     if (!request.cookies.refresh_token) throw new UnauthorizedException();
 
-    const accessToken = await this.authService.refreshAccessToken(
+    const result = await this.authService.refreshAccessToken(
       request.cookies.refresh_token,
     );
-    this.authService.addTokensToResponse(response, undefined, accessToken);
-    return new TokenDTO().from({ accessToken });
+    this.authService.addTokensToResponse(
+      response,
+      result.refreshToken,
+      result.accessToken,
+    );
+    return new TokenDTO().from({ accessToken: result.accessToken });
   }
 
   @Post("signOut")

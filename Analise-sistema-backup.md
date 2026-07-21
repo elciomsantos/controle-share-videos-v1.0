@@ -288,13 +288,13 @@ Para garantir R2 ( sem conexões externas em runtime ), após aplicar todas as f
 > | Fase 3 — Fixar PT-BR único idioma | **Concluída** | Backend: 32 dirs de idioma apagados (mantido apenas `pt-BR/`); `ldap.json` e `oauth.json` removidos de `pt-BR/`. Frontend: 32 arquivos `.ts` de tradução apagados (mantido apenas `pt-BR.ts`); `LanguagePicker.tsx` apagado. `locales.ts`: apenas `PORTUGUESE_BRAZIL`. `i18n.util.ts`: fallback/default `"pt-BR"`. `_app.tsx`: `defaultLocale={LOCALES.PORTUGUESE_BRAZIL.code}`. `useTranslate.hook.ts`: `defaultLocale: "pt-BR"`. `defaultConfig.util.ts`: `defaultLanguage: "pt-BR"`. `account/index.tsx`: card LanguagePicker removido. `pt-BR.ts`: ~93 chaves oauth/ldap removidas. `generate-example-config.ts`: import `pt-BR` em vez de `en-US`. `app.module.ts`: `fallbackLanguage: "pt-BR"`. `config.seed.ts`: `defaultLanguage: "pt-BR"`. Validação: `tsc --noEmit` backend → 0 errors; `tsc --noEmit` frontend → 0 errors. |
 > | Fase 4 — Limpeza externa | **Concluída** | `crowdin.yml` apagado. `.github/ISSUE_TEMPLATE/` e `.github/workflows/` apagados (5 workflows). `package.json` root: scripts `release:*`, `version` e devDeps `conventional-changelog` removidos. `docker-compose.yml`: `image:` removido (build já presente). `README.md`: limpo (sem badges, sponsors, links upstream, OIDC/LDAP mention). `Caddyfile.trust-proxy`: `trusted_proxies` restringido a `172.16.0.0/12` (era `0.0.0.0/0`). `docs/` apagado (backup `Analise-sistema-backup.md` na raiz). |
 > | Fase 5 — Bug fixes | **Concluída** | `clamscan.service.ts`: `.catch(() => ({ isInfected: false }))` removido — erros do ClamAV agora propagam em vez de tratar como "limpo". S3 path: `finally` block garante limpeza de tmp files; `logger.warn` → `logger.error` + rethrow. `checkAndRemove`: try/catch em `check()` com log de erro, share fica online se scan falhar. `config.seed.ts`: `migrateConfigVariables` com log ao deletar chaves obsoletas; removido `orderMap` não utilizado. |
-> | Fase 6 — Hardening ampliado ( R6 ) | Pendente | |
+> | Fase 6 — Hardening ampliado ( R6 ) | **Concluída** | H4: `access_token` cookie com `httpOnly: true` e `sameSite: "strict"` (era `"lax"` sem httpOnly). H7: JWT rotation implementada em `refreshAccessToken()` — deleta refresh token antigo, cria novo, retorna ambos. Controller atualizado para setar novo refresh cookie. H8: `ARGON2_OPTIONS` partilhado em `constants.ts` (128MB, timeCost=4, parallelism=2) — todas as 9 chamadas `argon.hash` atualizadas. Permissions-Policy header via middleware customizado (helmet versão instalada não suporta `permissionsPolicy`). Validacao: `tsc --noEmit` backend e frontend = 0 errors. |
 > | Fase 7 — Limite de downloads ( R7 ) | Pendente | |
 > | Fase 8 — Logs de download ( R8 ) | Pendente | |
 > | Fase 9 — Dependências ( R5 ) | Pendente | |
 > | Fase 10 — Teste / validação | Pendente | |
 >
-> _Última atualização: 2026-07-21 — Fase 0 + Fase 1 + Fase 2 + Fase 3 + Fase 4 + Fase 5 concluídas._
+> _Última atualização: 2026-07-21 — Fase 0 + Fase 1 + Fase 2 + Fase 3 + Fase 4 + Fase 5 + Fase 6 concluídas._
 
 ### Fase 0 — Preparação
 - Criar branch `feat/internal-ptbr`.

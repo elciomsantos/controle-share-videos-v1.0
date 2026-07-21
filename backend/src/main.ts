@@ -76,6 +76,15 @@ async function bootstrap() {
     }),
   );
 
+  // Permissions-Policy header (not supported by current helmet version)
+  app.use((_req, res, next) => {
+    res.setHeader(
+      "Permissions-Policy",
+      "geolocation=(), camera=(), microphone=()",
+    );
+    next();
+  });
+
   const corsOriginsEnv = process.env.CORS_ORIGIN;
   const corsOrigin = corsOriginsEnv
     ? corsOriginsEnv.split(",").map((o) => o.trim())

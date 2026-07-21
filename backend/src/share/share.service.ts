@@ -20,7 +20,7 @@ import { PrismaService } from "src/prisma/prisma.service";
 import { ReverseShareService } from "src/reverseShare/reverseShare.service";
 import { SystemService } from "src/system/system.service";
 import { parseRelativeDateToAbsolute } from "src/utils/date.util";
-import { SHARE_DIRECTORY } from "../constants";
+import { ARGON2_OPTIONS, SHARE_DIRECTORY } from "../constants";
 import { CreateShareDTO } from "./dto/createShare.dto";
 import { UpdateShareDTO } from "./dto/updateShare.dto";
 
@@ -54,7 +54,7 @@ export class ShareService {
       share.security = undefined;
 
     if (share.security?.password) {
-      share.security.password = await argon.hash(share.security.password);
+      share.security.password = await argon.hash(share.security.password, ARGON2_OPTIONS);
     }
 
     let expirationDate: Date;
@@ -367,7 +367,7 @@ export class ShareService {
     const nextPassword = body.security.removePassword
       ? null
       : body.security.password
-        ? await argon.hash(body.security.password)
+        ? await argon.hash(body.security.password, ARGON2_OPTIONS)
         : currentSecurity?.password;
     const nextMaxViews =
       body.security.maxViews !== undefined

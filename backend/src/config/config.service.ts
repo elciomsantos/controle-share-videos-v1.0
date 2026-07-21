@@ -14,7 +14,7 @@ import { stringToTimespan } from "src/utils/date.util";
 import { parse as yamlParse } from "yaml";
 import { I18nContext } from "nestjs-i18n";
 import { YamlConfig } from "../../prisma/seed/config.seed";
-import { CONFIG_FILE } from "src/constants";
+import { ARGON2_OPTIONS, CONFIG_FILE } from "src/constants";
 
 /**
  * ConfigService extends EventEmitter to allow listening for config updates,
@@ -86,7 +86,7 @@ export class ConfigService extends EventEmitter {
         email: this.yamlConfig.initUser.email,
         username: this.yamlConfig.initUser.username,
         password: this.yamlConfig.initUser.password
-          ? await argon.hash(this.yamlConfig.initUser.password)
+          ? await argon.hash(this.yamlConfig.initUser.password, ARGON2_OPTIONS)
           : null,
         isAdmin: this.yamlConfig.initUser.isAdmin,
       },

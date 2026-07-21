@@ -15,3 +15,12 @@ export const CLAMAV_PORT = parseInt(process.env.CLAMAV_PORT) || 3310;
 export const LOG_LEVEL_AVAILABLE: LogLevel[] = ['verbose', 'debug', 'log', 'warn', 'error', 'fatal'];
 export const LOG_LEVEL_DEFAULT: LogLevel = process.env.NODE_ENV === 'development' ? "verbose" : "log";
 export const LOG_LEVEL_ENV = `${process.env.PV_LOG_LEVEL || ""}`;
+
+// Argon2id options: memory=128MB, timeCost=4, parallelism=2
+// Stronger than library defaults (64MB/3/4) for internal-only use
+export const ARGON2_OPTIONS = {
+  type: 2, // argon2id
+  memoryCost: 131072,
+  timeCost: 4,
+  parallelism: 2,
+} as const;

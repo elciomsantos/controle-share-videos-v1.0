@@ -3,6 +3,7 @@ import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import * as argon from "argon2";
 import * as crypto from "crypto";
 import { I18nService } from "nestjs-i18n";
+import { ARGON2_OPTIONS } from "src/constants";
 import { EmailService } from "src/email/email.service";
 import { PrismaService } from "src/prisma/prisma.service";
 import { FileService } from "../file/file.service";
@@ -35,9 +36,9 @@ export class UserSevice {
     // The password can be undefined if the user is invited by an admin
     if (!dto.password) {
       randomPassword = crypto.randomUUID();
-      hash = await argon.hash(randomPassword);
+      hash = await argon.hash(randomPassword, ARGON2_OPTIONS);
     } else {
-      hash = await argon.hash(dto.password);
+      hash = await argon.hash(dto.password, ARGON2_OPTIONS);
     }
 
     try {
@@ -71,7 +72,7 @@ export class UserSevice {
 
   async update(id: string, user: UpdateUserDto) {
     try {
-      const hash = user.password && (await argon.hash(user.password));
+      const hash = user.password && (await argon.hash(user.password, ARGON2_OPTIONS));
 
       return await this.prisma.user.update({
         where: { id },
