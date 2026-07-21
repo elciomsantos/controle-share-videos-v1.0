@@ -54,38 +54,40 @@ export class ClamScanService {
       });
 
       for (const f of files) {
+        let tmpPath: string | null = null;
         try {
           const fileObj = await this.fileService.get(shareId, f.id);
 
           const tmpDir = `${SHARE_DIRECTORY}/${shareId}`;
-          const tmpPath = `${tmpDir}/${f.id}`;
+          tmpPath = `${tmpDir}/${f.id}`;
 
           fs.mkdirSync(tmpDir, { recursive: true });
 
           // Download S3 object stream to temp local file
           await new Promise<void>((resolve, reject) => {
-            const writeStream = fs.createWriteStream(tmpPath);
+            const writeStream = fs.createWriteStream(tmpPath!);
             (fileObj.file as any).pipe(writeStream);
             writeStream.on("finish", resolve);
             writeStream.on("error", reject);
             (fileObj.file as any).on("error", reject);
           });
 
-          const { isInfected } = await clamScan
-            .isInfected(tmpPath)
-            .catch(() => ({ isInfected: false }));
+          const { isInfected } = await clamScan.isInfected(tmpPath);
 
           if (isInfected) infectedFiles.push({ id: f.id, name: f.name });
-
-          try {
-            fs.unlinkSync(tmpPath);
-          } catch {
-            // ignore error
-          }
         } catch (err: any) {
-          this.logger.warn(
+          this.logger.error(
             `ClamAV scan failed for S3 file ${f.id} in share ${shareId}: ${err?.message || "unknown error"}`,
           );
+          throw err;
+        } finally {
+          if (tmpPath) {
+            try {
+              fs.unlinkSync(tmpPath);
+            } catch {
+              // ignore cleanup error
+            }
+          }
         }
       }
 
@@ -103,12 +105,9 @@ export class ClamScanService {
     }
 
     for (const fileId of files) {
-      const { isInfected } = await clamScan
-        .isInfected(`${SHARE_DIRECTORY}/${shareId}/${fileId}`)
-        .catch(() => {
-          this.logger.log("ClamAV is not active");
-          return { isInfected: false };
-        });
+      const { isInfected } = await clamScan.isInfected(
+        `${SHARE_DIRECTORY}/${shareId}/${fileId}`,
+      );
 
       const fileName = (
         await this.prisma.file.findUnique({ where: { id: fileId } })
@@ -123,7 +122,15 @@ export class ClamScanService {
   }
 
   async checkAndRemove(shareId: string) {
-    const infectedFiles = await this.check(shareId);
+    let infectedFiles: { id: string; name: string }[];
+    try {
+      infectedFiles = await this.check(shareId);
+    } catch (err: any) {
+      this.logger.error(
+        `ClamAV scan failed for share ${shareId}: ${err?.message || "unknown error"}. Share kept online.`,
+      );
+      return;
+    }
 
     if (infectedFiles.length > 0) {
       try {
