@@ -373,8 +373,12 @@ export class ShareService {
       body.security.maxViews !== undefined
         ? body.security.maxViews
         : currentSecurity?.maxViews;
+    const nextMaxDownloads =
+      body.security.maxDownloads !== undefined
+        ? body.security.maxDownloads
+        : currentSecurity?.maxDownloads;
 
-    if (!nextPassword && !nextMaxViews) {
+    if (!nextPassword && !nextMaxViews && !nextMaxDownloads) {
       if (currentSecurity) {
         await this.prisma.shareSecurity.delete({ where: { shareId } });
       }
@@ -387,10 +391,12 @@ export class ShareService {
         share: { connect: { id: shareId } },
         password: nextPassword,
         maxViews: nextMaxViews,
+        maxDownloads: nextMaxDownloads,
       },
       update: {
         password: nextPassword,
         maxViews: nextMaxViews,
+        maxDownloads: nextMaxDownloads,
       },
     });
   }
@@ -407,6 +413,7 @@ export class ShareService {
       recipients: share.recipients?.map((recipient) => recipient.email) ?? [],
       security: {
         maxViews: share.security?.maxViews,
+        maxDownloads: share.security?.maxDownloads,
         passwordProtected: !!share.security?.password,
       },
     };

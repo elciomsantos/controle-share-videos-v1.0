@@ -17,6 +17,7 @@ import { CreateShareGuard } from "src/share/guard/createShare.guard";
 import { StrictShareOwnerGuard } from "src/share/guard/strictShareOwner.guard";
 import { IdValidation } from "src/share/guard/shareIdValidation.guard";
 import { FileService } from "./file.service";
+import { DownloadLimitGuard } from "./guard/downloadLimit.guard";
 import { FileSecurityGuard } from "./guard/fileSecurity.guard";
 import * as mime from "mime-types";
 
@@ -29,7 +30,10 @@ function getValidRecipientId(recipientId?: string): string | undefined {
 
 @Controller("shares/:shareId/files")
 export class FileController {
-  constructor(private fileService: FileService) {}
+  constructor(
+    private fileService: FileService,
+    private downloadLimitGuard: DownloadLimitGuard,
+  ) {}
 
   @Post()
   @SkipThrottle()
@@ -63,6 +67,12 @@ export class FileController {
     @Param("shareId") shareId: string,
     @Query("recipient") recipientId?: string,
   ) {
+    await this.downloadLimitGuard.canActivate({
+      switchToHttp: () => ({
+        getRequest: () => ({ params: { shareId } }),
+      }),
+    } as any);
+
     const zipStream = await this.fileService.getZip(shareId);
 
     res.set({
@@ -70,6 +80,7 @@ export class FileController {
       "Content-Disposition": contentDisposition(`${shareId}.zip`),
     });
 
+    void this.downloadLimitGuard.incrementDownloadCount(shareId);
     void this.fileService.notifyRecipientDownload(
       shareId,
       `${shareId}.zip`,
@@ -91,6 +102,14 @@ export class FileController {
     const file = await this.fileService.get(shareId, fileId);
     const isDownload = download === "true";
 
+    if (isDownload) {
+      await this.downloadLimitGuard.canActivate({
+        switchToHttp: () => ({
+          getRequest: () => ({ params: { shareId } }),
+        }),
+      } as any);
+    }
+
     const headers = {
       "Content-Type":
         mime?.lookup?.(file.metaData.name) || "application/octet-stream",
@@ -105,6 +124,7 @@ export class FileController {
     res.set(headers);
 
     if (isDownload) {
+      void this.downloadLimitGuard.incrementDownloadCount(shareId);
       void this.fileService.notifyRecipientDownload(
         shareId,
         file.metaData.name,

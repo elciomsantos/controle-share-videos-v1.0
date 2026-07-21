@@ -127,6 +127,11 @@ export const configVariables = {
       defaultValue: "0 days",
       secret: false,
     },
+    maxDownloadsDefault: {
+      type: "number",
+      defaultValue: "0",
+      secret: false,
+    },
   },
   cache: {
     "redis-enabled": {

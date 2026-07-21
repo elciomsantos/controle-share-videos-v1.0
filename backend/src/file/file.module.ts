@@ -7,6 +7,7 @@ import { FileController } from "./file.controller";
 import { FileService } from "./file.service";
 import { LocalFileService } from "./local.service";
 import { S3FileService } from "./s3.service";
+import { DownloadLimitGuard } from "./guard/downloadLimit.guard";
 
 @Module({
   imports: [
@@ -16,7 +17,7 @@ import { S3FileService } from "./s3.service";
     ShareModule,
   ],
   controllers: [FileController],
-  providers: [FileService, LocalFileService, S3FileService],
+  providers: [FileService, LocalFileService, S3FileService, DownloadLimitGuard],
   exports: [FileService],
 })
 export class FileModule {}

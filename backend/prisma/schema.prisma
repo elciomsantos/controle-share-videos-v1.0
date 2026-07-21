@@ -74,6 +74,7 @@ model Share {
   uploadLocked  Boolean  @default(false)
   isZipReady    Boolean  @default(false)
   views         Int      @default(0)
+  downloads     Int      @default(0)
   expiration    DateTime
   description   String?
   removedReason String?
@@ -131,8 +132,9 @@ model ShareSecurity {
   id        String   @id @default(uuid())
   createdAt DateTime @default(now())
 
-  password String?
-  maxViews Int?
+  password     String?
+  maxViews     Int?
+  maxDownloads Int?
 
   shareId String? @unique
   share   Share?  @relation(fields: [shareId], references: [id], onDelete: Cascade)
