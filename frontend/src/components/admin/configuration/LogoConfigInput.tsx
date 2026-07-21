@@ -21,8 +21,8 @@ const LogoConfigInput = ({
 
   return (
     <>
-      <Group position="apart">
-        <Stack style={{ maxWidth: isMobile ? "100%" : "40%" }} spacing={0}>
+      <Group justify="space-between">
+        <Stack style={{ maxWidth: isMobile ? "100%" : "40%" }} gap={0}>
           <Title order={6}>
             <FormattedMessage id="admin.config.general.logo" />
           </Title>
@@ -34,7 +34,7 @@ const LogoConfigInput = ({
         <Box style={{ width: isMobile ? "100%" : "50%" }}>
           <FileInput
             clearable
-            icon={<TbUpload size={14} />}
+            leftSection={<TbUpload size={14} />}
             value={logo}
             onChange={(v) => setLogo(v)}
             accept=".png"
@@ -43,8 +43,8 @@ const LogoConfigInput = ({
           />
         </Box>
       </Group>
-      <Group position="apart">
-        <Stack style={{ maxWidth: isMobile ? "100%" : "40%" }} spacing={0}>
+      <Group justify="space-between">
+        <Stack style={{ maxWidth: isMobile ? "100%" : "40%" }} gap={0}>
           <Title order={6}>
             <FormattedMessage id="admin.config.general.logo-dark" />
           </Title>
@@ -56,7 +56,7 @@ const LogoConfigInput = ({
         <Box style={{ width: isMobile ? "100%" : "50%" }}>
           <FileInput
             clearable
-            icon={<TbUpload size={14} />}
+            leftSection={<TbUpload size={14} />}
             value={darkLogo}
             onChange={(v) => setDarkLogo(v)}
             accept=".png"

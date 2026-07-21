@@ -1,4 +1,4 @@
-import { Button, Center, createStyles, Group, Text, Menu } from "@mantine/core";
+import { Button, Center, Group, Text, useMantineTheme } from "@mantine/core";
 import { Dropzone as MantineDropzone } from "@mantine/dropzone";
 import React, { ForwardedRef, useRef } from "react";
 import { TbCloudUpload, TbUpload, TbFolder } from "react-icons/tb";
@@ -7,30 +7,6 @@ import useTranslate from "../../hooks/useTranslate.hook";
 import { FileUpload } from "../../types/File.type";
 import { byteToHumanSizeString } from "../../utils/fileSize.util";
 import toast from "../../utils/toast.util";
-
-const useStyles = createStyles((theme) => ({
-  wrapper: {
-    position: "relative",
-    marginBottom: 30,
-  },
-
-  dropzone: {
-    borderWidth: 1,
-    paddingBottom: 50,
-  },
-
-  icon: {
-    color:
-      theme.colorScheme === "dark"
-        ? theme.colors.dark[3]
-        : theme.colors.gray[4],
-  },
-
-  control: {
-    position: "absolute",
-    bottom: -20,
-  },
-}));
 
 const traverseDirectory = async (entry: any, path = ""): Promise<File[]> => {
   if (entry.isFile) {
@@ -114,7 +90,7 @@ const Dropzone = ({
   onFilesChanged: (files: FileUpload[]) => void;
 }) => {
   const t = useTranslate();
-  const { classes } = useStyles();
+  const theme = useMantineTheme();
   const openRef = useRef<() => void>();
   const folderInputRef = useRef<HTMLInputElement>(null);
 
@@ -149,7 +125,7 @@ const Dropzone = ({
   };
 
   return (
-    <div className={classes.wrapper}>
+    <div style={{ position: "relative", marginBottom: 30 }}>
       <input
         type="file"
         ref={folderInputRef}
@@ -185,17 +161,17 @@ const Dropzone = ({
             onFilesChanged(files);
           }
         }}
-        className={classes.dropzone}
+        style={{ borderWidth: 1, paddingBottom: 50 }}
         radius="md"
       >
         <div style={{ pointerEvents: "none" }}>
-          <Group position="center">
+          <Group justify="center">
             <TbCloudUpload size={50} />
           </Group>
-          <Text align="center" weight={700} size="lg" mt="xl">
+          <Text ta="center" fw={700} size="lg" mt="xl">
             {title || <FormattedMessage id="upload.dropzone.title" />}
           </Text>
-          <Text align="center" size="sm" mt="xs" color="dimmed">
+          <Text ta="center" size="sm" mt="xs" color="dimmed">
             <FormattedMessage
               id="upload.dropzone.description"
               values={{ maxSize: byteToHumanSizeString(maxShareSize) }}
@@ -206,7 +182,7 @@ const Dropzone = ({
       <Center>
         {isFolderUploadSupported && (
           <Button
-            className={classes.control}
+            style={{ position: "absolute", bottom: -20 }}
             variant="light"
             size="sm"
             radius="xl"

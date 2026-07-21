@@ -1,12 +1,13 @@
 import {
   Button,
   Container,
-  createStyles,
   Group,
   List,
   Text,
   ThemeIcon,
   Title,
+  useComputedColorScheme,
+  useMantineTheme,
 } from "@mantine/core";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -18,60 +19,9 @@ import Meta from "../components/Meta";
 import useUser from "../hooks/user.hook";
 import useConfig from "../hooks/config.hook";
 
-const useStyles = createStyles((theme) => ({
-  inner: {
-    display: "flex",
-    justifyContent: "space-between",
-    paddingTop: `calc(${theme.spacing.md} * 4)`,
-    paddingBottom: `calc(${theme.spacing.md} * 4)`,
-  },
-
-  content: {
-    maxWidth: 480,
-    marginRight: `calc(${theme.spacing.md} * 3)`,
-
-    [theme.fn.smallerThan("md")]: {
-      maxWidth: "100%",
-      marginRight: 0,
-    },
-  },
-
-  title: {
-    color: theme.colorScheme === "dark" ? theme.white : theme.black,
-    fontSize: 44,
-    lineHeight: 1.2,
-    fontWeight: 900,
-
-    [theme.fn.smallerThan("xs")]: {
-      fontSize: 28,
-    },
-  },
-
-  control: {
-    [theme.fn.smallerThan("xs")]: {
-      flex: 1,
-    },
-  },
-
-  image: {
-    [theme.fn.smallerThan("md")]: {
-      display: "none",
-    },
-  },
-
-  highlight: {
-    position: "relative",
-    backgroundColor:
-      theme.colorScheme === "dark"
-        ? theme.fn.rgba(theme.colors[theme.primaryColor][6], 0.55)
-        : theme.colors[theme.primaryColor][0],
-    borderRadius: theme.radius.sm,
-    padding: "4px 12px",
-  },
-}));
-
 export default function Home() {
-  const { classes } = useStyles();
+  const theme = useMantineTheme();
+  const colorScheme = useComputedColorScheme("light");
   const { refreshUser } = useUser();
   const router = useRouter();
   const config = useConfig();
@@ -102,14 +52,43 @@ export default function Home() {
     <>
       <Meta title="Home" />
       <Container>
-        <div className={classes.inner}>
-          <div className={classes.content}>
-            <Title className={classes.title}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            paddingTop: `calc(${theme.spacing.md} * 4)`,
+            paddingBottom: `calc(${theme.spacing.md} * 4)`,
+          }}
+        >
+          <div
+            style={{
+              maxWidth: 480,
+              marginRight: `calc(${theme.spacing.md} * 3)`,
+            }}
+          >
+            <Title
+              style={{
+                color: colorScheme === "dark" ? theme.white : theme.black,
+                fontSize: 44,
+                lineHeight: 1.2,
+                fontWeight: 900,
+              }}
+            >
               <FormattedMessage
                 id="home.title"
                 values={{
                   h: (chunks) => (
-                    <span className={classes.highlight}>{chunks}</span>
+                    <span
+                      style={{
+                        position: "relative",
+                        backgroundColor:
+                          "light-dark(" + theme.colors[theme.primaryColor][0] + ", rgba(" + theme.colors[theme.primaryColor][6] + ", 0.55))",
+                        borderRadius: theme.radius.sm,
+                        padding: "4px 12px",
+                      }}
+                    >
+                      {chunks}
+                    </span>
                   ),
                 }}
               />
@@ -122,7 +101,7 @@ export default function Home() {
               mt={30}
               spacing="sm"
               size="sm"
-              icon={
+              leftSection={
                 <ThemeIcon size={20} radius="xl">
                   <TbCheck size={12} />
                 </ThemeIcon>
@@ -160,13 +139,12 @@ export default function Home() {
                 href={getButtonHref()}
                 radius="xl"
                 size="md"
-                className={classes.control}
               >
                 <FormattedMessage id="home.button.start" />
               </Button>
             </Group>
           </div>
-          <Group className={classes.image} align="center">
+          <Group align="center">
             <Logo width={200} height={200} />
           </Group>
         </div>

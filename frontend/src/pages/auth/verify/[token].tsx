@@ -40,7 +40,7 @@ export default function VerifyAccount() {
     <>
       <Meta title={t("verify.title")} />
       <Container size={420} my={40}>
-        <Title order={2} align="center" weight={900}>
+        <Title order={2} ta="center" fw={900}>
           <FormattedMessage id="verify.title" />
         </Title>
         <Paper withBorder shadow="md" p={30} mt={30} radius="md">
@@ -48,7 +48,7 @@ export default function VerifyAccount() {
             {status === "loading" && <Loader />}
             {status === "success" && (
               <>
-                <Text align="center">
+                <Text ta="center">
                   <FormattedMessage id="verify.success" />
                 </Text>
                 <Button
@@ -62,7 +62,7 @@ export default function VerifyAccount() {
             )}
             {status === "error" && (
               <>
-                <Text align="center" color="red">
+                <Text ta="center" color="red">
                   <FormattedMessage id="verify.error" />
                 </Text>
                 <Button

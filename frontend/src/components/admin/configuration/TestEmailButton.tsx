@@ -28,7 +28,7 @@ const TestEmailButton = ({
         modals.openModal({
           title: t("admin.config.smtp.test-email.error.title"),
           children: (
-            <Stack spacing="xs">
+            <Stack gap="xs">
               <Text size="sm">
                 {t("admin.config.smtp.test-email.error.description")}
               </Text>

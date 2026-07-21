@@ -1,10 +1,12 @@
 import { Button, PasswordInput, Stack, Text } from "@mantine/core";
-import { ModalsContextProps } from "@mantine/modals/lib/context";
+import { useModals } from "@mantine/modals";
 import { useState } from "react";
 import { FormattedMessage } from "react-intl";
 import useTranslate, {
   translateOutsideContext,
 } from "../../hooks/useTranslate.hook";
+
+type ModalsContextProps = ReturnType<typeof useModals>;
 
 const showEnterPasswordModal = (
   modals: ModalsContextProps,

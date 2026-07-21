@@ -56,7 +56,7 @@ const Shares = () => {
   return (
     <>
       <Meta title={t("admin.shares.title")} />
-      <Group position="apart" align="center" mb={20}>
+      <Group justify="space-between" align="center" mb={20}>
         <Title mb={0} order={3}>
           <FormattedMessage id="admin.shares.title" />
         </Title>

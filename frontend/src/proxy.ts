@@ -3,11 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import configService from "./services/config.service";
 import { getDefaultConfig } from "./utils/defaultConfig.util";
 
-// This middleware redirects based on different conditions:
-// - Authentication state
-// - Setup status
-// - Admin privileges
-
 export const config = {
   matcher: "/((?!api|static|.*\\..*|_next).*)",
 };
@@ -30,7 +25,7 @@ async function fetchConfig(apiUrl: string): Promise<any> {
   }
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const routes = {
     unauthenticated: new Routes(["/auth/*", "/"]),
     public: new Routes([
@@ -46,7 +41,6 @@ export async function middleware(request: NextRequest) {
     disabled: new Routes([]),
   };
 
-  // Get config from backend with caching and error handling
   const apiUrl = process.env.API_URL || "http://localhost:8080";
   const config = await fetchConfig(apiUrl);
 
@@ -97,17 +91,14 @@ export async function middleware(request: NextRequest) {
 
   // prettier-ignore
   const rules = [
-    // Disabled routes
     {
       condition: routes.disabled.contains(route),
       path: "/",
     },
-     // Authenticated state
-     {
+    {
       condition: user && routes.unauthenticated.contains(route) && !getConfig("share.allowUnauthenticatedShares"),
       path: "/upload",
     },
-    // Unauthenticated state
     {
       condition: !user && !routes.public.contains(route) && !routes.unauthenticated.contains(route),
       path: "/auth/signIn",
@@ -116,22 +107,18 @@ export async function middleware(request: NextRequest) {
       condition: !user && routes.account.contains(route),
       path: "/upload",
     },
-    // Admin privileges
     {
       condition: routes.admin.contains(route) && !user?.isAdmin,
       path: "/upload",
     },
-    // Home page
     {
       condition: (!getConfig("general.showHomePage") || user) && route == "/",
       path: "/upload",
     },
-    // Imprint redirect
     {
       condition: route == "/imprint" && !getConfig("legal.imprintText") && getConfig("legal.imprintUrl"),
       path: getConfig("legal.imprintUrl"),
     },
-    // Privacy redirect
     {
       condition: route == "/privacy" && !getConfig("legal.privacyPolicyText") && getConfig("legal.privacyPolicyUrl"),
       path: getConfig("legal.privacyPolicyUrl"),
@@ -151,9 +138,7 @@ export async function middleware(request: NextRequest) {
   }
 }
 
-// Helper class to check if a route matches a list of routes
 class Routes {
-  // eslint-disable-next-line no-unused-vars
   constructor(public routes: string[]) {}
 
   contains(_route: string) {

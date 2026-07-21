@@ -1,6 +1,8 @@
 import { Stack, TextInput } from "@mantine/core";
-import { ModalsContextProps } from "@mantine/modals/lib/context";
+import { useModals } from "@mantine/modals";
 import { translateOutsideContext } from "../../hooks/useTranslate.hook";
+
+type ModalsContextProps = ReturnType<typeof useModals>;
 
 const showReverseShareLinkModal = (
   modals: ModalsContextProps,

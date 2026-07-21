@@ -7,8 +7,8 @@ import {
   Switch,
   TextInput,
 } from "@mantine/core";
-import { useForm, yupResolver } from "@mantine/form";
-import { ModalsContextProps } from "@mantine/modals/lib/context";
+import { useForm } from "@mantine/form";
+import { useModals } from "@mantine/modals";
 import { FormattedMessage } from "react-intl";
 import * as yup from "yup";
 import useTranslate, {
@@ -18,6 +18,8 @@ import userService from "../../../services/user.service";
 import User from "../../../types/user.type";
 import toast from "../../../utils/toast.util";
 import FileSizeInput from "../../core/FileSizeInput";
+
+type ModalsContextProps = ReturnType<typeof useModals>;
 
 const showUpdateUserModal = (
   modals: ModalsContextProps,
@@ -53,27 +55,47 @@ const Body = ({
         ? parseInt(user.shareSizeLimit)
         : 104857600,
     },
-    validate: yupResolver(
-      yup.object().shape({
+    validate: (values) => {
+      const schema = yup.object().shape({
         email: yup.string().email(t("common.error.invalid-email")),
         username: yup
           .string()
           .min(3, t("common.error.too-short", { length: 3 })),
-      }),
-    ),
+      });
+      try {
+        schema.validateSync(values, { abortEarly: false });
+        return {};
+      } catch (err: any) {
+        const errors: Record<string, string> = {};
+        err.inner?.forEach((e: any) => {
+          if (e.path) errors[e.path] = e.message;
+        });
+        return errors;
+      }
+    },
   });
 
   const passwordForm = useForm({
     initialValues: {
       password: "",
     },
-    validate: yupResolver(
-      yup.object().shape({
+    validate: (values) => {
+      const schema = yup.object().shape({
         password: yup
           .string()
           .min(8, t("common.error.too-short", { length: 8 })),
-      }),
-    ),
+      });
+      try {
+        schema.validateSync(values, { abortEarly: false });
+        return {};
+      } catch (err: any) {
+        const errors: Record<string, string> = {};
+        err.inner?.forEach((e: any) => {
+          if (e.path) errors[e.path] = e.message;
+        });
+        return errors;
+      }
+    },
   });
 
   return (
@@ -149,7 +171,7 @@ const Body = ({
         </Stack>
       </form>
       <Accordion>
-        <Accordion.Item sx={{ borderBottom: "none" }} value="changePassword">
+        <Accordion.Item style={{ borderBottom: "none" }} value="changePassword">
           <Accordion.Control px={0}>
             <FormattedMessage id="admin.users.edit.update.change-password.title" />
           </Accordion.Control>
@@ -181,7 +203,7 @@ const Body = ({
           </Accordion.Panel>
         </Accordion.Item>
       </Accordion>
-      <Group position="right">
+      <Group justify="flex-end">
         <Button type="submit" form="accountForm">
           <FormattedMessage id="common.button.save" />
         </Button>

@@ -13,8 +13,8 @@ import {
   Textarea,
   TextInput,
 } from "@mantine/core";
-import { useForm, yupResolver } from "@mantine/form";
-import { ModalsContextProps } from "@mantine/modals/lib/context";
+import { useForm } from "@mantine/form";
+import { useModals } from "@mantine/modals";
 import moment from "moment";
 import { FormattedMessage } from "react-intl";
 import * as yup from "yup";
@@ -27,6 +27,8 @@ import toast from "../../utils/toast.util";
 import CopyTextField from "../upload/CopyTextField";
 import QRCode from "./QRCode";
 import { useState } from "react";
+
+type ModalsContextProps = ReturnType<typeof useModals>;
 
 const showShareInformationsModal = (
   modals: ModalsContextProps,
@@ -117,7 +119,7 @@ const Body = ({
   }
 
   return (
-    <Stack align="stretch" spacing="md">
+    <Stack align="stretch" gap="md">
       <Text size="sm">
         <b>
           <FormattedMessage id="account.shares.table.id" />:{" "}
@@ -153,7 +155,7 @@ const Body = ({
       </Text>
       <Divider />
       <CopyTextField link={link} toggleQR={handleToggleQR} />
-      <Collapse in={showQR}>
+      <Collapse expanded={showQR}>
         <QRCode link={link} />
       </Collapse>
       <Divider />
@@ -173,13 +175,12 @@ const Body = ({
         )}
         <Progress
           value={shareSizeProgress}
-          label={shareSizeRatio >= 0.1 ? formattedShareSize : ""}
           style={{
             width: shareSizeRatio < 0.1 ? "70%" : "80%",
           }}
           size="xl"
           radius="xl"
-        />
+        >{shareSizeRatio >= 0.1 && <Progress.Section value={shareSizeProgress}><Progress.Label>{formattedShareSize}</Progress.Label></Progress.Section>}</Progress>
         <Text size="xs" style={{ marginLeft: "4px" }}>
           {formattedMaxShareSize}
         </Text>
@@ -248,7 +249,18 @@ const EditShareBody = ({
       removePassword: false,
       maxViews: security.maxViews || undefined,
     },
-    validate: yupResolver(validationSchema),
+    validate: (values) => {
+      try {
+        validationSchema.validateSync(values, { abortEarly: false });
+        return {};
+      } catch (err: any) {
+        const errors: Record<string, string> = {};
+        err.inner?.forEach((e: any) => {
+          if (e.path) errors[e.path] = e.message;
+        });
+        return errors;
+      }
+    },
   });
 
   const onSubmit = form.onSubmit(async (values) => {
@@ -354,7 +366,6 @@ const EditShareBody = ({
         )}
         <NumberInput
           min={1}
-          type="number"
           variant="filled"
           placeholder={t(
             "upload.modal.accordion.security.max-views.placeholder",
@@ -362,7 +373,7 @@ const EditShareBody = ({
           label={t("upload.modal.accordion.security.max-views.label")}
           {...form.getInputProps("maxViews")}
         />
-        <Group position="right">
+        <Group justify="flex-end">
           <Button variant="default" onClick={onCancel}>
             {t("common.button.cancel")}
           </Button>

@@ -1,13 +1,11 @@
 import {
   Box,
   Button,
-  createStyles,
   Group,
-  MediaQuery,
-  Navbar,
   Stack,
   Text,
   ThemeIcon,
+  useMantineTheme,
 } from "@mantine/core";
 import Link from "next/link";
 import { Dispatch, SetStateAction } from "react";
@@ -34,28 +32,6 @@ export const categories = [
   { name: "Cache", icon: <TbServerBolt /> },
 ];
 
-const useStyles = createStyles((theme) => ({
-  navbar: {
-    [theme.fn.smallerThan("sm")]: {
-      height: "calc(100dvh - 60px)",
-      maxHeight: "calc(100dvh - 60px)",
-      overflowY: "auto",
-    },
-  },
-
-  activeLink: {
-    backgroundColor: theme.fn.variant({
-      variant: "light",
-      color: theme.primaryColor,
-    }).background,
-    color: theme.fn.variant({ variant: "light", color: theme.primaryColor })
-      .color,
-
-    borderRadius: theme.radius.sm,
-    fontWeight: 600,
-  },
-}));
-
 const ConfigurationNavBar = ({
   categoryId,
   isMobileNavBarOpened,
@@ -65,28 +41,42 @@ const ConfigurationNavBar = ({
   isMobileNavBarOpened: boolean;
   setIsMobileNavBarOpened: Dispatch<SetStateAction<boolean>>;
 }) => {
-  const { classes } = useStyles();
+  const theme = useMantineTheme();
+
+  const activeLinkStyle: React.CSSProperties = {
+    backgroundColor: theme.colors[theme.primaryColor][0],
+    color: theme.colors[theme.primaryColor][6],
+    borderRadius: theme.radius.sm,
+    fontWeight: 600,
+  };
+
   return (
-    <Navbar
-      className={classes.navbar}
+    <Box
+      component="nav"
       p="md"
-      hiddenBreakpoint="sm"
       hidden={!isMobileNavBarOpened}
-      width={{ sm: 200, lg: 300 }}
+      w={{ sm: 200, lg: 300 }}
+      style={{
+        "@media (max-width: 767px)": {
+          height: "calc(100dvh - 60px)",
+          maxHeight: "calc(100dvh - 60px)",
+          overflowY: "auto",
+        },
+      } as React.CSSProperties}
     >
-      <Navbar.Section>
-        <Text size="xs" color="dimmed" mb="sm">
+      <Box>
+        <Text size="xs" c="dimmed" mb="sm">
           <FormattedMessage id="admin.config.title" />
         </Text>
-        <Stack spacing="xs">
+        <Stack gap="xs">
           {categories.map((category) => (
             <Box
               p="xs"
               component={Link}
               onClick={() => setIsMobileNavBarOpened(false)}
-              className={
+              style={
                 categoryId == category.name.toLowerCase()
-                  ? classes.activeLink
+                  ? activeLinkStyle
                   : undefined
               }
               key={category.name}
@@ -111,8 +101,8 @@ const ConfigurationNavBar = ({
             </Box>
           ))}
         </Stack>
-      </Navbar.Section>
-      <MediaQuery largerThan="sm" styles={{ display: "none" }}>
+      </Box>
+      <Box style={{ "@media (min-width: 768px)": { display: "none" } }}>
         <Button
           mt="xl"
           pt="sm"
@@ -123,8 +113,8 @@ const ConfigurationNavBar = ({
         >
           <FormattedMessage id="common.button.go-back" />
         </Button>
-      </MediaQuery>
-    </Navbar>
+      </Box>
+    </Box>
   );
 };
 

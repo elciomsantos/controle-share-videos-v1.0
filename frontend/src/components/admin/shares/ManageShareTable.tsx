@@ -2,7 +2,6 @@ import {
   ActionIcon,
   Box,
   Group,
-  MediaQuery,
   Skeleton,
   Table,
   Text,
@@ -42,7 +41,8 @@ const ManageShareTable = ({
   const fileRetentionEnabled = fileRetentionPeriod.value !== 0 ? true : false;
 
   return (
-    <Box sx={{ display: "block", overflowX: "auto" }}>
+    <Box style={{ display: "block", overflowX: "auto" }}>
+      <style>{`.hide-on-mobile { display: none; } @media (min-width: 992px) { .hide-on-mobile { display: table-cell; } }`}</style>
       <Table verticalSpacing="sm">
         <thead>
           <tr>
@@ -111,7 +111,7 @@ const ManageShareTable = ({
                     <></>
                   )}
                   <td>
-                    <Group position="right">
+                    <Group justify="flex-end">
                       <HoverTip label={t("common.button.info")}>
                         <ActionIcon
                           color="blue"
@@ -181,11 +181,9 @@ const skeletonRows = [...Array(10)].map((v, i) => (
     <td>
       <Skeleton key={i} height={20} />
     </td>
-    <MediaQuery smallerThan="md" styles={{ display: "none" }}>
-      <td>
-        <Skeleton key={i} height={20} />
-      </td>
-    </MediaQuery>
+    <td className="hide-on-mobile">
+      <Skeleton key={i} height={20} />
+    </td>
     <td>
       <Skeleton key={i} height={20} />
     </td>

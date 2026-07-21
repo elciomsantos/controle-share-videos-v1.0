@@ -8,9 +8,8 @@ import {
   TextInput,
   Tooltip,
 } from "@mantine/core";
-import { useForm, yupResolver } from "@mantine/form";
+import { useForm } from "@mantine/form";
 import { useModals } from "@mantine/modals";
-import { ModalsContextProps } from "@mantine/modals/lib/context";
 import { FormattedMessage } from "react-intl";
 import * as yup from "yup";
 import useTranslate, {
@@ -18,6 +17,8 @@ import useTranslate, {
 } from "../../hooks/useTranslate.hook";
 import authService from "../../services/auth.service";
 import toast from "../../utils/toast.util";
+
+type ModalsContextProps = ReturnType<typeof useModals>;
 
 const showEnableTotpModal = (
   modals: ModalsContextProps,
@@ -64,7 +65,18 @@ const CreateEnableTotpModal = ({
     initialValues: {
       code: "",
     },
-    validate: yupResolver(validationSchema),
+    validate: (values) => {
+      try {
+        validationSchema.validateSync(values, { abortEarly: false });
+        return {};
+      } catch (err: any) {
+        const errors: Record<string, string> = {};
+        err.inner?.forEach((e: any) => {
+          if (e.path) errors[e.path] = e.message;
+        });
+        return errors;
+      }
+    },
   });
 
   return (

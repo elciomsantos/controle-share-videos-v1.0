@@ -6,7 +6,7 @@ import {
   PinInput,
   Title,
 } from "@mantine/core";
-import { useForm, yupResolver } from "@mantine/form";
+import { useForm } from "@mantine/form";
 import { useRouter } from "next/router";
 import { useState } from "react";
 import { FormattedMessage } from "react-intl";
@@ -35,7 +35,18 @@ function TotpForm({ redirectPath }: { redirectPath: string }) {
     initialValues: {
       code: "",
     },
-    validate: yupResolver(validationSchema),
+    validate: (values) => {
+      try {
+        validationSchema.validateSync(values, { abortEarly: false });
+        return {};
+      } catch (err: any) {
+        const errors: Record<string, string> = {};
+        err.inner?.forEach((e: any) => {
+          if (e.path) errors[e.path] = e.message;
+        });
+        return errors;
+      }
+    },
   });
 
   const onSubmit = async () => {
@@ -58,12 +69,12 @@ function TotpForm({ redirectPath }: { redirectPath: string }) {
 
   return (
     <Container size={420} my={40}>
-      <Title order={2} align="center" weight={900}>
+      <Title order={2} ta="center" fw={900}>
         <FormattedMessage id="totp.title" />
       </Title>
       <Paper withBorder shadow="md" p={30} mt={30} radius="md">
         <form onSubmit={form.onSubmit(onSubmit)}>
-          <Group position="center">
+          <Group justify="center">
             <PinInput
               length={6}
               oneTimeCode

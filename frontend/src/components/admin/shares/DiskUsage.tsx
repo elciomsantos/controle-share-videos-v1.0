@@ -16,9 +16,9 @@ const DiskUsage = () => {
   const usedPercentage = (systemInfo.used / systemInfo.total) * 100;
 
   return (
-    <Stack spacing={2} style={{ width: 200 }}>
-      <Group position="apart">
-        <Text size="xs" weight={500}>
+    <Stack gap={2} style={{ width: 200 }}>
+      <Group justify="space-between">
+        <Text size="xs" fw={500}>
           <FormattedMessage id="admin.shares.diskUsage" />
         </Text>
         <Text size="xs" color="dimmed">

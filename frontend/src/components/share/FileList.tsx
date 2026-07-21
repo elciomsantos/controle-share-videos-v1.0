@@ -107,18 +107,18 @@ const FileList = ({
   useEffect(sortFiles, [sort]);
 
   return (
-    <Box sx={{ display: "block", overflowX: "auto" }}>
+    <Box style={{ display: "block", overflowX: "auto" }}>
       <Table>
         <thead>
           <tr>
             <th>
-              <Group spacing="xs">
+              <Group gap="xs">
                 <FormattedMessage id="share.table.name" />
                 <TableSortIcon sort={sort} setSort={setSort} property="name" />
               </Group>
             </th>
             <th>
-              <Group spacing="xs">
+              <Group gap="xs">
                 <FormattedMessage id="share.table.size" />
                 <TableSortIcon sort={sort} setSort={setSort} property="size" />
               </Group>
@@ -134,7 +134,7 @@ const FileList = ({
                   <td>{renderFileName(file.name)}</td>
                   <td>{byteToHumanSizeString(parseInt(file.size))}</td>
                   <td>
-                    <Group position="right" noWrap>
+                    <Group justify="flex-end" wrap="nowrap">
                       {shareService.isShareTextFile(file.name) && (
                         <HoverTip label={t("share.copy-text-contents")}>
                           <ActionIcon

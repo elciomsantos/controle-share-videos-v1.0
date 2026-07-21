@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Group, Box, useMantineTheme } from "@mantine/core";
+import { Button, Group, Box, useComputedColorScheme } from "@mantine/core";
 import dynamic from "next/dynamic";
 import { commands } from "@uiw/react-md-editor";
 import { FormattedMessage } from "react-intl";
@@ -19,14 +19,13 @@ const TextEditor = ({
   onCancel: () => void;
 }) => {
   const [text, setText] = useState<string | undefined>(initialText);
-  const { colorScheme } = useMantineTheme();
+  const colorScheme = useComputedColorScheme("light");
 
   return (
     <Box>
       <Box
         data-color-mode={colorScheme}
-        // Custom styles to make the toolbar usable on mobile
-        sx={(theme) => ({
+        style={{
           ".w-md-editor-toolbar": {
             flexWrap: "wrap",
             height: "auto",
@@ -34,19 +33,19 @@ const TextEditor = ({
             padding: "8px",
           },
           ".w-md-editor-toolbar li > button": {
-            [theme.fn.smallerThan("sm")]: {
+            "@media (max-width: 767px)": {
               padding: "8px",
               minWidth: "36px",
               minHeight: "36px",
             },
           },
           ".w-md-editor-toolbar li > button svg": {
-            [theme.fn.smallerThan("sm")]: {
+            "@media (max-width: 767px)": {
               width: "18px",
               height: "18px",
             },
           },
-        })}
+        }}
       >
         <MDEditor
           value={text}
@@ -60,7 +59,7 @@ const TextEditor = ({
           ]}
         />
       </Box>
-      <Group position="right" mt="md">
+      <Group justify="flex-end" mt="md">
         <Button variant="default" onClick={onCancel}>
           <FormattedMessage id="common.button.cancel" />
         </Button>

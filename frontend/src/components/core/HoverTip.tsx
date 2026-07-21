@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 type HoverTipProps = {
   label: string;
-  children: ReactNode;
+  children?: ReactNode;
   disabled?: boolean;
 };
 

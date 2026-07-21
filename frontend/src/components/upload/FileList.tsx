@@ -67,7 +67,7 @@ const FileListRow = ({
         <td>{renderFileName(fileNameOrPath)}</td>
         <td>{byteToHumanSizeString(+file.size)}</td>
         <td>
-          <Group position="right" spacing="xs" noWrap>
+          <Group justify="flex-end" gap="xs" wrap="nowrap">
             {editable && (
               <HoverTip label={t("common.button.edit")}>
                 <ActionIcon

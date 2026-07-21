@@ -8,7 +8,7 @@ import {
   Stack,
   Text,
   Title,
-  useMantineTheme,
+  useComputedColorScheme,
 } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 
@@ -43,7 +43,7 @@ const categories = [
 ];
 
 export default function AppShellDemo() {
-  const theme = useMantineTheme();
+  const colorScheme = useComputedColorScheme("light");
   const router = useRouter();
   const t = useTranslate();
 
@@ -165,25 +165,27 @@ export default function AppShellDemo() {
         styles={{
           main: {
             background:
-              theme.colorScheme === "dark"
-                ? theme.colors.dark[8]
-                : theme.colors.gray[0],
+              colorScheme === "dark"
+                ? "var(--mantine-color-dark-8)"
+                : "var(--mantine-color-gray-0)",
           },
         }}
-        navbar={
-          <ConfigurationNavBar
-            categoryId={categoryId}
-            isMobileNavBarOpened={isMobileNavBarOpened}
-            setIsMobileNavBarOpened={setIsMobileNavBarOpened}
-          />
-        }
-        header={
-          <ConfigurationHeader
-            isMobileNavBarOpened={isMobileNavBarOpened}
-            setIsMobileNavBarOpened={setIsMobileNavBarOpened}
-          />
-        }
+        navbar={{
+          width: { sm: 200, lg: 300 },
+          breakpoint: "sm",
+          collapsed: { mobile: !isMobileNavBarOpened },
+        }}
+        header={{ height: 60 }}
       >
+        <ConfigurationNavBar
+          categoryId={categoryId}
+          isMobileNavBarOpened={isMobileNavBarOpened}
+          setIsMobileNavBarOpened={setIsMobileNavBarOpened}
+        />
+        <ConfigurationHeader
+          isMobileNavBarOpened={isMobileNavBarOpened}
+          setIsMobileNavBarOpened={setIsMobileNavBarOpened}
+        />
         <Container size="lg">
           {!configVariables ? (
             <CenterLoader />
@@ -228,7 +230,7 @@ export default function AppShellDemo() {
                           variant="light"
                           color="primary"
                           title={t("admin.config.config-file-warning.title")}
-                          icon={<TbInfoCircle />}
+                          leftSection={<TbInfoCircle />}
                         >
                           <FormattedMessage id="admin.config.config-file-warning.description" />
                         </Alert>
@@ -246,10 +248,10 @@ export default function AppShellDemo() {
                         }
 
                         return (
-                          <Group key={configVariable.key} position="apart">
+                          <Group key={configVariable.key} justify="space-between">
                             <Stack
                               style={{ maxWidth: isMobile ? "100%" : "40%" }}
-                              spacing={0}
+                              gap={0}
                             >
                               <Title order={6}>
                                 <FormattedMessage
@@ -260,7 +262,7 @@ export default function AppShellDemo() {
                               </Title>
 
                               <Text
-                                sx={{
+                                style={{
                                   whiteSpace: "pre-line",
                                 }}
                                 color="dimmed"
@@ -303,11 +305,11 @@ export default function AppShellDemo() {
                         customCssConfigVariable && (
                           <Group
                             key={customCssConfigVariable.key}
-                            position="apart"
+                            justify="space-between"
                           >
                             <Stack
                               style={{ maxWidth: isMobile ? "100%" : "40%" }}
-                              spacing={0}
+                              gap={0}
                             >
                               <Title order={6}>
                                 <FormattedMessage
@@ -318,7 +320,7 @@ export default function AppShellDemo() {
                               </Title>
 
                               <Text
-                                sx={{
+                                style={{
                                   whiteSpace: "pre-line",
                                 }}
                                 color="dimmed"
@@ -352,7 +354,7 @@ export default function AppShellDemo() {
                   </>
                 );
               })()}
-              <Group mt="lg" position="right">
+              <Group mt="lg" justify="flex-end">
                 {categoryId == "smtp" && (
                   <TestEmailButton
                     configVariablesChanged={updatedConfigVariables.length != 0}

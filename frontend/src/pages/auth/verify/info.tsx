@@ -31,20 +31,20 @@ export default function VerificationInfo() {
     <>
       <Meta title={t("verify.info.title")} />
       <Container size={420} my={40}>
-        <Title order={2} align="center" weight={900}>
+        <Title order={2} ta="center" fw={900}>
           <FormattedMessage id="verify.info.title" />
         </Title>
         <Paper withBorder shadow="md" p={30} mt={30} radius="md">
           <Stack align="center">
-            <Text align="center">
+            <Text ta="center">
               <FormattedMessage id="verify.info.description" />
             </Text>
             {email && (
-              <Text weight={700} size="sm">
+              <Text fw={700} size="sm">
                 {email}
               </Text>
             )}
-            <Text align="center" size="sm" color="dimmed">
+            <Text ta="center" size="sm" color="dimmed">
               <FormattedMessage id="verify.info.note" />
             </Text>
             <Stack w="100%" mt="xl">

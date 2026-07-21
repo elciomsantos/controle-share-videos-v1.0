@@ -1,6 +1,5 @@
 import {
   Button,
-  Col,
   Grid,
   Group,
   NumberInput,
@@ -9,9 +8,8 @@ import {
   Switch,
   Text,
 } from "@mantine/core";
-import { useForm, yupResolver } from "@mantine/form";
+import { useForm } from "@mantine/form";
 import { useModals } from "@mantine/modals";
-import { ModalsContextProps } from "@mantine/modals/lib/context";
 import { getCookie, setCookie } from "cookies-next";
 import moment from "moment";
 import { FormattedMessage } from "react-intl";
@@ -26,6 +24,8 @@ import { byteToHumanSizeString } from "../../../utils/fileSize.util";
 import toast from "../../../utils/toast.util";
 import FileSizeInput from "../../core/FileSizeInput";
 import showCompletedReverseShareModal from "./showCompletedReverseShareModal";
+
+type ModalsContextProps = ReturnType<typeof useModals>;
 
 const showCreateReverseShareModal = (
   modals: ModalsContextProps,
@@ -97,8 +97,8 @@ const Body = ({
         : !!(getCookie("reverse-share.simplified") ?? false),
       publicAccess: !!(getCookie("reverse-share.public-access") ?? true),
     },
-    validate: yupResolver(
-      yup.object().shape({
+    validate: (values) => {
+      const schema = yup.object().shape({
         maxUseCount: yup
           .number()
           .typeError(t("common.error.invalid-number"))
@@ -115,8 +115,18 @@ const Body = ({
             }),
           )
           .required(t("common.error.field-required")),
-      }),
-    ),
+      });
+      try {
+        schema.validateSync(values, { abortEarly: false });
+        return {};
+      } catch (err: any) {
+        const errors: Record<string, string> = {};
+        err.inner?.forEach((e: any) => {
+          if (e.path) errors[e.path] = e.message;
+        });
+        return errors;
+      }
+    },
   });
 
   const onSubmit = form.onSubmit(async (values) => {
@@ -171,17 +181,17 @@ const Body = ({
         <Stack align="stretch">
           <div>
             <Grid align={form.errors.expiration_num ? "center" : "flex-end"}>
-              <Col xs={6}>
+              <Grid.Col span={6}>
                 <NumberInput
                   min={1}
                   max={99999}
-                  precision={0}
+                 
                   variant="filled"
                   label={t("account.reverseShares.modal.expiration.label")}
                   {...form.getInputProps("expiration_num")}
                 />
-              </Col>
-              <Col xs={6}>
+              </Grid.Col>
+              <Grid.Col span={6}>
                 <Select
                   {...form.getInputProps("expiration_unit")}
                   data={[
@@ -230,15 +240,13 @@ const Body = ({
                     },
                   ]}
                 />
-              </Col>
+              </Grid.Col>
             </Grid>
             <Text
               mt="sm"
-              italic
+              fs="italic"
               size="xs"
-              sx={(theme) => ({
-                color: theme.colors.gray[6],
-              })}
+              style={{ color: "var(--mantine-color-gray-6)" }}
             >
               {getExpirationPreview(
                 {
@@ -256,7 +264,7 @@ const Body = ({
           <NumberInput
             min={1}
             max={1000}
-            precision={0}
+           
             variant="filled"
             label={t("account.reverseShares.modal.max-use.label")}
             description={t("account.reverseShares.modal.max-use.description")}

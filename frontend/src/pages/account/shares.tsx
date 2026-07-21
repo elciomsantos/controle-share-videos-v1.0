@@ -58,7 +58,7 @@ const MyShares = () => {
       </Title>
       {shares.length == 0 ? (
         <Center style={{ height: "70vh" }}>
-          <Stack align="center" spacing={10}>
+          <Stack align="center" gap={10}>
             <Title order={3}>
               <FormattedMessage id="account.shares.title.empty" />
             </Title>
@@ -72,7 +72,7 @@ const MyShares = () => {
           </Stack>
         </Center>
       ) : (
-        <Box sx={{ display: "block", overflowX: "auto" }}>
+        <Box style={{ display: "block", overflowX: "auto" }}>
           <Table>
             <thead>
               <tr>
@@ -95,7 +95,7 @@ const MyShares = () => {
               {shares.map((share) => (
                 <tr key={share.id}>
                   <td>
-                    <Group spacing="xs">
+                    <Group gap="xs">
                       {share.id}{" "}
                       {share.security?.passwordProtected && (
                         <TbLock
@@ -127,7 +127,7 @@ const MyShares = () => {
                     )}
                   </td>
                   <td>
-                    <Group position="right">
+                    <Group justify="flex-end">
                       <Link href={`/share/${share.id}/edit`}>
                         <HoverTip label={t("account.shares.button.edit")}>
                           <ActionIcon color="orange" variant="light" size={25}>

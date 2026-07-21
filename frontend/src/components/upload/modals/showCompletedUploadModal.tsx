@@ -1,6 +1,6 @@
-import { Button, Stack, Text, Collapse } from "@mantine/core";
+import { Button, Stack, Text, Collapse, useComputedColorScheme, useMantineTheme } from "@mantine/core";
 import { useModals } from "@mantine/modals";
-import { ModalsContextProps } from "@mantine/modals/lib/context";
+type ModalsContextProps = ReturnType<typeof useModals>;
 import { useState } from "react";
 import moment from "moment";
 import { useRouter } from "next/router";
@@ -42,6 +42,8 @@ const Body = ({
   const modals = useModals();
   const router = useRouter();
   const t = useTranslate();
+  const colorScheme = useComputedColorScheme("light");
+  const theme = useMantineTheme();
 
   const [showQR, setShowQR] = useState(false);
 
@@ -56,27 +58,25 @@ const Body = ({
   return (
     <Stack align="stretch">
       <CopyTextField link={link} toggleQR={handleToggleQR} />
-      <Collapse in={showQR}>
+      <Collapse expanded={showQR}>
         <QRCode link={link} />
       </Collapse>
       {share.notifyReverseShareCreator === true && (
         <Text
           size="sm"
-          sx={(theme) => ({
+          style={{
             color:
-              theme.colorScheme === "dark"
+              colorScheme === "dark"
                 ? theme.colors.gray[3]
                 : theme.colors.dark[4],
-          })}
+          }}
         >
           {t("upload.modal.completed.notified-reverse-share-creator")}
         </Text>
       )}
       <Text
         size="xs"
-        sx={(theme) => ({
-          color: theme.colors.gray[6],
-        })}
+        style={{ color: theme.colors.gray[6] }}
       >
         {/* If our share.expiration is timestamp 0, show a different message */}
         {moment(share.expiration).unix() === 0

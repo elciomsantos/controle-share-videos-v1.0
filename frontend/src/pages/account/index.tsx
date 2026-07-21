@@ -11,7 +11,7 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { useForm, yupResolver } from "@mantine/form";
+import { useForm } from "@mantine/form";
 import { useModals } from "@mantine/modals";
 import { TbAuth2Fa } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
@@ -37,14 +37,24 @@ const Account = () => {
       username: user?.username,
       email: user?.email,
     },
-    validate: yupResolver(
-      yup.object().shape({
+    validate: (values) => {
+      const schema = yup.object().shape({
         email: yup.string().email(t("common.error.invalid-email")),
         username: yup
           .string()
           .min(3, t("common.error.too-short", { length: 3 })),
-      }),
-    ),
+      });
+      try {
+        schema.validateSync(values, { abortEarly: false });
+        return {};
+      } catch (err: any) {
+        const errors: Record<string, string> = {};
+        err.inner?.forEach((e: any) => {
+          if (e.path) errors[e.path] = e.message;
+        });
+        return errors;
+      }
+    },
   });
 
   const passwordForm = useForm({
@@ -52,8 +62,8 @@ const Account = () => {
       oldPassword: "",
       password: "",
     },
-    validate: yupResolver(
-      yup.object().shape({
+    validate: (values) => {
+      const schema = yup.object().shape({
         oldPassword: yup.string().when([], {
           is: () => !!user?.hasPassword,
           then: (schema) =>
@@ -66,22 +76,42 @@ const Account = () => {
           .string()
           .min(8, t("common.error.too-short", { length: 8 }))
           .required(t("common.error.field-required")),
-      }),
-    ),
+      });
+      try {
+        schema.validateSync(values, { abortEarly: false });
+        return {};
+      } catch (err: any) {
+        const errors: Record<string, string> = {};
+        err.inner?.forEach((e: any) => {
+          if (e.path) errors[e.path] = e.message;
+        });
+        return errors;
+      }
+    },
   });
 
   const enableTotpForm = useForm({
     initialValues: {
       password: "",
     },
-    validate: yupResolver(
-      yup.object().shape({
+    validate: (values) => {
+      const schema = yup.object().shape({
         password: yup
           .string()
           .min(8, t("common.error.too-short", { length: 8 }))
           .required(t("common.error.field-required")),
-      }),
-    ),
+      });
+      try {
+        schema.validateSync(values, { abortEarly: false });
+        return {};
+      } catch (err: any) {
+        const errors: Record<string, string> = {};
+        err.inner?.forEach((e: any) => {
+          if (e.path) errors[e.path] = e.message;
+        });
+        return errors;
+      }
+    },
   });
 
   const disableTotpForm = useForm({
@@ -89,16 +119,26 @@ const Account = () => {
       password: "",
       code: "",
     },
-    validate: yupResolver(
-      yup.object().shape({
+    validate: (values) => {
+      const schema = yup.object().shape({
         password: yup.string().min(8),
         code: yup
           .string()
           .min(6, t("common.error.exact-length", { length: 6 }))
           .max(6, t("common.error.exact-length", { length: 6 }))
           .matches(/^[0-9]+$/, { message: t("common.error.invalid-number") }),
-      }),
-    ),
+      });
+      try {
+        schema.validateSync(values, { abortEarly: false });
+        return {};
+      } catch (err: any) {
+        const errors: Record<string, string> = {};
+        err.inner?.forEach((e: any) => {
+          if (e.path) errors[e.path] = e.message;
+        });
+        return errors;
+      }
+    },
   });
 
   return (
@@ -132,7 +172,7 @@ const Account = () => {
                 label={t("account.card.info.email")}
                 {...accountForm.getInputProps("email")}
               />
-              <Group position="right">
+              <Group justify="flex-end">
                 <Button type="submit">
                   <FormattedMessage id="common.button.save" />
                 </Button>
@@ -171,7 +211,7 @@ const Account = () => {
                 label={t("account.card.password.new")}
                 {...passwordForm.getInputProps("password")}
               />
-              <Group position="right">
+              <Group justify="flex-end">
                 <Button type="submit">
                   <FormattedMessage id="common.button.save" />
                 </Button>
@@ -186,7 +226,7 @@ const Account = () => {
 
           <Tabs defaultValue="totp">
             <Tabs.List>
-              <Tabs.Tab value="totp" icon={<TbAuth2Fa size={14} />}>
+              <Tabs.Tab value="totp" leftSection={<TbAuth2Fa size={14} />}>
                 TOTP
               </Tabs.Tab>
             </Tabs.List>
@@ -223,7 +263,7 @@ const Account = () => {
                         {...disableTotpForm.getInputProps("code")}
                       />
 
-                      <Group position="right">
+                      <Group justify="flex-end">
                         <Button color="red" type="submit">
                           <FormattedMessage id="common.button.disable" />
                         </Button>
@@ -256,7 +296,7 @@ const Account = () => {
                         )}
                         {...enableTotpForm.getInputProps("password")}
                       />
-                      <Group position="right">
+                      <Group justify="flex-end">
                         <Button type="submit">
                           <FormattedMessage id="account.card.security.totp.button.start" />
                         </Button>

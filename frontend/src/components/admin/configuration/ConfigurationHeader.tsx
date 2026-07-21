@@ -1,4 +1,4 @@
-import { Burger, Button, Group, Header, MediaQuery, Text } from "@mantine/core";
+import { Box, Burger, Button, Group, Text } from "@mantine/core";
 import Link from "next/link";
 import { Dispatch, SetStateAction } from "react";
 import { FormattedMessage } from "react-intl";
@@ -14,30 +14,30 @@ const ConfigurationHeader = ({
 }) => {
   const config = useConfig();
   return (
-    <Header height={60} p="md">
+    <Box component="header" h={60} p="md">
       <div style={{ display: "flex", alignItems: "center", height: "100%" }}>
-        <Group position="apart" w="100%">
+        <Group justify="space-between" w="100%">
           <Link href="/" passHref>
             <Group>
               <Logo height={35} width={35} />
-              <Text weight={600}>{config.get("general.appName")}</Text>
+              <Text fw={600}>{config.get("general.appName")}</Text>
             </Group>
           </Link>
-          <MediaQuery smallerThan="sm" styles={{ display: "none" }}>
+          <Box style={{ "@media (max-width: 767px)": { display: "none" } }}>
             <Button variant="light" component={Link} href="/admin">
               <FormattedMessage id="common.button.go-back" />
             </Button>
-          </MediaQuery>
+          </Box>
         </Group>
-        <MediaQuery largerThan="sm" styles={{ display: "none" }}>
+        <Box style={{ "@media (min-width: 768px)": { display: "none" } }}>
           <Burger
             opened={isMobileNavBarOpened}
             onClick={() => setIsMobileNavBarOpened((o) => !o)}
             size="sm"
           />
-        </MediaQuery>
+        </Box>
       </div>
-    </Header>
+    </Box>
   );
 };
 

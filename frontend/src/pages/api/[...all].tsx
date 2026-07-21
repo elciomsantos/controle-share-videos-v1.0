@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import httpProxyMiddleware from "next-http-proxy-middleware";
+import httpProxy from "http-proxy";
 
 export const config = {
   api: {
@@ -10,13 +10,17 @@ export const config = {
 
 const apiURL = process.env.API_URL || "http://localhost:8080";
 
-// A proxy to the API server only used in development.
-// In production this route gets overridden by Caddy.
+const proxy = httpProxy.createProxyServer();
+
 export default (req: NextApiRequest, res: NextApiResponse) => {
-  httpProxyMiddleware(req, res, {
-    headers: {
-      "X-Forwarded-For": req.socket?.remoteAddress ?? "",
-    },
-    target: apiURL,
+  return new Promise<void>((resolve) => {
+    proxy.web(req, res, {
+      headers: {
+        "X-Forwarded-For": (req.socket?.remoteAddress ?? "") as string,
+      },
+      target: apiURL,
+    }, () => {
+      resolve();
+    });
   });
 };

@@ -1,13 +1,13 @@
-import { createStyles } from "@mantine/core";
+import type { MantineTheme } from "@mantine/core";
 
-export default createStyles((theme) => ({
+const headerStyle = (theme: MantineTheme) => ({
   root: {
-    position: "relative",
+    position: "relative" as const,
     zIndex: 1,
   },
 
   dropdown: {
-    position: "absolute",
+    position: "absolute" as const,
     top: 60,
     left: 0,
     right: 0,
@@ -15,9 +15,9 @@ export default createStyles((theme) => ({
     borderTopRightRadius: 0,
     borderTopLeftRadius: 0,
     borderTopWidth: 0,
-    overflow: "hidden",
+    overflow: "hidden" as const,
 
-    [theme.fn.largerThan("sm")]: {
+    "@media (min-width: 768px)": {
       display: "none",
     },
   },
@@ -30,13 +30,13 @@ export default createStyles((theme) => ({
   },
 
   links: {
-    [theme.fn.smallerThan("sm")]: {
+    "@media (max-width: 767px)": {
       display: "none",
     },
   },
 
   burger: {
-    [theme.fn.largerThan("sm")]: {
+    "@media (min-width: 768px)": {
       display: "none",
     },
   },
@@ -48,20 +48,15 @@ export default createStyles((theme) => ({
     borderRadius: theme.radius.sm,
     textDecoration: "none",
     color:
-      theme.colorScheme === "dark"
-        ? theme.colors.dark[0]
-        : theme.colors.gray[7],
+      "light-dark(" + theme.colors.gray[7] + ", " + theme.colors.dark[0] + ")",
     fontSize: theme.fontSizes.sm,
     fontWeight: 500,
 
     "&:hover": {
-      backgroundColor:
-        theme.colorScheme === "dark"
-          ? theme.colors.dark[6]
-          : theme.colors.gray[0],
+      backgroundColor: "light-dark(" + theme.colors.gray[0] + ", " + theme.colors.dark[6] + ")",
     },
 
-    [theme.fn.smallerThan("sm")]: {
+    "@media (max-width: 767px)": {
       borderRadius: 0,
       padding: theme.spacing.md,
     },
@@ -69,12 +64,10 @@ export default createStyles((theme) => ({
 
   linkActive: {
     "&, &:hover": {
-      backgroundColor:
-        theme.colorScheme === "dark"
-          ? theme.fn.rgba(theme.colors[theme.primaryColor][9], 0.25)
-          : theme.colors[theme.primaryColor][0],
-      color:
-        theme.colors[theme.primaryColor][theme.colorScheme === "dark" ? 3 : 7],
+      backgroundColor: "light-dark(" + theme.colors[theme.primaryColor][0] + ", rgba(" + theme.colors[theme.primaryColor][9] + ", 0.25))",
+      color: theme.colors[theme.primaryColor][7],
     },
   },
-}));
+});
+
+export default headerStyle;

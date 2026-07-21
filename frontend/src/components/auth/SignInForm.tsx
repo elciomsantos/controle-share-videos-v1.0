@@ -10,7 +10,7 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { useForm, yupResolver } from "@mantine/form";
+import { useForm } from "@mantine/form";
 import { showNotification } from "@mantine/notifications";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -40,7 +40,18 @@ const SignInForm = ({ redirectPath }: { redirectPath: string }) => {
       emailOrUsername: "",
       password: "",
     },
-    validate: yupResolver(validationSchema),
+    validate: (values) => {
+      try {
+        validationSchema.validateSync(values, { abortEarly: false });
+        return {};
+      } catch (err: any) {
+        const errors: Record<string, string> = {};
+        err.inner?.forEach((e: any) => {
+          if (e.path) errors[e.path] = e.message;
+        });
+        return errors;
+      }
+    },
   });
 
   const signIn = async (email: string, password: string) => {
@@ -71,11 +82,11 @@ const SignInForm = ({ redirectPath }: { redirectPath: string }) => {
 
   return (
     <Container size={420} my={40}>
-      <Title order={2} align="center" weight={900}>
+      <Title order={2} ta="center" fw={900}>
         <FormattedMessage id="signin.title" />
       </Title>
       {config.get("share.allowRegistration") && (
-        <Text color="dimmed" size="sm" align="center" mt={5}>
+        <Text color="dimmed" size="sm" ta="center" mt={5}>
           <FormattedMessage id="signin.description" />{" "}
           <Anchor component={Link} href={"signUp"} size="sm">
             <FormattedMessage id="signin.button.signup" />
@@ -100,7 +111,7 @@ const SignInForm = ({ redirectPath }: { redirectPath: string }) => {
             {...form.getInputProps("password")}
           />
           {config.get("smtp.enabled") && (
-            <Group position="right" mt="xs">
+            <Group justify="flex-end" mt="xs">
               <Anchor component={Link} href="/auth/resetPassword" size="xs">
                 <FormattedMessage id="resetPassword.title" />
               </Anchor>

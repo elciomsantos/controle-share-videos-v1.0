@@ -6,14 +6,16 @@ import {
   Switch,
   TextInput,
 } from "@mantine/core";
-import { useForm, yupResolver } from "@mantine/form";
-import { ModalsContextProps } from "@mantine/modals/lib/context";
+import { useForm } from "@mantine/form";
+import { useModals } from "@mantine/modals";
 import { FormattedMessage } from "react-intl";
 import * as yup from "yup";
 import useTranslate from "../../../hooks/useTranslate.hook";
 import userService from "../../../services/user.service";
 import toast from "../../../utils/toast.util";
 import FileSizeInput from "../../core/FileSizeInput";
+
+type ModalsContextProps = ReturnType<typeof useModals>;
 
 const showCreateUserModal = (
   modals: ModalsContextProps,
@@ -48,8 +50,8 @@ const Body = ({
       hasCustomShareSizeLimit: false,
       shareSizeLimit: 104857600,
     },
-    validate: yupResolver(
-      yup.object().shape({
+    validate: (values) => {
+      const schema = yup.object().shape({
         email: yup.string().email(t("common.error.invalid-email")),
         username: yup
           .string()
@@ -58,8 +60,18 @@ const Body = ({
           .string()
           .min(8, t("common.error.too-short", { length: 8 }))
           .optional(),
-      }),
-    ),
+      });
+      try {
+        schema.validateSync(values, { abortEarly: false });
+        return {};
+      } catch (err: any) {
+        const errors: Record<string, string> = {};
+        err.inner?.forEach((e: any) => {
+          if (e.path) errors[e.path] = e.message;
+        });
+        return errors;
+      }
+    },
   });
 
   return (
@@ -148,7 +160,7 @@ const Body = ({
             description={t("admin.users.modal.create.admin.description")}
             {...form.getInputProps("isAdmin", { type: "checkbox" })}
           />
-          <Group position="right">
+          <Group justify="flex-end">
             <Button type="submit">
               <FormattedMessage id="common.button.create" />
             </Button>

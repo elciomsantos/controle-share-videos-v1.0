@@ -285,7 +285,7 @@ const Upload = ({
   return (
     <>
       <Meta title={t("upload.title")} />
-      <Group position="right" mb={20}>
+      <Group justify="flex-end" mb={20}>
         <Button
           loading={isUploading}
           disabled={files.length <= 0}

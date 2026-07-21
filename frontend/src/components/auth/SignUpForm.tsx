@@ -8,7 +8,7 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { useForm, yupResolver } from "@mantine/form";
+import { useForm } from "@mantine/form";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { FormattedMessage } from "react-intl";
@@ -43,7 +43,18 @@ const SignUpForm = () => {
       username: "",
       password: "",
     },
-    validate: yupResolver(validationSchema),
+    validate: (values) => {
+      try {
+        validationSchema.validateSync(values, { abortEarly: false });
+        return {};
+      } catch (err: any) {
+        const errors: Record<string, string> = {};
+        err.inner?.forEach((e: any) => {
+          if (e.path) errors[e.path] = e.message;
+        });
+        return errors;
+      }
+    },
   });
 
   const signUp = async (email: string, username: string, password: string) => {
@@ -69,11 +80,11 @@ const SignUpForm = () => {
 
   return (
     <Container size={420} my={40}>
-      <Title order={2} align="center" weight={900}>
+      <Title order={2} ta="center" fw={900}>
         <FormattedMessage id="signup.title" />
       </Title>
       {config.get("share.allowRegistration") && (
-        <Text color="dimmed" size="sm" align="center" mt={5}>
+        <Text color="dimmed" size="sm" ta="center" mt={5}>
           <FormattedMessage id="signup.description" />{" "}
           <Anchor component={Link} href={"signIn"} size="sm">
             <FormattedMessage id="signup.button.signin" />

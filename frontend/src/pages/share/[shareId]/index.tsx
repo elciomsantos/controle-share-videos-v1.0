@@ -158,7 +158,7 @@ const Share = ({ shareId }: { shareId: string }) => {
         description={t("share.description")}
       />
 
-      <Group position="apart" mb="lg">
+      <Group justify="space-between" mb="lg">
         <Box style={{ maxWidth: "70%" }}>
           <Title order={3}>{share?.name || share?.id}</Title>
           <Text size="sm">{share?.description}</Text>
@@ -181,7 +181,7 @@ const Share = ({ shareId }: { shareId: string }) => {
           )}
         </Box>
 
-        <Group spacing="xs">
+        <Group gap="xs">
           {isOwner && (
             <HoverTip label={t("account.shares.button.edit")}>
               <Link href={`/share/${shareId}/edit`}>

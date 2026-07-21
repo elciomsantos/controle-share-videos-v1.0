@@ -1,12 +1,12 @@
 import {
   Center,
-  Col,
-  createStyles,
   Grid,
   Paper,
   Stack,
   Text,
   Title,
+  useComputedColorScheme,
+  useMantineTheme,
 } from "@mantine/core";
 import Link from "next/link";
 import { TbLink, TbSettings, TbUsers } from "react-icons/tb";
@@ -14,23 +14,9 @@ import { FormattedMessage } from "react-intl";
 import Meta from "../../components/Meta";
 import useTranslate from "../../hooks/useTranslate.hook";
 
-const useStyles = createStyles((theme) => ({
-  item: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    textAlign: "center",
-    height: 90,
-    "&:hover": {
-      boxShadow: `${theme.shadows.sm} !important`,
-      transform: "scale(1.01)",
-    },
-  },
-}));
-
 const Admin = () => {
-  const { classes, theme } = useStyles();
+  const theme = useMantineTheme();
+  const colorScheme = useComputedColorScheme("light");
   const t = useTranslate();
 
   const managementOptions = [
@@ -62,25 +48,32 @@ const Admin = () => {
           <Grid>
             {managementOptions.map((item) => {
               return (
-                <Col xs={6} key={item.route}>
+                <Grid.Col key={item.route} span={6}>
                   <Paper
                     withBorder
                     component={Link}
                     href={item.route}
                     key={item.title}
-                    className={classes.item}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      textAlign: "center",
+                      height: 90,
+                    }}
                   >
                     <item.icon
                       color={
                         theme.colors[theme.primaryColor][
-                          theme.colorScheme === "dark" ? 3 : 7
+                          colorScheme === "dark" ? 3 : 7
                         ]
                       }
                       size={35}
                     />
                     <Text mt={7}>{item.title}</Text>
                   </Paper>
-                </Col>
+                </Grid.Col>
               );
             })}
           </Grid>

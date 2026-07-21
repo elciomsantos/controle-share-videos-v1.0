@@ -3,7 +3,6 @@ import {
   Alert,
   Button,
   Checkbox,
-  Col,
   Grid,
   Group,
   MultiSelect,
@@ -15,9 +14,8 @@ import {
   Textarea,
   TextInput,
 } from "@mantine/core";
-import { useForm, yupResolver } from "@mantine/form";
+import { useForm } from "@mantine/form";
 import { useModals } from "@mantine/modals";
-import { ModalsContextProps } from "@mantine/modals/lib/context";
 import moment from "moment";
 import React, { useState } from "react";
 import { TbAlertCircle } from "react-icons/tb";
@@ -35,6 +33,8 @@ import {
 } from "../../../utils/date.util";
 import toast from "../../../utils/toast.util";
 import { Timespan } from "../../../types/timespan.type";
+
+type ModalsContextProps = ReturnType<typeof useModals>;
 
 const showCreateUploadModal = (
   modals: ModalsContextProps,
@@ -175,7 +175,18 @@ const CreateUploadModalBody = ({
       expiration_unit: `-${defaultTimespan.unit}` as string,
       never_expires: false,
     },
-    validate: yupResolver(validationSchema),
+    validate: (values) => {
+      try {
+        validationSchema.validateSync(values, { abortEarly: false });
+        return {};
+      } catch (err: any) {
+        const errors: Record<string, string> = {};
+        err.inner?.forEach((e: any) => {
+          if (e.path) errors[e.path] = e.message;
+        });
+        return errors;
+      }
+    },
   });
 
   const onSubmit = form.onSubmit(async (values) => {
@@ -239,7 +250,7 @@ const CreateUploadModalBody = ({
         <Alert
           withCloseButton
           onClose={() => setShowNotSignedInAlert(false)}
-          icon={<TbAlertCircle size={16} />}
+          leftSection={<TbAlertCircle size={16} />}
           title={t("upload.modal.not-signed-in")}
           color="yellow"
         >
@@ -272,29 +283,27 @@ const CreateUploadModalBody = ({
 
           <Text
             truncate
-            italic
+            fs="italic"
             size="xs"
-            sx={(theme) => ({
-              color: theme.colors.gray[6],
-            })}
+            style={{ color: "var(--mantine-color-gray-6)" }}
           >
             {`${options.appUrl !== options.defaultAppUrl ? options.appUrl : window.location.origin}/s/${form.values.link}`}
           </Text>
           {!options.isReverseShare && (
             <>
               <Grid align={form.errors.expiration_num ? "center" : "flex-end"}>
-                <Col xs={6}>
+                <Grid.Col span={6}>
                   <NumberInput
                     min={1}
                     max={99999}
-                    precision={0}
+                   
                     variant="filled"
                     label={t("upload.modal.expires.label")}
                     disabled={form.values.never_expires}
                     {...form.getInputProps("expiration_num")}
                   />
-                </Col>
-                <Col xs={6}>
+                </Grid.Col>
+                <Grid.Col span={6}>
                   <Select
                     disabled={form.values.never_expires}
                     {...form.getInputProps("expiration_unit")}
@@ -343,7 +352,7 @@ const CreateUploadModalBody = ({
                       },
                     ]}
                   />
-                </Col>
+                </Grid.Col>
               </Grid>
               {options.maxExpiration.value == 0 && (
                 <Checkbox
@@ -352,11 +361,9 @@ const CreateUploadModalBody = ({
                 />
               )}
               <Text
-                italic
+                fs="italic"
                 size="xs"
-                sx={(theme) => ({
-                  color: theme.colors.gray[6],
-                })}
+                style={{ color: "var(--mantine-color-gray-6)" }}
               >
                 {getExpirationPreview(
                   {
@@ -369,7 +376,7 @@ const CreateUploadModalBody = ({
             </>
           )}
           <Accordion>
-            <Accordion.Item value="description" sx={{ borderBottom: "none" }}>
+            <Accordion.Item value="description" style={{ borderBottom: "none" }}>
               <Accordion.Control>
                 <FormattedMessage id="upload.modal.accordion.name-and-description.title" />
               </Accordion.Control>
@@ -393,37 +400,23 @@ const CreateUploadModalBody = ({
               </Accordion.Panel>
             </Accordion.Item>
             {options.enableEmailRecepients && (
-              <Accordion.Item value="recipients" sx={{ borderBottom: "none" }}>
+              <Accordion.Item value="recipients" style={{ borderBottom: "none" }}>
                 <Accordion.Control>
                   <FormattedMessage id="upload.modal.accordion.email.title" />
                 </Accordion.Control>
                 <Accordion.Panel>
-                  <MultiSelect
+                  <TagsInput
                     data={form.values.recipients}
                     placeholder={t("upload.modal.accordion.email.placeholder")}
                     searchable
-                    creatable
+                    splitChars={[",", ";"]}
                     id="recipient-emails"
                     inputMode="email"
-                    searchValue={emailSearch}
-                    onSearchChange={setEmailSearch}
-                    getCreateLabel={(query) => `+ ${query}`}
-                    onCreate={(query) => {
-                      if (!query.match(/^\S+@\S+\.\S+$/)) {
-                        form.setFieldError(
-                          "recipients",
-                          t("upload.modal.accordion.email.invalid-email"),
-                        );
-                        return undefined;
-                      }
-                      form.setFieldError("recipients", null);
-                      return query;
-                    }}
                     {...form.getInputProps("recipients")}
                     onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                       if (e.key === "Enter" || e.key === "," || e.key === ";") {
                         e.preventDefault();
-                        const inputValue = emailSearch.trim();
+                        const inputValue = (e.currentTarget.value || "").trim();
                         if (
                           inputValue.match(/^\S+@\S+\.\S+$/) &&
                           !form.values.recipients.includes(inputValue)
@@ -444,7 +437,7 @@ const CreateUploadModalBody = ({
               </Accordion.Item>
             )}
 
-            <Accordion.Item value="security" sx={{ borderBottom: "none" }}>
+            <Accordion.Item value="security" style={{ borderBottom: "none" }}>
               <Accordion.Control>
                 <FormattedMessage id="upload.modal.accordion.security.title" />
               </Accordion.Control>
@@ -461,7 +454,6 @@ const CreateUploadModalBody = ({
                   />
                   <NumberInput
                     min={1}
-                    type="number"
                     variant="filled"
                     placeholder={t(
                       "upload.modal.accordion.security.max-views.placeholder",
@@ -516,7 +508,18 @@ const SimplifiedCreateUploadModalModal = ({
       name: undefined,
       description: undefined,
     },
-    validate: yupResolver(validationSchema),
+    validate: (values) => {
+      try {
+        validationSchema.validateSync(values, { abortEarly: false });
+        return {};
+      } catch (err: any) {
+        const errors: Record<string, string> = {};
+        err.inner?.forEach((e: any) => {
+          if (e.path) errors[e.path] = e.message;
+        });
+        return errors;
+      }
+    },
   });
 
   const onSubmit = form.onSubmit(async (values) => {
@@ -554,7 +557,7 @@ const SimplifiedCreateUploadModalModal = ({
         <Alert
           withCloseButton
           onClose={() => setShowNotSignedInAlert(false)}
-          icon={<TbAlertCircle size={16} />}
+          leftSection={<TbAlertCircle size={16} />}
           title={t("upload.modal.not-signed-in")}
           color="yellow"
         >

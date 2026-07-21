@@ -1,7 +1,9 @@
-import { ModalsContextProps } from "@mantine/modals/lib/context";
+import { useModals } from "@mantine/modals";
 import mime from "mime-types";
 import { FileListItem, FileUpload } from "../../../types/File.type";
 import TextEditor from "../TextEditor";
+
+type ModalsContextProps = ReturnType<typeof useModals>;
 
 const showTextEditorModal = <T extends FileListItem>(
   index: number,

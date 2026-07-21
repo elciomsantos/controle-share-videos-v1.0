@@ -1,4 +1,4 @@
-import { Anchor, Title, useMantineTheme } from "@mantine/core";
+import { Anchor, Title, useComputedColorScheme } from "@mantine/core";
 import Meta from "../../components/Meta";
 import useTranslate from "../../hooks/useTranslate.hook";
 import { FormattedMessage } from "react-intl";
@@ -7,7 +7,7 @@ import Markdown from "markdown-to-jsx";
 
 const PrivacyPolicy = () => {
   const t = useTranslate();
-  const { colorScheme } = useMantineTheme();
+  const colorScheme = useComputedColorScheme("light");
   const config = useConfig();
   return (
     <>

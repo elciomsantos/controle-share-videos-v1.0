@@ -2,14 +2,13 @@ import {
   Box,
   Burger,
   Container,
-  createStyles,
   Group,
-  Header as MantineHeader,
   Paper,
   Stack,
   Text,
   Transition,
   UnstyledButton,
+  useMantineTheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import Link from "next/link";
@@ -35,114 +34,12 @@ type NavLink = {
 
 type MobileMenuView = "root" | "shares" | "profile";
 
-const useStyles = createStyles((theme) => ({
-  root: {
-    zIndex: 1,
-  },
-
-  mobilePanel: {
-    marginBottom: theme.spacing.md,
-    borderTopRightRadius: 0,
-    borderTopLeftRadius: 0,
-    overflow: "hidden",
-    width: "100%",
-
-    [theme.fn.largerThan("sm")]: {
-      display: "none",
-    },
-  },
-
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    height: "100%",
-  },
-
-  links: {
-    [theme.fn.smallerThan("sm")]: {
-      display: "none",
-    },
-  },
-
-  burger: {
-    [theme.fn.largerThan("sm")]: {
-      display: "none",
-    },
-  },
-
-  link: {
-    display: "block",
-    lineHeight: 1,
-    padding: "8px 12px",
-    borderRadius: theme.radius.sm,
-    textDecoration: "none",
-    color:
-      theme.colorScheme === "dark"
-        ? theme.colors.dark[0]
-        : theme.colors.gray[7],
-    fontSize: theme.fontSizes.sm,
-    fontWeight: 500,
-
-    "&:hover": {
-      backgroundColor:
-        theme.colorScheme === "dark"
-          ? theme.colors.dark[6]
-          : theme.colors.gray[0],
-    },
-
-    [theme.fn.smallerThan("sm")]: {
-      borderRadius: 0,
-      padding: theme.spacing.md,
-    },
-  },
-
-  mobileMenuButton: {
-    width: "100%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: theme.spacing.md,
-    color:
-      theme.colorScheme === "dark"
-        ? theme.colors.dark[0]
-        : theme.colors.gray[7],
-
-    "&:hover": {
-      backgroundColor:
-        theme.colorScheme === "dark"
-          ? theme.colors.dark[6]
-          : theme.colors.gray[0],
-    },
-  },
-
-  mobileMenuButtonContent: {
-    display: "flex",
-    alignItems: "center",
-  },
-
-  mobileMenuLabel: {
-    fontSize: theme.fontSizes.sm,
-    fontWeight: 500,
-  },
-
-  linkActive: {
-    "&, &:hover": {
-      backgroundColor:
-        theme.colorScheme === "dark"
-          ? theme.fn.rgba(theme.colors[theme.primaryColor][9], 0.25)
-          : theme.colors[theme.primaryColor][0],
-      color:
-        theme.colors[theme.primaryColor][theme.colorScheme === "dark" ? 3 : 7],
-    },
-  },
-}));
-
 const Header = () => {
   const { user } = useUser();
   const router = useRouter();
   const config = useConfig();
   const t = useTranslate();
+  const theme = useMantineTheme();
 
   const [opened, { toggle, close }] = useDisclosure(false);
   const [currentRoute, setCurrentRoute] = useState("");
@@ -242,7 +139,37 @@ const Header = () => {
     },
   ];
 
-  const { classes, cx } = useStyles();
+  const linkColor = "light-dark(" + theme.colors.gray[7] + ", " + theme.colors.dark[0] + ")";
+  const hoverBg = "light-dark(" + theme.colors.gray[0] + ", " + theme.colors.dark[6] + ")";
+  const activeBg = "light-dark(" + theme.colors[theme.primaryColor][0] + ", rgba(" + theme.colors[theme.primaryColor][9] + ", 0.25))";
+  const activeColor = theme.colors[theme.primaryColor][7];
+
+  const linkStyle = {
+    display: "block",
+    lineHeight: 1,
+    padding: "8px 12px",
+    borderRadius: theme.radius.sm,
+    textDecoration: "none",
+    color: linkColor,
+    fontSize: theme.fontSizes.sm,
+    fontWeight: 500,
+  };
+
+  const linkActiveStyle = {
+    ...linkStyle,
+    backgroundColor: activeBg,
+    color: activeColor,
+  };
+
+  const mobileMenuButtonStyle = {
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: theme.spacing.md,
+    color: linkColor,
+  };
+
   const desktopItems = (
     <>
       {(user ? authenticatedLinks : unauthenticatedLinks).map((link, i) => {
@@ -253,14 +180,13 @@ const Header = () => {
             </Box>
           );
         }
+        const isActive = currentRoute === link.link;
         return (
           <Link
             key={link.label}
             href={link.link ?? ""}
             onClick={close}
-            className={cx(classes.link, {
-              [classes.linkActive]: currentRoute == link.link,
-            })}
+            style={isActive ? linkActiveStyle : linkStyle}
           >
             {link.label}
           </Link>
@@ -286,13 +212,15 @@ const Header = () => {
       return (
         <UnstyledButton
           key={link.label}
-          className={classes.mobileMenuButton}
+          style={mobileMenuButtonStyle}
           onClick={() =>
             setMobileMenuView(isSharesEntry ? "shares" : "profile")
           }
         >
-          <span className={classes.mobileMenuButtonContent}>
-            <Text className={classes.mobileMenuLabel}>{link.label}</Text>
+          <span style={{ display: "flex", alignItems: "center" }}>
+            <Text style={{ fontSize: theme.fontSizes.sm, fontWeight: 500 }}>
+              {link.label}
+            </Text>
           </span>
         </UnstyledButton>
       );
@@ -302,16 +230,19 @@ const Header = () => {
       return (
         <UnstyledButton
           key={link.label}
-          className={classes.mobileMenuButton}
+          style={mobileMenuButtonStyle}
           onClick={() => void link.action?.()}
         >
-          <span className={classes.mobileMenuButtonContent}>
-            <Text className={classes.mobileMenuLabel}>{link.label}</Text>
+          <span style={{ display: "flex", alignItems: "center" }}>
+            <Text style={{ fontSize: theme.fontSizes.sm, fontWeight: 500 }}>
+              {link.label}
+            </Text>
           </span>
         </UnstyledButton>
       );
     }
 
+    const isActive = currentRoute === link.link;
     return (
       <Link
         key={link.label}
@@ -320,9 +251,7 @@ const Header = () => {
           close();
           setMobileMenuView("root");
         }}
-        className={cx(classes.link, {
-          [classes.linkActive]: currentRoute == link.link,
-        })}
+        style={isActive ? linkActiveStyle : linkStyle}
       >
         {link.label}
       </Link>
@@ -330,35 +259,58 @@ const Header = () => {
   };
   return (
     <>
-      <MantineHeader height={HEADER_HEIGHT} mb={0} className={classes.root}>
-        <Container className={classes.header}>
+      <Box
+        component="header"
+        h={HEADER_HEIGHT}
+        mb={0}
+        style={{ zIndex: 1 }}
+      >
+        <Container
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            height: "100%",
+          }}
+        >
           <Link href="/" passHref>
             <Group>
               <Logo height={35} width={35} />
-              <Text weight={600}>{config.get("general.appName")}</Text>
+              <Text fw={600}>{config.get("general.appName")}</Text>
             </Group>
           </Link>
-          <Group spacing={5} className={classes.links}>
+          <Group gap={5} style={{ "@media (max-width: 767px)": { display: "none" } } as React.CSSProperties}>
             <Group>{desktopItems}</Group>
           </Group>
           <Burger
             opened={opened}
             onClick={toggle}
-            className={classes.burger}
+            style={{ "@media (min-width: 768px)": { display: "none" } } as React.CSSProperties}
             size="sm"
           />
         </Container>
-      </MantineHeader>
+      </Box>
       <Transition transition="scale-y" duration={20} mounted={opened}>
         {(styles) => (
-          <Paper className={classes.mobilePanel} withBorder style={styles}>
-            <Stack spacing={0}>
+          <Paper
+            style={{
+              marginBottom: theme.spacing.md,
+              borderTopRightRadius: 0,
+              borderTopLeftRadius: 0,
+              overflow: "hidden",
+              width: "100%",
+              "@media (min-width: 768px)": { display: "none" },
+              ...styles,
+            } as React.CSSProperties}
+            withBorder
+          >
+            <Stack gap={0}>
               {mobileMenuView !== "root" && (
                 <UnstyledButton
-                  className={classes.mobileMenuButton}
+                  style={mobileMenuButtonStyle}
                   onClick={() => setMobileMenuView("root")}
                 >
-                  <span className={classes.mobileMenuButtonContent}>
+                  <span style={{ display: "flex", alignItems: "center" }}>
                     <TbChevronLeft size={18} />
                   </span>
                 </UnstyledButton>

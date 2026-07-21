@@ -45,7 +45,7 @@ const TestRedisButton = ({
                   <FormattedMessage id="admin.config.cache.test-redis.modal.error.title" />
                 ),
                 children: (
-                  <Stack spacing="xs">
+                  <Stack gap="xs">
                     <Text size="sm">
                       <FormattedMessage id="admin.config.cache.test-redis.modal.error.description" />
                     </Text>
@@ -81,7 +81,7 @@ const TestRedisButton = ({
                       <FormattedMessage id="admin.config.cache.test-redis.modal.error.title" />
                     ),
                     children: (
-                      <Stack spacing="xs">
+                      <Stack gap="xs">
                         <Text size="sm">
                           <FormattedMessage id="admin.config.cache.test-redis.modal.error.description" />
                         </Text>
