@@ -4,7 +4,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: controle-share-videos-v1.0
   # To add ClamAV, to scan your shares for malicious files,
 
 

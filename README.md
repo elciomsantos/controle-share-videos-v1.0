@@ -7,7 +7,6 @@
 - Secure shares with visitor limits and passwords
 - Email recipients
 - Reverse shares
-- OIDC and LDAP authentication
 - Integration with ClamAV for security scans
 - Different file providers: local storage and S3
 
@@ -19,60 +18,6 @@
 2. Run `docker compose up -d`
 
 The website is now listening on `http://localhost:3000`.
-
-
-## Documentation
-
-
-## Sponsors
-
-
-
-### Our Awesome Sponsors
-
-| <a href="https://github.com/sponsors/smp46"><img src="https://github.com/images/modules/logos_page/GitHub-Mark.png" width="60px;" alt=""/><br /><sub><b>Your Name Here</b></sub></a> |
-| :---: |
-
-
-
-## Contributing
-
-
-
-### Translations
-
-
-
-### AI Usage Policy
-
-
-
-### Getting started
-
-
-
-### Submit a Pull Request
-
-
-
-
-
-  `<type>[optional scope]: <description>`
-
-  example:
-
-  ```
-  feat(share): add password protection
-  ```
-
-  When `TYPE` can be:
-  - **feat** - is a new feature
-  - **doc** - documentation only changes
-  - **fix** - a bug fix
-  - **refactor** - code change that neither fixes a bug nor adds a feature
-
-- Your pull request has a detailed description
-- You run `npm run format` to format the code
 
 ### Setup project
 
