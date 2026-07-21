@@ -1,5 +1,4 @@
 import {
-  Anchor,
   Button,
   Center,
   Container,
@@ -23,21 +22,6 @@ const Intro = () => {
           <Center>
             <Title order={2}>Welcome to Pingvin Share X</Title>
           </Center>
-          <Text>
-            If you enjoy Pingvin Share X please ⭐️ it on{" "}
-            <Anchor
-              target="_blank"
-              href="https://github.com/smp46/pingvin-share-x"
-            >
-              GitHub
-            </Anchor>{" "}
-          </Text>
-          <Text>
-            You can also support development via{" "}
-            <Anchor target="_blank" href="https://github.com/sponsors/smp46">
-              GitHub Sponsors ❤️
-            </Anchor>{" "}
-          </Text>
           <Text>Enough talked, have fun with Pingvin Share X!</Text>
           <Text mt="lg">How to you want to continue?</Text>
           <Stack>

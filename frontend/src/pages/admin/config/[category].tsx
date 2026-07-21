@@ -37,8 +37,6 @@ const categories = [
   "Email",
   "Share",
   "SMTP",
-  "OAuth",
-  "LDAP",
   "S3",
   "Legal",
   "Cache",

@@ -13,7 +13,6 @@ import Link from "next/link";
 import { Dispatch, SetStateAction } from "react";
 import {
   TbAt,
-  TbBinaryTree,
   TbBucket,
   TbMail,
   TbPalette,
@@ -21,7 +20,6 @@ import {
   TbServerBolt,
   TbSettings,
   TbShare,
-  TbSocial,
 } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
 
@@ -31,8 +29,6 @@ export const categories = [
   { name: "Email", icon: <TbMail /> },
   { name: "Share", icon: <TbShare /> },
   { name: "SMTP", icon: <TbAt /> },
-  { name: "OAuth", icon: <TbSocial /> },
-  { name: "LDAP", icon: <TbBinaryTree /> },
   { name: "S3", icon: <TbBucket /> },
   { name: "Legal", icon: <TbScale /> },
   { name: "Cache", icon: <TbServerBolt /> },

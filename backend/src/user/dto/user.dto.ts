@@ -36,11 +36,6 @@ export class UserDTO {
   isActivated: boolean;
 
   @Expose()
-  isLdap: boolean;
-
-  ldapDN?: string;
-
-  @Expose()
   @IsOptional()
   @Matches(/^[0-9]+$/, {
     message: "shareSizeLimit must contain only digits",
@@ -54,7 +49,6 @@ export class UserDTO {
     const result = plainToClass(UserDTO, partial, {
       excludeExtraneousValues: true,
     });
-    result.isLdap = partial.ldapDN?.length > 0;
     return result;
   }
 

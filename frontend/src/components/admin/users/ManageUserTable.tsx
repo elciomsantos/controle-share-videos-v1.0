@@ -1,4 +1,4 @@
-import { ActionIcon, Badge, Box, Group, Skeleton, Table } from "@mantine/core";
+import { ActionIcon, Box, Group, Skeleton, Table } from "@mantine/core";
 import { useModals } from "@mantine/modals";
 import { TbCheck, TbEdit, TbTrash } from "react-icons/tb";
 import User from "../../../types/user.type";
@@ -43,30 +43,23 @@ const ManageUserTable = ({
             ? skeletonRows
             : users.map((user) => (
                 <tr key={user.id}>
-                  <td>
-                    {user.username}{" "}
-                    {user.isLdap ? (
-                      <Badge style={{ marginLeft: "1em" }}>LDAP</Badge>
-                    ) : null}
-                  </td>
+                  <td>{user.username}</td>
                   <td>{user.email}</td>
                   <td>{user.isAdmin && <TbCheck />}</td>
                   <td>
                     <Group position="right">
-                      {user.isLdap ? null : (
-                        <HoverTip label={t("common.button.edit")}>
-                          <ActionIcon
-                            variant="light"
-                            color="blue"
-                            size={25}
-                            onClick={() =>
-                              showUpdateUserModal(modals, user, getUsers)
-                            }
-                          >
-                            <TbEdit />
-                          </ActionIcon>
-                        </HoverTip>
-                      )}
+                      <HoverTip label={t("common.button.edit")}>
+                        <ActionIcon
+                          variant="light"
+                          color="blue"
+                          size={25}
+                          onClick={() =>
+                            showUpdateUserModal(modals, user, getUsers)
+                          }
+                        >
+                          <TbEdit />
+                        </ActionIcon>
+                      </HoverTip>
                       <HoverTip label={t("common.button.delete")}>
                         <ActionIcon
                           variant="light"

@@ -1,5 +1,4 @@
 import {
-  Badge,
   Button,
   Center,
   Container,
@@ -14,7 +13,6 @@ import {
 } from "@mantine/core";
 import { useForm, yupResolver } from "@mantine/form";
 import { useModals } from "@mantine/modals";
-import { useEffect, useState } from "react";
 import { TbAuth2Fa } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
 import * as yup from "yup";
@@ -27,19 +25,9 @@ import useTranslate from "../../hooks/useTranslate.hook";
 import useUser from "../../hooks/user.hook";
 import authService from "../../services/auth.service";
 import userService from "../../services/user.service";
-import { getOAuthIcon, getOAuthUrl, unlinkOAuth } from "../../utils/oauth.util";
 import toast from "../../utils/toast.util";
 
 const Account = () => {
-  const [oauth, setOAuth] = useState<string[]>([]);
-  const [oauthStatus, setOAuthStatus] = useState<Record<
-    string,
-    {
-      provider: string;
-      providerUsername: string;
-    }
-  > | null>(null);
-
   const { user, refreshUser } = useUser();
   const modals = useModals();
   const t = useTranslate();
@@ -114,25 +102,6 @@ const Account = () => {
     ),
   });
 
-  const refreshOAuthStatus = () => {
-    authService
-      .getOAuthStatus()
-      .then((data) => {
-        setOAuthStatus(data.data);
-      })
-      .catch(toast.axiosError);
-  };
-
-  useEffect(() => {
-    authService
-      .getAvailableOAuth()
-      .then((data) => {
-        setOAuth(data.data);
-      })
-      .catch(toast.axiosError);
-    refreshOAuthStatus();
-  }, []);
-
   return (
     <>
       <Meta title={t("account.title")} />
@@ -143,9 +112,6 @@ const Account = () => {
         <Paper withBorder p="xl">
           <Title order={5} mb="xs">
             <FormattedMessage id="account.card.info.title" />
-            {user?.isLdap ? (
-              <Badge style={{ marginLeft: "1em" }}>LDAP</Badge>
-            ) : null}
           </Title>
           <form
             onSubmit={accountForm.onSubmit((values) =>
@@ -161,141 +127,59 @@ const Account = () => {
             <Stack>
               <TextInput
                 label={t("account.card.info.username")}
-                disabled={user?.isLdap}
                 {...accountForm.getInputProps("username")}
               />
               <TextInput
                 label={t("account.card.info.email")}
-                disabled={user?.isLdap}
                 {...accountForm.getInputProps("email")}
               />
-              {!user?.isLdap && (
-                <Group position="right">
-                  <Button type="submit">
-                    <FormattedMessage id="common.button.save" />
-                  </Button>
-                </Group>
-              )}
+              <Group position="right">
+                <Button type="submit">
+                  <FormattedMessage id="common.button.save" />
+                </Button>
+              </Group>
             </Stack>
           </form>
         </Paper>
-        {user?.isLdap ? null : (
-          <Paper withBorder p="xl" mt="lg">
-            <Title order={5} mb="xs">
-              <FormattedMessage id="account.card.password.title" />
-            </Title>
-            <form
-              onSubmit={passwordForm.onSubmit((values) =>
-                authService
-                  .updatePassword(values.oldPassword, values.password)
-                  .then(async () => {
-                    refreshUser();
-                    toast.success(t("account.notify.password.success"));
-                    passwordForm.reset();
-                  })
-                  .catch(toast.axiosError),
-              )}
-            >
-              <Stack>
-                {user?.hasPassword ? (
-                  <PasswordInput
-                    label={t("account.card.password.old")}
-                    {...passwordForm.getInputProps("oldPassword")}
-                  />
-                ) : (
-                  <Text size="sm" color="dimmed">
-                    <FormattedMessage id="account.card.password.noPasswordSet" />
-                  </Text>
-                )}
+        <Paper withBorder p="xl" mt="lg">
+          <Title order={5} mb="xs">
+            <FormattedMessage id="account.card.password.title" />
+          </Title>
+          <form
+            onSubmit={passwordForm.onSubmit((values) =>
+              authService
+                .updatePassword(values.oldPassword, values.password)
+                .then(async () => {
+                  refreshUser();
+                  toast.success(t("account.notify.password.success"));
+                  passwordForm.reset();
+                })
+                .catch(toast.axiosError),
+            )}
+          >
+            <Stack>
+              {user?.hasPassword ? (
                 <PasswordInput
-                  label={t("account.card.password.new")}
-                  {...passwordForm.getInputProps("password")}
+                  label={t("account.card.password.old")}
+                  {...passwordForm.getInputProps("oldPassword")}
                 />
-                <Group position="right">
-                  <Button type="submit">
-                    <FormattedMessage id="common.button.save" />
-                  </Button>
-                </Group>
-              </Stack>
-            </form>
-          </Paper>
-        )}
-        {oauth.length > 0 && (
-          <Paper withBorder p="xl" mt="lg">
-            <Title order={5} mb="xs">
-              <FormattedMessage id="account.card.oauth.title" />
-            </Title>
-
-            <Tabs defaultValue={oauth[0] || ""}>
-              <Tabs.List>
-                {oauth.map((provider) => (
-                  <Tabs.Tab
-                    value={provider}
-                    icon={getOAuthIcon(provider)}
-                    key={provider}
-                  >
-                    {t(`account.card.oauth.${provider}`)}
-                  </Tabs.Tab>
-                ))}
-              </Tabs.List>
-              {oauth.map((provider) => (
-                <Tabs.Panel value={provider} pt="xs" key={provider}>
-                  <Group position="apart">
-                    <Text>
-                      {oauthStatus?.[provider]
-                        ? oauthStatus[provider].providerUsername
-                        : t("account.card.oauth.unlinked")}
-                    </Text>
-                    {oauthStatus?.[provider] ? (
-                      <Button
-                        onClick={() => {
-                          modals.openConfirmModal({
-                            title: t("account.modal.unlink.title"),
-                            children: (
-                              <Text>
-                                {t("account.modal.unlink.description")}
-                              </Text>
-                            ),
-                            labels: {
-                              confirm: t("account.card.oauth.unlink"),
-                              cancel: t("common.button.cancel"),
-                            },
-                            confirmProps: { color: "red" },
-                            onConfirm: () => {
-                              unlinkOAuth(provider)
-                                .then(() => {
-                                  toast.success(
-                                    t("account.notify.oauth.unlinked.success"),
-                                  );
-                                  refreshOAuthStatus();
-                                })
-                                .catch(toast.axiosError);
-                            },
-                          });
-                        }}
-                      >
-                        {t("account.card.oauth.unlink")}
-                      </Button>
-                    ) : (
-                      <Button
-                        component="a"
-                        href={getOAuthUrl(
-                          config.get("general.appUrl") !==
-                            config.get("general.appUrl", true)
-                            ? config.get("general.appUrl")
-                            : window.location.origin,
-                          provider,
-                        )}
-                      >
-                        {t("account.card.oauth.link")}
-                      </Button>
-                    )}
-                  </Group>
-                </Tabs.Panel>
-              ))}
-            </Tabs>
-          </Paper>
-        )}
+              ) : (
+                <Text size="sm" color="dimmed">
+                  <FormattedMessage id="account.card.password.noPasswordSet" />
+                </Text>
+              )}
+              <PasswordInput
+                label={t("account.card.password.new")}
+                {...passwordForm.getInputProps("password")}
+              />
+              <Group position="right">
+                <Button type="submit">
+                  <FormattedMessage id="common.button.save" />
+                </Button>
+              </Group>
+            </Stack>
+          </form>
+        </Paper>
         <Paper withBorder p="xl" mt="lg">
           <Title order={5} mb="xs">
             <FormattedMessage id="account.card.security.title" />

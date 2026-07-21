@@ -1,4 +1,3 @@
-import axios from "axios";
 import Config, { AdminConfig, UpdateConfig } from "../types/config.type";
 import api from "./api.service";
 import { stringToTimespan } from "../utils/date.util";
@@ -9,8 +8,6 @@ const categories = [
   "email",
   "share",
   "smtp",
-  "oauth",
-  "ldap",
   "s3",
   "legal",
   "cache",
@@ -76,12 +73,7 @@ const testRedisConnection = async () => {
 };
 
 const isNewReleaseAvailable = async () => {
-  const response = (
-    await axios.get(
-      "https://api.github.com/repos/smp46/pingvin-share-x/releases/latest",
-    )
-  ).data;
-  return response.tag_name.replace("v", "") != process.env.VERSION;
+  return false;
 };
 
 const changeLogo = async (file: File) => {

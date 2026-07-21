@@ -27,28 +27,14 @@ const Footer = () => {
     <MFooter height="auto" py={6} px="xl" zIndex={100}>
       {!config.get("legal.enabled") && (
         <Text size="xs" color="dimmed" align="center">
-          Powered by{" "}
-          <Anchor
-            size="xs"
-            href="https://github.com/GhostTerminals/Controle-share-videos-v1.0.git"
-            target="_blank"
-          >
-            Pingvin Share X
-          </Anchor>
+          Powered by Controle-share-videos-v1.0
         </Text>
       )}
       {config.get("legal.enabled") && (
         <SimpleGrid cols={isMobile ? 2 : 3} m={0}>
           {!isMobile && <div></div>}
           <Text size="xs" color="dimmed" align={isMobile ? "left" : "center"}>
-            Powered by{" "}
-            <Anchor
-              size="xs"
-              href="https://github.com/GhostTerminals/Controle-share-videos-v1.0.git"
-              target="_blank"
-            >
-              Controle-share-videos-v1.0
-            </Anchor>
+            Powered by Controle-share-videos-v1.0
           </Text>
           <div>
             <Text size="xs" color="dimmed" align="right">

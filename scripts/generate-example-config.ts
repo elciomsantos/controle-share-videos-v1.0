@@ -22,7 +22,6 @@ configVariablesWithDefaultValues["initUser"] = {
   email: "admin@example.com",
   password: "my-secure-password",
   isAdmin: true,
-  ldapDN: "",
 };
 
 // Create the yaml document

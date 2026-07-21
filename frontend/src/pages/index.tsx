@@ -164,17 +164,6 @@ export default function Home() {
               >
                 <FormattedMessage id="home.button.start" />
               </Button>
-              <Button
-                component={Link}
-                href="https://github.com/smp46/pingvin-share-x"
-                target="_blank"
-                variant="default"
-                radius="xl"
-                size="md"
-                className={classes.control}
-              >
-                <FormattedMessage id="home.button.source" />
-              </Button>
             </Group>
           </div>
           <Group className={classes.image} align="center">

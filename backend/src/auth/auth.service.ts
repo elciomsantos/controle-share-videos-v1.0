@@ -1,8 +1,6 @@
 import {
   BadRequestException,
   ForbiddenException,
-  forwardRef,
-  Inject,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -17,12 +15,8 @@ import { I18nService } from "nestjs-i18n";
 import { ConfigService } from "src/config/config.service";
 import { EmailService } from "src/email/email.service";
 import { PrismaService } from "src/prisma/prisma.service";
-import { OAuthService } from "../oauth/oauth.service";
-import { GenericOidcProvider } from "../oauth/provider/genericOidc.provider";
-import { UserSevice } from "../user/user.service";
 import { AuthRegisterDTO } from "./dto/authRegister.dto";
 import { AuthSignInDTO } from "./dto/authSignIn.dto";
-import { LdapService } from "./ldap.service";
 
 @Injectable()
 export class AuthService {
@@ -31,9 +25,6 @@ export class AuthService {
     private jwtService: JwtService,
     private config: ConfigService,
     private emailService: EmailService,
-    private ldapService: LdapService,
-    private userService: UserSevice,
-    @Inject(forwardRef(() => OAuthService)) private oAuthService: OAuthService,
     private readonly i18n: I18nService,
   ) {}
   private readonly logger = new Logger(AuthService.name);
@@ -80,7 +71,6 @@ export class AuthService {
 
         const { refreshToken, refreshTokenId } = await this.createRefreshToken(
           user.id,
-          undefined,
           tx,
         );
         const accessToken = await this.createAccessToken(user, refreshTokenId);
@@ -109,47 +99,23 @@ export class AuthService {
       );
     }
 
-    if (!this.config.get("oauth.disablePassword")) {
-      const email = dto.email?.toLowerCase().trim();
-      const user = await this.prisma.user.findFirst({
-        where: {
-          OR: [{ email }, { username: dto.username }],
-        },
-      });
+    const email = dto.email?.toLowerCase().trim();
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [{ email }, { username: dto.username }],
+      },
+    });
 
-      if (user?.password && (await argon.verify(user.password, dto.password))) {
-        if (!user.isActivated) {
-          throw new UnauthorizedException(
-            this.i18n.t("auth.accountNotActivated"),
-          );
-        }
-        this.logger.log(
-          `Successful password login for user ${user.email} from IP ${ip}`,
+    if (user?.password && (await argon.verify(user.password, dto.password))) {
+      if (!user.isActivated) {
+        throw new UnauthorizedException(
+          this.i18n.t("auth.accountNotActivated"),
         );
-        return this.generateToken(user);
       }
-    }
-
-    if (this.config.get("ldap.enabled")) {
-      /*
-       * E-mail-like user credentials are passed as the email property
-       * instead of the username. Since the username format does not matter
-       * when searching for users in LDAP, we simply use the username
-       * in whatever format it is provided.
-       */
-      const ldapUsername = dto.username || dto.email;
-      this.logger.debug(`Trying LDAP login for user ${ldapUsername}`);
-      const ldapUser = await this.ldapService.authenticateUser(
-        ldapUsername,
-        dto.password,
+      this.logger.log(
+        `Successful password login for user ${user.email} from IP ${ip}`,
       );
-      if (ldapUser) {
-        const user = await this.userService.findOrCreateFromLDAP(dto, ldapUser);
-        this.logger.log(
-          `Successful LDAP login for user ${ldapUsername} (${user.id}) from IP ${ip}`,
-        );
-        return this.generateToken(user);
-      }
+      return this.generateToken(user);
     }
 
     this.logger.log(
@@ -158,10 +124,10 @@ export class AuthService {
     throw new UnauthorizedException(this.i18n.t("auth.wrongCredentials"));
   }
 
-  async generateToken(user: User, oauth?: { idToken?: string }) {
+  async generateToken(user: User) {
     // TODO: Make all old loginTokens invalid when a new one is created
     // Check if the user has TOTP enabled
-    if (user.totpVerified && !(oauth && this.config.get("oauth.ignoreTotp"))) {
+    if (user.totpVerified) {
       const loginToken = await this.createLoginToken(user.id);
 
       return { loginToken };
@@ -169,7 +135,6 @@ export class AuthService {
 
     const { refreshToken, refreshTokenId } = await this.createRefreshToken(
       user.id,
-      oauth?.idToken,
     );
     const accessToken = await this.createAccessToken(user, refreshTokenId);
 
@@ -177,9 +142,6 @@ export class AuthService {
   }
 
   async requestResetPassword(emailInput: string) {
-    if (this.config.get("oauth.disablePassword"))
-      throw new ForbiddenException(this.i18n.t("auth.passwordSignInDisabled"));
-
     const email = emailInput.toLowerCase().trim();
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -187,15 +149,6 @@ export class AuthService {
     });
 
     if (!user) return;
-
-    if (user.ldapDN) {
-      this.logger.log(
-        `Failed password reset request for user ${email} because it is an LDAP user`,
-      );
-      throw new BadRequestException(
-        this.i18n.t("auth.ldapResetPasswordNotAllowed"),
-      );
-    }
 
     await this.prisma.$transaction(async (tx) => {
       // Delete old reset password token
@@ -217,9 +170,6 @@ export class AuthService {
   }
 
   async resetPassword(token: string, newPassword: string) {
-    if (this.config.get("oauth.disablePassword"))
-      throw new ForbiddenException(this.i18n.t("auth.passwordSignInDisabled"));
-
     const user = await this.prisma.user.findFirst({
       where: { resetPasswordToken: { token } },
     });
@@ -336,54 +286,12 @@ export class AuthService {
       }) || {};
 
     if (refreshTokenId) {
-      const oauthIDToken = await this.prisma.refreshToken
-        .findFirst({
-          select: { oauthIDToken: true },
-          where: { id: refreshTokenId },
-        })
-        .then((refreshToken) => refreshToken?.oauthIDToken)
-        .catch((e) => {
-          // Ignore error if refresh token doesn't exist
-          if (e.code != "P2025") throw e;
-        });
       await this.prisma.refreshToken
         .delete({ where: { id: refreshTokenId } })
         .catch((e) => {
           // Ignore error if refresh token doesn't exist
           if (e.code != "P2025") throw e;
         });
-
-      if (typeof oauthIDToken === "string") {
-        const [providerName, idTokenHint] = oauthIDToken.split(":");
-        const provider = this.oAuthService.availableProviders()[providerName];
-        let signOutFromProviderSupportedAndActivated = false;
-        try {
-          signOutFromProviderSupportedAndActivated = this.config.get(
-            `oauth.${providerName}-signOut`,
-          );
-        } catch {
-          // Ignore error if the provider is not supported or if the provider sign out is not activated
-        }
-        if (
-          provider instanceof GenericOidcProvider &&
-          signOutFromProviderSupportedAndActivated
-        ) {
-          const configuration = await provider.getConfiguration();
-          if (URL.canParse(configuration.end_session_endpoint)) {
-            const redirectURI = new URL(configuration.end_session_endpoint);
-            redirectURI.searchParams.append(
-              "post_logout_redirect_uri",
-              this.config.get("general.appUrl"),
-            );
-            redirectURI.searchParams.append("id_token_hint", idTokenHint);
-            redirectURI.searchParams.append(
-              "client_id",
-              this.config.get(`oauth.${providerName}-clientId`),
-            );
-            return redirectURI.toString();
-          }
-        }
-      }
     }
   }
 
@@ -404,7 +312,6 @@ export class AuthService {
 
   async createRefreshToken(
     userId: string,
-    idToken?: string,
     tx?: Prisma.TransactionClient,
   ) {
     const prisma = tx || this.prisma;
@@ -415,7 +322,6 @@ export class AuthService {
         expiresAt: moment()
           .add(sessionDuration.value, sessionDuration.unit)
           .toDate(),
-        oauthIDToken: idToken,
       },
     });
 
@@ -479,13 +385,6 @@ export class AuthService {
   }
 
   async verifyPassword(user: User, password: string) {
-    if (!user.password && this.config.get("ldap.enabled")) {
-      return !!(await this.ldapService.authenticateUser(
-        user.username,
-        password,
-      ));
-    }
-
     return argon.verify(user.password, password);
   }
 }

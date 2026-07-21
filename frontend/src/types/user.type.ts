@@ -4,7 +4,6 @@ type User = {
   email: string;
   isAdmin: boolean;
   isActivated: boolean;
-  isLdap: boolean;
   totpVerified: boolean;
   hasPassword: boolean;
   shareSizeLimit?: string;
