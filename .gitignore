@@ -55,3 +55,12 @@ yarn-error.log*
 
 # Temp folder for generative work
 /temp/**
+
+# Logs
+*.log
+backend/server.log
+
+# opencode config (dev tool)
+.opencode/
+opencode.json
+opencode.jsonc

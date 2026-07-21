@@ -52,7 +52,7 @@ const i18nPath = existsSync(join(__dirname, "../i18n"))
     OAuthModule,
     AppCacheModule,
     I18nModule.forRoot({
-      fallbackLanguage: "en-US",
+      fallbackLanguage: "pt-BR",
       loaderOptions: {
         path: i18nPath,
         watch: true,

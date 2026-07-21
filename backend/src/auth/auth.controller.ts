@@ -69,8 +69,8 @@ export class AuthController {
   @Post("signIn")
   @Throttle({
     default: {
-      limit: 20,
-      ttl: 5 * 60,
+      limit: 5,
+      ttl: 60,
     },
   })
   @HttpCode(200)
@@ -95,8 +95,8 @@ export class AuthController {
   @Post("signIn/totp")
   @Throttle({
     default: {
-      limit: 20,
-      ttl: 5 * 60,
+      limit: 5,
+      ttl: 60,
     },
   })
   @HttpCode(200)

@@ -4,8 +4,10 @@ import { NestExpressApplication } from "@nestjs/platform-express";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import * as bodyParser from "body-parser";
 import * as cookieParser from "cookie-parser";
+import * as cors from "cors";
 import { NextFunction, Request, Response } from "express";
 import * as fs from "fs";
+import helmet from "helmet";
 import { I18nValidationExceptionFilter, I18nValidationPipe } from "nestjs-i18n";
 import { AppModule } from "./app.module";
 import { ConfigService } from "./config/config.service";
@@ -15,6 +17,7 @@ import {
   LOG_LEVEL_DEFAULT,
   LOG_LEVEL_ENV,
 } from "./constants";
+import { ThrottlerExceptionFilter } from "./throttler/throttler-exception.filter";
 
 function generateNestJsLogLevels(): LogLevel[] {
   if (LOG_LEVEL_ENV) {
@@ -39,7 +42,10 @@ async function bootstrap() {
   });
 
   app.useGlobalPipes(new I18nValidationPipe({ whitelist: true }));
-  app.useGlobalFilters(new I18nValidationExceptionFilter());
+  app.useGlobalFilters(
+    new I18nValidationExceptionFilter(),
+    new ThrottlerExceptionFilter(),
+  );
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
 
   const config = app.get<ConfigService>(ConfigService);
@@ -53,7 +59,33 @@ async function bootstrap() {
   });
 
   app.use(cookieParser());
-  app.set("trust proxy", true);
+
+  app.set("trust proxy", process.env.TRUST_PROXY === "true");
+
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginEmbedderPolicy: false,
+      crossOriginOpenerPolicy: false,
+      crossOriginResourcePolicy: { policy: "same-origin" },
+      referrerPolicy: { policy: "same-origin" },
+      strictTransportSecurity: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+      },
+    }),
+  );
+
+  const corsOriginsEnv = process.env.CORS_ORIGIN;
+  const corsOrigin = corsOriginsEnv
+    ? corsOriginsEnv.split(",").map((o) => o.trim())
+    : false;
+  app.use(
+    cors({
+      origin: corsOrigin,
+      credentials: true,
+    }),
+  );
 
   await fs.promises.mkdir(`${DATA_DIRECTORY}/uploads/_temp`, {
     recursive: true,
@@ -61,13 +93,15 @@ async function bootstrap() {
 
   app.setGlobalPrefix("api");
 
-  // Setup Swagger in development mode
-  if (process.env.NODE_ENV == "development") {
-    const config = new DocumentBuilder()
+  const swaggerEnabled =
+    process.env.NODE_ENV !== "production" &&
+    process.env.SWAGGER_ENABLED === "true";
+  if (swaggerEnabled) {
+    const swaggerConfig = new DocumentBuilder()
       .setTitle("Pingvin Share API")
       .setVersion("1.0")
       .build();
-    const document = SwaggerModule.createDocument(app, config);
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
     SwaggerModule.setup("api/swagger", app, document);
   }
 

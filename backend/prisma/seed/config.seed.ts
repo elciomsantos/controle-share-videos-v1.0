@@ -22,7 +22,7 @@ export const configVariables = {
     },
     secureCookies: {
       type: "boolean",
-      defaultValue: "false",
+      defaultValue: "true",
     },
     showHomePage: {
       type: "boolean",
@@ -36,7 +36,7 @@ export const configVariables = {
     },
     defaultLanguage: {
       type: "string",
-      defaultValue: "en-US",
+      defaultValue: "pt-BR",
       secret: false,
     },
   },
@@ -70,7 +70,7 @@ export const configVariables = {
   share: {
     allowRegistration: {
       type: "boolean",
-      defaultValue: "true",
+      defaultValue: "false",
       secret: false,
     },
     allowUnauthenticatedShares: {

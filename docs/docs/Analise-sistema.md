@@ -1,6 +1,6 @@
-# Análise do projeto `controle-videos-v1.0` para uso interno restrito
+# Análise do projeto `controle-share-videos-v1.0` para uso interno restrito
 
-- **Base:** fork do Pingvin Share X v1.21.1
+- **Base:** Pingvin Share X v1.21.1
 - **Objetivo:** restringir a uso interno, fixar PT-BR como único idioma, remover acesso/links externos, hardening de segurança.
 - **Data da análise:** 2026-07-19
 - **Branch de trabalho ( sugerida ):** `feat/internal-ptbr`
@@ -277,6 +277,24 @@ Para garantir R2 ( sem conexões externas em runtime ), após aplicar todas as f
 ---
 
 ## 10. Plano de execução ( 10 fases )
+
+> ### Registro de progresso ( acompanhar conforme execução )
+>
+> | Fase | Status | Observações |
+> |---|---|---|
+> | Fase 0 — Preparação | **Concluída** | `.gitignore` atualizado ( `*.log`, `backend/server.log`, `opencode.json`, `.opencode/` ); `git rm --cached backend/server.log` e `opencode.json`. Branch própria NÃO criada ( já em `main` a pedido do usuário ). |
+> | Fase 1 — Hardening mínimo | **Concluída** | `main.ts`: `trust proxy` lê `TRUST_PROXY=true`; `helmet()` com HSTS / `X-Content-Type-Options` / `Referrer-Policy: same-origin` / `Cross-Origin-Resource-Policy: same-origin`; CORS via `CORS_ORIGIN` ( default `false` = same-origin ); Swagger gated ( `NODE_ENV !== production` **e** `SWAGGER_ENABLED=true` ). `config.seed.ts`: `secureCookies=true`, `defaultLanguage=pt-BR`, `allowRegistration=false`. `auth.controller.ts`: `signIn` e `signIn/totp` agora 5/60s. Novo `backend/src/throttler/throttler-exception.filter.ts` adiciona `Retry-After: 60` no 429. `app.module.ts`: `fallbackLanguage: "pt-BR"`. Deps instaladas: `helmet`, `cors`, `@types/cors`. CSRF token adiado ( será avaliado em Fase 6 com `SameSite=Strict` ). Validação: `npm run lint` → 0 errors / 15 warnings pré-existentes; `tsc --noEmit` → 0 errors. |
+> | Fase 2 — Remover OAuth + LDAP | Pendente | |
+> | Fase 3 — Fixar PT-BR único idioma | Pendente ( deixada para o final a pedido do usuário ) | |
+> | Fase 4 — Limpeza externa | Pendente | |
+> | Fase 5 — Bug fixes | Pendente | |
+> | Fase 6 — Hardening ampliado ( R6 ) | Pendente | |
+> | Fase 7 — Limite de downloads ( R7 ) | Pendente | |
+> | Fase 8 — Logs de download ( R8 ) | Pendente | |
+> | Fase 9 — Dependências ( R5 ) | Pendente | |
+> | Fase 10 — Teste / validação | Pendente | |
+>
+> _Última atualização: 2026-07-20 — Fase 0 + Fase 1 concluídas ( sem commit )._
 
 ### Fase 0 — Preparação
 - Criar branch `feat/internal-ptbr`.
