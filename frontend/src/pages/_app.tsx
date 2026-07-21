@@ -263,7 +263,7 @@ function App({ Component, pageProps }: AppProps) {
       <IntlProvider
         messages={i18nUtil.getLocaleByCode(language.current)?.messages}
         locale={language.current}
-        defaultLocale={LOCALES.ENGLISH.code}
+        defaultLocale={LOCALES.PORTUGUESE_BRAZIL.code}
       >
         <MantineProvider withGlobalStyles withNormalizeCSS theme={mergedTheme}>
           {customCss && (

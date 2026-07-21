@@ -16,8 +16,8 @@ export function getDefaultConfig(): Config[] {
     },
     {
       key: "general.defaultLanguage",
-      value: "en-US",
-      defaultValue: "en-US",
+      value: "pt-BR",
+      defaultValue: "pt-BR",
       type: "string",
     },
     {

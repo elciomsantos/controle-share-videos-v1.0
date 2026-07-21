@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as yaml from "yaml";
 import { configVariables } from "../backend/prisma/seed/config.seed";
-import translations from "../frontend/src/i18n/translations/en-US";
+import translations from "../frontend/src/i18n/translations/pt-BR";
 
 // Prepare an object that only contains the categories, keys and values
 const configVariablesWithDefaultValues = {};
@@ -27,7 +27,7 @@ configVariablesWithDefaultValues["initUser"] = {
 // Create the yaml document
 const doc: any = new yaml.Document(configVariablesWithDefaultValues);
 
-// Add the descriptions imported from `en-US.ts` as comments
+// Add the descriptions imported from `pt-BR.ts` as comments
 for (const category of doc.contents.items) {
   //  As `initUser` can't be configured from the UI, we have to add the description manually
   if (category.key.value === "initUser") {
