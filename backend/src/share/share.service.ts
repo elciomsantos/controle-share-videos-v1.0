@@ -470,7 +470,10 @@ export class ShareService {
       },
     });
 
-    if (share?.security?.password) {
+    if (!share)
+      throw new NotFoundException(this.i18n.t("share.notFound"));
+
+    if (share.security?.password) {
       if (!password) {
         throw new ForbiddenException(
           this.i18n.t("file.passwordProtected"),

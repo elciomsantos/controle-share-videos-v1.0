@@ -1,4 +1,8 @@
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+} from "@nestjs/common";
 import { PrismaService } from "src/prisma/prisma.service";
 
 export interface DownloadLogEntry {
@@ -54,8 +58,20 @@ export class DownloadLogService {
     if (userId) where.userId = userId;
     if (from || to) {
       where.createdAt = {};
-      if (from) where.createdAt.gte = new Date(from);
-      if (to) where.createdAt.lte = new Date(to);
+      if (from) {
+        const fromDate = new Date(from);
+        if (isNaN(fromDate.getTime())) {
+          throw new BadRequestException(`Invalid "from" date: ${from}`);
+        }
+        where.createdAt.gte = fromDate;
+      }
+      if (to) {
+        const toDate = new Date(to);
+        if (isNaN(toDate.getTime())) {
+          throw new BadRequestException(`Invalid "to" date: ${to}`);
+        }
+        where.createdAt.lte = toDate;
+      }
     }
 
     const [data, total] = await Promise.all([

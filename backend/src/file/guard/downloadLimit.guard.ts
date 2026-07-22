@@ -2,6 +2,7 @@ import {
   ExecutionContext,
   ForbiddenException,
   Injectable,
+  NotFoundException,
 } from "@nestjs/common";
 import { Request } from "express";
 import { I18nService } from "nestjs-i18n";
@@ -25,7 +26,9 @@ export class DownloadLimitGuard {
       include: { security: true },
     });
 
-    if (!share) return true;
+    if (!share) {
+      throw new NotFoundException(this.i18n.t("share.notFound"));
+    }
 
     if (
       share.security?.maxDownloads != null &&
