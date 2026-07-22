@@ -107,7 +107,7 @@ async function bootstrap() {
     process.env.SWAGGER_ENABLED === "true";
   if (swaggerEnabled) {
     const swaggerConfig = new DocumentBuilder()
-      .setTitle("Pingvin Share API")
+      .setTitle("Controle Share Videos API")
       .setVersion("1.0")
       .build();
     const document = SwaggerModule.createDocument(app, swaggerConfig);

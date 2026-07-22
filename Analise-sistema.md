@@ -1,6 +1,6 @@
 # Análise do projeto `controle-share-videos-v1.0` para uso interno restrito
 
-- **Base:** Pingvin Share X v1.21.1
+- **Base histórica:** Pingvin Share X v1.21.1 ( fork já independente, renomeado para **Controle Share Videos** )
 - **Objetivo:** restringir a uso interno, fixar PT-BR como único idioma, remover acesso/links externos, hardening de segurança.
 - **Data da análise:** 2026-07-19
 - **Branch de trabalho ( sugerida ):** `feat/internal-ptbr`

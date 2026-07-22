@@ -62,7 +62,7 @@ INSERT INTO "Config" (
   'shareDownloadNotificationMessage',
   'email',
   'text',
-  'Hey!\n\n{recipientEmail} downloaded {fileName} from your share: {shareUrl}\n\nPingvin Share 🐧',
+  'Hey!\n\n{recipientEmail} downloaded {fileName} from your share: {shareUrl}\n\nControle Share Videos',
   NULL,
   0,
   1,

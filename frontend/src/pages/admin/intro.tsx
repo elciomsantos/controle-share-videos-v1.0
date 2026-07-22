@@ -20,16 +20,16 @@ const Intro = () => {
             <Logo height={80} width={80} />
           </Center>
           <Center>
-            <Title order={2}>Welcome to Pingvin Share X</Title>
+            <Title order={2}>Welcome to Controle Share Videos</Title>
           </Center>
-          <Text>Enough talked, have fun with Pingvin Share X!</Text>
+          <Text>Enough talked, have fun with Controle Share Videos!</Text>
           <Text mt="lg">How to you want to continue?</Text>
           <Stack>
             <Button href="/admin/config/general" component={Link}>
               Customize configuration
             </Button>
             <Button href="/" component={Link} variant="light">
-              Explore Pingvin Share X
+              Explore Controle Share Videos
             </Button>
           </Stack>
         </Stack>
