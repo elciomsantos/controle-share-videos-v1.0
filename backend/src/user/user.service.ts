@@ -57,16 +57,18 @@ export class UserSevice {
         return user;
       });
     } catch (e) {
-      if (e instanceof PrismaClientKnownRequestError) {
-        if (e.code == "P2002") {
-          const duplicatedField: string = e.meta.target[0];
-          throw new BadRequestException(
-            this.i18n.t("auth.userAlreadyExists", {
-              args: { field: duplicatedField },
-            }),
-          );
-        }
+      if (
+        e instanceof PrismaClientKnownRequestError &&
+        e.code == "P2002"
+      ) {
+        const duplicatedField: string = e.meta.target[0];
+        throw new BadRequestException(
+          this.i18n.t("auth.userAlreadyExists", {
+            args: { field: duplicatedField },
+          }),
+        );
       }
+      throw e;
     }
   }
 
@@ -79,16 +81,18 @@ export class UserSevice {
         data: { ...user, password: hash },
       });
     } catch (e) {
-      if (e instanceof PrismaClientKnownRequestError) {
-        if (e.code == "P2002") {
-          const duplicatedField: string = e.meta.target[0];
-          throw new BadRequestException(
-            this.i18n.t("auth.userAlreadyExists", {
-              args: { field: duplicatedField },
-            }),
-          );
-        }
+      if (
+        e instanceof PrismaClientKnownRequestError &&
+        e.code == "P2002"
+      ) {
+        const duplicatedField: string = e.meta.target[0];
+        throw new BadRequestException(
+          this.i18n.t("auth.userAlreadyExists", {
+            args: { field: duplicatedField },
+          }),
+        );
       }
+      throw e;
     }
   }
 

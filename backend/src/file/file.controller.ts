@@ -114,7 +114,6 @@ export class FileController {
     @Query("download") download = "true",
     @Query("recipient") recipientId?: string,
   ) {
-    const file = await this.fileService.get(shareId, fileId);
     const isDownload = download === "true";
 
     if (isDownload) {
@@ -124,6 +123,8 @@ export class FileController {
         }),
       } as any);
     }
+
+    const file = await this.fileService.get(shareId, fileId);
 
     const headers = {
       "Content-Type":

@@ -18,9 +18,11 @@ const DownloadAllButton = ({
 
   const downloadAll = async () => {
     setIsLoading(true);
-    await shareService
-      .downloadFile(shareId, "zip", recipientId)
-      .then(() => setIsLoading(false));
+    try {
+      await shareService.downloadFile(shareId, "zip", recipientId);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
