@@ -1,19 +1,15 @@
 /** @type {import('next').NextConfig} */
 const { version } = require("./package.json");
 
-const withPWA = require("@ducanh2912/next-pwa").default({
-  dest: "public",
+const withSerwist = require("@serwist/next").default({
+  swSrc: "src/sw.ts",
+  swDest: "public/sw.js",
   disable: process.env.NODE_ENV === "development",
   reloadOnOnline: false,
-  runtimeCaching: [
-    {
-      urlPattern: /^https?.*/,
-      handler: "NetworkOnly",
-    },
-  ],
+  register: true,
 });
 
-module.exports = withPWA({
+module.exports = withSerwist({
   transpilePackages: ["@uiw/react-md-editor", "@uiw/react-markdown-preview"],
   output: "standalone",
   images: {
