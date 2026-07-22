@@ -1,5 +1,5 @@
 import { Button, Center, Group, Text, useMantineTheme } from "@mantine/core";
-import { Dropzone as MantineDropzone } from "@mantine/dropzone";
+import { Dropzone as MantineDropzone, FileWithPath } from "@mantine/dropzone";
 import React, { ForwardedRef, useRef } from "react";
 import { TbCloudUpload, TbUpload, TbFolder } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
@@ -91,7 +91,7 @@ const Dropzone = ({
 }) => {
   const t = useTranslate();
   const theme = useMantineTheme();
-  const openRef = useRef<() => void>();
+  const openRef = useRef<() => void>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
   const isFolderUploadSupported =
@@ -144,7 +144,11 @@ const Dropzone = ({
         disabled={isUploading}
         openRef={openRef as ForwardedRef<() => void>}
         getFilesFromEvent={getFilesFromEvent}
-        onDrop={(files: FileUpload[]) => {
+        onDrop={(droppedFiles: FileWithPath[]) => {
+          const files = droppedFiles.map((newFile) => {
+            (newFile as FileUpload).uploadingProgress = 0;
+            return newFile as FileUpload;
+          });
           const fileSizeSum = files.reduce((n, { size }) => n + size, 0);
 
           if (fileSizeSum + currentFilesSize > maxShareSize) {
@@ -154,10 +158,6 @@ const Dropzone = ({
               }),
             );
           } else {
-            files = files.map((newFile) => {
-              newFile.uploadingProgress = 0;
-              return newFile;
-            });
             onFilesChanged(files);
           }
         }}

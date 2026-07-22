@@ -230,7 +230,7 @@ export default function AppShellDemo() {
                           variant="light"
                           color="primary"
                           title={t("admin.config.config-file-warning.title")}
-                          leftSection={<TbInfoCircle />}
+                          icon={<TbInfoCircle />}
                         >
                           <FormattedMessage id="admin.config.config-file-warning.description" />
                         </Alert>

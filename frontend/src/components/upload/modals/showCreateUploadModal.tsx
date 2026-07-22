@@ -10,6 +10,7 @@ import {
   PasswordInput,
   Select,
   Stack,
+  TagsInput,
   Text,
   Textarea,
   TextInput,
@@ -250,7 +251,7 @@ const CreateUploadModalBody = ({
         <Alert
           withCloseButton
           onClose={() => setShowNotSignedInAlert(false)}
-          leftSection={<TbAlertCircle size={16} />}
+          icon={<TbAlertCircle size={16} />}
           title={t("upload.modal.not-signed-in")}
           color="yellow"
         >
@@ -408,7 +409,6 @@ const CreateUploadModalBody = ({
                   <TagsInput
                     data={form.values.recipients}
                     placeholder={t("upload.modal.accordion.email.placeholder")}
-                    searchable
                     splitChars={[",", ";"]}
                     id="recipient-emails"
                     inputMode="email"
@@ -557,7 +557,7 @@ const SimplifiedCreateUploadModalModal = ({
         <Alert
           withCloseButton
           onClose={() => setShowNotSignedInAlert(false)}
-          leftSection={<TbAlertCircle size={16} />}
+          icon={<TbAlertCircle size={16} />}
           title={t("upload.modal.not-signed-in")}
           color="yellow"
         >

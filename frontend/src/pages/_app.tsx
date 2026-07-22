@@ -5,8 +5,6 @@ import {
   MantineThemeOverride,
   MantineProvider,
   Stack,
-  useMantineColorScheme,
-  useComputedColorScheme,
 } from "@mantine/core";
 import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
@@ -123,8 +121,6 @@ const createMantineScaleFromHex = (hex: string) =>
 
 function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
-  const { setColorScheme: setMantineColorScheme } = useMantineColorScheme();
-  const systemTheme = useComputedColorScheme("light");
 
   const [user, setUser] = useState<CurrentUser | null>(pageProps.user);
   const [route, setRoute] = useState<string>(pageProps.route);
@@ -228,18 +224,26 @@ function App({ Component, pageProps }: AppProps) {
     document.documentElement.lang = current.code;
   }, [pageProps.language]);
 
+  const colorSchemeResolvedRef = useRef<"light" | "dark" | undefined>(undefined);
   useEffect(() => {
     const userColorPreference = userPreferences.get("colorScheme");
     const resolved = user
       ? userColorPreference === "system"
-        ? systemTheme
+        ? undefined
         : userColorPreference
       : adminDefaultColorScheme === "system"
-        ? systemTheme
+        ? undefined
         : adminDefaultColorScheme;
-
-    setMantineColorScheme(resolved ?? "light");
-  }, [adminDefaultColorScheme, systemTheme, user, setMantineColorScheme]);
+    if (resolved !== colorSchemeResolvedRef.current) {
+      colorSchemeResolvedRef.current = resolved as "light" | "dark" | undefined;
+      if (resolved) {
+        document.documentElement.setAttribute(
+          "data-mantine-color-scheme",
+          resolved,
+        );
+      }
+    }
+  }, [adminDefaultColorScheme, user]);
 
   const language = useRef(pageProps.language);
   moment.locale(language.current);

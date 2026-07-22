@@ -101,7 +101,7 @@ export default function Home() {
               mt={30}
               spacing="sm"
               size="sm"
-              leftSection={
+              icon={
                 <ThemeIcon size={20} radius="xl">
                   <TbCheck size={12} />
                 </ThemeIcon>

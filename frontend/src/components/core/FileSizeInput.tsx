@@ -30,12 +30,13 @@ const FileSizeInput = ({
   ...restProps
 }: {
   label?: string;
-  value: number;
-  onChange: (number: number) => void;
+  value?: number;
+  onChange?: (number: number) => void;
   [key: string]: any;
 }) => {
-  const [unit, setUnit] = useState(getLargestApplicableUnit(value).value);
-  const [inputValue, setInputValue] = useState(value / multipliers[unit]);
+  const resolvedValue = value ?? 0;
+  const [unit, setUnit] = useState(getLargestApplicableUnit(resolvedValue).value);
+  const [inputValue, setInputValue] = useState(resolvedValue / multipliers[unit]);
   const unitSelect = (
     <NativeSelect
       data={units}
@@ -54,7 +55,7 @@ const FileSizeInput = ({
         const unit = event.currentTarget
           .value as (typeof units)[number]["value"];
         setUnit(unit);
-        onChange(multipliers[unit] * inputValue);
+        onChange?.(multipliers[unit] * inputValue);
       }}
     />
   );
@@ -71,7 +72,7 @@ const FileSizeInput = ({
       onChange={(value) => {
         const inputVal = typeof value === "number" ? value : 0;
         setInputValue(inputVal);
-        onChange(multipliers[unit] * inputVal);
+        onChange?.(multipliers[unit] * inputVal);
       }}
       {...restProps}
     />

@@ -15,6 +15,7 @@ import { SkipThrottle } from "@nestjs/throttler";
 import * as contentDisposition from "content-disposition";
 import { Request, Response } from "express";
 import { DownloadLogService } from "src/download-log/download-log.service";
+import { JwtGuard } from "src/auth/guard/jwt.guard";
 import { CreateShareGuard } from "src/share/guard/createShare.guard";
 import { StrictShareOwnerGuard } from "src/share/guard/strictShareOwner.guard";
 import { IdValidation } from "src/share/guard/shareIdValidation.guard";
@@ -64,7 +65,7 @@ export class FileController {
   }
 
   @Get("zip")
-  @UseGuards(FileSecurityGuard)
+  @UseGuards(JwtGuard, FileSecurityGuard)
   async getZip(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -104,7 +105,7 @@ export class FileController {
   }
 
   @Get(":fileId")
-  @UseGuards(FileSecurityGuard)
+  @UseGuards(JwtGuard, FileSecurityGuard)
   async getFile(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
