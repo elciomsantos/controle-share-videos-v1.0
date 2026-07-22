@@ -26,7 +26,7 @@ WORKDIR /opt/app
 COPY ./backend .
 COPY --from=backend-dependencies /opt/app/node_modules ./node_modules
 RUN npx prisma generate
-RUN npm run build && npx tsc prisma/seed/config.seed.ts --outDir dist/prisma/seed --rootDir prisma/seed && npm prune --production
+RUN npm run build && npx tsc -p tsconfig.seed.json && npm prune --production
 
 # Stage 5: Final image
 FROM node:24-alpine AS runner
@@ -65,7 +65,7 @@ COPY ./scripts/docker ./scripts/docker
 
 EXPOSE 3000
 
-HEALTHCHECK --interval=10s --timeout=3s --start-period=90s CMD /bin/sh -c '(if [[ "$CADDY_DISABLED" = "true" ]]; then curl -fs http://localhost:${BACKEND_PORT:-8080}/api/health; else curl -fs http://localhost:3000/api/health; fi) || exit 1'
+HEALTHCHECK --interval=10s --timeout=10s --start-period=120s CMD /bin/sh -c '(if [ "$CADDY_DISABLED" = "true" ]; then curl -fs http://127.0.0.1:${BACKEND_PORT:-8080}/api/health; else curl -fs http://127.0.0.1:3000/api/health; fi) || exit 1'
 
 ENTRYPOINT ["sh", "./scripts/docker/create-user.sh"]
 CMD ["sh", "./scripts/docker/entrypoint.sh"]
