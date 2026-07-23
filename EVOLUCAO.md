@@ -1,17 +1,17 @@
 # Plano de Evolução — atualização de dependências e stack
 
-Estado: **em execução — Fase 6/9 concluída, Fase 7 pendente**  
+Estado: **em execução — Fase 7/9 concluída, Fase 8 pendente**  
 Iniciado em: 2026-07-22  
 Branch: `main`  
 Tag de safety: `pre-evolucao` (criar antes de começar a Fase 1)  
-Concluídas: Fase 1 ✅, Fase 2 ✅, Fase 3 ✅, Fase 4 ✅, Fase 5 ✅, Fase 6 ✅
+Concluídas: Fase 1 ✅, Fase 2 ✅, Fase 3 ✅, Fase 4 ✅, Fase 5 ✅, Fase 6 ✅, Fase 7 ✅
 
 ---
 
 ## Contexto
 
 O sistema está funcional com:
-- Backend: NestJS 11.1.28 + Prisma 6.19.3 + TypeScript 5.8.3
+- Backend: NestJS 11.1.28 + Prisma 7.9.0 + TypeScript 5.8.3
 - Frontend: Next 16.2.11 + React 19.2.8 + TypeScript 5.9.3
 - Container: node:24-alpine (rootless podman)
 - Vulnerabilidades: **0** (após audit fix + bump sharp 0.35.3 + override frontend)
@@ -29,8 +29,8 @@ Este plano cobre a evolução de tudo o que está depreciado/atrasado, em ordem 
 | 4 — jose 5 → 6 | ✅ | `627c2a8` | `pre-evolucao-fase-4` | concluída em 2026-07-23 |
 | 5 — moment → dayjs | ✅ | `efa7c54` | `pre-evolucao-fase-5` | concluída em 2026-07-23 |
 | 6 — http-proxy → rewrites | ✅ | `361e8b2` | `pre-evolucao-fase-6` | concluída em 2026-07-23 |
-| 7 — Prisma 6 → 7 | ⏳ pendente | — | — | próxima |
-| 8 — TypeScript 5 → 7 | ⏳ pendente | — | — | |
+| 7 — Prisma 6 → 7 | ✅ | `pendente` | — | concluída em 2026-07-23 |
+| 8 — TypeScript 5 → 7 | ⏳ pendente | — | — | próxima |
 | 9 — markdown-to-jsx 9 | ⏳ pendente | — | — | |
 
 ## Princípios
@@ -65,7 +65,7 @@ Este plano cobre a evolução de tudo o que está depreciado/atrasado, em ordem 
 | http-proxy | 1.18.1 | remover → `rewrites` no next.config.js | 🟡 |
 | markdown-to-jsx | 7.x | 9.x | 🟡 |
 | eslint | 9.x | 10.7.0 (frontend) | 🟡 |
-| Prisma | 6.19.3 | 7.9.0 | 🔴 |
+| Prisma | 6.19.3 | 7.9.0 | ✅ concluído |
 | TypeScript | 5.8/5.9 | 7.0.2 | 🔴 |
 
 ---
@@ -300,12 +300,12 @@ Frontend (`frontend/package.json`):
 **Risco**: 🔴 Alto (breaking changes extensivos)
 
 ### Breaking changes do Prisma 7
-- `datasource.url` removido do `schema.prisma` (passar via env `DATABASE_URL`)
-- Generator precisa do novo package `@prisma/client-generator` em vez de `prisma-client-js`
-- ESM by default — pode ser preciso `"type": "module"` no `backend/package.json`
-- Exportação default de `@prisma/client` mudou (não mais `new PrismaClient()` direto)
-- CLI: `prisma migrate` aceita novos argumentos
-- `tsconfig.seed.json` precisa ser revisado (ESM)
+- `datasource.url` removido do `schema.prisma` (passar via `prisma.config.ts` ou env `DATABASE_URL`)
+- Generator `prisma-client-js` substituído por `prisma-client` (novo package built-in)
+- Output do client gerado em `./prisma/generated/prisma/` (não mais `node_modules/@prisma/client`)
+- CJS/ESM: novo parâmetro `moduleFormat = "cjs"` no generator para manter compatibilidade com CJS
+- `@prisma/adapter-better-sqlite3` necessário para runtime com better-sqlite3
+- `prisma.config.ts` (novo) centraliza datasource URL, migrations path e seed command
 
 ### Passos
 1. **Backup total do banco**:
@@ -313,33 +313,49 @@ Frontend (`frontend/package.json`):
    cp data/controle-videos.db data/controle-videos.db.pre-fase7
    ```
 2. `git tag pre-evolucao-fase-7`
-3. `npm install prisma@^7.9.0 @prisma/client@^7.9.0 @prisma/client-generator`
+3. `npm install prisma@^7.9.0 @prisma/client@^7.9.0`
 4. Refatorar `backend/prisma/schema.prisma`:
-   - Remover bloco `datasource { url = ... }`
-   - Trocar generator:
-     ```
-     generator client {
-       provider = "@prisma/client-generator"
-     }
-     ```
-5. Garantir `DATABASE_URL` em todos os ambientes:
-   - `.env` (dev)
-   - `docker-compose.local.yml` → `environment: DATABASE_URL=file:./data/controle-videos.db`
-6. Atualizar todas as importações:
-   - `import { PrismaClient } from '@prisma/client'` → pode mudar para `import { PrismaClient } from 'prisma'` ou semelhante (verificar docs v7)
-7. Se necessário `"type": "module"` em `backend/package.json`:
-   - Atualizar todos os imports para `import` (ESM)
-   - Ou configurar prisma para CJS via `prisma.adapter`
-8. Refatorar script de seed (`tsconfig.seed.json` precisa suportar ESM)
-9. Rodar `npx prisma migrate reset --force` para reconstruir banco
-10. Validar migrations aplicadas + seed executado
+   - Generator trocado para `provider = "prisma-client"`, `output = "./prisma/generated/prisma"`, `moduleFormat = "cjs"`
+   - `datasource` mantido com `provider = "sqlite"` (URL via `prisma.config.ts`)
+5. Criar `backend/prisma.config.ts`:
+   ```ts
+   import { defineConfig } from "prisma/config";
+   export default defineConfig({
+     datasource: { url: process.env.DATABASE_URL || "file:./data/controle-videos.db" },
+     migrations: { path: "prisma/migrations", seed: "./node_modules/.bin/tsx prisma/seed/config.seed.ts" },
+   });
+   ```
+6. Atualizar `PrismaService` para usar adapter `PrismaBetterSqlite3`:
+   ```ts
+   import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+   const adapter = new PrismaBetterSqlite3({ url: DATABASE_URL });
+   super({ adapter });
+   ```
+7. Atualizar ~68 arquivos: imports de `@prisma/client` → `../prisma/generated/prisma/client` (caminho relativo)
+8. Remover `.js` extensions dos imports relativos (CJS não precisa)
+9. Corrigir `constants.ts`: remover `?connection_limit=1` da URL padrão (incompatível com adapter)
+10. Rodar `npx prisma migrate deploy` + `npx prisma db seed`
 11. Rebuild container, validar cadastro end-to-end
-12. Commit: `Evolução Fase 7: Prisma 6 → 7 (ESM + novo generator)`
+
+### Registo de execução (2026-07-23)
+- **Prisma 7.9.0** instalado (`prisma` + `@prisma/client`), **generator** trocado de `prisma-client-js` para `prisma-client` com `moduleFormat = "cjs"`
+- **Backend mantido em CJS** (`module: "commonjs"` no tsconfig) — a tentativa de migração para ESM foi revertida porque o NestJS Swagger plugin gera `require()` inline incompatível com ESM
+- **`prisma.config.ts`** criado para centralizar datasource URL, migrations e seed (novo padrão Prisma 7)
+- **`PrismaService`** refatorado para usar `@prisma/adapter-better-sqlite3` (adapter nativo para better-sqlite3, necessário no Prisma 7)
+- **~68 arquivos** tiveram imports atualizados de `@prisma/client` para `../prisma/generated/prisma/client` (caminho relativo para o client gerado)
+- **~68 arquivos** tiveram `.js` extensions removidas dos imports relativos (CJS não necessita)
+- **`constants.ts`** corrigido: removido `?connection_limit=1` da URL padrão do SQLite (o adapter `PrismaBetterSqlite3` não interpreta query params do engine Prisma, tratando-os como parte do nome do arquivo)
+- **`scripts/fix-prisma-esm.cjs`** removido (obsoleto — era da tentativa de migração ESM)
+- **Seed executado**: 66 variáveis de configuração populadas na tabela Config
+- **Migrações**: todas as 31 migrações aplicadas com sucesso
+- **Validação local**: `npm run build` ✅ (0 erros TS), `node dist/src/main.js` ✅ (servidor inicia, Prisma conecta, todas as rotas mapeadas), `GET /api/health` → "OK" ✅, `GET /api/configs` → JSON completo ✅
+- **Validação Docker**: Docker build multi-stage ✅, container inicia com migrations + seed ✅, API funcional via Caddy ✅
 
 ### Pontos de atenção
-- Esta é a fase mais arriscada — idealmente começar com branch separada `evolucao-prisma-7` e fazer testes local antes de mandar para `main`
-- Verificar CLI: `npx prisma --version` → 7.x
-- Se quebrar, fallback: revert commit + tag `pre-evolucao-fase-7`
+- O adapter `PrismaBetterSqlite3` NÃO interpreta query params como `?connection_limit=1` — a URL deve ser limpa
+- Prisma 7 com `moduleFormat = "cjs"` gera imports sem `.js` extensions (diferente do default ESM)
+- O `prisma.config.ts` é necessário para Prisma CLI (migrate, seed) — não é opcional
+- Generated client em `prisma/generated/prisma/` precisa ser copiado para o Docker image (não está em `node_modules`)
 
 ---
 
@@ -420,7 +436,7 @@ Após todas as fases:
 
 ## Riscos gerais
 - **Node 24-alpine**: alguns pacotes com binary native (argon2, sharp) podem precisar rebuild dentro do container — já funciona na Fase 1
-- **Prisma 7 ESM**: pode forçar conversão de todo o backend para ESM — é trabalho maior que outras fases
+- **Prisma 7 ESM**: a tentativa de migração para ESM foi revertida — o NestJS Swagger plugin gera `require()` inline. Solução: manter CJS + `moduleFormat = "cjs"` no generator. ✅ resolvido
 - **TypeScript 7**: pode expor erros de tipagem latentes que hoje não aparecem por causa de `strictNullChecks: false` — avaliar se vale subir strictness junto
 
 ## Ordem final sugerida
@@ -432,7 +448,7 @@ Após todas as fases:
 4. jose 5 → 6           🴫 (1h)
 5. moment → dayjs       🟡 (3-4h)
 6. http-proxy → rewrites 🟡 (1h)
-7. Prisma 6 → 7         🔴 (4-6h)
+7. Prisma 6 → 7         🔴 (4-6h) ✅
 8. TypeScript 5 → 7     🔴 (2-4h)
 9. markdown-to-jsx 9    🟡 (1-2h)
 ─────────────────────────────────

@@ -1,5 +1,5 @@
 import { createParamDecorator, ExecutionContext } from "@nestjs/common";
-import { Share, ShareSecurity } from "@prisma/client";
+import { Share, ShareSecurity } from "../../../prisma/generated/prisma/client";
 
 export const GetShare = createParamDecorator(
   (

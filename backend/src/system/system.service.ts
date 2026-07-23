@@ -1,8 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import checkDiskSpace from "check-disk-space";
-import { DATA_DIRECTORY } from "src/constants";
+import { DATA_DIRECTORY } from "../constants";
 import { SystemInfoDTO } from "./dto/systemInfo.dto";
-import { ConfigService } from "src/config/config.service";
+import { ConfigService } from "../config/config.service";
 import * as path from "path";
 
 @Injectable()

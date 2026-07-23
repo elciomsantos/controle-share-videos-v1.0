@@ -4,11 +4,11 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
-import { User } from "@prisma/client";
+import { User } from "../../../prisma/generated/prisma/client";
 import { Request } from "express";
 import { I18nService } from "nestjs-i18n";
-import { ConfigService } from "src/config/config.service";
-import { PrismaService } from "src/prisma/prisma.service";
+import { ConfigService } from "../../config/config.service";
+import { PrismaService } from "../../prisma/prisma.service";
 import { JwtGuard } from "../../auth/guard/jwt.guard";
 
 @Injectable()

@@ -13,12 +13,12 @@ import {
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { Throttle } from "@nestjs/throttler";
-import { Share, ShareSecurity, User } from "@prisma/client";
+import { Share, ShareSecurity, User } from "../../prisma/generated/prisma/client";
 import { Request, Response } from "express";
-import dayjs = require("dayjs");
-import { GetUser } from "src/auth/decorator/getUser.decorator";
-import { AdministratorGuard } from "src/auth/guard/isAdmin.guard";
-import { JwtGuard } from "src/auth/guard/jwt.guard";
+import dayjs from "dayjs";
+import { GetUser } from "../auth/decorator/getUser.decorator";
+import { AdministratorGuard } from "../auth/guard/isAdmin.guard";
+import { JwtGuard } from "../auth/guard/jwt.guard";
 import { AdminShareDTO } from "./dto/adminShare.dto";
 import { CreateShareDTO } from "./dto/createShare.dto";
 import { MyShareDTO } from "./dto/myShare.dto";

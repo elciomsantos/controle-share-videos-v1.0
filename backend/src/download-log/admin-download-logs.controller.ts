@@ -1,7 +1,7 @@
 import { Controller, Get, Query, UseGuards } from "@nestjs/common";
-import { JwtGuard } from "src/auth/guard/jwt.guard";
-import { AdministratorGuard } from "src/auth/guard/isAdmin.guard";
-import { DownloadLogService } from "src/download-log/download-log.service";
+import { JwtGuard } from "../auth/guard/jwt.guard";
+import { AdministratorGuard } from "../auth/guard/isAdmin.guard";
+import { DownloadLogService } from "../download-log/download-log.service";
 
 @Controller("admin/download-logs")
 @UseGuards(JwtGuard, AdministratorGuard)

@@ -5,25 +5,25 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { JwtService, JwtSignOptions } from "@nestjs/jwt";
-import { Prisma, Share, User, ShareSecurity } from "@prisma/client";
-import * as archiver from "archiver";
-import * as argon from "argon2";
+import { Prisma, Share, User, ShareSecurity } from "../../prisma/generated/prisma/client";
+import archiver from "archiver";
+import argon from "argon2";
 import * as crypto from "crypto";
 import * as fs from "fs";
-import dayjs = require("dayjs");
+import dayjs from "dayjs";
 import { I18nService } from "nestjs-i18n";
-import { ClamScanService } from "src/clamscan/clamscan.service";
-import { ConfigService } from "src/config/config.service";
-import { EmailService } from "src/email/email.service";
-import { FileService } from "src/file/file.service";
-import { PrismaService } from "src/prisma/prisma.service";
-import { ReverseShareService } from "src/reverseShare/reverseShare.service";
-import { SystemService } from "src/system/system.service";
+import { ClamScanService } from "../clamscan/clamscan.service";
+import { ConfigService } from "../config/config.service";
+import { EmailService } from "../email/email.service";
+import { FileService } from "../file/file.service";
+import { PrismaService } from "../prisma/prisma.service";
+import { ReverseShareService } from "../reverseShare/reverseShare.service";
+import { SystemService } from "../system/system.service";
 import {
   EPOCH_ZERO,
   isEpochZero,
   parseRelativeDateToAbsolute,
-} from "src/utils/date.util";
+} from "../utils/date.util";
 import { ARGON2_OPTIONS, SHARE_DIRECTORY } from "../constants";
 import { CreateShareDTO } from "./dto/createShare.dto";
 import { UpdateShareDTO } from "./dto/updateShare.dto";

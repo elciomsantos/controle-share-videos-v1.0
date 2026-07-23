@@ -3,10 +3,10 @@ import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
 import { LocalFileService } from "./local.service";
 import { S3FileService } from "./s3.service";
-import { ConfigService } from "src/config/config.service";
+import { ConfigService } from "../config/config.service";
 import { Readable } from "stream";
 import { PrismaService } from "../prisma/prisma.service";
-import { EmailService } from "src/email/email.service";
+import { EmailService } from "../email/email.service";
 
 const UPDATED_AT_THROTTLE_MS = 5 * 60 * 1000;
 const DOWNLOAD_NOTIFICATION_COOLDOWN_MS = 15 * 60 * 1000;

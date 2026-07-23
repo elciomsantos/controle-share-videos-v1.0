@@ -9,11 +9,11 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
-import { User } from "@prisma/client";
+import { User } from "../../prisma/generated/prisma/client";
 import { I18nService } from "nestjs-i18n";
-import { GetUser } from "src/auth/decorator/getUser.decorator";
-import { JwtGuard } from "src/auth/guard/jwt.guard";
-import { ConfigService } from "src/config/config.service";
+import { GetUser } from "../auth/decorator/getUser.decorator";
+import { JwtGuard } from "../auth/guard/jwt.guard";
+import { ConfigService } from "../config/config.service";
 import { CreateReverseShareDTO } from "./dto/createReverseShare.dto";
 import { ReverseShareDTO } from "./dto/reverseShare.dto";
 import { ReverseShareTokenWithShares } from "./dto/reverseShareTokenWithShares";

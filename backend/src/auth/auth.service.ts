@@ -6,16 +6,16 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { Prisma, User } from "@prisma/client";
-import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
-import * as argon from "argon2";
+import { Prisma, User } from "../../prisma/generated/prisma/client";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client";
+import argon from "argon2";
 import { Request, Response } from "express";
-import dayjs = require("dayjs");
+import dayjs from "dayjs";
 import { I18nService } from "nestjs-i18n";
-import { ARGON2_OPTIONS } from "src/constants";
-import { ConfigService } from "src/config/config.service";
-import { EmailService } from "src/email/email.service";
-import { PrismaService } from "src/prisma/prisma.service";
+import { ARGON2_OPTIONS } from "../constants";
+import { ConfigService } from "../config/config.service";
+import { EmailService } from "../email/email.service";
+import { PrismaService } from "../prisma/prisma.service";
 import { AuthRegisterDTO } from "./dto/authRegister.dto";
 import { AuthSignInDTO } from "./dto/authSignIn.dto";
 

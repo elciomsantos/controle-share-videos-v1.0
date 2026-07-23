@@ -3,15 +3,15 @@ import {
   InternalServerErrorException,
   Logger,
 } from "@nestjs/common";
-import { User } from "@prisma/client";
-import dayjs = require("dayjs");
-import relativeTime = require("dayjs/plugin/relativeTime");
+import { User } from "../../prisma/generated/prisma/client";
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
 import "dayjs/locale/pt-br";
-import * as nodemailer from "nodemailer";
+import nodemailer from "nodemailer";
 import { I18nService } from "nestjs-i18n";
-import { ConfigService } from "src/config/config.service";
+import { ConfigService } from "../config/config.service";
 
-(dayjs as any).extend(relativeTime);
+dayjs.extend(relativeTime as any);
 
 @Injectable()
 export class EmailService {

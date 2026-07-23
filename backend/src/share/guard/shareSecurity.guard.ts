@@ -5,14 +5,14 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { Request } from "express";
-import dayjs = require("dayjs");
+import dayjs from "dayjs";
 import { I18nService } from "nestjs-i18n";
-import { PrismaService } from "src/prisma/prisma.service";
-import { ShareService } from "src/share/share.service";
-import { ConfigService } from "src/config/config.service";
-import { JwtGuard } from "src/auth/guard/jwt.guard";
-import { User } from "@prisma/client";
-import { isEpochZero } from "src/utils/date.util";
+import { PrismaService } from "../../prisma/prisma.service";
+import { ShareService } from "../../share/share.service";
+import { ConfigService } from "../../config/config.service";
+import { JwtGuard } from "../../auth/guard/jwt.guard";
+import { User } from "../../../prisma/generated/prisma/client";
+import { isEpochZero } from "../../utils/date.util";
 
 @Injectable()
 export class ShareSecurityGuard extends JwtGuard {

@@ -26,7 +26,7 @@ WORKDIR /opt/app
 COPY ./backend .
 COPY --from=backend-dependencies /opt/app/node_modules ./node_modules
 RUN npx prisma generate
-RUN npm run build && npx tsc -p tsconfig.seed.json && npm prune --production
+RUN npm run build && npm prune --production
 
 # Stage 5: Final image
 FROM node:24-alpine AS runner
@@ -49,12 +49,10 @@ COPY --from=frontend-builder /opt/app/public/img /tmp/img
 WORKDIR /opt/app/backend
 COPY --from=backend-builder /opt/app/node_modules ./node_modules
 RUN rm -rf ./node_modules/typescript \
-           ./node_modules/esbuild \
-           ./node_modules/@esbuild \
-           ./node_modules/.bin/tsc \
-           ./node_modules/.bin/esbuild
+           ./node_modules/.bin/tsc
 COPY --from=backend-builder /opt/app/dist ./dist
 COPY --from=backend-builder /opt/app/prisma ./prisma
+COPY --from=backend-builder /opt/app/prisma.config.ts ./
 COPY --from=backend-builder /opt/app/package.json ./
 COPY --from=backend-builder /opt/app/tsconfig.json ./
 

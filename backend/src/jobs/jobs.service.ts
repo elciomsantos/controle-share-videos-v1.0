@@ -1,12 +1,12 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import * as fs from "fs";
-import dayjs = require("dayjs");
-import { FileService } from "src/file/file.service";
-import { PrismaService } from "src/prisma/prisma.service";
-import { ReverseShareService } from "src/reverseShare/reverseShare.service";
-import { ConfigService } from "src/config/config.service";
-import { EPOCH_ZERO } from "src/utils/date.util";
+import dayjs from "dayjs";
+import { FileService } from "../file/file.service";
+import { PrismaService } from "../prisma/prisma.service";
+import { ReverseShareService } from "../reverseShare/reverseShare.service";
+import { ConfigService } from "../config/config.service";
+import { EPOCH_ZERO } from "../utils/date.util";
 import { SHARE_DIRECTORY } from "../constants";
 
 @Injectable()

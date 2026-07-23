@@ -10,11 +10,11 @@ import {
   Res,
   UseGuards,
 } from "@nestjs/common";
-import { User } from "@prisma/client";
+import { User } from "../../prisma/generated/prisma/client";
 import { Response } from "express";
-import { GetUser } from "src/auth/decorator/getUser.decorator";
-import { AdministratorGuard } from "src/auth/guard/isAdmin.guard";
-import { JwtGuard } from "src/auth/guard/jwt.guard";
+import { GetUser } from "../auth/decorator/getUser.decorator";
+import { AdministratorGuard } from "../auth/guard/isAdmin.guard";
+import { JwtGuard } from "../auth/guard/jwt.guard";
 import { ConfigService } from "../config/config.service";
 import { CreateUserDTO } from "./dto/createUser.dto";
 import { UpdateOwnUserDTO } from "./dto/updateOwnUser.dto";

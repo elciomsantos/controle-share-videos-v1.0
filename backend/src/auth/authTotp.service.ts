@@ -4,7 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from "@nestjs/common";
-import { User } from "@prisma/client";
+import { User } from "../../prisma/generated/prisma/client";
 import {
   generateSecret,
   generateURI,
@@ -12,10 +12,10 @@ import {
   verify,
   createGuardrails,
 } from "otplib";
-import * as qrcode from "qrcode-svg";
+import qrcode from "qrcode-svg";
 import { I18nService } from "nestjs-i18n";
-import { ConfigService } from "src/config/config.service";
-import { PrismaService } from "src/prisma/prisma.service";
+import { ConfigService } from "../config/config.service";
+import { PrismaService } from "../prisma/prisma.service";
 import { AuthService } from "./auth.service";
 import { AuthSignInTotpDTO } from "./dto/authSignInTotp.dto";
 

@@ -12,10 +12,10 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
-import { User } from "@prisma/client";
+import { User } from "../../prisma/generated/prisma/client";
 import { Request, Response } from "express";
 import { I18nService } from "nestjs-i18n";
-import { ConfigService } from "src/config/config.service";
+import { ConfigService } from "../config/config.service";
 import { AuthService } from "./auth.service";
 import { AuthTotpService } from "./authTotp.service";
 import { GetUser } from "./decorator/getUser.decorator";

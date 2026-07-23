@@ -6,8 +6,8 @@ import {
 } from "@nestjs/common";
 import { Request } from "express";
 import { I18nService } from "nestjs-i18n";
-import { DownloadLogService } from "src/download-log/download-log.service";
-import { PrismaService } from "src/prisma/prisma.service";
+import { DownloadLogService } from "../../download-log/download-log.service";
+import { PrismaService } from "../../prisma/prisma.service";
 
 @Injectable()
 export class DownloadLimitGuard {

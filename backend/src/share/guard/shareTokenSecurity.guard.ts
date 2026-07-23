@@ -5,10 +5,10 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { Request } from "express";
-import dayjs = require("dayjs");
+import dayjs from "dayjs";
 import { I18nService } from "nestjs-i18n";
-import { PrismaService } from "src/prisma/prisma.service";
-import { isEpochZero } from "src/utils/date.util";
+import { PrismaService } from "../../prisma/prisma.service";
+import { isEpochZero } from "../../utils/date.util";
 
 @Injectable()
 export class ShareTokenSecurity implements CanActivate {

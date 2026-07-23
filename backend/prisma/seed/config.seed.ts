@@ -1,4 +1,5 @@
-import { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "../generated/prisma/client";
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import * as crypto from "crypto";
 
 export const configVariables = {
@@ -355,13 +356,9 @@ type ConfigVariables = {
 };
 
 const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url:
-        process.env.DATABASE_URL ||
-        "file:../data/controle-videos.db?connection_limit=1",
-    },
-  },
+  adapter: new PrismaBetterSqlite3({
+    url: process.env.DATABASE_URL || "file:./data/controle-videos.db",
+  }),
 });
 
 async function seedConfigVariables() {

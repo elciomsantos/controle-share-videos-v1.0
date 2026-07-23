@@ -9,10 +9,10 @@ import {
 import * as crypto from "crypto";
 import { createReadStream } from "fs";
 import * as fs from "fs/promises";
-import * as mime from "mime-types";
+import mime from "mime-types";
 import { I18nService } from "nestjs-i18n";
-import { ConfigService } from "src/config/config.service";
-import { PrismaService } from "src/prisma/prisma.service";
+import { ConfigService } from "../config/config.service";
+import { PrismaService } from "../prisma/prisma.service";
 import { validate as isValidUUID } from "uuid";
 import { SHARE_DIRECTORY } from "../constants";
 import { Readable } from "stream";

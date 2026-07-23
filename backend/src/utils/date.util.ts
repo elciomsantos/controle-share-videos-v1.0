@@ -1,11 +1,15 @@
-import dayjs = require("dayjs");
-import duration = require("dayjs/plugin/duration");
-import relativeTime = require("dayjs/plugin/relativeTime");
-import customParseFormat = require("dayjs/plugin/customParseFormat");
+import dayjs from "dayjs";
+import duration from "dayjs/plugin/duration";
+import relativeTime from "dayjs/plugin/relativeTime";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+import type { DurationUnitType } from "dayjs/plugin/duration";
 
-(dayjs as any).extend(duration);
-(dayjs as any).extend(relativeTime);
-(dayjs as any).extend(customParseFormat);
+dayjs.extend(duration as any);
+dayjs.extend(relativeTime as any);
+dayjs.extend(customParseFormat as any);
+
+export { dayjs };
+export { type DurationUnitType };
 
 export const EPOCH_ZERO = new Date(0);
 
@@ -15,7 +19,7 @@ export function parseRelativeDateToAbsolute(relativeDate: string) {
   return dayjs()
     .add(
       Number(relativeDate.split("-")[0]),
-      relativeDate.split("-")[1] as duration.DurationUnitType,
+      relativeDate.split("-")[1] as DurationUnitType,
     )
     .toDate();
 }
@@ -23,8 +27,6 @@ export function parseRelativeDateToAbsolute(relativeDate: string) {
 export function isEpochZero(date: Date | string | number) {
   return dayjs(date).isSame(dayjs(0));
 }
-
-export { dayjs };
 
 type Timespan = {
   value: number;

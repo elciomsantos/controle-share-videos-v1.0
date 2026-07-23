@@ -1,7 +1,7 @@
 import { ExecutionContext, Injectable } from "@nestjs/common";
-import { JwtGuard } from "src/auth/guard/jwt.guard";
-import { ConfigService } from "src/config/config.service";
-import { ReverseShareService } from "src/reverseShare/reverseShare.service";
+import { JwtGuard } from "../../auth/guard/jwt.guard";
+import { ConfigService } from "../../config/config.service";
+import { ReverseShareService } from "../../reverseShare/reverseShare.service";
 
 @Injectable()
 export class CreateShareGuard extends JwtGuard {

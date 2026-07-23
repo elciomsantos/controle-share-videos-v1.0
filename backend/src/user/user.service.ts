@@ -1,11 +1,11 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
-import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
-import * as argon from "argon2";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client";
+import argon from "argon2";
 import * as crypto from "crypto";
 import { I18nService } from "nestjs-i18n";
-import { ARGON2_OPTIONS } from "src/constants";
-import { EmailService } from "src/email/email.service";
-import { PrismaService } from "src/prisma/prisma.service";
+import { ARGON2_OPTIONS } from "../constants";
+import { EmailService } from "../email/email.service";
+import { PrismaService } from "../prisma/prisma.service";
 import { FileService } from "../file/file.service";
 import { CreateUserDTO } from "./dto/createUser.dto";
 import { UpdateUserDto } from "./dto/updateUser.dto";

@@ -1,14 +1,12 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import dayjs = require("dayjs");
-import duration = require("dayjs/plugin/duration");
+import dayjs from "dayjs";
+import type { DurationUnitType } from "dayjs/plugin/duration";
 import { I18nService } from "nestjs-i18n";
-import { ConfigService } from "src/config/config.service";
-import { FileService } from "src/file/file.service";
-import { PrismaService } from "src/prisma/prisma.service";
-import { parseRelativeDateToAbsolute } from "src/utils/date.util";
+import { ConfigService } from "../config/config.service";
+import { FileService } from "../file/file.service";
+import { PrismaService } from "../prisma/prisma.service";
+import { parseRelativeDateToAbsolute } from "../utils/date.util";
 import { CreateReverseShareDTO } from "./dto/createReverseShare.dto";
-
-(dayjs as any).extend(duration);
 
 @Injectable()
 export class ReverseShareService {
@@ -26,7 +24,7 @@ export class ReverseShareService {
         Number(data.shareExpiration.split("-")[0]),
         data.shareExpiration.split(
           "-",
-        )[1] as duration.DurationUnitType,
+        )[1] as DurationUnitType,
       )
       .toDate();
 

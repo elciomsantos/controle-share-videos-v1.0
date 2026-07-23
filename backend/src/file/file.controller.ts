@@ -12,17 +12,17 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { SkipThrottle } from "@nestjs/throttler";
-import * as contentDisposition from "content-disposition";
+import contentDisposition from "content-disposition";
 import { Request, Response } from "express";
-import { DownloadLogService } from "src/download-log/download-log.service";
-import { JwtGuard } from "src/auth/guard/jwt.guard";
-import { CreateShareGuard } from "src/share/guard/createShare.guard";
-import { StrictShareOwnerGuard } from "src/share/guard/strictShareOwner.guard";
-import { IdValidation } from "src/share/guard/shareIdValidation.guard";
+import { DownloadLogService } from "../download-log/download-log.service";
+import { JwtGuard } from "../auth/guard/jwt.guard";
+import { CreateShareGuard } from "../share/guard/createShare.guard";
+import { StrictShareOwnerGuard } from "../share/guard/strictShareOwner.guard";
+import { IdValidation } from "../share/guard/shareIdValidation.guard";
 import { FileService } from "./file.service";
 import { DownloadLimitGuard } from "./guard/downloadLimit.guard";
 import { FileSecurityGuard } from "./guard/fileSecurity.guard";
-import * as mime from "mime-types";
+import mime from "mime-types";
 
 const VALID_ID_REGEX = /^[a-zA-Z0-9-]*={0,2}$/;
 

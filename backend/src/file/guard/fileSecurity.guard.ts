@@ -6,14 +6,14 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { Request } from "express";
-import dayjs = require("dayjs");
-import { User } from "@prisma/client";
+import dayjs from "dayjs";
+import { User } from "../../../prisma/generated/prisma/client";
 import { I18nService } from "nestjs-i18n";
-import { PrismaService } from "src/prisma/prisma.service";
-import { ShareSecurityGuard } from "src/share/guard/shareSecurity.guard";
-import { ShareService } from "src/share/share.service";
-import { ConfigService } from "src/config/config.service";
-import { isEpochZero } from "src/utils/date.util";
+import { PrismaService } from "../../prisma/prisma.service";
+import { ShareSecurityGuard } from "../../share/guard/shareSecurity.guard";
+import { ShareService } from "../../share/share.service";
+import { ConfigService } from "../../config/config.service";
+import { isEpochZero } from "../../utils/date.util";
 
 @Injectable()
 export class FileSecurityGuard extends ShareSecurityGuard {
