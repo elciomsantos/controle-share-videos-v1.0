@@ -29,7 +29,7 @@ Este plano cobre a evolução de tudo o que está depreciado/atrasado, em ordem 
 | 4 — jose 5 → 6 | ✅ | `627c2a8` | `pre-evolucao-fase-4` | concluída em 2026-07-23 |
 | 5 — moment → dayjs | ✅ | `efa7c54` | `pre-evolucao-fase-5` | concluída em 2026-07-23 |
 | 6 — http-proxy → rewrites | ✅ | `361e8b2` | `pre-evolucao-fase-6` | concluída em 2026-07-23 |
-| 7 — Prisma 6 → 7 | ✅ | `pendente` | — | concluída em 2026-07-23 |
+| 7 — Prisma 6 → 7 | ✅ | `fa1c6df` | — | concluída em 2026-07-23 |
 | 8 — TypeScript 5 → 7 | ⏳ pendente | — | — | próxima |
 | 9 — markdown-to-jsx 9 | ⏳ pendente | — | — | |
 
