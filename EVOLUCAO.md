@@ -26,7 +26,7 @@ Este plano cobre a evolução de tudo o que está depreciado/atrasado, em ordem 
 | 1 — Bumps triviais | ✅ | `18d6805` | `pre-evolucao-fase-1` (criada retroativamente) | concluída em 2026-07-22 |
 | 2 — PWA → serwist | ✅ | `a6c46e5` | `pre-evolucao-fase-2` (criada retroativamente) | SW bug `bad-precaching-response` resolvido |
 | 3 — cookies-next 4 → 6 | ✅ | `4340896` | `pre-evolucao-fase-3` | concluída em 2026-07-23 |
-| 4 — jose 5 → 6 | ✅ | (a confirmar commit) | `pre-evolucao-fase-4` | concluída em 2026-07-23 |
+| 4 — jose 5 → 6 | ✅ | `627c2a8` | `pre-evolucao-fase-4` | concluída em 2026-07-23 |
 | 5 — moment → dayjs | ⏳ pendente | — | — | próxima |
 | 6 — http-proxy → rewrites | ⏳ pendente | — | — | |
 | 7 — Prisma 6 → 7 | ⏳ pendente | — | — | |
