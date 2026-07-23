@@ -28,7 +28,7 @@ Este plano cobre a evolução de tudo o que está depreciado/atrasado, em ordem 
 | 3 — cookies-next 4 → 6 | ✅ | `4340896` | `pre-evolucao-fase-3` | concluída em 2026-07-23 |
 | 4 — jose 5 → 6 | ✅ | `627c2a8` | `pre-evolucao-fase-4` | concluída em 2026-07-23 |
 | 5 — moment → dayjs | ✅ | `efa7c54` | `pre-evolucao-fase-5` | concluída em 2026-07-23 |
-| 6 — http-proxy → rewrites | ✅ | `<hash>` | `pre-evolucao-fase-6` | concluída em 2026-07-23 |
+| 6 — http-proxy → rewrites | ✅ | `361e8b2` | `pre-evolucao-fase-6` | concluída em 2026-07-23 |
 | 7 — Prisma 6 → 7 | ⏳ pendente | — | — | próxima |
 | 8 — TypeScript 5 → 7 | ⏳ pendente | — | — | |
 | 9 — markdown-to-jsx 9 | ⏳ pendente | — | — | |
