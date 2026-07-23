@@ -319,6 +319,7 @@ function App({ Component, pageProps }: AppProps) {
 }
 
 App.getInitialProps = async ({ ctx }: { ctx: GetServerSidePropsContext }) => {
+  const colorSchemeCookie = await getCookie("mantine-color-scheme", ctx);
   let pageProps: {
     user?: CurrentUser;
     configVariables?: Config[];
@@ -327,8 +328,7 @@ App.getInitialProps = async ({ ctx }: { ctx: GetServerSidePropsContext }) => {
     language?: string;
   } = {
     route: ctx.resolvedUrl,
-    colorScheme:
-      (getCookie("mantine-color-scheme", ctx) as "light" | "dark") ?? "light",
+    colorScheme: (colorSchemeCookie as "light" | "dark") ?? "light",
   };
 
   if (ctx.req) {

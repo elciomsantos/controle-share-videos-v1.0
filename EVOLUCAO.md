@@ -1,10 +1,10 @@
 # Plano de Evolução — atualização de dependências e stack
 
-Estado: **em execução — Fase 3/9 pendente**  
+Estado: **em execução — Fase 4/9 pendente**  
 Iniciado em: 2026-07-22  
 Branch: `main`  
 Tag de safety: `pre-evolucao` (criar antes de começar a Fase 1)  
-Concluídas: Fase 1 ✅, Fase 2 ✅
+Concluídas: Fase 1 ✅, Fase 2 ✅, Fase 3 ✅
 
 ---
 
@@ -25,8 +25,8 @@ Este plano cobre a evolução de tudo o que está depreciado/atrasado, em ordem 
 |---|---|---|---|---|
 | 1 — Bumps triviais | ✅ | `18d6805` | `pre-evolucao-fase-1` (criada retroativamente) | concluída em 2026-07-22 |
 | 2 — PWA → serwist | ✅ | `a6c46e5` | `pre-evolucao-fase-2` (criada retroativamente) | SW bug `bad-precaching-response` resolvido |
-| 3 — cookies-next 4 → 6 | ⏳ pendente | — | — | próxima |
-| 4 — jose 5 → 6 | ⏳ pendente | — | — | |
+| 3 — cookies-next 4 → 6 | ✅ | (a confirmar commit) | `pre-evolucao-fase-3` | concluída em 2026-07-23 |
+| 4 — jose 5 → 6 | ⏳ pendente | — | — | próxima |
 | 5 — moment → dayjs | ⏳ pendente | — | — | |
 | 6 — http-proxy → rewrites | ⏳ pendente | — | — | |
 | 7 — Prisma 6 → 7 | ⏳ pendente | — | — | |
@@ -171,6 +171,10 @@ Frontend (`frontend/package.json`):
 5. `npm run build` + rebuild container
 6. Validar fluxo: login → refresh → logout na mão (browser)
 7. Commit: `Evolução Fase 3: cookies-next 4 → 6 (SSR async)`
+
+> ✅ **Concluída em 2026-07-23 — tag `pre-evolucao-fase-3`**  
+> Mapeamento real: 6 arquivos usam cookies-next (não 4 como previsto). Apenas `_app.tsx` L331 (SSR `getInitialProps`) exigiu `await getCookie(...)` — demais usos são client-side e permanecem síncronos em v6.  
+> Validação: 0 vulns, build OK, container healthy, `POST /api/auth/signUp` → 201 com `isAdmin:true`, `GET /api/users/me` com cookie → 200.
 
 ---
 
