@@ -1,9 +1,10 @@
 # Plano de Evolução — atualização de dependências e stack
 
-Estado: **em execução**  
+Estado: **em execução — Fase 3/9 pendente**  
 Iniciado em: 2026-07-22  
 Branch: `main`  
-Tag de safety: `pre-evolucao` (criar antes de começar a Fase 1)
+Tag de safety: `pre-evolucao` (criar antes de começar a Fase 1)  
+Concluídas: Fase 1 ✅, Fase 2 ✅
 
 ---
 
@@ -17,6 +18,20 @@ O sistema está funcional com:
 - Bug de cadastro (tela não avança): **corrigido** (seed `secureCookies=false` + `allowRegistration=true`)
 
 Este plano cobre a evolução de tudo o que está depreciado/atrasado, em ordem de **menor risco primeiro**. Cada fase é auto-contida: ao final, o sistema deve estar rodando com a feature funcional.
+
+## Progresso
+
+| Fase | Status | Commit | Tag de safety | Observação |
+|---|---|---|---|---|
+| 1 — Bumps triviais | ✅ | `18d6805` | `pre-evolucao-fase-1` (criada retroativamente) | concluída em 2026-07-22 |
+| 2 — PWA → serwist | ✅ | `a6c46e5` | `pre-evolucao-fase-2` (criada retroativamente) | SW bug `bad-precaching-response` resolvido |
+| 3 — cookies-next 4 → 6 | ⏳ pendente | — | — | próxima |
+| 4 — jose 5 → 6 | ⏳ pendente | — | — | |
+| 5 — moment → dayjs | ⏳ pendente | — | — | |
+| 6 — http-proxy → rewrites | ⏳ pendente | — | — | |
+| 7 — Prisma 6 → 7 | ⏳ pendente | — | — | |
+| 8 — TypeScript 5 → 7 | ⏳ pendente | — | — | |
+| 9 — markdown-to-jsx 9 | ⏳ pendente | — | — | |
 
 ## Princípios
 
@@ -86,6 +101,9 @@ Frontend (`frontend/package.json`):
 6. Rebuild do container + validação mínima
 7. Commit: `Evolução Fase 1: bumps triviais (argon2, class-validator, @types/node, etc)`
 
+> ✅ **Concluída em 2026-07-22 — commit `18d6805`**  
+> Tag de safety `pre-evolucao-fase-1` criada retroativamente.
+
 ---
 
 ## FASE 2 — Migrar PWA: next-pwa → serwist
@@ -118,6 +136,10 @@ Frontend (`frontend/package.json`):
 6. Rebuild, inspecionar `sw.js` gerado — confirmar que NÃO lista mais `dynamic-css-manifest.json` (ou que o arquivo agora é servido)
 7. Validar PWA install no navegador (DevTools → Application → Service Workers → should be `activated and is running`)
 8. Commit: `Evolução Fase 2: migrar PWA next-pwa → serwist`
+
+> ✅ **Concluída em 2026-07-22 — commit `a6c46e5`**  
+> Tag de safety `pre-evolucao-fase-2` criada retroativamente.  
+> Bug `bad-precaching-response` do Service Worker resolvido com a migração para serwist.
 
 ### Pontos de atenção
 - Serwist usa ESM imports em next.config.js (pode ser preciso `import` em vez de `require` se o next.config já for .mjs)
@@ -398,5 +420,5 @@ Total estimado: 16-25h (distribuidos em várias sessões)
 
 ---
 
-Última atualização: 2026-07-22  
+Última atualização: 2026-07-23  
 Responsável: time de evolução
