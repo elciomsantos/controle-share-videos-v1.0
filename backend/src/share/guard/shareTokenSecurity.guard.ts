@@ -5,9 +5,10 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { Request } from "express";
-import * as moment from "moment";
+import dayjs = require("dayjs");
 import { I18nService } from "nestjs-i18n";
 import { PrismaService } from "src/prisma/prisma.service";
+import { isEpochZero } from "src/utils/date.util";
 
 @Injectable()
 export class ShareTokenSecurity implements CanActivate {
@@ -32,8 +33,8 @@ export class ShareTokenSecurity implements CanActivate {
 
     if (
       !share ||
-      (moment().isAfter(share.expiration) &&
-        !moment(share.expiration).isSame(0))
+      (dayjs().isAfter(share.expiration) &&
+        !isEpochZero(share.expiration))
     )
       throw new NotFoundException(this.i18n.t("share.notFound"));
 

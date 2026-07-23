@@ -5,13 +5,14 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { Request } from "express";
-import * as moment from "moment";
+import dayjs = require("dayjs");
 import { I18nService } from "nestjs-i18n";
 import { PrismaService } from "src/prisma/prisma.service";
 import { ShareService } from "src/share/share.service";
 import { ConfigService } from "src/config/config.service";
 import { JwtGuard } from "src/auth/guard/jwt.guard";
 import { User } from "@prisma/client";
+import { isEpochZero } from "src/utils/date.util";
 
 @Injectable()
 export class ShareSecurityGuard extends JwtGuard {
@@ -56,8 +57,8 @@ export class ShareSecurityGuard extends JwtGuard {
     }
 
     if (
-      moment().isAfter(share.expiration) &&
-      !moment(share.expiration).isSame(0)
+      dayjs().isAfter(share.expiration) &&
+      !isEpochZero(share.expiration)
     ) {
       throw new NotFoundException(this.i18n.t("share.notFound"));
     }

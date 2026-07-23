@@ -6,13 +6,14 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { Request } from "express";
-import * as moment from "moment";
+import dayjs = require("dayjs");
 import { User } from "@prisma/client";
 import { I18nService } from "nestjs-i18n";
 import { PrismaService } from "src/prisma/prisma.service";
 import { ShareSecurityGuard } from "src/share/guard/shareSecurity.guard";
 import { ShareService } from "src/share/share.service";
 import { ConfigService } from "src/config/config.service";
+import { isEpochZero } from "src/utils/date.util";
 
 @Injectable()
 export class FileSecurityGuard extends ShareSecurityGuard {
@@ -64,8 +65,8 @@ export class FileSecurityGuard extends ShareSecurityGuard {
 
       if (
         !share ||
-        (moment().isAfter(share.expiration) &&
-          !moment(share.expiration).isSame(0))
+        (dayjs().isAfter(share.expiration) &&
+          !isEpochZero(share.expiration))
       ) {
         throw new NotFoundException(this._i18n.t("file.notFound"));
       }

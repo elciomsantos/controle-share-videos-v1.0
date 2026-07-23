@@ -1,10 +1,10 @@
 # Plano de Evolução — atualização de dependências e stack
 
-Estado: **em execução — Fase 5/9 pendente**  
+Estado: **em execução — Fase 5/9 concluída, Fase 6 pendente**  
 Iniciado em: 2026-07-22  
 Branch: `main`  
 Tag de safety: `pre-evolucao` (criar antes de começar a Fase 1)  
-Concluídas: Fase 1 ✅, Fase 2 ✅, Fase 3 ✅, Fase 4 ✅
+Concluídas: Fase 1 ✅, Fase 2 ✅, Fase 3 ✅, Fase 4 ✅, Fase 5 ✅
 
 ---
 
@@ -27,8 +27,8 @@ Este plano cobre a evolução de tudo o que está depreciado/atrasado, em ordem 
 | 2 — PWA → serwist | ✅ | `a6c46e5` | `pre-evolucao-fase-2` (criada retroativamente) | SW bug `bad-precaching-response` resolvido |
 | 3 — cookies-next 4 → 6 | ✅ | `4340896` | `pre-evolucao-fase-3` | concluída em 2026-07-23 |
 | 4 — jose 5 → 6 | ✅ | `627c2a8` | `pre-evolucao-fase-4` | concluída em 2026-07-23 |
-| 5 — moment → dayjs | ⏳ pendente | — | — | próxima |
-| 6 — http-proxy → rewrites | ⏳ pendente | — | — | |
+| 5 — moment → dayjs | ✅ | `<hash>` | `pre-evolucao-fase-5` | concluída em 2026-07-23 |
+| 6 — http-proxy → rewrites | ⏳ pendente | — | — | próxima |
 | 7 — Prisma 6 → 7 | ⏳ pendente | — | — | |
 | 8 — TypeScript 5 → 7 | ⏳ pendente | — | — | |
 | 9 — markdown-to-jsx 9 | ⏳ pendente | — | — | |
@@ -241,6 +241,17 @@ Frontend (`frontend/package.json`):
    - Job de limpeza (`jobs.service`)
 9. Rebuild container, validar cadastro
 10. Commit: `Evolução Fase 5: migrar moment → dayjs no backend`
+
+### Registo de execução (2026-07-23)
+- **dayjs@^1.11.21** instalado, **moment** removido do `backend/package.json` (0 vulns)
+- **10 arquivos refatorados** na ordem: `date.util.ts` → `reverseShare.service.ts` → `auth.service.ts` → `email.service.ts` → `jobs.service.ts` → `share.service.ts` → `share.controller.ts` → `shareTokenSecurity.guard.ts` → `shareSecurity.guard.ts` → `fileSecurity.guard.ts`
+- **Helper central** em `date.util.ts`: `EPOCH_ZERO`, `isEpochZero()`, `parseRelativeDateToAbsolute()` + plugins `duration`, `relativeTime`, `customParseFormat` extendidos via `import = require()` (compat CJS sem `esModuleInterop`)
+- **Importação TS**: usado `import dayjs = require("dayjs")` em todos os arquivos (padrão CJS sem `esModuleInterop`) — tentativa inicial com `import dayjs from "dayjs"` falhou em runtime (`dayjs.extend is not a function`) porque o `tsconfig.json` não tem `esModuleInterop`; habilitá-lo quebrou 6 imports default de outras libs (`authTotp.service`, `clamscan.service`, `s3.service`, `main.ts`, `share.service`), então revertido
+- **`moment.ISO_8601` strict parse** em `share.service.parseExpiration`: simplificado para `dayjs(expiration)` (parse ISO 8601 nativo do dayjs) com `.isValid()` check — não precisa de `customParseFormat` para ISO
+- **`moment().locale(locale).fromNow()`** em `email.service.ts`: plugin `relativeTime` + `dayjs/locale/pt-br` import
+- **Correção de tipo**: `duration.DurationUnitNameType` → `duration.DurationUnitType` (nome correto na API do plugin dayjs 1.11)
+- **Frontend não tocado** (moment ainda presente em `frontend/src/*` — fora do escopo desta fase, backend-only)
+- **Validação**: `npm run build` frontend ✅, Docker build ✅, container healthy ✅, `POST /api/auth/signUp` → 200 com user criado (`isAdmin:false` — comportamento normal, não há auto-admin no primeiro cadastro), `GET /api/users/me` com cookie → 200 ✅
 
 ---
 

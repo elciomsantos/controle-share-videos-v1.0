@@ -10,7 +10,7 @@ import { Prisma, User } from "@prisma/client";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import * as argon from "argon2";
 import { Request, Response } from "express";
-import * as moment from "moment";
+import dayjs = require("dayjs");
 import { I18nService } from "nestjs-i18n";
 import { ARGON2_OPTIONS } from "src/constants";
 import { ConfigService } from "src/config/config.service";
@@ -57,7 +57,7 @@ export class AuthService {
             isActivated: !needsVerification,
             activationToken: needsVerification ? crypto.randomUUID() : null,
             activationTokenExpiresAt: needsVerification
-              ? moment().add(1, "day").toDate()
+              ? dayjs().add(1, "day").toDate()
               : null,
           },
         });
@@ -163,7 +163,7 @@ export class AuthService {
 
       const { token } = await tx.resetPasswordToken.create({
         data: {
-          expiresAt: moment().add(1, "hour").toDate(),
+          expiresAt: dayjs().add(1, "hour").toDate(),
           user: { connect: { id: user.id } },
         },
       });
@@ -228,7 +228,7 @@ export class AuthService {
     }
 
     const activationToken = crypto.randomUUID();
-    const activationTokenExpiresAt = moment().add(1, "day").toDate();
+    const activationTokenExpiresAt = dayjs().add(1, "day").toDate();
 
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({
@@ -336,7 +336,7 @@ export class AuthService {
     const { id, token } = await prisma.refreshToken.create({
       data: {
         userId,
-        expiresAt: moment()
+        expiresAt: dayjs()
           .add(sessionDuration.value, sessionDuration.unit)
           .toDate(),
       },
@@ -348,7 +348,7 @@ export class AuthService {
   async createLoginToken(userId: string) {
     const loginToken = (
       await this.prisma.loginToken.create({
-        data: { userId, expiresAt: moment().add(5, "minutes").toDate() },
+        data: { userId, expiresAt: dayjs().add(5, "minutes").toDate() },
       })
     ).token;
 
@@ -369,9 +369,9 @@ export class AuthService {
         maxAge: 1000 * 60 * 60 * 24 * 30 * 3, // 3 months
       });
     if (refreshToken) {
-      const now = moment();
+      const now = dayjs();
       const sessionDuration = this.config.get("general.sessionDuration");
-      const maxAge = moment(now)
+      const maxAge = dayjs(now)
         .add(sessionDuration.value, sessionDuration.unit)
         .diff(now);
       response.cookie("refresh_token", refreshToken, {

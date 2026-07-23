@@ -1,11 +1,12 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import * as fs from "fs";
-import * as moment from "moment";
+import dayjs = require("dayjs");
 import { FileService } from "src/file/file.service";
 import { PrismaService } from "src/prisma/prisma.service";
 import { ReverseShareService } from "src/reverseShare/reverseShare.service";
 import { ConfigService } from "src/config/config.service";
+import { EPOCH_ZERO } from "src/utils/date.util";
 import { SHARE_DIRECTORY } from "../constants";
 
 @Injectable()
@@ -29,7 +30,7 @@ export class JobsService {
       return;
     }
 
-    const thresholdDate = moment()
+    const thresholdDate = dayjs()
       .subtract(fileRetentionPeriod.value, fileRetentionPeriod.unit)
       .toDate();
 
@@ -38,7 +39,7 @@ export class JobsService {
         // We want to remove only shares that have an expiration date + retention period less than the current date, but not 0
         AND: [
           { expiration: { lt: thresholdDate } },
-          { expiration: { not: moment(0).toDate() } },
+          { expiration: { not: EPOCH_ZERO } },
         ],
       },
     });
@@ -76,7 +77,7 @@ export class JobsService {
 
   @Cron("0 */6 * * *")
   async deleteUnfinishedShares() {
-    const cutoff = moment().subtract(1, "day").toDate();
+    const cutoff = dayjs().subtract(1, "day").toDate();
     const unfinishedShares = await this.prisma.share.findMany({
       where: {
         uploadLocked: false,
@@ -117,9 +118,9 @@ export class JobsService {
         const stats = fs.statSync(
           `${SHARE_DIRECTORY}/${shareDirectory}/${file}`,
         );
-        const isOlderThanOneDay = moment(stats.mtime)
+        const isOlderThanOneDay = dayjs(stats.mtime)
           .add(1, "day")
-          .isBefore(moment());
+          .isBefore(dayjs());
 
         if (isOlderThanOneDay) {
           fs.rmSync(`${SHARE_DIRECTORY}/${shareDirectory}/${file}`);
@@ -157,7 +158,7 @@ export class JobsService {
 
   @Cron("0 * * * *")
   async deleteUnactivatedUsers() {
-    const cutoff = moment().subtract(24, "hours").toDate();
+    const cutoff = dayjs().subtract(24, "hours").toDate();
     const unactivatedUsers = await this.prisma.user.findMany({
       where: {
         isActivated: false,

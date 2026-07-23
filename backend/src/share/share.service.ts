@@ -10,7 +10,7 @@ import * as archiver from "archiver";
 import * as argon from "argon2";
 import * as crypto from "crypto";
 import * as fs from "fs";
-import * as moment from "moment";
+import dayjs = require("dayjs");
 import { I18nService } from "nestjs-i18n";
 import { ClamScanService } from "src/clamscan/clamscan.service";
 import { ConfigService } from "src/config/config.service";
@@ -19,7 +19,11 @@ import { FileService } from "src/file/file.service";
 import { PrismaService } from "src/prisma/prisma.service";
 import { ReverseShareService } from "src/reverseShare/reverseShare.service";
 import { SystemService } from "src/system/system.service";
-import { parseRelativeDateToAbsolute } from "src/utils/date.util";
+import {
+  EPOCH_ZERO,
+  isEpochZero,
+  parseRelativeDateToAbsolute,
+} from "src/utils/date.util";
 import { ARGON2_OPTIONS, SHARE_DIRECTORY } from "../constants";
 import { CreateShareDTO } from "./dto/createShare.dto";
 import { UpdateShareDTO } from "./dto/updateShare.dto";
@@ -230,7 +234,7 @@ export class ShareService {
         // We want to grab any shares that are not expired or have their expiration date set to "never" (unix 0)
         OR: [
           { expiration: { gt: new Date() } },
-          { expiration: { equals: moment(0).toDate() } },
+          { expiration: { equals: EPOCH_ZERO } },
         ],
       },
       orderBy: {
@@ -305,7 +309,7 @@ export class ShareService {
 
     await this.prisma.share.update({
       where: { id: shareId },
-      data: { expiration: moment().toDate() },
+      data: { expiration: dayjs().toDate() },
     });
   }
 
@@ -420,7 +424,7 @@ export class ShareService {
   }
 
   private parseExpiration(expiration: string) {
-    if (expiration === "never") return moment(0).toDate();
+    if (expiration === "never") return EPOCH_ZERO;
 
     if (
       /^\d+-(minute|hour|day|week|month|year|minutes|hours|days|weeks|months|years)$/.test(
@@ -430,21 +434,21 @@ export class ShareService {
       return parseRelativeDateToAbsolute(expiration);
     }
 
-    const absoluteExpiration = moment(expiration, moment.ISO_8601, true);
+    const absoluteExpiration = dayjs(expiration);
     if (absoluteExpiration.isValid()) return absoluteExpiration.toDate();
 
     throw new BadRequestException(this.i18n.t("share.invalidExpiration"));
   }
 
   private validateExpiration(expiration: Date) {
-    const expiresNever = moment(expiration).isSame(0);
+    const expiresNever = isEpochZero(expiration);
     const maxExpiration = this.config.get("share.maxExpiration");
 
     if (
       maxExpiration.value !== 0 &&
       (expiresNever ||
         expiration >
-          moment().add(maxExpiration.value, maxExpiration.unit).toDate())
+          dayjs().add(maxExpiration.value, maxExpiration.unit).toDate())
     ) {
       throw new BadRequestException(this.i18n.t("share.maxExpirationExceeded"));
     }
@@ -510,19 +514,19 @@ export class ShareService {
 
     const tokenPayload = {
       shareId,
-      shareCreatedAt: moment(createdAt).unix(),
+      shareCreatedAt: dayjs(createdAt).unix(),
       sharePasswordSignature: this.getSharePasswordSignature(
         security?.password,
       ),
-      iat: moment().unix(),
+      iat: dayjs().unix(),
     };
 
     const tokenOptions: JwtSignOptions = {
       secret: this.config.get("internal.jwtSecret"),
     };
 
-    if (!moment(expiration).isSame(0)) {
-      const diffSeconds = moment(expiration).diff(new Date(), "seconds");
+    if (!isEpochZero(expiration)) {
+      const diffSeconds = dayjs(expiration).diff(new Date(), "seconds");
       // Default to a 1 hour token if the share is expired but being viewed by an admin
       tokenOptions.expiresIn = diffSeconds > 0 ? diffSeconds : 3600;
     }
@@ -540,12 +544,12 @@ export class ShareService {
       const claims = this.jwtService.verify(token, {
         secret: this.config.get("internal.jwtSecret"),
         // Ignore expiration if expiration is 0
-        ignoreExpiration: moment(expiration).isSame(0),
+        ignoreExpiration: isEpochZero(expiration),
       });
 
       return (
         claims.shareId == share.id &&
-        claims.shareCreatedAt == moment(createdAt).unix() &&
+        claims.shareCreatedAt == dayjs(createdAt).unix() &&
         (!security?.password ||
           claims.sharePasswordSignature ===
             this.getSharePasswordSignature(security.password))

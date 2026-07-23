@@ -4,10 +4,14 @@ import {
   Logger,
 } from "@nestjs/common";
 import { User } from "@prisma/client";
-import * as moment from "moment";
+import dayjs = require("dayjs");
+import relativeTime = require("dayjs/plugin/relativeTime");
+import "dayjs/locale/pt-br";
 import * as nodemailer from "nodemailer";
 import { I18nService } from "nestjs-i18n";
 import { ConfigService } from "src/config/config.service";
+
+(dayjs as any).extend(relativeTime);
 
 @Injectable()
 export class EmailService {
@@ -95,8 +99,8 @@ export class EmailService {
         )
         .replaceAll(
           "{expires}",
-          moment(expiration).unix() != 0
-            ? moment(expiration).locale(locale).fromNow()
+          dayjs(expiration).unix() != 0
+            ? dayjs(expiration).locale(locale).fromNow()
             : this.i18n.t("email.shareRecipientsExpiresNeverFallback"),
         ),
     );

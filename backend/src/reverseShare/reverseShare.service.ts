@@ -1,11 +1,14 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import * as moment from "moment";
+import dayjs = require("dayjs");
+import duration = require("dayjs/plugin/duration");
 import { I18nService } from "nestjs-i18n";
 import { ConfigService } from "src/config/config.service";
 import { FileService } from "src/file/file.service";
 import { PrismaService } from "src/prisma/prisma.service";
 import { parseRelativeDateToAbsolute } from "src/utils/date.util";
 import { CreateReverseShareDTO } from "./dto/createReverseShare.dto";
+
+(dayjs as any).extend(duration);
 
 @Injectable()
 export class ReverseShareService {
@@ -18,12 +21,12 @@ export class ReverseShareService {
 
   async create(data: CreateReverseShareDTO, creatorId: string) {
     // Parse date string to date
-    const expirationDate = moment()
+    const expirationDate = dayjs()
       .add(
-        data.shareExpiration.split("-")[0],
+        Number(data.shareExpiration.split("-")[0]),
         data.shareExpiration.split(
           "-",
-        )[1] as moment.unitOfTime.DurationConstructor,
+        )[1] as duration.DurationUnitType,
       )
       .toDate();
 
@@ -37,7 +40,7 @@ export class ReverseShareService {
       !creator?.isAdmin &&
       maxExpiration.value !== 0 &&
       parsedExpiration >
-        moment().add(maxExpiration.value, maxExpiration.unit).toDate()
+        dayjs().add(maxExpiration.value, maxExpiration.unit).toDate()
     ) {
       throw new BadRequestException(this.i18n.t("share.maxExpirationExceeded"));
     }
