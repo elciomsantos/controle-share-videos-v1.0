@@ -1,10 +1,10 @@
 # Plano de Evolução — atualização de dependências e stack
 
-Estado: **em execução — Fase 4/9 pendente**  
+Estado: **em execução — Fase 5/9 pendente**  
 Iniciado em: 2026-07-22  
 Branch: `main`  
 Tag de safety: `pre-evolucao` (criar antes de começar a Fase 1)  
-Concluídas: Fase 1 ✅, Fase 2 ✅, Fase 3 ✅
+Concluídas: Fase 1 ✅, Fase 2 ✅, Fase 3 ✅, Fase 4 ✅
 
 ---
 
@@ -26,8 +26,8 @@ Este plano cobre a evolução de tudo o que está depreciado/atrasado, em ordem 
 | 1 — Bumps triviais | ✅ | `18d6805` | `pre-evolucao-fase-1` (criada retroativamente) | concluída em 2026-07-22 |
 | 2 — PWA → serwist | ✅ | `a6c46e5` | `pre-evolucao-fase-2` (criada retroativamente) | SW bug `bad-precaching-response` resolvido |
 | 3 — cookies-next 4 → 6 | ✅ | `4340896` | `pre-evolucao-fase-3` | concluída em 2026-07-23 |
-| 4 — jose 5 → 6 | ⏳ pendente | — | — | próxima |
-| 5 — moment → dayjs | ⏳ pendente | — | — | |
+| 4 — jose 5 → 6 | ✅ | (a confirmar commit) | `pre-evolucao-fase-4` | concluída em 2026-07-23 |
+| 5 — moment → dayjs | ⏳ pendente | — | — | próxima |
 | 6 — http-proxy → rewrites | ⏳ pendente | — | — | |
 | 7 — Prisma 6 → 7 | ⏳ pendente | — | — | |
 | 8 — TypeScript 5 → 7 | ⏳ pendente | — | — | |
@@ -197,6 +197,11 @@ Frontend (`frontend/package.json`):
 5. `npm run build`
 6. Validar decode do `accessToken` no `_app` (browser → DevTools vê JWT payload)
 7. Commit: `Evolução Fase 4: jose 5 → 6 (JWT async)`
+
+> ✅ **Concluída em 2026-07-23 — tag `pre-evolucao-fase-4`**  
+> **Correção do plano**: o `EVOLUCAO.md` previa que `decodeJwt` viria async em v6 — **incorreto**. Li a changelog oficial v6.0.0 e `decodeJwt` permanece síncrono (em v5 e v6). Breaking changes reais da v6 (KeyObject → CryptoKey, Ed448/X448 removidos, RSA1_5 removido, Key Generics removidos) **não afetam nosso código** — apenas usamos `jose.decodeJwt(accessToken).exp`.  
+> Único arquivo afetado: `frontend/src/services/auth.service.ts` (nenhuma mudança de código, apenas bump de versão).  
+> Validação: 0 vulns, build OK, container healthy, `POST /api/auth/signUp` → 201 com `isAdmin:true` no primeiro usuário, `GET /api/users/me` com cookie → 200.
 
 ---
 
