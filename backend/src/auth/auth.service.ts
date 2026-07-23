@@ -7,7 +7,6 @@ import {
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { Prisma, User } from "../../prisma/generated/prisma/client";
-import { PrismaClientKnownRequestError } from "@prisma/client/runtime/client";
 import argon from "argon2";
 import { Request, Response } from "express";
 import dayjs from "dayjs";
@@ -81,7 +80,7 @@ export class AuthService {
       });
     } catch (e) {
       if (
-        e instanceof PrismaClientKnownRequestError &&
+        e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code == "P2002"
       ) {
         const duplicatedField: string = e.meta.target[0];
