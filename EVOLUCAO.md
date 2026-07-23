@@ -1,10 +1,10 @@
 # Plano de Evolução — atualização de dependências e stack
 
-Estado: **em execução — Fase 5/9 concluída, Fase 6 pendente**  
+Estado: **em execução — Fase 6/9 concluída, Fase 7 pendente**  
 Iniciado em: 2026-07-22  
 Branch: `main`  
 Tag de safety: `pre-evolucao` (criar antes de começar a Fase 1)  
-Concluídas: Fase 1 ✅, Fase 2 ✅, Fase 3 ✅, Fase 4 ✅, Fase 5 ✅
+Concluídas: Fase 1 ✅, Fase 2 ✅, Fase 3 ✅, Fase 4 ✅, Fase 5 ✅, Fase 6 ✅
 
 ---
 
@@ -28,8 +28,8 @@ Este plano cobre a evolução de tudo o que está depreciado/atrasado, em ordem 
 | 3 — cookies-next 4 → 6 | ✅ | `4340896` | `pre-evolucao-fase-3` | concluída em 2026-07-23 |
 | 4 — jose 5 → 6 | ✅ | `627c2a8` | `pre-evolucao-fase-4` | concluída em 2026-07-23 |
 | 5 — moment → dayjs | ✅ | `efa7c54` | `pre-evolucao-fase-5` | concluída em 2026-07-23 |
-| 6 — http-proxy → rewrites | ⏳ pendente | — | — | próxima |
-| 7 — Prisma 6 → 7 | ⏳ pendente | — | — | |
+| 6 — http-proxy → rewrites | ✅ | `<hash>` | `pre-evolucao-fase-6` | concluída em 2026-07-23 |
+| 7 — Prisma 6 → 7 | ⏳ pendente | — | — | próxima |
 | 8 — TypeScript 5 → 7 | ⏳ pendente | — | — | |
 | 9 — markdown-to-jsx 9 | ⏳ pendente | — | — | |
 
@@ -278,6 +278,14 @@ Frontend (`frontend/package.json`):
 5. `npm run build` + rebuild container
 6. Validar: `GET /api/users/me` sem cookie → 403 (mesmo fluxo anterior)
 7. Commit: `Evolução Fase 6: remover http-proxy, usar next rewrites`
+
+### Registo de execução (2026-07-23)
+- **`frontend/src/pages/api/[...all].tsx`** removido (proxy Node middleware via `http-proxy`) + diretório `pages/api/` vazio removido
+- **`http-proxy`** e **`@types/http-proxy`** removidos das deps (0 vulns mantido)
+- **`rewrites()`** adicionado em `next.config.js`: `{ source: "/api/:path*", destination: "${apiUrl}/api/:path*" }` onde `apiUrl = process.env.API_URL || "http://localhost:8080"` (mesma lógica do proxy removido)
+- **Arquitetura de produção preservada**: em Docker, o Caddy (`reverse-proxy/Caddyfile`) já intercepta `/api/*` → `http://localhost:${BACKEND_PORT:8080}` ANTES de chegar no Next.js; o `rewrites()` do Next atua como fallback em dev ou quando `CADDY_DISABLED=true`
+- **`proxy.ts`** (middleware Next.js para controle de rotas/auth) não foi tocado — não usa `http-proxy`, apenas `fetch()` ao backend
+- **Validação**: `npm run build` frontend ✅ (rota `/api/[...all]` não aparece mais no output), Docker build ✅, container healthy ✅, `POST /api/auth/signUp` via :8090 → 200 ✅, `GET /api/users/me` com cookie → 200 ✅, `GET /api/health` via Caddy :3000 → "OK" ✅
 
 ### Atenção
 - Em produção dentro do container, `destination` deve apontar para o backend interno (`http://127.0.0.1:8090`)
