@@ -1,5 +1,17 @@
-import moment from "moment";
+import dayjs from "dayjs";
+import duration from "dayjs/plugin/duration";
+import relativeTime from "dayjs/plugin/relativeTime";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+import "dayjs/locale/pt-br";
+import type { DurationUnitType } from "dayjs/plugin/duration";
 import { Timespan } from "../types/timespan.type";
+
+dayjs.extend(duration as any);
+dayjs.extend(relativeTime as any);
+dayjs.extend(customParseFormat as any);
+
+export { dayjs };
+export type { DurationUnitType };
 
 export const getExpirationPreview = (
   messages: {
@@ -19,16 +31,16 @@ export const getExpirationPreview = (
     : form.values.expiration_num + form.values.expiration_unit;
   if (value === "never") return messages.neverExpires;
 
-  const expirationDate = moment()
+  const expirationDate = dayjs()
     .add(
-      value.split("-")[0],
-      value.split("-")[1] as moment.unitOfTime.DurationConstructor,
+      parseInt(value.split("-")[0]),
+      value.split("-")[1] as DurationUnitType,
     )
     .toDate();
 
   return messages.expiresOn.replace(
     "{expiration}",
-    moment(expirationDate).format("LLL"),
+    dayjs(expirationDate).format("LLL"),
   );
 };
 

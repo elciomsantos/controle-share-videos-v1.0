@@ -15,7 +15,7 @@ import {
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useModals } from "@mantine/modals";
-import moment from "moment";
+import { dayjs } from "../../utils/date.util";
 import { FormattedMessage } from "react-intl";
 import * as yup from "yup";
 import { translateOutsideContext } from "../../hooks/useTranslate.hook";
@@ -97,11 +97,11 @@ const Body = ({
   const formattedMaxShareSize = byteToHumanSizeString(resolvedMaxShareSize);
   const shareSizeProgress = shareSizeRatio * 100;
 
-  const formattedCreatedAt = moment(currentShare.createdAt).format("LLL");
+  const formattedCreatedAt = dayjs(currentShare.createdAt).format("LLL");
   const formattedExpiration =
-    moment(currentShare.expiration).unix() === 0
+    dayjs(currentShare.expiration).unix() === 0
       ? "Never"
-      : moment(currentShare.expiration).format("LLL");
+      : dayjs(currentShare.expiration).format("LLL");
 
   if (isEditing) {
     return (
@@ -193,7 +193,7 @@ const Body = ({
 };
 
 const formatDateTimeLocal = (date: Date) => {
-  return moment(date).format("YYYY-MM-DDTHH:mm");
+  return dayjs(date).format("YYYY-MM-DDTHH:mm");
 };
 
 const EditShareBody = ({
@@ -209,7 +209,7 @@ const EditShareBody = ({
 }) => {
   const t = translateOutsideContext();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const isPermanentShare = moment(share.expiration).unix() === 0;
+  const isPermanentShare = dayjs(share.expiration).unix() === 0;
   const security = share.security ?? {
     passwordProtected: false,
     maxViews: undefined,
@@ -242,7 +242,7 @@ const EditShareBody = ({
       name: share.name || "",
       description: share.description || "",
       expiration: isPermanentShare
-        ? formatDateTimeLocal(moment().add(1, "day").toDate())
+        ? formatDateTimeLocal(dayjs().add(1, "day").toDate())
         : formatDateTimeLocal(share.expiration),
       never_expires: isPermanentShare,
       password: "",
@@ -264,7 +264,7 @@ const EditShareBody = ({
   });
 
   const onSubmit = form.onSubmit(async (values) => {
-    const expirationDate = moment(values.expiration);
+    const expirationDate = dayjs(values.expiration);
 
     if (!values.never_expires && !expirationDate.isValid()) {
       form.setFieldError("expiration", t("common.error.field-required"));
@@ -276,13 +276,13 @@ const EditShareBody = ({
       maxExpiration &&
       maxExpiration.value !== 0 &&
       expirationDate.isAfter(
-        moment().add(maxExpiration.value, maxExpiration.unit),
+        dayjs().add(maxExpiration.value, maxExpiration.unit),
       )
     ) {
       form.setFieldError(
         "expiration",
         t("upload.modal.expires.error.too-long", {
-          max: moment
+          max: dayjs
             .duration(maxExpiration.value, maxExpiration.unit)
             .humanize(),
         }),

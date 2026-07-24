@@ -11,7 +11,6 @@ import {
 import { useForm } from "@mantine/form";
 import { useModals } from "@mantine/modals";
 import { getCookie, setCookie } from "cookies-next";
-import moment from "moment";
 import { FormattedMessage } from "react-intl";
 import * as yup from "yup";
 import useTranslate, {
@@ -19,7 +18,7 @@ import useTranslate, {
 } from "../../../hooks/useTranslate.hook";
 import shareService from "../../../services/share.service";
 import { Timespan } from "../../../types/timespan.type";
-import { getExpirationPreview } from "../../../utils/date.util";
+import { getExpirationPreview, dayjs, type DurationUnitType } from "../../../utils/date.util";
 import { byteToHumanSizeString } from "../../../utils/fileSize.util";
 import toast from "../../../utils/toast.util";
 import FileSizeInput from "../../core/FileSizeInput";
@@ -134,23 +133,23 @@ const Body = ({
     setCookie("reverse-share.simplified", values.simplified);
     setCookie("reverse-share.public-access", values.publicAccess);
 
-    const expirationDate = moment().add(
+    const expirationDate = dayjs().add(
       form.values.expiration_num,
       form.values.expiration_unit.replace(
         "-",
         "",
-      ) as moment.unitOfTime.DurationConstructor,
+      ) as DurationUnitType,
     );
     if (
       maxExpiration.value != 0 &&
       expirationDate.isAfter(
-        moment().add(maxExpiration.value, maxExpiration.unit),
+        dayjs().add(maxExpiration.value, maxExpiration.unit),
       )
     ) {
       form.setFieldError(
         "expiration_num",
         t("upload.modal.expires.error.too-long", {
-          max: moment
+          max: dayjs
             .duration(maxExpiration.value, maxExpiration.unit)
             .humanize(),
         }),

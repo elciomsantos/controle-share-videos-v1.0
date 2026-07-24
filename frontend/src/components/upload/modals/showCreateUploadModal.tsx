@@ -17,7 +17,6 @@ import {
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useModals } from "@mantine/modals";
-import moment from "moment";
 import React, { useState } from "react";
 import { TbAlertCircle } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
@@ -31,6 +30,8 @@ import { CreateShare } from "../../../types/share.type";
 import {
   stringToTimespan,
   getExpirationPreview,
+  dayjs,
+  type DurationUnitType,
 } from "../../../utils/date.util";
 import toast from "../../../utils/toast.util";
 import { Timespan } from "../../../types/timespan.type";
@@ -198,19 +199,19 @@ const CreateUploadModalBody = ({
         ? "never"
         : form.values.expiration_num + form.values.expiration_unit;
 
-      const expirationDate = moment().add(
+      const expirationDate = dayjs().add(
         form.values.expiration_num,
         form.values.expiration_unit.replace(
           "-",
           "",
-        ) as moment.unitOfTime.DurationConstructor,
+        ) as DurationUnitType,
       );
 
       if (
         options.maxExpiration.value != 0 &&
         (form.values.never_expires ||
           expirationDate.isAfter(
-            moment().add(
+            dayjs().add(
               options.maxExpiration.value,
               options.maxExpiration.unit,
             ),
@@ -219,7 +220,7 @@ const CreateUploadModalBody = ({
         form.setFieldError(
           "expiration_num",
           t("upload.modal.expires.error.too-long", {
-            max: moment
+            max: dayjs
               .duration(options.maxExpiration.value, options.maxExpiration.unit)
               .humanize(),
           }),

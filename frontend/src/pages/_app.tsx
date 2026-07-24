@@ -10,9 +10,7 @@ import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
 import axios from "axios";
 import { getCookie } from "cookies-next";
-import moment from "moment";
-// @ts-ignore — side-effect import for moment locales (no type declarations available for subpath)
-import "moment/min/locales";
+import { dayjs } from "../utils/date.util";
 import { GetServerSidePropsContext } from "next";
 import type { AppProps } from "next/app";
 import Head from "next/head";
@@ -247,7 +245,7 @@ function App({ Component, pageProps }: AppProps) {
   }, [adminDefaultColorScheme, user]);
 
   const language = useRef(pageProps.language);
-  moment.locale(language.current);
+  dayjs.locale(language.current.toLowerCase());
 
   return (
     <>

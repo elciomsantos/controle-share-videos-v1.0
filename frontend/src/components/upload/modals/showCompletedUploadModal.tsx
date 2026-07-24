@@ -2,7 +2,7 @@ import { Button, Stack, Text, Collapse, useComputedColorScheme, useMantineTheme 
 import { useModals } from "@mantine/modals";
 type ModalsContextProps = ReturnType<typeof useModals>;
 import { useState } from "react";
-import moment from "moment";
+import { dayjs } from "../../../utils/date.util";
 import { useRouter } from "next/router";
 import { FormattedMessage } from "react-intl";
 import useTranslate, {
@@ -79,10 +79,10 @@ const Body = ({
         style={{ color: theme.colors.gray[6] }}
       >
         {/* If our share.expiration is timestamp 0, show a different message */}
-        {moment(share.expiration).unix() === 0
+        {dayjs(share.expiration).unix() === 0
           ? t("upload.modal.completed.never-expires")
           : t("upload.modal.completed.expires-on", {
-              expiration: moment(share.expiration).format("LLL"),
+              expiration: dayjs(share.expiration).format("LLL"),
             })}
       </Text>
 
