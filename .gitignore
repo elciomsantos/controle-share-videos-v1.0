@@ -41,6 +41,7 @@ yarn-error.log*
 # project specific
 /backend/data/
 /backend/prisma/generated/
+/backend/src/generated/
 /data/
 /docs/build/
 /docs/.docusaurus

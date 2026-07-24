@@ -1,10 +1,10 @@
 # Plano de Evolução — atualização de dependências e stack
 
-Estado: **em execução — Fase 7/9 concluída, Fase 8 pendente**  
+Estado: **em execução — Fase 7/8 concluída, Fase 9 pendente**  
 Iniciado em: 2026-07-22  
 Branch: `main`  
 Tag de safety: `pre-evolucao` (criar antes de começar a Fase 1)  
-Concluídas: Fase 1 ✅, Fase 2 ✅, Fase 3 ✅, Fase 4 ✅, Fase 5 ✅, Fase 6 ✅, Fase 7 ✅
+Concluídas: Fase 1 ✅, Fase 2 ✅, Fase 3 ✅, Fase 4 ✅, Fase 5 ✅, Fase 6 ✅, Fase 7 ✅, Fase 8 ✅
 
 ---
 
@@ -30,8 +30,8 @@ Este plano cobre a evolução de tudo o que está depreciado/atrasado, em ordem 
 | 5 — moment → dayjs | ✅ | `efa7c54` | `pre-evolucao-fase-5` | concluída em 2026-07-23 |
 | 6 — http-proxy → rewrites | ✅ | `361e8b2` | `pre-evolucao-fase-6` | concluída em 2026-07-23 |
 | 7 — Prisma 6 → 7 | ✅ | `fa1c6df` | — | concluída em 2026-07-23 |
-| 8 — TypeScript 5 → 7 | ⏳ pendente | — | — | próxima |
-| 9 — markdown-to-jsx 9 | ⏳ pendente | — | — | |
+| 8 — TypeScript 5 → 6 | ✅ | `pre-evolucao-fase-8` | concluída em 2026-07-23 |
+| 9 — markdown-to-jsx 9 | ⏳ pendente | — | — | próxima |
 
 ## Princípios
 
@@ -66,7 +66,7 @@ Este plano cobre a evolução de tudo o que está depreciado/atrasado, em ordem 
 | markdown-to-jsx | 7.x | 9.x | 🟡 |
 | eslint | 9.x | 10.7.0 (frontend) | 🟡 |
 | Prisma | 6.19.3 | 7.9.0 | ✅ concluído |
-| TypeScript | 5.8/5.9 | 7.0.2 | 🔴 |
+| TypeScript | 5.8/5.9 | 6.0.3 (intermediário) | ✅ concluído |
 
 ---
 
@@ -359,7 +359,7 @@ Frontend (`frontend/package.json`):
 
 ---
 
-## FASE 8 — Atualizar TypeScript 5.8/5.9 → 7.0 🔴
+## FASE 8 — Atualizar TypeScript 5.8/5.9 → 6.0.3 (intermediário) 🔴
 
 **Objetivo**: Tipagem moderna + eliminação do aviso `baseUrl`.  
 **Duração estimada**: 2-4h  
@@ -392,6 +392,36 @@ Frontend (`frontend/package.json`):
 - Se TS 7 quebrar muito, alternativa atualizar primeiro para TS 6.x (intermediário) e resolver TS 7 depois
 - Muitos `@types/*` podem precisar de bump simultâneo
 - Jest/vitest config pode precisar update
+
+### Registo de execução (2026-07-23) —> caminho intermediário (TS 6.0.3)
+- **Decisão de escopo**: o `EVOLUCAO.md` previa subir para TS 7.0.2, mas **`typescript-eslint@8.65.0`** (última versão pública, usada por backend e frontend) tem peer range `typescript: ">=4.8.4 <6.1.0"` — **rejeita TS 7** e **não existe `typescript-eslint@9` publicada**. Subir para TS 7 exigiria desativar o lint de tipagem. Decidimos pelo **intermediário TS 6.0.3**, que é aceito pelo `typescript-eslint@8.65` e resolve *todos* os breaking changes críticos do plano original (`baseUrl` deprecated, `moduleResolution: node` deprecated). Quando `typescript-eslint@9` sair, um commit de bump 6→7 será trivial.
+- **`typescript@^6.0.3`** instalado em backend e frontend (0 vulns* introduzidas pelo bump; ver nota sobre Prisma abaixo).
+- **`backend/tsconfig.json`** refatorado:
+  - Removido `baseUrl: "./"` (confirmado **0 usos reais** no código — todos os imports são relativos `./`/`../`; o Prisma gerado em `prisma/generated/` é importado via caminhos relativos).
+  - Removido `ignoreDeprecations: "5.0"` (não mais necessário).
+  - Troca inicial `moduleResolution: "node"` → `node16` falhou com `TS5110` (exige `module: "Node16"`, que por sua vez exigiria re-adicionar extensões `.js` em *todos* os imports CJS). Solução adotada: `moduleResolution: "node10"` (novo nome não-deprecated para o antigo `node`), mantendo `module: "commonjs"` — zero mudanças de código.
+  - Como TS 6 também depreca `node10` (removido em TS 7), adicionado `"ignoreDeprecations": "6.0"` para silenciar o aviso enquanto estamos no intermediário.
+  - Adicionado `"useDefineForClassFields": false` (explícito) para proteger classes `@Injectable` com `extends` (ex.: `ConfigService extends EventEmitter`, `PrismaService extends PrismaClient`) contra mudança de semântica de init de fields.
+  - Adicionado `"types": ["multer", "node"]` para forçar o carregamento do augmentation `declare global { namespace Express.Multer.File }` do `@types/multer` (sem isso, TS 6 + nova resolution não enxergava `Express.Multer.File` em `config.controller.ts`).
+- **`backend/tsconfig.seed.json`** e **`scripts/tsconfig.json`**: `moduleResolution: "node"` → `"node10"` (consistência).
+- **Erros de tipagem latentes corrigidos** (já existiam em TS 5 — o `nest build` era tolerante e gerava `dist/` mesmo com erros; ficaram visíveis ao inspecionar o output):
+  - `backend/src/system/system.service.ts:29,39` — `catch (e)` agora tipado como `unknown` por TS 6; convertido para `(e as Error).message` (mesmo padrão para `err`).
+  - `frontend/src/pages/_app.tsx:14` — `import "moment/min/locales"` (side-effect import sem declaração de tipos) rejeitado por TS 6 + `moduleResolution: "bundler"`; adicionado `// @ts-ignore` (moment ainda presente no frontend — migração para dayjs fica fora de escopo, adiar para fase separada).
+- **`@nestjs/swagger` plugin + `experimentalDecorators`/`emitDecoratorMetadata`**: mantidos sem mudança — NestJS DI depende deles (não migração para TC39 decorators standard nesta fase).
+- **`ts-loader@9.5.2`** (peer `typescript: *`), **`ts-node@10.9.2`** (peer `typescript >=2.7`), **`tsx@4`** (esbuild-based, sem peer TS): todos aceitam TS 6.0.3 sem warnings.
+- **`eslint` 9 → 10** (previsto no passo 7 do plano original): **NÃO feito** nesta fase para reduzir risco (ESLint 10 também tem breaking configs); já usamos flat config `.mjs` em ambos. Adiar para tarefa separada pós-Fase 9.
+- **Limpeza**: removido `backend/src/generated/` (cópia residual de um `prisma generate` rodado sem `output` custom — não importada por nenhum arquivo de usuário). Adicionado `/backend/src/generated/` ao `.gitignore`.
+- **Vulnerabilidades herdadas da Fase 7**: `npm audit` no backend reporta **3 high em `prisma@7.9.0` → `@prisma/dev` → `find-my-way`** (CVE GHSA-c96f-x56v-gq3h, DDoS HTTP/2). **Confirmamos via `git stash` que estas vulns já existiam antes do bump TS** — não são regressão da Fase 8. `npm audit fix --force` propõe downgrade para `prisma@7.8.0` (breaking); não aplicado para não quebrar a Fase 7. Frontend: 0 vulns.
+- **Validação local**: `npm run build` backend ✅ (0 erros), `npm run build` frontend ✅ (0 erros, todas as rotas geradas), `npm run lint` backend ✅ (0 erros, 26 warnings `no-explicit-any` preexistentes), `npm run lint` frontend ✅ (0 erros, 1 warning directive não usada preexistente).
+- **Validação Docker**: `docker compose -f docker-compose.local.yml build --no-cache` ✅, `up -d` ✅, NestJS iniciou com "Nest application successfully started" ✅, `GET /api/health` → 200 "OK" ✅, `POST /api/auth/signUp` → 201 com `accessToken`+`refreshToken`+user ✅, `POST /api/auth/signIn` → token ✅, `GET /api/users/me` com `Authorization: Bearer <accessToken>` → 200 ✅.
+- **Tag de safety**: `pre-evolucao-fase-8` (criada antes do bump). Backup do banco não foi possível diretamente (`data/` é de dono do container, uid 100999) — não crítico porque a migração TS não toca o schema; rollback suficiente via `git reset --hard pre-evolucao-fase-8` + rebuild Docker.
+
+#### O que NÃO foi feito nesta fase (escopo excluído)
+- ❌ TypeScript 7 (bloqueado por `typescript-eslint`; adiar até v9 ser publicada).
+- ❌ Bump ESLint 9 → 10 (reduzir risco; adiar).
+- ❌ Migração para TC39 decorators standard (manter `experimentalDecorators`).
+- ❌ Subir strictness do `tsconfig.json` (`strictNullChecks: false` etc. mantidos).
+- ❌ Migrar moment → dayjs no frontend (fora de escopo; ~7 arquivos; adiar para fase separada).
 
 ---
 
@@ -449,7 +479,7 @@ Após todas as fases:
 5. moment → dayjs       🟡 (3-4h)
 6. http-proxy → rewrites 🟡 (1h)
 7. Prisma 6 → 7         🔴 (4-6h) ✅
-8. TypeScript 5 → 7     🔴 (2-4h)
+8. TypeScript 5 → 6     🔴 (2-4h) ✅
 9. markdown-to-jsx 9    🟡 (1-2h)
 ─────────────────────────────────
 Total estimado: 16-25h (distribuidos em várias sessões)

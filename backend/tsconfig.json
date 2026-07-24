@@ -12,8 +12,6 @@
     ],
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": "./",
-    "ignoreDeprecations": "5.0",
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": false,
@@ -21,7 +19,10 @@
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
-    "moduleResolution": "node",
-    "esModuleInterop": true
+    "moduleResolution": "node10",
+    "esModuleInterop": true,
+    "useDefineForClassFields": false,
+    "ignoreDeprecations": "6.0",
+    "types": ["multer", "node"]
   }
 }

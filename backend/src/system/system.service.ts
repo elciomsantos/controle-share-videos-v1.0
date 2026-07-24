@@ -26,7 +26,7 @@ export class SystemService {
       };
     } catch (e) {
       this.logger.warn(
-        `Failed to check disk space for ${resolvedPath}, falling back to root: ${e.message}`,
+        `Failed to check disk space for ${resolvedPath}, falling back to root: ${(e as Error).message}`,
       );
       try {
         const diskSpace = await checkDiskSpace("/");
@@ -36,7 +36,7 @@ export class SystemService {
         };
       } catch (err) {
         this.logger.error(
-          `Failed to check disk space even for root: ${err.message}`,
+          `Failed to check disk space even for root: ${(err as Error).message}`,
         );
         return null;
       }

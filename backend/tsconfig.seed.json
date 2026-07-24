@@ -4,7 +4,7 @@
     "module": "commonjs",
     "target": "es2021",
     "lib": ["ES2021"],
-    "moduleResolution": "node",
+    "moduleResolution": "node10",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "declaration": false,

@@ -11,6 +11,7 @@ import { Notifications } from "@mantine/notifications";
 import axios from "axios";
 import { getCookie } from "cookies-next";
 import moment from "moment";
+// @ts-ignore — side-effect import for moment locales (no type declarations available for subpath)
 import "moment/min/locales";
 import { GetServerSidePropsContext } from "next";
 import type { AppProps } from "next/app";
