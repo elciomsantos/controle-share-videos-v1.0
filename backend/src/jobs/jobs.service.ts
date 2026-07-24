@@ -45,6 +45,9 @@ export class JobsService {
     });
 
     for (const expiredShare of expiredShares) {
+      this.logger.log(
+        `Deleting expired share ${expiredShare.id}: expiration=${expiredShare.expiration.toISOString()}, thresholdDate=${thresholdDate.toISOString()}, uploadLocked=${expiredShare.uploadLocked}`,
+      );
       await this.fileService.deleteAllFiles(expiredShare.id);
       await this.prisma.share.delete({
         where: { id: expiredShare.id },
@@ -89,6 +92,9 @@ export class JobsService {
     });
 
     for (const unfinishedShare of unfinishedShares) {
+      this.logger.log(
+        `Deleting unfinished share ${unfinishedShare.id}: uploadLocked=${unfinishedShare.uploadLocked}, updatedAt=${unfinishedShare.updatedAt?.toISOString()}, createdAt=${unfinishedShare.createdAt.toISOString()}`,
+      );
       await this.fileService.deleteAllFiles(unfinishedShare.id);
       await this.prisma.share.delete({
         where: { id: unfinishedShare.id },

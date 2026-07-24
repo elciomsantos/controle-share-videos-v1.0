@@ -48,6 +48,9 @@ export class ShareSecurityGuard extends JwtGuard {
     await super.canActivate(context);
     const user = request.user as User;
 
+    // If the user is the creator of the share, allow access
+    if (user && share.creatorId === user.id) return true;
+
     // If admin access is enabled and user is admin, allow access
     if (
       user?.isAdmin &&
