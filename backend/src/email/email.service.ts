@@ -5,13 +5,14 @@ import {
 } from "@nestjs/common";
 import { User } from "../../prisma/generated/prisma/client";
 import dayjs from "dayjs";
+import type { PluginFunc } from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import "dayjs/locale/pt-br";
 import nodemailer from "nodemailer";
 import { I18nService } from "nestjs-i18n";
 import { ConfigService } from "../config/config.service";
 
-dayjs.extend(relativeTime as any);
+dayjs.extend(relativeTime as PluginFunc);
 
 @Injectable()
 export class EmailService {

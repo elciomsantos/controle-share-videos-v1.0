@@ -15,7 +15,7 @@ import {
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { SkipThrottle } from "@nestjs/throttler";
-import { createKeyv } from "@keyv/redis";
+import { createKeyv, RedisClientOptions } from "@keyv/redis";
 import { I18nService } from "nestjs-i18n";
 import { AdministratorGuard } from "../auth/guard/isAdmin.guard";
 import { JwtGuard } from "../auth/guard/jwt.guard";
@@ -109,7 +109,7 @@ export class ConfigController {
           reconnectStrategy: () =>
             new Error(this.i18n.t("config.redisConnectionFailed")),
         },
-      } as any,
+      } as RedisClientOptions,
       { namespace: "pingvin" },
     );
     const testKey = `connection-test:${Date.now()}`;
@@ -122,15 +122,17 @@ export class ConfigController {
       }
 
       return { ok: true, enabled };
-    } catch (e: any) {
+    } catch (e: unknown) {
       if (e instanceof GatewayTimeoutException) throw e;
       const message =
-        typeof e?.message === "string"
-          ? `${e?.name ? `${e.name}: ` : ""}${e.message}`
+        e instanceof Error
+          ? `${e.name ? `${e.name}: ` : ""}${e.message}`
           : this.i18n.t("config.redisError");
       throw new InternalServerErrorException(message);
     } finally {
-      const store: any = (keyv as any).store;
+      const store = (
+        keyv as { store?: { client?: { quit?: () => Promise<void> } } }
+      ).store;
       try {
         await store?.client?.quit?.();
       } catch {

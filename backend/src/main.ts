@@ -21,7 +21,7 @@ import { ThrottlerExceptionFilter } from "./throttler/throttler-exception.filter
 
 function generateNestJsLogLevels(): LogLevel[] {
   if (LOG_LEVEL_ENV) {
-    const levelIndex = LOG_LEVEL_AVAILABLE.indexOf(LOG_LEVEL_ENV as any);
+    const levelIndex = LOG_LEVEL_AVAILABLE.indexOf(LOG_LEVEL_ENV as LogLevel);
     if (levelIndex === -1) {
       throw new Error(`log level ${LOG_LEVEL_ENV} unknown`);
     }

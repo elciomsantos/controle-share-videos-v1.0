@@ -4,12 +4,18 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
-import { User } from "../../../prisma/generated/prisma/client";
+import { User, Share, ShareSecurity } from "../../../prisma/generated/prisma/client";
 import { Request } from "express";
 import { I18nService } from "nestjs-i18n";
 import { ConfigService } from "../../config/config.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import { JwtGuard } from "../../auth/guard/jwt.guard";
+
+type ShareWithSecurity = Share & { security: ShareSecurity | null };
+
+interface ShareRequest extends Request {
+  share?: ShareWithSecurity;
+}
 
 @Injectable()
 export class ShareOwnerGuard extends JwtGuard {
@@ -46,7 +52,7 @@ export class ShareOwnerGuard extends JwtGuard {
 
     if (!share) throw new NotFoundException(this.i18n.t("share.notFound"));
 
-    (request as any).share = share;
+    (request as ShareRequest).share = share;
 
     // Run the JWTGuard to set the user
     await super.canActivate(context);

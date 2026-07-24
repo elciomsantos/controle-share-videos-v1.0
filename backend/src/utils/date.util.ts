@@ -1,12 +1,13 @@
 import dayjs from "dayjs";
+import type { PluginFunc } from "dayjs";
 import duration from "dayjs/plugin/duration";
 import relativeTime from "dayjs/plugin/relativeTime";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import type { DurationUnitType } from "dayjs/plugin/duration";
 
-dayjs.extend(duration as any);
-dayjs.extend(relativeTime as any);
-dayjs.extend(customParseFormat as any);
+dayjs.extend(duration as PluginFunc);
+dayjs.extend(relativeTime as PluginFunc);
+dayjs.extend(customParseFormat as PluginFunc);
 
 export { dayjs };
 export { type DurationUnitType };
@@ -28,7 +29,7 @@ export function isEpochZero(date: Date | string | number) {
   return dayjs(date).isSame(dayjs(0));
 }
 
-type Timespan = {
+export type Timespan = {
   value: number;
   unit: "minutes" | "hours" | "days" | "weeks" | "months" | "years";
 };

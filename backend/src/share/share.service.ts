@@ -246,6 +246,7 @@ export class ShareService {
     return shares.map((share) => this.transformShare(share));
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Return type includes Prisma-relational fields with internal DTO mapping; refactor requires aligning ShareDTO typing (see #6).
   async get(id: string): Promise<any> {
     const share = await this.prisma.share.findUnique({
       where: { id },
@@ -260,7 +261,7 @@ export class ShareService {
       },
     });
 
-    if (share.removedReason)
+    if (share?.removedReason)
       throw new NotFoundException(share.removedReason, "share_removed");
 
     if (!share || !share.uploadLocked)
@@ -409,6 +410,7 @@ export class ShareService {
     return (await this.prisma.share.findUnique({ where: { id } })).uploadLocked;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma-relational shape; callers cast to Partial<MyShareDTO> with excludeExtraneousValues. See #6.
   private transformShare(share: any) {
     return {
       ...share,

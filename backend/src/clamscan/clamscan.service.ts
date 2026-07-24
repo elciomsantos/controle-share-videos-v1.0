@@ -66,18 +66,20 @@ export class ClamScanService {
           // Download S3 object stream to temp local file
           await new Promise<void>((resolve, reject) => {
             const writeStream = fs.createWriteStream(tmpPath!);
-            (fileObj.file as any).pipe(writeStream);
+            const readStream = fileObj.file;
+            readStream.pipe(writeStream);
             writeStream.on("finish", resolve);
             writeStream.on("error", reject);
-            (fileObj.file as any).on("error", reject);
+            readStream.on("error", reject);
           });
 
           const { isInfected } = await clamScan.isInfected(tmpPath);
 
           if (isInfected) infectedFiles.push({ id: f.id, name: f.name });
-        } catch (err: any) {
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : "unknown error";
           this.logger.error(
-            `ClamAV scan failed for S3 file ${f.id} in share ${shareId}: ${err?.message || "unknown error"}`,
+            `ClamAV scan failed for S3 file ${f.id} in share ${shareId}: ${message}`,
           );
           throw err;
         } finally {
@@ -125,9 +127,10 @@ export class ClamScanService {
     let infectedFiles: { id: string; name: string }[];
     try {
       infectedFiles = await this.check(shareId);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "unknown error";
       this.logger.error(
-        `ClamAV scan failed for share ${shareId}: ${err?.message || "unknown error"}. Share kept online.`,
+        `ClamAV scan failed for share ${shareId}: ${message}. Share kept online.`,
       );
       return;
     }
@@ -136,9 +139,10 @@ export class ClamScanService {
       try {
         await this.fileService.deleteAllFiles(shareId);
         await this.prisma.file.deleteMany({ where: { shareId } });
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "unknown error";
         this.logger.error(
-          `Failed to delete malicious share ${shareId}: ${err?.message || "unknown error"}`,
+          `Failed to delete malicious share ${shareId}: ${message}`,
         );
         return;
       }

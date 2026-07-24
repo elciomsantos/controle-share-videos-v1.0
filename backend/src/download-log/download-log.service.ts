@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
 } from "@nestjs/common";
+import { Prisma } from "../../prisma/generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 
 export interface DownloadLogEntry {
@@ -36,9 +37,10 @@ export class DownloadLogService {
           reason: entry.reason ?? null,
         },
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "unknown error";
       this.logger.warn(
-        `Failed to record download log: ${err?.message || "unknown error"}`,
+        `Failed to record download log: ${message}`,
       );
     }
   }
@@ -53,7 +55,7 @@ export class DownloadLogService {
   }) {
     const { shareId, userId, from, to, page = 1, limit = 50 } = params;
 
-    const where: any = {};
+    const where: Prisma.DownloadLogWhereInput = {};
     if (shareId) where.shareId = shareId;
     if (userId) where.userId = userId;
     if (from || to) {

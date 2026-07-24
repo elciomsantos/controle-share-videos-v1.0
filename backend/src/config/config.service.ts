@@ -93,6 +93,7 @@ export class ConfigService extends EventEmitter {
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Config values can be string/number/boolean/{value,unit}; callers narrow by key semantics. See #6.
   get(key: `${string}.${string}`): any {
     const configVariable = this.configVariables.filter(
       (variable) => `${variable.category}.${variable.name}` == key,
@@ -234,7 +235,7 @@ export class ConfigService extends EventEmitter {
     ];
 
     const validation = validations.find((validation) => validation.key == key);
-    if (validation && !validation.condition(value as any)) {
+    if (validation && typeof value === "number" && !validation.condition(value)) {
       throw new BadRequestException(validation.message);
     }
   }

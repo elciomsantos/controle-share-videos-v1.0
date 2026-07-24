@@ -4,10 +4,15 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import { User } from "../../../prisma/generated/prisma/client";
 import { Request } from "express";
 import { I18nService } from "nestjs-i18n";
 import { DownloadLogService } from "../../download-log/download-log.service";
 import { PrismaService } from "../../prisma/prisma.service";
+
+interface AuthenticatedRequest extends Request {
+  user?: User;
+}
 
 @Injectable()
 export class DownloadLimitGuard {
@@ -35,7 +40,7 @@ export class DownloadLimitGuard {
       share.security.maxDownloads > 0 &&
       share.downloads >= share.security.maxDownloads
     ) {
-      const user = (request as any).user;
+      const user = (request as AuthenticatedRequest).user;
       void this.downloadLogService.record({
         shareId,
         fileName: "",

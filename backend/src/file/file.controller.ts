@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ExecutionContext,
   Get,
   Param,
   Post,
@@ -15,6 +16,7 @@ import { SkipThrottle } from "@nestjs/throttler";
 import contentDisposition from "content-disposition";
 import { Request, Response } from "express";
 import { DownloadLogService } from "../download-log/download-log.service";
+import { User } from "../../prisma/generated/prisma/client";
 import { JwtGuard } from "../auth/guard/jwt.guard";
 import { CreateShareGuard } from "../share/guard/createShare.guard";
 import { StrictShareOwnerGuard } from "../share/guard/strictShareOwner.guard";
@@ -25,6 +27,10 @@ import { FileSecurityGuard } from "./guard/fileSecurity.guard";
 import mime from "mime-types";
 
 const VALID_ID_REGEX = /^[a-zA-Z0-9-]*={0,2}$/;
+
+interface AuthenticatedRequest extends Request {
+  user?: User;
+}
 
 function getValidRecipientId(recipientId?: string): string | undefined {
   if (!recipientId) return undefined;
@@ -76,7 +82,7 @@ export class FileController {
       switchToHttp: () => ({
         getRequest: () => req,
       }),
-    } as any);
+    } as unknown as ExecutionContext);
 
     const zipStream = await this.fileService.getZip(shareId);
 
@@ -85,7 +91,7 @@ export class FileController {
       "Content-Disposition": contentDisposition(`${shareId}.zip`),
     });
 
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
     void this.downloadLogService.record({
       shareId,
       fileName: `${shareId}.zip`,
@@ -121,7 +127,7 @@ export class FileController {
         switchToHttp: () => ({
           getRequest: () => req,
         }),
-      } as any);
+      } as unknown as ExecutionContext);
     }
 
     const file = await this.fileService.get(shareId, fileId);
@@ -140,7 +146,7 @@ export class FileController {
     res.set(headers);
 
     if (isDownload) {
-      const user = (req as any).user;
+      const user = (req as AuthenticatedRequest).user;
       void this.downloadLogService.record({
         shareId,
         fileId,
