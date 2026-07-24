@@ -4,5 +4,5 @@ import { UserDTO } from "../../user/dto/user.dto";
 
 export class VerifyTotpDTO extends PickType(UserDTO, ["password"] as const) {
   @IsString()
-  code: string;
+  code!: string;
 }

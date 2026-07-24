@@ -9,16 +9,16 @@ export class AdminShareDTO extends OmitType(ShareDTO, [
   "fromList",
 ] as const) {
   @Expose()
-  views: number;
+  views!: number;
 
   @Expose()
-  createdAt: Date;
+  createdAt!: Date;
 
   @Expose()
   security?: MyShareSecurityDTO;
 
   @Expose()
-  recipients: string[];
+  recipients!: string[];
 
   from(partial: Partial<AdminShareDTO>) {
     return plainToClass(AdminShareDTO, partial, {

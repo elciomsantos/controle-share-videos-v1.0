@@ -3,22 +3,22 @@ import { ConfigDTO } from "./config.dto";
 
 export class AdminConfigDTO extends ConfigDTO {
   @Expose()
-  name: string;
+  name!: string;
 
   @Expose()
-  secret: boolean;
+  secret!: boolean;
 
   @Expose()
-  defaultValue: string;
+  defaultValue!: string;
 
   @Expose()
-  updatedAt: Date;
+  updatedAt!: Date;
 
   @Expose()
-  obscured: boolean;
+  obscured!: boolean;
 
   @Expose()
-  allowEdit: boolean;
+  allowEdit!: boolean;
 
   from(partial: Partial<AdminConfigDTO>) {
     return plainToClass(AdminConfigDTO, partial, {

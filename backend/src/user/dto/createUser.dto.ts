@@ -4,15 +4,15 @@ import { UserDTO } from "./user.dto";
 
 export class CreateUserDTO extends UserDTO {
   @Allow()
-  isAdmin: boolean;
+  isAdmin!: boolean;
 
   @Allow()
   @IsOptional()
-  isActivated: boolean;
+  isActivated!: boolean;
 
   @MinLength(8)
   @IsOptional()
-  password: string;
+  password!: string;
 
   from(partial: Partial<CreateUserDTO>) {
     return plainToClass(CreateUserDTO, partial, {

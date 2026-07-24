@@ -54,8 +54,12 @@ export class ConfigService extends EventEmitter {
       this.yamlConfig = yamlParse(configFile);
 
       if (this.yamlConfig) {
+        const yamlConfig = this.yamlConfig as unknown as Record<
+          string,
+          Record<string, string>
+        >;
         for (const configVariable of this.configVariables) {
-          const category = this.yamlConfig[configVariable.category];
+          const category = yamlConfig[configVariable.category];
           if (!category) continue;
           configVariable.value = category[configVariable.name];
           this.emit("update", configVariable.name, configVariable.value);
@@ -70,6 +74,7 @@ export class ConfigService extends EventEmitter {
   }
 
   private async migrateInitUser(): Promise<void> {
+    if (!this.yamlConfig) return;
     if (!this.yamlConfig.initUser.enabled) return;
 
     const userCount = await this.prisma.user.count({
@@ -156,7 +161,7 @@ export class ConfigService extends EventEmitter {
     return response;
   }
 
-  async update(key: string, value: string | number | boolean) {
+  async update(key: string, value: string | number | boolean | null) {
     if (!this.isEditAllowed())
       throw new BadRequestException(
         this.t(
@@ -213,7 +218,7 @@ export class ConfigService extends EventEmitter {
     return updatedVariable;
   }
 
-  validateConfigVariable(key: string, value: string | number | boolean) {
+  validateConfigVariable(key: string, value: string | number | boolean | null) {
     const validations = [
       {
         key: "share.shareIdLength",

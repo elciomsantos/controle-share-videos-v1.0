@@ -72,7 +72,7 @@ export class FileService {
     const share = await this.prisma.share.findFirst({
       where: { id: shareId },
     });
-    const storageService = this.getStorageService(share.storageProvider);
+    const storageService = this.getStorageService(share?.storageProvider);
     return storageService.get(shareId, fileId);
   }
 

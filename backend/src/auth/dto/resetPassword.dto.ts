@@ -4,5 +4,5 @@ import { UserDTO } from "../../user/dto/user.dto";
 
 export class ResetPasswordDTO extends PickType(UserDTO, ["password"]) {
   @IsString()
-  token: string;
+  token!: string;
 }

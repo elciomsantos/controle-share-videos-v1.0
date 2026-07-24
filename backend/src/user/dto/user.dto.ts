@@ -10,30 +10,30 @@ import { i18nValidationMessage } from "nestjs-i18n";
 
 export class UserDTO {
   @Expose()
-  id: string;
+  id!: string;
 
   @Expose()
   @Matches("^[a-zA-Z0-9_.]*$", undefined, {
     message: i18nValidationMessage("validation.usernamePattern"),
   })
   @Length(3, 32)
-  username: string;
+  username!: string;
 
   @Expose()
   @IsEmail()
-  email: string;
+  email!: string;
 
   @Expose()
-  hasPassword: boolean;
+  hasPassword!: boolean;
 
   @MinLength(8)
-  password: string;
+  password!: string;
 
   @Expose()
-  isAdmin: boolean;
+  isAdmin!: boolean;
 
   @Expose()
-  isActivated: boolean;
+  isActivated!: boolean;
 
   @Expose()
   @IsOptional()
@@ -43,7 +43,7 @@ export class UserDTO {
   shareSizeLimit?: string;
 
   @Expose()
-  totpVerified: boolean;
+  totpVerified!: boolean;
 
   from(partial: Partial<UserDTO>) {
     const result = plainToClass(UserDTO, partial, {

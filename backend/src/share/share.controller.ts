@@ -83,7 +83,7 @@ export class ShareController {
   ) {
     const { reverse_share_token } = request.cookies;
     return new ShareDTO().from(
-      await this.shareService.create(body, user, reverse_share_token),
+      (await this.shareService.create(body, user, reverse_share_token)) as unknown as Partial<ShareDTO>,
     );
   }
 
@@ -106,14 +106,16 @@ export class ShareController {
   async complete(@Param("id") id: string, @Req() request: Request) {
     const { reverse_share_token } = request.cookies;
     return new CompletedShareDTO().from(
-      await this.shareService.complete(id, reverse_share_token),
+      (await this.shareService.complete(id, reverse_share_token)) as unknown as Partial<CompletedShareDTO>,
     );
   }
 
   @Delete(":id/complete")
   @UseGuards(IdValidation, StrictShareOwnerGuard)
   async revertComplete(@Param("id") id: string) {
-    return new ShareDTO().from(await this.shareService.revertComplete(id));
+    return new ShareDTO().from(
+      (await this.shareService.revertComplete(id)) as unknown as Partial<ShareDTO>,
+    );
   }
 
   @Delete(":id")

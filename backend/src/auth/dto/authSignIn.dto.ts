@@ -3,12 +3,12 @@ import { IsEmail, IsOptional, IsString } from "class-validator";
 export class AuthSignInDTO {
   @IsEmail()
   @IsOptional()
-  email: string;
+  email!: string;
 
   @IsString()
   @IsOptional()
-  username: string;
+  username!: string;
 
   @IsString()
-  password: string;
+  password!: string;
 }

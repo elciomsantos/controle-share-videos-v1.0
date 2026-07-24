@@ -2,24 +2,24 @@ import { IsBoolean, IsString, Matches, Max, Min } from "class-validator";
 
 export class CreateReverseShareDTO {
   @IsBoolean()
-  sendEmailNotification: boolean;
+  sendEmailNotification!: boolean;
 
   @IsString()
   @Matches(/^[0-9]+$/, {
     message: "maxShareSize must contain only digits",
   })
-  maxShareSize: string;
+  maxShareSize!: string;
 
   @IsString()
-  shareExpiration: string;
+  shareExpiration!: string;
 
   @Min(1)
   @Max(1000)
-  maxUseCount: number;
+  maxUseCount!: number;
 
   @IsBoolean()
-  simplified: boolean;
+  simplified!: boolean;
 
   @IsBoolean()
-  publicAccess: boolean;
+  publicAccess!: boolean;
 }

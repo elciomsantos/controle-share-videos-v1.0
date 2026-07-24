@@ -2,10 +2,10 @@ import { Expose, plainToClass } from "class-transformer";
 
 export class ShareMetaDataDTO {
   @Expose()
-  id: string;
+  id!: string;
 
   @Expose()
-  isZipReady: boolean;
+  isZipReady!: boolean;
 
   from(partial: Partial<ShareMetaDataDTO>) {
     return plainToClass(ShareMetaDataDTO, partial, {

@@ -42,6 +42,9 @@ export class LocalFileService {
       include: { files: true, reverseShare: true, creator: true },
     });
 
+    if (!share)
+      throw new NotFoundException(this.i18n.t("file.notFound"));
+
     if (share.uploadLocked)
       throw new BadRequestException(this.i18n.t("file.alreadyCompleted"));
 
@@ -137,7 +140,7 @@ export class LocalFileService {
 
     return {
       metaData: {
-        mimeType: mime.contentType(fileMetaData.name.split(".").pop()),
+        mimeType: mime.contentType(fileMetaData.name.split(".").pop() ?? "") || "application/octet-stream",
         ...fileMetaData,
         size: fileMetaData.size,
       },

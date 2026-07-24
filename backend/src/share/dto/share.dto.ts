@@ -4,30 +4,30 @@ import { PublicUserDTO } from "../../user/dto/publicUser.dto";
 
 export class ShareDTO {
   @Expose()
-  id: string;
+  id!: string;
 
   @Expose()
   name?: string;
 
   @Expose()
-  expiration: Date;
+  expiration!: Date;
 
   @Expose()
   @Type(() => FileDTO)
-  files: FileDTO[];
+  files!: FileDTO[];
 
   @Expose()
   @Type(() => PublicUserDTO)
-  creator: PublicUserDTO;
+  creator!: PublicUserDTO;
 
   @Expose()
-  description: string;
+  description!: string;
 
   @Expose()
-  hasPassword: boolean;
+  hasPassword!: boolean;
 
   @Expose()
-  size: number;
+  size!: number;
 
   from(partial: Partial<ShareDTO>) {
     return plainToClass(ShareDTO, partial, { excludeExtraneousValues: true });

@@ -24,11 +24,11 @@ export class ClamScanService {
 
   private ClamScan: Promise<NodeClam | null> = new NodeClam()
     .init(clamscanConfig)
-    .then((res) => {
+    .then((res: NodeClam | null) => {
       this.logger.log("ClamAV is active");
       return res;
     })
-    .catch(() => {
+    .catch((): null => {
       this.logger.log("ClamAV is not active");
       return null;
     });
@@ -113,7 +113,7 @@ export class ClamScanService {
 
       const fileName = (
         await this.prisma.file.findUnique({ where: { id: fileId } })
-      ).name;
+      )?.name ?? "unknown";
 
       if (isInfected) {
         infectedFiles.push({ id: fileId, name: fileName });

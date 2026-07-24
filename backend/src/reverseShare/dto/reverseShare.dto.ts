@@ -2,19 +2,19 @@ import { Expose, plainToClass } from "class-transformer";
 
 export class ReverseShareDTO {
   @Expose()
-  id: string;
+  id!: string;
 
   @Expose()
-  maxShareSize: string;
+  maxShareSize!: string;
 
   @Expose()
-  shareExpiration: Date;
+  shareExpiration!: Date;
 
   @Expose()
-  token: string;
+  token!: string;
 
   @Expose()
-  simplified: boolean;
+  simplified!: boolean;
 
   from(partial: Partial<ReverseShareDTO>) {
     return plainToClass(ReverseShareDTO, partial, {

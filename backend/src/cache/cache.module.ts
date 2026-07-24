@@ -21,7 +21,7 @@ import { ConfigService } from "../config/config.service";
         const config = {
           ttl,
           max,
-          stores: [],
+          stores: [] as Keyv[],
         };
 
         if (useRedis) {

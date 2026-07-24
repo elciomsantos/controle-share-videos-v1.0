@@ -26,6 +26,7 @@ import {
 } from "../utils/date.util";
 import { ARGON2_OPTIONS, SHARE_DIRECTORY } from "../constants";
 import { CreateShareDTO } from "./dto/createShare.dto";
+import { ShareSecurityDTO } from "./dto/shareSecurity.dto";
 import { UpdateShareDTO } from "./dto/updateShare.dto";
 
 @Injectable()
@@ -55,7 +56,7 @@ export class ShareService {
       throw new BadRequestException(this.i18n.t("share.idInUse"));
 
     if (!share.security || Object.keys(share.security).length == 0)
-      share.security = undefined;
+      share = { ...share, security: undefined as unknown as ShareSecurityDTO };
 
     if (share.security?.password) {
       share.security.password = await argon.hash(share.security.password, ARGON2_OPTIONS);
@@ -152,6 +153,9 @@ export class ShareService {
     if (await this.isShareCompleted(id))
       throw new BadRequestException(this.i18n.t("share.alreadyCompleted"));
 
+    if (!share)
+      throw new NotFoundException(this.i18n.t("share.notFound"));
+
     if (share.files.length == 0)
       throw new BadRequestException(
         this.i18n.t("share.completionRequiresFile"),
@@ -169,8 +173,8 @@ export class ShareService {
         recipient.email,
         recipient.id,
         share.id,
-        share.creator,
-        share.description,
+        share.creator ?? undefined,
+        share.description ?? undefined,
         share.expiration,
       );
     }
@@ -182,7 +186,7 @@ export class ShareService {
 
     if (notifyReverseShareCreator) {
       await this.emailService.sendMailToReverseShareCreator(
-        share.reverseShare.creator.email,
+        share.reverseShare!.creator.email,
         share.id,
       );
     }
@@ -327,6 +331,8 @@ export class ShareService {
         include: { security: true },
       }));
 
+    if (!currentShare) throw new NotFoundException(this.i18n.t("share.notFound"));
+
     const isUpdaterAdmin = user?.isAdmin === true;
     if (!currentShare.creatorId && !isUpdaterAdmin) {
       throw new ForbiddenException(this.i18n.t("share.anonymousNoUpdate"));
@@ -353,7 +359,7 @@ export class ShareService {
     });
 
     if (body.security) {
-      await this.updateSecurity(shareId, body, currentShare.security);
+      await this.updateSecurity(shareId, body, currentShare.security ?? undefined);
     }
 
     const updatedShare = await this.prisma.share.findUnique({
@@ -369,6 +375,8 @@ export class ShareService {
     body: UpdateShareDTO,
     currentSecurity?: ShareSecurity,
   ) {
+    if (!body.security) return;
+
     const nextPassword = body.security.removePassword
       ? null
       : body.security.password
@@ -407,7 +415,8 @@ export class ShareService {
   }
 
   async isShareCompleted(id: string) {
-    return (await this.prisma.share.findUnique({ where: { id } })).uploadLocked;
+    const share = await this.prisma.share.findUnique({ where: { id } });
+    return share?.uploadLocked ?? false;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma-relational shape; callers cast to Partial<MyShareDTO> with excludeExtraneousValues. See #6.
@@ -415,8 +424,8 @@ export class ShareService {
     return {
       ...share,
       size:
-        share.files?.reduce((acc, file) => acc + parseInt(file.size), 0) ?? 0,
-      recipients: share.recipients?.map((recipient) => recipient.email) ?? [],
+        share.files?.reduce((acc: number, file: { size: string }) => acc + parseInt(file.size), 0) ?? 0,
+      recipients: share.recipients?.map((recipient: { email: string }) => recipient.email) ?? [],
       security: {
         maxViews: share.security?.maxViews,
         maxDownloads: share.security?.maxDownloads,
@@ -506,7 +515,7 @@ export class ShareService {
       );
     }
 
-    const token = await this.generateShareToken(share);
+    const token = await this.generateShareToken({ ...share, security: share.security ?? undefined });
     await this.increaseViewCount(share);
     return token;
   }
@@ -518,7 +527,7 @@ export class ShareService {
       shareId,
       shareCreatedAt: dayjs(createdAt).unix(),
       sharePasswordSignature: this.getSharePasswordSignature(
-        security?.password,
+        security?.password ?? undefined,
       ),
       iat: dayjs().unix(),
     };

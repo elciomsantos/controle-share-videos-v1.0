@@ -2,10 +2,10 @@ import { IsNotEmpty, IsString } from "class-validator";
 
 class UpdateConfigDTO {
   @IsString()
-  key: string;
+  key!: string;
 
   @IsNotEmpty()
-  value: string | number | boolean;
+  value!: string | number | boolean;
 }
 
 export default UpdateConfigDTO;

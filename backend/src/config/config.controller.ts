@@ -54,7 +54,7 @@ export class ConfigController {
   @UseGuards(JwtGuard, AdministratorGuard)
   async updateMany(@Body() data: UpdateConfigDTO[]) {
     return new AdminConfigDTO().fromList(
-      await this.configService.updateMany(data),
+      (await this.configService.updateMany(data)) as Partial<AdminConfigDTO>[],
     );
   }
 

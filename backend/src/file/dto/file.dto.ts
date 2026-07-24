@@ -3,15 +3,15 @@ import { ShareDTO } from "../../share/dto/share.dto";
 
 export class FileDTO {
   @Expose()
-  id: string;
+  id!: string;
 
   @Expose()
-  name: string;
+  name!: string;
 
   @Expose()
-  size: string;
+  size!: string;
 
-  share: ShareDTO;
+  share!: ShareDTO;
 
   from(partial: Partial<FileDTO>) {
     return plainToClass(FileDTO, partial, { excludeExtraneousValues: true });

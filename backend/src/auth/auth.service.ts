@@ -83,7 +83,7 @@ export class AuthService {
         e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code == "P2002"
       ) {
-        const duplicatedField: string = e.meta.target[0];
+        const duplicatedField: string = (e.meta?.target as string[] | undefined)?.[0] ?? "field";
         throw new BadRequestException(
           this.i18n.t("auth.userAlreadyExists", {
             args: { field: duplicatedField },
@@ -247,7 +247,7 @@ export class AuthService {
 
   async updatePassword(user: User, newPassword: string, oldPassword?: string) {
     const isPasswordValid =
-      !user.password || (await argon.verify(user.password, oldPassword));
+      !user.password || (await argon.verify(user.password, oldPassword ?? ""));
 
     if (!isPasswordValid)
       throw new ForbiddenException(this.i18n.t("auth.invalidPassword"));
@@ -402,6 +402,7 @@ export class AuthService {
   }
 
   async verifyPassword(user: User, password: string) {
+    if (!user.password) return false;
     return argon.verify(user.password, password);
   }
 }

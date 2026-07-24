@@ -77,7 +77,7 @@ async function bootstrap() {
   );
 
   // Permissions-Policy header (not supported by current helmet version)
-  app.use((_req, res, next) => {
+  app.use((_req: Request, res: Response, next: NextFunction) => {
     res.setHeader(
       "Permissions-Policy",
       "geolocation=(), camera=(), microphone=()",

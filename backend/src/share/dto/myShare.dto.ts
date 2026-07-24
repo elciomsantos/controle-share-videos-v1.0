@@ -10,17 +10,17 @@ export class MyShareDTO extends OmitType(ShareDTO, [
   "fromList",
 ] as const) {
   @Expose()
-  views: number;
+  views!: number;
 
   @Expose()
-  createdAt: Date;
+  createdAt!: Date;
 
   @Expose()
-  recipients: string[];
+  recipients!: string[];
 
   @Expose()
   @Type(() => OmitType(FileDTO, ["share", "from"] as const))
-  files: Omit<FileDTO, "share" | "from">[];
+  files!: Omit<FileDTO, "share" | "from">[];
 
   @Expose()
   security?: MyShareSecurityDTO;

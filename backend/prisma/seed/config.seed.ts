@@ -391,10 +391,15 @@ async function seedConfigVariables() {
 
 async function migrateConfigVariables() {
   const existingConfigVariables = await prisma.config.findMany();
+  const seedConfigVariables =
+    configVariables as unknown as Record<
+      string,
+      Record<string, Omit<Prisma.ConfigCreateInput, "name" | "category" | "order">>
+    >;
 
   for (const existingConfigVariable of existingConfigVariables) {
     const configVariable =
-      configVariables[existingConfigVariable.category]?.[
+      seedConfigVariables[existingConfigVariable.category]?.[
       existingConfigVariable.name
       ];
 
@@ -415,7 +420,7 @@ async function migrateConfigVariables() {
       // Update the config variable if it exists in the seed
     } else {
       const variableOrder = Object.keys(
-        configVariables[existingConfigVariable.category],
+        seedConfigVariables[existingConfigVariable.category],
       ).indexOf(existingConfigVariable.name);
       await prisma.config.update({
         where: {

@@ -88,12 +88,12 @@ export class AuthTotpService {
       throw new ForbiddenException(this.i18n.t("auth.invalidPassword"));
 
     // Check if we have a secret already
-    const { totpVerified } = await this.prisma.user.findUnique({
+    const result = await this.prisma.user.findUnique({
       where: { id: user.id },
       select: { totpVerified: true },
     });
 
-    if (totpVerified) {
+    if (result?.totpVerified) {
       throw new BadRequestException(this.i18n.t("auth.totpAlreadyEnabled"));
     }
 
@@ -133,17 +133,17 @@ export class AuthTotpService {
     if (!(await this.authService.verifyPassword(user, password)))
       throw new ForbiddenException(this.i18n.t("auth.invalidPassword"));
 
-    const { totpSecret } = await this.prisma.user.findUnique({
+    const totpResult = await this.prisma.user.findUnique({
       where: { id: user.id },
       select: { totpSecret: true },
     });
 
-    if (!totpSecret) {
+    if (!totpResult?.totpSecret) {
       throw new BadRequestException(this.i18n.t("auth.totpNotInProgress"));
     }
 
     const expected = await generate({
-      secret: totpSecret,
+      secret: totpResult.totpSecret,
       guardrails: legacyGuardrails,
     });
 
@@ -165,17 +165,17 @@ export class AuthTotpService {
     if (!(await this.authService.verifyPassword(user, password)))
       throw new ForbiddenException(this.i18n.t("auth.invalidPassword"));
 
-    const { totpSecret } = await this.prisma.user.findUnique({
+    const disableResult = await this.prisma.user.findUnique({
       where: { id: user.id },
       select: { totpSecret: true },
     });
 
-    if (!totpSecret) {
+    if (!disableResult?.totpSecret) {
       throw new BadRequestException(this.i18n.t("auth.totpNotEnabled"));
     }
 
     const expected = await generate({
-      secret: totpSecret,
+      secret: disableResult.totpSecret,
       guardrails: legacyGuardrails,
     });
 

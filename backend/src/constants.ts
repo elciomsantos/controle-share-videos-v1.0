@@ -10,7 +10,7 @@ export const DATABASE_URL =
 export const CLAMAV_HOST =
   process.env.CLAMAV_HOST ||
   (process.env.NODE_ENV == "docker" ? "clamav" : "127.0.0.1");
-export const CLAMAV_PORT = parseInt(process.env.CLAMAV_PORT) || 3310;
+export const CLAMAV_PORT = parseInt(process.env.CLAMAV_PORT ?? "") || 3310;
 
 export const LOG_LEVEL_AVAILABLE: LogLevel[] = ['verbose', 'debug', 'log', 'warn', 'error', 'fatal'];
 export const LOG_LEVEL_DEFAULT: LogLevel = process.env.NODE_ENV === 'development' ? "verbose" : "log";

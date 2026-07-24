@@ -69,7 +69,8 @@ export class ShareSecurityGuard extends JwtGuard {
         "share_password_required",
       );
 
-    if (!(await this.shareService.verifyShareToken(share, shareToken)))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (!(await this.shareService.verifyShareToken(share as any, shareToken)))
       throw new ForbiddenException(
         this.i18n.t("share.tokenRequired"),
         "share_token_required",

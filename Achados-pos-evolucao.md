@@ -1,10 +1,10 @@
 # Achados de Pós-Evolução — pendências para o sistema 100%
 
-Estado: **relatório consolidado — #1, #2, #5 e #6 resolvidos**  
+Estado: **relatório consolidado — #1, #2, #5, #6 e #7 resolvidos**  
 Gerado em: 2026-07-23 (após conclusão das 9 fases do `EVOLUCAO.md`)  
-Atualizado em: 2026-07-24 (após fix dos itens #2, #5, #6)  
-Branch: `main` (último commit: `457f11d` — Fix #6: eliminar 27 warnings de lint)  
-Fontes: `EVOLUCAO.md` (registos de execução das Fases 1-9) + validações Docker das Fases 7-9 + smoke-tests pós-fix #2/#5/#6
+Atualizado em: 2026-07-24 (após fix dos itens #2, #5, #6, #7)  
+Branch: `main` (pendente commit #7)  
+Fontes: `EVOLUCAO.md` (registos de execução das Fases 1-9) + validações Docker das Fases 7-9 + smoke-tests pós-fix #2/#5/#6/#7
 
 ---
 
@@ -118,10 +118,17 @@ As 9 fases do `EVOLUCAO.md` foram concluídas com sucesso (build OK, lint OK, au
 - **Resultado**: `npm run lint` backend = **0 errors, 0 warnings**; `npm run lint` frontend = **0 errors, 0 warnings**.
 - **Dívidas técnicas remanescentes** (documentadas, fora do escopo do #6): refatorar `get(): any` do `ConfigService` para sobrecargas por chave; alinhar `ShareDTO` typing com shape Prisma-relational para eliminar `any` em `share.service.ts:get()` e `transformShare()`.
 
-### #7 — `tsconfig` com strictness baixa
+### #7 — `tsconfig` com strictness baixa — ✅ RESOLVIDO
 
-- **Estado**: `strictNullChecks: false` etc. mantidos na Fase 8 deliberadamente.
-- **Fix**: gradualmente ativar flags de strictness (`strictNullChecks`, `strictFunctionTypes`, etc.) e corrigir erros que surgirem. Projeto longo — não bloqueante.
+- **Estado anterior**: `strictNullChecks: false` etc. mantidos na Fase 8 deliberadamente.
+- **Fix aplicado** (pendente commit):
+  1. **Band 1** (flags triviais): `forceConsistentCasingInFileNames: true`, `noFallthroughCasesInSwitch: true`, `strictBindCallApply: true` — 0 erros.
+  2. **Band 2** (`noImplicitAny: true`): 18 erros corrigidos — `@types/content-disposition` instalado, middleware params tipados em `main.ts`, `meta.target` tipado com casts em `user.service.ts`/`auth.service.ts`, callbacks tipados em `share.service.ts`, `stores: [] as Keyv[]` em `cache.module.ts`, promise chain tipada em `clamscan.service.ts`, `yamlConfig`/`seedConfigVariables` castados em `config.service.ts`/`config.seed.ts`.
+  3. **Band 3** (`strictNullChecks: true`): 126 erros corrigidos — 56 TS2564 (DTOs definite assignment `!` em 30 arquivos), 70 erros de código (null checks com `?.`/`??`, guard clauses, type casts em `share.service.ts`, `config.service.ts`, `local.service.ts`, `s3.service.ts`, `auth.controller.ts`, `authTotp.service.ts`, `jwt.strategy.ts`, `user.controller.ts`, `reverseShare.controller.ts`, `shareSecurity.guard.ts`, `share.controller.ts`, `constants.ts`).
+  4. **Band 4** (`strictFunctionTypes`, `noImplicitThis`, `alwaysStrict`): 0 erros adicionais.
+  5. `strictPropertyInitialization` **não ativado** — requer `useDefineForClassFields: true`, incompatível com NestJS decorators.
+- **Tsconfig final**: 9 flags ativas (`strictNullChecks`, `noImplicitAny`, `strictBindCallApply`, `forceConsistentCasingInFileNames`, `noFallthroughCasesInSwitch`, `strictFunctionTypes`, `noImplicitThis`, `alwaysStrict`, `useDefineForClassFields: false`).
+- **Validação**: `npm run build` = 0 erros, `npm run lint` = 0 errors 0 warnings, Docker build OK, `/api/health` → 200.
 
 ### #8 — Decorators ainda no modo experimental
 
@@ -145,15 +152,15 @@ As 9 fases do `EVOLUCAO.md` foram concluídas com sucesso (build OK, lint OK, au
 2. ~~**#2** — `overrides` de `find-my-way` (vulns HIGH · risco 🟢 · change isolado em `package.json`)~~ ✅ **RESOLVIDO** (commit `dd95e46`)
 3. ~~**#5** — migrar moment → dayjs no frontend (remove `@ts-ignore` · risco 🟡 · 9 arquivos)~~ ✅ **RESOLVIDO** (commit `27e2b08`)
 4. ~~**#6** — warnings de lint (risco 🟢 · revisão pontual)~~ ✅ **RESOLVIDO** (commit `457f11d`)
-5. **#3 + #4** — aguardar `typescript-eslint@9`, depois bump TS 6→7 + ESLint 9→10 juntos
-6. **#7** — strictness em ciclos subsequentes
+5. ~~**#7** — strictness em ciclos subsequentes~~ ✅ **RESOLVIDO** (band 1-4 completas, 9 flags ativas, 126 erros corrigidos)
+6. **#3 + #4** — aguardar `typescript-eslint@9`, depois bump TS 6→7 + ESLint 9→10 juntos
 7. **#8** — TC39 decorators quando NestJS oficializar
 
 ---
 
 ## Validação final (critério de "100% sem erros")
 
-Após resolver #1, #2, #5 e #6, o sistema passa em:
+Após resolver #1, #2, #5, #6 e #7, o sistema passa em:
 
 - [x] `npm run build` backend = 0 erros ✅
 - [x] `npm run build` frontend = 0 erros ✅

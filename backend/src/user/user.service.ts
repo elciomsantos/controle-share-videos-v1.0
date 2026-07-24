@@ -31,7 +31,7 @@ export class UserSevice {
 
   async create(dto: CreateUserDTO) {
     let hash: string;
-    let randomPassword;
+    let randomPassword: string | undefined;
 
     // The password can be undefined if the user is invited by an admin
     if (!dto.password) {
@@ -61,7 +61,7 @@ export class UserSevice {
         e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code == "P2002"
       ) {
-        const duplicatedField: string = e.meta.target[0];
+        const duplicatedField: string = (e.meta?.target as string[] | undefined)?.[0] ?? "field";
         throw new BadRequestException(
           this.i18n.t("auth.userAlreadyExists", {
             args: { field: duplicatedField },
@@ -85,7 +85,7 @@ export class UserSevice {
         e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code == "P2002"
       ) {
-        const duplicatedField: string = e.meta.target[0];
+        const duplicatedField: string = (e.meta?.target as string[] | undefined)?.[0] ?? "field";
         throw new BadRequestException(
           this.i18n.t("auth.userAlreadyExists", {
             args: { field: duplicatedField },

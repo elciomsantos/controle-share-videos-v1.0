@@ -2,10 +2,10 @@ import { Expose, plainToClass } from "class-transformer";
 
 export class TokenDTO {
   @Expose()
-  accessToken: string;
+  accessToken!: string;
 
   @Expose()
-  refreshToken: string;
+  refreshToken!: string;
 
   from(partial: Partial<TokenDTO>) {
     return plainToClass(TokenDTO, partial, {

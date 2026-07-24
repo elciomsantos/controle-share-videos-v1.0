@@ -52,7 +52,7 @@ export class ReverseShareController {
       throw new NotFoundException(this.i18n.t("reverseShare.notFound"));
 
     return new ReverseShareDTO().from(
-      await this.reverseShareService.getByToken(reverseShareToken),
+      (await this.reverseShareService.getByToken(reverseShareToken)) as unknown as Partial<ReverseShareDTO>,
     );
   }
 
@@ -60,7 +60,7 @@ export class ReverseShareController {
   @UseGuards(JwtGuard)
   async getAllByUser(@GetUser() user: User) {
     return new ReverseShareTokenWithShares().fromList(
-      await this.reverseShareService.getAllByUser(user.id),
+      (await this.reverseShareService.getAllByUser(user.id)) as unknown as Partial<ReverseShareTokenWithShares>[],
     );
   }
 

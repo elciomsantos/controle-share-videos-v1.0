@@ -18,27 +18,27 @@ export class CreateShareDTO {
     message: i18nValidationMessage("validation.idPattern"),
   })
   @Length(3, 50)
-  id: string;
+  id!: string;
 
   @Length(3, 30)
   @IsOptional()
-  name: string;
+  name!: string;
 
   @IsString()
-  expiration: string;
+  expiration!: string;
 
   @MaxLength(512)
   @IsOptional()
-  description: string;
+  description!: string;
 
   @IsEmail({}, { each: true })
-  recipients: string[];
+  recipients!: string[];
 
   @ValidateNested()
   @Type(() => ShareSecurityDTO)
-  security: ShareSecurityDTO;
+  security!: ShareSecurityDTO;
 
   @IsNumber()
   @IsOptional()
-  size: number;
+  size!: number;
 }

@@ -34,7 +34,7 @@ export class UserController {
   @UseGuards(JwtGuard)
   async getCurrentUser(@GetUser() user?: User) {
     if (!user) return null;
-    const userDTO = new UserDTO().from(user);
+    const userDTO = new UserDTO().from(user as unknown as Partial<UserDTO>);
     userDTO.hasPassword = !!user.password;
     return userDTO;
   }
@@ -45,7 +45,7 @@ export class UserController {
     @GetUser() user: User,
     @Body() data: UpdateOwnUserDTO,
   ) {
-    return new UserDTO().from(await this.userService.update(user.id, data));
+    return new UserDTO().from(await this.userService.update(user.id, data) as unknown as Partial<UserDTO>);
   }
 
   @Delete("me")
@@ -75,24 +75,24 @@ export class UserController {
   @Get()
   @UseGuards(JwtGuard, AdministratorGuard)
   async list() {
-    return new UserDTO().fromList(await this.userService.list());
+    return new UserDTO().fromList(await this.userService.list() as unknown as Partial<UserDTO>[]);
   }
 
   @Post()
   @UseGuards(JwtGuard, AdministratorGuard)
   async create(@Body() user: CreateUserDTO) {
-    return new UserDTO().from(await this.userService.create(user));
+    return new UserDTO().from(await this.userService.create(user) as unknown as Partial<UserDTO>);
   }
 
   @Patch(":id")
   @UseGuards(JwtGuard, AdministratorGuard)
   async update(@Param("id") id: string, @Body() user: UpdateUserDto) {
-    return new UserDTO().from(await this.userService.update(id, user));
+    return new UserDTO().from(await this.userService.update(id, user) as unknown as Partial<UserDTO>);
   }
 
   @Delete(":id")
   @UseGuards(JwtGuard, AdministratorGuard)
   async delete(@Param("id") id: string) {
-    return new UserDTO().from(await this.userService.delete(id));
+    return new UserDTO().from(await this.userService.delete(id) as unknown as Partial<UserDTO>);
   }
 }

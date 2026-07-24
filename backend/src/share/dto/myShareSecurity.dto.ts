@@ -2,8 +2,8 @@ import { Expose } from "class-transformer";
 
 export class MyShareSecurityDTO {
   @Expose()
-  passwordProtected: boolean;
+  passwordProtected!: boolean;
 
   @Expose()
-  maxViews: number;
+  maxViews!: number;
 }

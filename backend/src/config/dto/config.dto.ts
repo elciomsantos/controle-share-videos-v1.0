@@ -2,16 +2,16 @@ import { Expose, plainToClass } from "class-transformer";
 
 export class ConfigDTO {
   @Expose()
-  key: string;
+  key!: string;
 
   @Expose()
-  value: string;
+  value!: string;
 
   @Expose()
-  defaultValue: string;
+  defaultValue!: string;
 
   @Expose()
-  type: string;
+  type!: string;
 
   fromList(partial: Partial<ConfigDTO>[]) {
     return partial.map((part) =>

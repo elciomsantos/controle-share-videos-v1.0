@@ -1,4 +1,4 @@
 export class SystemInfoDTO {
-  used: number;
-  total: number;
+  used!: number;
+  total!: number;
 }

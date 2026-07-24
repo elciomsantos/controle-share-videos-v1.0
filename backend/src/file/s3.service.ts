@@ -169,9 +169,10 @@ export class S3FileService {
   }
 
   async get(shareId: string, fileId: string): Promise<File> {
-    const fileName = (
-      await this.prisma.file.findUnique({ where: { id: fileId } })
-    ).name;
+    const fileRecord = await this.prisma.file.findUnique({ where: { id: fileId } });
+    if (!fileRecord)
+      throw new NotFoundException(this.i18n.t("file.notFound"));
+    const fileName = fileRecord.name;
 
     const s3Instance = this.getS3Instance();
     const key = `${this.getS3Path()}${shareId}/${fileName}`;
@@ -190,7 +191,7 @@ export class S3FileService {
         shareId: shareId,
         createdAt: response.LastModified || new Date(),
         mimeType:
-          mime.contentType(fileId.split(".").pop()) ||
+          mime.contentType(fileId.split(".").pop() ?? "") ||
           "application/octet-stream",
       },
       file: response.Body as Readable,
@@ -305,7 +306,7 @@ export class S3FileService {
 
   getS3Instance(): S3Client {
     const checksumCalculation =
-      this.config.get("s3.useChecksum") === true ? null : "WHEN_REQUIRED";
+      this.config.get("s3.useChecksum") === true ? undefined : "WHEN_REQUIRED";
 
     return new S3Client({
       endpoint: this.config.get("s3.endpoint"),
