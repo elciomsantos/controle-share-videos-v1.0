@@ -17,7 +17,6 @@ import contentDisposition from "content-disposition";
 import { Request, Response } from "express";
 import { DownloadLogService } from "../download-log/download-log.service";
 import { User } from "../../prisma/generated/prisma/client";
-import { JwtGuard } from "../auth/guard/jwt.guard";
 import { CreateShareGuard } from "../share/guard/createShare.guard";
 import { StrictShareOwnerGuard } from "../share/guard/strictShareOwner.guard";
 import { IdValidation } from "../share/guard/shareIdValidation.guard";
@@ -71,7 +70,7 @@ export class FileController {
   }
 
   @Get("zip")
-  @UseGuards(JwtGuard, FileSecurityGuard)
+  @UseGuards(FileSecurityGuard)
   async getZip(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -111,7 +110,7 @@ export class FileController {
   }
 
   @Get(":fileId")
-  @UseGuards(JwtGuard, FileSecurityGuard)
+  @UseGuards(FileSecurityGuard)
   async getFile(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
