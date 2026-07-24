@@ -1,10 +1,10 @@
 # Plano de Evolução — atualização de dependências e stack
 
-Estado: **em execução — Fase 7/8 concluída, Fase 9 pendente**  
+Estado: **concluído — todas as 9 fases finalizadas**  
 Iniciado em: 2026-07-22  
 Branch: `main`  
 Tag de safety: `pre-evolucao` (criar antes de começar a Fase 1)  
-Concluídas: Fase 1 ✅, Fase 2 ✅, Fase 3 ✅, Fase 4 ✅, Fase 5 ✅, Fase 6 ✅, Fase 7 ✅, Fase 8 ✅
+Concluídas: Fase 1 ✅, Fase 2 ✅, Fase 3 ✅, Fase 4 ✅, Fase 5 ✅, Fase 6 ✅, Fase 7 ✅, Fase 8 ✅, Fase 9 ✅
 
 ---
 
@@ -31,7 +31,7 @@ Este plano cobre a evolução de tudo o que está depreciado/atrasado, em ordem 
 | 6 — http-proxy → rewrites | ✅ | `361e8b2` | `pre-evolucao-fase-6` | concluída em 2026-07-23 |
 | 7 — Prisma 6 → 7 | ✅ | `fa1c6df` | — | concluída em 2026-07-23 |
 | 8 — TypeScript 5 → 6 | ✅ | `f751ef6` | `pre-evolucao-fase-8` | concluída em 2026-07-23 |
-| 9 — markdown-to-jsx 9 | ⏳ pendente | — | — | próxima |
+| 9 — markdown-to-jsx 9 | ✅ | `pre-evolucao-fase-9` | concluída em 2026-07-23 |
 
 ## Princípios
 
@@ -63,7 +63,7 @@ Este plano cobre a evolução de tudo o que está depreciado/atrasado, em ordem 
 | jose | 5.10.0 | 6.2.4 | 🟡 |
 | moment | 2.30.1 | **dayjs** (10 arquivos backend) | 🟡 |
 | http-proxy | 1.18.1 | remover → `rewrites` no next.config.js | 🟡 |
-| markdown-to-jsx | 7.x | 9.x | 🟡 |
+| markdown-to-jsx | 7.x | 9.9.0 | ✅ concluído (imports `markdown-to-jsx/react`) |
 | eslint | 9.x | 10.7.0 (frontend) | 🟡 |
 | Prisma | 6.19.3 | 7.9.0 | ✅ concluído |
 | TypeScript | 5.8/5.9 | 6.0.3 (intermediário) | ✅ concluído |
@@ -445,6 +445,21 @@ Frontend (`frontend/package.json`):
 6. Renderizar markdown nos shares (validar visual)
 7. Commit: `Evolução Fase 9: markdown-to-jsx 7 → 9`
 
+### Registo de execução (2026-07-23)
+- **`markdown-to-jsx@^9.9.0`** instalado no frontend (`7.7.17` → `9.9.0`); peer `react >= 16.0.0` aceito por React 19.2.8 ✅. 0 vulns introduzidas.
+- **Análise do changelog**: o `EVOLUCAO.md` previa que `overrides` viraria `components`** — **incorreto**. Verifiquei o `dist/index.d.ts` oficial da v9.9.0: `Overrides` e `Override` (`RequireAtLeastOne<{ component, props }>`) foram **mantidos sem renomeação**. Os 3 arquivos do projeto eram **100% compatíveis com v9 sem nenhuma mudança de options**.
+  - `forceBlock` ✅ mantido (usado em `privacy`/`imprint`)
+  - `disableParsingRawHTML` ✅ mantido (usado em `FilePreview`)
+  - `MarkdownToJSX.Options` namespace ✅ exportado
+  - `Markdown` default export ✅ (`React.FC<{ children?, options? }>`)
+- **Imports refatorados**: ~3 arquivos (`privacy/index.tsx`, `imprint/index.tsx`, `components/share/FilePreview.tsx`) trocaram `from "markdown-to-jsx"` → `from "markdown-to-jsx/react"` (a v9 marca o import raiz como `@deprecated Use the 'markdown-to-jsx/react' import instead`; o path `react` é o recomendado e exporta o mesmo `Markdown` + namespace `MarkdownToJSX`). Sem essa troca, o import raiz ainda funciona mas emite warning de deprecation.
+- **Nenhum arquivo de lógica markdown refatorado** — apenas o path de import foi ajustado; a API de options é idêntica.
+- **Validação local**: `npm run build` frontend ✅ (0 erros, todas as 22 rotas geradas incluindo `/imprint`, `/privacy`, `/share/[shareId]` — onde o `Markdown` é usado), `npm run lint` frontend ✅ (0 erros, 1 warning `eslint-disable` não usada preexistente da Fase 8), `npm audit` frontend ✅ (0 vulns).
+- **Validação Docker**: `docker compose -f docker-compose.local.yml build --no-cache` ✅, `up -d` ✅, NestJS iniciou com "Nest application successfully started" ✅, `GET /api/health` → 200 "OK" ✅, `POST /api/auth/signUp` → 201 (com `accessToken`/`refreshToken`/user) ✅, `POST /api/auth/signIn` → token + cookie `access_token` no response ✅, `GET /api/users/me` com cookie jar → 200 (dados do user retornados) ✅, `GET /` e `GET /auth/signIn` → 200 ✅.
+- **Nota sobre autenticação**: o `JwtStrategy.extractJWT` (`backend/src/auth/strategy/jwt.strategy.ts:22`) lê apenas `req.cookies.access_token`, **não suporta header `Authorization: Bearer`** — validar `/api/users/me` requer cookie jar `(-c/-b)` no curl, não Bearer header. Mesmo comportamento da Fase 8.
+- **Issue infra-preexistente (não regressão da Fase 9)**: as páginas `/privacy`, `/imprint`, `/upload` retornam 500 no container porque o banco `data/controle-videos.db` tem apenas 33 configs (deveria ter 66) — o seed do container não re-populou porque é idempotente e já encontrou configs parciais. Manifesta erro "Config variable share.chunkSize not found". Confirmado via `grep` que o seed *contém* `share.chunkSize` (`backend/prisma/seed/config.seed.ts:106`) — problema de idempotência do seed em banco já populado parcialmente, não de markdown. Adiar correção para commit separado.
+- **Tag de safety**: `pre-evolucao-fase-9` (criada antes do bump).
+
 ---
 
 ## Validação final (após Fase 9)
@@ -480,7 +495,7 @@ Após todas as fases:
 6. http-proxy → rewrites 🟡 (1h)
 7. Prisma 6 → 7         🔴 (4-6h) ✅
 8. TypeScript 5 → 6     🔴 (2-4h) ✅
-9. markdown-to-jsx 9    🟡 (1-2h)
+9. markdown-to-jsx 9    🟡 (1-2h) ✅
 ─────────────────────────────────
 Total estimado: 16-25h (distribuidos em várias sessões)
 ```

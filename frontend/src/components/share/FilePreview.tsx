@@ -8,7 +8,7 @@ import {
   useMantineTheme,
 } from "@mantine/core";
 import { modals } from "@mantine/modals";
-import Markdown, { MarkdownToJSX } from "markdown-to-jsx";
+import Markdown, { MarkdownToJSX } from "markdown-to-jsx/react";
 import Link from "next/link";
 import React, { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { FormattedMessage } from "react-intl";

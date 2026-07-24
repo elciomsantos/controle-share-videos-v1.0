@@ -3,7 +3,7 @@ import Meta from "../../components/Meta";
 import useTranslate from "../../hooks/useTranslate.hook";
 import { FormattedMessage } from "react-intl";
 import useConfig from "../../hooks/config.hook";
-import Markdown from "markdown-to-jsx";
+import Markdown from "markdown-to-jsx/react";
 
 const PrivacyPolicy = () => {
   const t = useTranslate();
