@@ -1,9 +1,10 @@
 # Achados de Pós-Evolução — pendências para o sistema 100%
 
-Estado: **relatório consolidado**  
+Estado: **relatório consolidado — #1, #2, #5 e #6 resolvidos**  
 Gerado em: 2026-07-23 (após conclusão das 9 fases do `EVOLUCAO.md`)  
-Branch: `main` (último commit: `2706ef9` — Docs: registrar hash Fase 9)  
-Fontes: `EVOLUCAO.md` (registos de execução das Fases 1-9) + validações Docker das Fases 7-9
+Atualizado em: 2026-07-24 (após fix dos itens #2, #5, #6)  
+Branch: `main` (último commit: `457f11d` — Fix #6: eliminar 27 warnings de lint)  
+Fontes: `EVOLUCAO.md` (registos de execução das Fases 1-9) + validações Docker das Fases 7-9 + smoke-tests pós-fix #2/#5/#6
 
 ---
 
@@ -45,23 +46,23 @@ As 9 fases do `EVOLUCAO.md` foram concluídas com sucesso (build OK, lint OK, au
 
 ---
 
-## 🔴 PRIORIDADE 2 — Vulnerabilidades de segurança (backend)
+## 🔴 PRIORIDADE 2 — Vulnerabilidades de segurança (backend) — ✅ RESOLVIDO
 
 ### #2 — 3 vulns HIGH herdadas da Fase 7 em `prisma@7.9.0`
 
 - **Sintoma**: `npm audit` no backend reporta **3 high** em `prisma@7.9.0` → `@prisma/dev` → `find-my-way`.
 - **CVE**: `GHSA-c96f-x56v-gq3h` — DDoS HTTP/2 em `find-my-way` (router HTTP usado pelo Prisma dev engine).
 - **Confirmado não regressão Fase 8** via `git stash` — já existiam antes do bump TypeScript 5→6.
-- **`npm audit fix --force`** propõe downgrade para `prisma@7.8.0` (breaking — recusado, quebraria a Fase 7).
-- **Fix proposto** (recomendado, não-breaking):
-  1. Adicionar `overrides` no `backend/package.json`:
+- **`npm audit fix --force`** propunha downgrade para `prisma@7.8.0` (breaking — recusado, quebraria a Fase 7).
+- **Fix aplicado** (commit `dd95e46`):
+  1. Adicionado `overrides` no `backend/package.json`:
      ```json
-     "overrides": { "find-my-way": "^5.3.3" }
+     "overrides": { "find-my-way": "^9.7.0" }
      ```
-     (versão patched; `@prisma/dev` aceita `find-my-way >=4`).
-  2. `npm install` e `npm audit` → confirmar 0 vulns.
-  3. Rebuild backend, smoke-test signUp/signIn.
-  - Alternativa: aguardar `@prisma/dev` bumpar `find-my-way` upstream (sem ETA).
+     Nota: a versão `^5.3.3` sugerida no doc era insuficiente — `@prisma/dev` pinia `find-my-way@9.6.0` exata; ajustado para `^9.7.0` (patch bump major 9, sem breaking).
+  2. `npm install` e `npm audit` → **0 vulns** confirmado.
+  3. Rebuild backend, smoke-tests HTTP 200/201 em `/api/health`, `/api/auth/signUp`, `/api/auth/signIn`, `/api/users/me`.
+- **Alternativa descartada**: aguardar `@prisma/dev` bumpar `find-my-way` upstream (sem ETA).
 
 ---
 
@@ -79,21 +80,43 @@ As 9 fases do `EVOLUCAO.md` foram concluídas com sucesso (build OK, lint OK, au
 - **Estado**: já usamos flat config `.mjs` em backend e frontend; ESLint 9.x funcional.
 - **Fix**: bumpzar juntos `eslint` + `eslint-config-next` + `@typescript-eslint/*` após resolver #3 — idealmente no mesmo commit do bump TS 7.
 
-### #5 — `moment` ainda presente no frontend (~7 arquivos)
+### #5 — `moment` ainda presente no frontend (~7 arquivos) — ✅ RESOLVIDO
 
 - **Causa**: migração moment→dayjs ficou fora de escopo da Fase 8 (backend já migrou na Fase 4).
-- **Estado**: `frontend/src/pages/_app.tsx:14` tem `// @ts-ignore` para `import "moment/min/locales"` introduzido na Fase 8 (necessário porque `moduleResolution: "bundler"` exige declaração de tipos que moment side-effect import não tem).
-- **Fix**:
-  1. Substituir `moment` por `dayjs` nos arquivos identificados (ver `grep -rln "moment" frontend/src/` — ~7 arquivos).
-  2. Remover `moment` do `frontend/package.json`.
-  3. Remover o `// @ts-ignore` de `_app.tsx:14`.
-  4. Rebuild + lint frontend.
+- **Estado anterior**: `frontend/src/pages/_app.tsx:14` tinha `// @ts-ignore` para `import "moment/min/locales"` introduzido na Fase 8 (necessário porque `moduleResolution: "bundler"` exige declaração de tipos que moment side-effect import não tem).
+- **Fix aplicado** (commit `27e2b08`):
+  1. `moment@^2.30.1` → `dayjs@^1.11.21` em `frontend/package.json` (alinhado com backend Fase 4).
+  2. Setup central em `frontend/src/utils/date.util.ts`: plugins `duration`/`relativeTime`/`customParseFormat` + locale `pt-br`; re-exporta `dayjs` e `DurationUnitType` (equivalente a `moment.unitOfTime.DurationConstructor`).
+  3. 9 arquivos migrados: `_app.tsx`, `utils/date.util.ts`, `account/shares.tsx`, `account/reverseShares.tsx`, `admin/ManageShareTable.tsx`, `share/showShareInformationsModal.tsx`, `share/modals/showCreateReverseShareModal.tsx`, `upload/modals/showCreateUploadModal.tsx`, `upload/modals/showCompletedUploadModal.tsx`.
+  4. Removido `// @ts-ignore` de `_app.tsx:14`.
+  5. `dayjs.locale(...)` normalizado para lowercase (dayjs é case-sensitive; moment era lenient).
+  6. `parseInt()` em `date.util.ts:36` (dayjs.add exige `number`, moment aceitava string).
+  7. Rebuild + lint frontend OK; Docker healthy; smoke-tests HTTP 200 em `/upload`, `/account/shares`, `/account/reverseShares`.
 
-### #6 — Warnings de lint preexistentes (backend)
+### #6 — Warnings de lint preexistentes (backend + frontend) — ✅ RESOLVIDO
 
-- **Sintoma**: `npm run lint` backend: **26 warnings `no-explicit-any`** (preexistentes).
-- **Sintoma**: `npm run lint` frontend: **1 warning** de directive `eslint-disable` não usada (preexistente desde Fase 8).
-- **Fix**: revisão pontual — tipar os `any` do backend um a um; remover a directive não usada do frontend. Não bloqueante para runtime.
+- **Sintoma anterior**: `npm run lint` backend reportava **26 warnings `no-explicit-any`** (preexistentes) em 11 arquivos; `npm run lint` frontend reportava **1 warning** de directive `eslint-disable` não usada em `FilePreview.tsx:115`.
+- **Fix aplicado** (commit `457f11d`):
+  1. **Frontend**: removida diretiva `eslint-disable-next-line @next/next/no-img-element` não utilizada em `FilePreview.tsx:115`.
+  2. **Backend — 23 warnings eliminados** (tipagem-consciente):
+     - `date.util.ts:7,8,9` — `extend(plugin as any)` → `as PluginFunc` (3x); exportado `Timespan`.
+     - `email.service.ts:14` — `extend(relativeTime as any)` → `as PluginFunc`.
+     - `main.ts:24` — `LOG_LEVEL_ENV as any` → `as LogLevel`.
+     - `shareOwner.guard.ts:49` — `(request as any).share` → interface local `ShareRequest`.
+     - `downloadLimit.guard.ts:38` — `(request as any).user` → interface local `AuthenticatedRequest`.
+     - `download-log.service.ts:39,56` — `err: any` → `err: unknown`; `where: any` → `Prisma.DownloadLogWhereInput`.
+     - `file.controller.ts:79,124` — `as any` em mock de `ExecutionContext` → `as unknown as ExecutionContext`.
+     - `file.controller.ts:88,143` — `(req as any).user` → interface local `AuthenticatedRequest`.
+     - `clamscan.service.ts:69,72` — `(fileObj.file as any).pipe` removido (`fileObj.file` já é `Readable`).
+     - `clamscan.service.ts:78,128,139` — `err: any` → `err: unknown` (3x).
+     - `config.controller.ts:112,125,133` — `RedisClientOptions` (import de `@keyv/redis`), `e: unknown` + `instanceof Error`, shape tipado `{store?: {client?: {quit?:...}}}`.
+     - `config.service.ts:237` — `value as any` → `typeof value === "number"` typeguard.
+  3. **Backend — 3 warnings explicitamente suprimidos com justificativa documentada** (`eslint-disable-next-line @typescript-eslint/no-explicit-any` + comentário + ref #6):
+     - `config.service.ts:96` — `get(): any` (22 callers; refatorar exige sobrecarga por chave).
+     - `share.service.ts:250` — `get(): Promise<any>` (sham structural mismatch Prisma-relational shape × `ShareDTO` do class-transformer).
+     - `share.service.ts:419` — `transformShare(share: any)` (mesmo motivo do `get()`).
+- **Resultado**: `npm run lint` backend = **0 errors, 0 warnings**; `npm run lint` frontend = **0 errors, 0 warnings**.
+- **Dívidas técnicas remanescentes** (documentadas, fora do escopo do #6): refatorar `get(): any` do `ConfigService` para sobrecargas por chave; alinhar `ShareDTO` typing com shape Prisma-relational para eliminar `any` em `share.service.ts:get()` e `transformShare()`.
 
 ### #7 — `tsconfig` com strictness baixa
 
@@ -118,10 +141,10 @@ As 9 fases do `EVOLUCAO.md` foram concluídas com sucesso (build OK, lint OK, au
 
 ## Ordem de execução recomendada
 
-1. ~~**#1** — corrigir seed (bloqueia 3 páginas · risco 🟡 · impacta runtime imediatamente)~~ ✅ **RESOLVIDO** — eram `API_URL` errada, não seed (commitpendente)
-2. **#2** — `overrides` de `find-my-way` (vulns HIGH · risco 🟢 · change isolado em `package.json`)
-3. **#5** — migrar moment → dayjs no frontend (remove `@ts-ignore` · risco 🟡 · ~7 arquivos)
-4. **#6** — warnings de lint (risco 🟢 · revisão pontual)
+1. ~~**#1** — corrigir seed (bloqueia 3 páginas · risco 🟡 · impacta runtime imediatamente)~~ ✅ **RESOLVIDO** — eram `API_URL` errada, não seed (commit `1820644`)
+2. ~~**#2** — `overrides` de `find-my-way` (vulns HIGH · risco 🟢 · change isolado em `package.json`)~~ ✅ **RESOLVIDO** (commit `dd95e46`)
+3. ~~**#5** — migrar moment → dayjs no frontend (remove `@ts-ignore` · risco 🟡 · 9 arquivos)~~ ✅ **RESOLVIDO** (commit `27e2b08`)
+4. ~~**#6** — warnings de lint (risco 🟢 · revisão pontual)~~ ✅ **RESOLVIDO** (commit `457f11d`)
 5. **#3 + #4** — aguardar `typescript-eslint@9`, depois bump TS 6→7 + ESLint 9→10 juntos
 6. **#7** — strictness em ciclos subsequentes
 7. **#8** — TC39 decorators quando NestJS oficializar
@@ -130,15 +153,15 @@ As 9 fases do `EVOLUCAO.md` foram concluídas com sucesso (build OK, lint OK, au
 
 ## Validação final (critério de "100% sem erros")
 
-Após resolver #1 e #2, o sistema deve passar:
+Após resolver #1, #2, #5 e #6, o sistema passa em:
 
-- [ ] `npm run build` backend = 0 erros
-- [ ] `npm run build` frontend = 0 erros
-- [ ] `npm run lint` backend = 0 erros (warnings #6 aceitáveis temporariamente)
-- [ ] `npm run lint` frontend = 0 erros
-- [ ] `npm audit` backend = **0 vulns** (após #2)
-- [ ] `npm audit` frontend = 0 vulns (já OK)
-- [x] Docker: `docker compose -f docker-compose.local.yml up -d` sobe sem erros ✅
+- [x] `npm run build` backend = 0 erros ✅
+- [x] `npm run build` frontend = 0 erros ✅
+- [x] `npm run lint` backend = 0 erros, **0 warnings** ✅ (#6 resolvido)
+- [x] `npm run lint` frontend = 0 erros, **0 warnings** ✅ (#6 resolvido)
+- [x] `npm audit` backend = **0 vulns** ✅ (#2 resolvido)
+- [x] `npm audit` frontend = 0 vulns ✅
+- [x] Docker: `docker compose -f docker-compose.local.yml up -d --build` sobe sem erros, container healthy ✅
 - [x] `GET /api/health` → 200 ✅
 - [x] `POST /api/auth/signUp` → 201 (com `access_token` cookie + `accessToken` body) ✅
 - [x] `POST /api/auth/signIn` → token + cookie `access_token` no Set-Cookie ✅
@@ -148,7 +171,12 @@ Após resolver #1 e #2, o sistema deve passar:
 - [x] `GET /upload` autenticado → 200 (valida #1 — dependência de `share.chunkSize`) ✅
 - [x] `GET /` → 200 ✅
 - [x] `GET /auth/signIn` → 200 ✅
+- [x] `GET /account/shares` autenticado → 200 (valida #5 — dayjs em runtime) ✅
+- [x] `GET /account/reverseShares` autenticado → 200 (valida #5 — dayjs em runtime) ✅
+- [x] `GET /api/configs` autenticado → 200 (valida #6 — ConfigService.get sem regressão) ✅
+- [x] `GET /api/configs/admin/general` → 403 para não-admin (valida #6 — JwtGuard/AdministratorGuard com cast `ExecutionContext`) ✅
 - [x] Logs do container sem "Config variable X not found" nem "Config fetch failed" ✅
+- [x] Sem "Application error" / "client-side exception" em nenhuma página autenticada ✅
 
 ---
 
