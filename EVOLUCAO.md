@@ -31,7 +31,7 @@ Este plano cobre a evolução de tudo o que está depreciado/atrasado, em ordem 
 | 6 — http-proxy → rewrites | ✅ | `361e8b2` | `pre-evolucao-fase-6` | concluída em 2026-07-23 |
 | 7 — Prisma 6 → 7 | ✅ | `fa1c6df` | — | concluída em 2026-07-23 |
 | 8 — TypeScript 5 → 6 | ✅ | `f751ef6` | `pre-evolucao-fase-8` | concluída em 2026-07-23 |
-| 9 — markdown-to-jsx 9 | ✅ | `pre-evolucao-fase-9` | concluída em 2026-07-23 |
+| 9 — markdown-to-jsx 9 | ✅ | `92f9a5f` | `pre-evolucao-fase-9` | concluída em 2026-07-23 |
 
 ## Princípios
 
