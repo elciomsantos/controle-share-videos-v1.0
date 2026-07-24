@@ -18,8 +18,7 @@ const Logo = ({ height, width }: { height: number; width: number }) => {
     <img
       src={logoSrc}
       alt="logo"
-      height={height}
-      width={width}
+      style={{ height, width: "auto", maxWidth: width, objectFit: "contain" }}
       onError={() => {
         if (logoSrc !== defaultLogoSrc) setLogoSrc(defaultLogoSrc);
       }}
