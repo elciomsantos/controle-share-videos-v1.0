@@ -17,8 +17,9 @@ import { Share, ShareSecurity, User } from "../../prisma/generated/prisma/client
 import { Request, Response } from "express";
 import dayjs from "dayjs";
 import { GetUser } from "../auth/decorator/getUser.decorator";
-import { AdministratorGuard } from "../auth/guard/isAdmin.guard";
 import { JwtGuard } from "../auth/guard/jwt.guard";
+import { Roles } from "../auth/decorator/roles.decorator";
+import { RolesGuard } from "../auth/guard/roles.guard";
 import { AdminShareDTO } from "./dto/adminShare.dto";
 import { CreateShareDTO } from "./dto/createShare.dto";
 import { MyShareDTO } from "./dto/myShare.dto";
@@ -42,7 +43,8 @@ export class ShareController {
   ) {}
 
   @Get("all")
-  @UseGuards(JwtGuard, AdministratorGuard)
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles("admin", "auditor")
   async getAllShares() {
     return new AdminShareDTO().fromList(await this.shareService.getShares());
   }
@@ -117,7 +119,7 @@ export class ShareController {
   @Delete(":id")
   @UseGuards(IdValidation, ShareOwnerGuard)
   async remove(@Param("id") id: string, @GetUser() user: User) {
-    const isDeleterAdmin = user?.isAdmin === true;
+    const isDeleterAdmin = user?.isAdmin === true || user?.role === "admin";
     await this.shareService.remove(id, isDeleterAdmin);
   }
 

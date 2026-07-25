@@ -33,7 +33,7 @@ import userPreferences from "../utils/userPreferences.util";
 import Footer from "../components/footer/Footer";
 import { getDefaultConfig } from "../utils/defaultConfig.util";
 
-const excludeDefaultLayoutRoutes = ["/admin/config/[category]", "/share/[shareId]"];
+const excludeDefaultLayoutRoutes = ["/admin/config/[category]", "/share/[shareId]", "/account/change-password"];
 const availableMantineColors = [
   "dark",
   "gray",

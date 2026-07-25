@@ -13,29 +13,39 @@ import { TbLink, TbSettings, TbUsers } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
 import Meta from "../../components/Meta";
 import useTranslate from "../../hooks/useTranslate.hook";
+import useUser from "../../hooks/user.hook";
 
 const Admin = () => {
   const theme = useMantineTheme();
   const colorScheme = useComputedColorScheme("light");
   const t = useTranslate();
+  const { user } = useUser();
+  const role = user?.role || (user?.isAdmin ? "admin" : "operador");
 
-  const managementOptions = [
+  const allOptions = [
     {
       title: t("admin.button.users"),
       icon: TbUsers,
       route: "/admin/users",
+      roles: ["admin"],
     },
     {
       title: t("admin.button.shares"),
       icon: TbLink,
       route: "/admin/shares",
+      roles: ["admin", "auditor"],
     },
     {
       title: t("admin.button.config"),
       icon: TbSettings,
       route: "/admin/config/general",
+      roles: ["admin"],
     },
   ];
+
+  const managementOptions = allOptions.filter((option) =>
+    option.roles.includes(role),
+  );
 
   return (
     <>

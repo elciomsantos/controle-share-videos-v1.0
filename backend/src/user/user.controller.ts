@@ -13,19 +13,20 @@ import {
 import { User } from "../../prisma/generated/prisma/client";
 import { Response } from "express";
 import { GetUser } from "../auth/decorator/getUser.decorator";
-import { AdministratorGuard } from "../auth/guard/isAdmin.guard";
 import { JwtGuard } from "../auth/guard/jwt.guard";
+import { RolesGuard } from "../auth/guard/roles.guard";
+import { Roles } from "../auth/decorator/roles.decorator";
 import { ConfigService } from "../config/config.service";
 import { CreateUserDTO } from "./dto/createUser.dto";
 import { UpdateOwnUserDTO } from "./dto/updateOwnUser.dto";
 import { UpdateUserDto } from "./dto/updateUser.dto";
 import { UserDTO } from "./dto/user.dto";
-import { UserSevice } from "./user.service";
+import { UserService } from "./user.service";
 
 @Controller("users")
 export class UserController {
   constructor(
-    private userService: UserSevice,
+    private userService: UserService,
     private config: ConfigService,
   ) {}
 
@@ -71,27 +72,35 @@ export class UserController {
     });
   }
 
-  // Global user operations
+  // Global user operations (admin only)
   @Get()
-  @UseGuards(JwtGuard, AdministratorGuard)
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles("admin")
   async list() {
     return new UserDTO().fromList(await this.userService.list() as unknown as Partial<UserDTO>[]);
   }
 
   @Post()
-  @UseGuards(JwtGuard, AdministratorGuard)
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles("admin")
   async create(@Body() user: CreateUserDTO) {
-    return new UserDTO().from(await this.userService.create(user) as unknown as Partial<UserDTO>);
+    const result = await this.userService.create(user);
+    if (result.temporaryPassword) {
+      return { user: new UserDTO().from(result.user as unknown as Partial<UserDTO>), temporaryPassword: result.temporaryPassword };
+    }
+    return new UserDTO().from(result.user as unknown as Partial<UserDTO>);
   }
 
   @Patch(":id")
-  @UseGuards(JwtGuard, AdministratorGuard)
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles("admin")
   async update(@Param("id") id: string, @Body() user: UpdateUserDto) {
     return new UserDTO().from(await this.userService.update(id, user) as unknown as Partial<UserDTO>);
   }
 
   @Delete(":id")
-  @UseGuards(JwtGuard, AdministratorGuard)
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles("admin")
   async delete(@Param("id") id: string) {
     return new UserDTO().from(await this.userService.delete(id) as unknown as Partial<UserDTO>);
   }

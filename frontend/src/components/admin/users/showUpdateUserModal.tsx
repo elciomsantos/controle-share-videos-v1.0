@@ -3,17 +3,16 @@ import {
   Button,
   Group,
   PasswordInput,
+  Select,
   Stack,
   Switch,
   TextInput,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useModals } from "@mantine/modals";
-import { FormattedMessage } from "react-intl";
+import { FormattedMessage, useIntl } from "react-intl";
 import * as yup from "yup";
-import useTranslate, {
-  translateOutsideContext,
-} from "../../../hooks/useTranslate.hook";
+import useTranslate from "../../../hooks/useTranslate.hook";
 import userService from "../../../services/user.service";
 import User from "../../../types/user.type";
 import toast from "../../../utils/toast.util";
@@ -26,16 +25,22 @@ const showUpdateUserModal = (
   user: User,
   getUsers: () => void,
 ) => {
-  const t = translateOutsideContext();
   return modals.openModal({
-    title: t("admin.users.edit.update.title", { username: user.username }),
-    children: <Body user={user} modals={modals} getUsers={getUsers} />,
+    title: (
+      <FormattedMessage
+        id="admin.users.edit.update.title"
+        values={{ username: user.username }}
+      />
+    ),
+    children: (
+      <Body modals={modals} user={user} getUsers={getUsers} />
+    ),
   });
 };
 
 const Body = ({
-  user,
   modals,
+  user,
   getUsers,
 }: {
   modals: ModalsContextProps;
@@ -43,13 +48,13 @@ const Body = ({
   getUsers: () => void;
 }) => {
   const t = useTranslate();
-
+  const intl = useIntl();
   const accountForm = useForm({
     initialValues: {
       username: user.username,
       email: user.email,
-      isAdmin: user.isAdmin,
       isActivated: user.isActivated,
+      role: user.role || (user.isAdmin ? "admin" : "operador"),
       hasCustomShareSizeLimit: !!user.shareSizeLimit,
       shareSizeLimit: user.shareSizeLimit
         ? parseInt(user.shareSizeLimit)
@@ -98,6 +103,8 @@ const Body = ({
     },
   });
 
+  const isLastAdmin = user.isAdmin || user.role === "admin";
+
   return (
     <Stack>
       <form
@@ -107,8 +114,8 @@ const Body = ({
             .update(user.id, {
               username: values.username,
               email: values.email,
-              isAdmin: values.isAdmin,
               isActivated: values.isActivated,
+              role: values.role,
               shareSizeLimit: values.hasCustomShareSizeLimit
                 ? values.shareSizeLimit.toString()
                 : null,
@@ -129,11 +136,16 @@ const Body = ({
             label={t("admin.users.table.email")}
             {...accountForm.getInputProps("email")}
           />
-          <Switch
-            mt="xs"
-            labelPosition="left"
-            label={t("admin.users.edit.update.admin-privileges")}
-            {...accountForm.getInputProps("isAdmin", { type: "checkbox" })}
+          <Select
+            label={t("admin.users.modal.create.role")}
+            description={t("admin.users.modal.create.role.description")}
+            data={[
+              { value: "admin", label: t("admin.users.modal.create.role.admin") },
+              { value: "operador", label: t("admin.users.modal.create.role.operador") },
+              { value: "auditor", label: t("admin.users.modal.create.role.auditor") },
+            ]}
+            disabled={isLastAdmin}
+            {...accountForm.getInputProps("role")}
           />
           <Switch
             mt="xs"

@@ -19,8 +19,11 @@ import { FileModule } from "./file/file.module";
 import { JobsModule } from "./jobs/jobs.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { ShareModule } from "./share/share.module";
-import { UserModule } from "./user/user.module";
 import { SystemModule } from "./system/system.module";
+import { UserModule } from "./user/user.module";
+import { JwtGuard } from "./auth/guard/jwt.guard";
+import { RolesGuard } from "./auth/guard/roles.guard";
+import { PasswordMustChangeGuard } from "./auth/guard/passwordMustChange.guard";
 
 import { SystemLanguageResolver } from "./i18n/systemLanguage.resolver";
 
@@ -63,6 +66,18 @@ const i18nPath = existsSync(join(__dirname, "../i18n"))
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: JwtGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: PasswordMustChangeGuard,
     },
     SystemLanguageResolver,
   ],

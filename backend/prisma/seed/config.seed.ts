@@ -149,6 +149,13 @@ export const configVariables = {
       secret: false,
     },
   },
+  signUp: {
+    disabled: {
+      type: "boolean",
+      defaultValue: "true",
+      secret: false,
+    },
+  },
   cache: {
     "redis-enabled": {
       type: "boolean",

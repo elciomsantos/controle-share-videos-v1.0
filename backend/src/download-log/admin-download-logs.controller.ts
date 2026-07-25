@@ -1,10 +1,12 @@
 import { Controller, Get, Query, UseGuards } from "@nestjs/common";
 import { JwtGuard } from "../auth/guard/jwt.guard";
-import { AdministratorGuard } from "../auth/guard/isAdmin.guard";
+import { Roles } from "../auth/decorator/roles.decorator";
+import { RolesGuard } from "../auth/guard/roles.guard";
 import { DownloadLogService } from "../download-log/download-log.service";
 
 @Controller("admin/download-logs")
-@UseGuards(JwtGuard, AdministratorGuard)
+@UseGuards(JwtGuard, RolesGuard)
+@Roles("admin", "auditor")
 export class AdminDownloadLogsController {
   constructor(private downloadLogService: DownloadLogService) {}
 

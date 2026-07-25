@@ -260,7 +260,7 @@ export class AuthService {
 
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { password: hash },
+      data: { password: hash, passwordMustChange: false },
     });
 
     return this.createRefreshToken(user.id);
@@ -271,7 +271,7 @@ export class AuthService {
       {
         sub: user.id,
         email: user.email,
-        isAdmin: user.isAdmin,
+        role: user.role,
         refreshTokenId,
       },
       {

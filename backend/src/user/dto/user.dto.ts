@@ -1,6 +1,7 @@
 import { Expose, plainToClass } from "class-transformer";
 import {
   IsEmail,
+  IsIn,
   IsOptional,
   Length,
   Matches,
@@ -31,6 +32,10 @@ export class UserDTO {
 
   @Expose()
   isAdmin!: boolean;
+
+  @Expose()
+  @IsIn(["admin", "operador", "auditor"])
+  role!: string;
 
   @Expose()
   isActivated!: boolean;

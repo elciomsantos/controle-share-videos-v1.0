@@ -1,4 +1,4 @@
-import { ActionIcon, Box, Group, Skeleton, Table } from "@mantine/core";
+import { ActionIcon, Badge, Box, Group, Skeleton, Table } from "@mantine/core";
 import { useModals } from "@mantine/modals";
 import { TbCheck, TbEdit, TbTrash } from "react-icons/tb";
 import User from "../../../types/user.type";
@@ -21,6 +21,17 @@ const ManageUserTable = ({
   const modals = useModals();
   const t = useTranslate();
 
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case "admin":
+        return <Badge color="red">{t("roles.admin")}</Badge>;
+      case "auditor":
+        return <Badge color="blue">{t("roles.auditor")}</Badge>;
+      default:
+        return <Badge color="green">{t("roles.operador")}</Badge>;
+    }
+  };
+
   return (
     <Box style={{ display: "block", overflowX: "auto" }}>
       <Table verticalSpacing="sm">
@@ -33,7 +44,7 @@ const ManageUserTable = ({
               <FormattedMessage id="admin.users.table.email" />
             </th>
             <th>
-              <FormattedMessage id="admin.users.table.admin" />
+              <FormattedMessage id="admin.users.table.role" />
             </th>
             <th></th>
           </tr>
@@ -45,7 +56,7 @@ const ManageUserTable = ({
                 <tr key={user.id}>
                   <td>{user.username}</td>
                   <td>{user.email}</td>
-                  <td>{user.isAdmin && <TbCheck />}</td>
+                  <td>{getRoleBadge(user.role || (user.isAdmin ? "admin" : "operador"))}</td>
                   <td>
                     <Group justify="flex-end">
                       <HoverTip label={t("common.button.edit")}>

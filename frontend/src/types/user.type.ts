@@ -3,6 +3,8 @@ type User = {
   username: string;
   email: string;
   isAdmin: boolean;
+  role: string;
+  passwordMustChange?: boolean;
   isActivated: boolean;
   totpVerified: boolean;
   hasPassword: boolean;
@@ -14,6 +16,8 @@ export type CreateUser = {
   email: string;
   password?: string;
   isAdmin?: boolean;
+  role?: string;
+  generatePassword?: boolean;
   shareSizeLimit?: string | null;
 };
 
@@ -22,8 +26,22 @@ export type UpdateUser = {
   email?: string;
   password?: string;
   isAdmin?: boolean;
+  role?: string;
   isActivated?: boolean;
   shareSizeLimit?: string | null;
+};
+
+export type CreateUserResponse = {
+  id: string;
+  username: string;
+  email: string;
+  isAdmin: boolean;
+  role: string;
+  isActivated: boolean;
+  totpVerified: boolean;
+  hasPassword: boolean;
+  shareSizeLimit?: string;
+  temporaryPassword?: string;
 };
 
 export type UpdateCurrentUser = {

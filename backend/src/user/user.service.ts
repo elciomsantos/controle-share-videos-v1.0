@@ -1,7 +1,6 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { Prisma } from "../../prisma/generated/prisma/client";
 import argon from "argon2";
-import * as crypto from "crypto";
 import { I18nService } from "nestjs-i18n";
 import { ARGON2_OPTIONS } from "../constants";
 import { EmailService } from "../email/email.service";
@@ -11,8 +10,8 @@ import { CreateUserDTO } from "./dto/createUser.dto";
 import { UpdateUserDto } from "./dto/updateUser.dto";
 
 @Injectable()
-export class UserSevice {
-  private readonly logger = new Logger(UserSevice.name);
+export class UserService {
+  private readonly logger = new Logger(UserService.name);
 
   constructor(
     private prisma: PrismaService,
@@ -29,14 +28,22 @@ export class UserSevice {
     return await this.prisma.user.findUnique({ where: { id } });
   }
 
+  private generateSecurePassword(length = 12): string {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+    let password = "";
+    for (let i = 0; i < length; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  }
+
   async create(dto: CreateUserDTO) {
     let hash: string;
-    let randomPassword: string | undefined;
+    let temporaryPassword: string | undefined;
 
-    // The password can be undefined if the user is invited by an admin
-    if (!dto.password) {
-      randomPassword = crypto.randomUUID();
-      hash = await argon.hash(randomPassword, ARGON2_OPTIONS);
+    if (dto.generatePassword || !dto.password) {
+      temporaryPassword = this.generateSecurePassword(12);
+      hash = await argon.hash(temporaryPassword, ARGON2_OPTIONS);
     } else {
       hash = await argon.hash(dto.password, ARGON2_OPTIONS);
     }
@@ -47,14 +54,16 @@ export class UserSevice {
           data: {
             ...dto,
             password: hash,
+            role: dto.role ?? "operador",
+            passwordMustChange: true,
           },
         });
 
-        if (randomPassword) {
-          await this.emailService.sendInviteEmail(dto.email, randomPassword);
+        if (temporaryPassword) {
+          await this.emailService.sendInviteEmail(dto.email, temporaryPassword);
         }
 
-        return user;
+        return { user, temporaryPassword };
       });
     } catch (e) {
       if (
@@ -75,6 +84,21 @@ export class UserSevice {
   async update(id: string, user: UpdateUserDto) {
     try {
       const hash = user.password && (await argon.hash(user.password, ARGON2_OPTIONS));
+
+      // Prevent demoting the last admin
+      if (user.role && user.role !== "admin") {
+        const targetUser = await this.prisma.user.findUnique({ where: { id } });
+        if (targetUser?.isAdmin) {
+          const adminCount = await this.prisma.user.count({
+            where: { role: "admin" },
+          });
+          if (adminCount === 1) {
+            throw new BadRequestException(
+              this.i18n.t("auth.cannotDemoteLastAdmin"),
+            );
+          }
+        }
+      }
 
       return await this.prisma.user.update({
         where: { id },
@@ -103,12 +127,14 @@ export class UserSevice {
     });
     if (!user) throw new BadRequestException(this.i18n.t("auth.userNotFound"));
 
-    if (user.isAdmin) {
-      const userCount = await this.prisma.user.count({
-        where: { isAdmin: true },
+    // Check both isAdmin (legacy) and role
+    const isAdminUser = user.isAdmin || user.role === "admin";
+    if (isAdminUser) {
+      const adminCount = await this.prisma.user.count({
+        where: { role: "admin" },
       });
 
-      if (userCount === 1) {
+      if (adminCount === 1) {
         throw new BadRequestException(
           this.i18n.t("auth.cannotDeleteLastAdmin"),
         );
