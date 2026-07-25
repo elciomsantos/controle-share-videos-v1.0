@@ -17,7 +17,7 @@ import contentDisposition from "content-disposition";
 import { Request, Response } from "express";
 import { DownloadLogService } from "../download-log/download-log.service";
 import { User } from "../../prisma/generated/prisma/client";
-import { CreateShareGuard } from "../share/guard/createShare.guard";
+import { JwtGuard } from "../auth/guard/jwt.guard";
 import { StrictShareOwnerGuard } from "../share/guard/strictShareOwner.guard";
 import { IdValidation } from "../share/guard/shareIdValidation.guard";
 import { FileService } from "./file.service";
@@ -46,7 +46,7 @@ export class FileController {
 
   @Post()
   @SkipThrottle()
-  @UseGuards(IdValidation, CreateShareGuard, StrictShareOwnerGuard)
+  @UseGuards(IdValidation, JwtGuard, StrictShareOwnerGuard)
   async create(
     @Query()
     query: {

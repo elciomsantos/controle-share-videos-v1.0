@@ -1,10 +1,7 @@
-import { Expose, plainToClass } from "class-transformer";
+import { plainToClass } from "class-transformer";
 import { ShareDTO } from "./share.dto";
 
 export class CompletedShareDTO extends ShareDTO {
-  @Expose()
-  notifyReverseShareCreator?: boolean;
-
   from(partial: Partial<CompletedShareDTO>) {
     return plainToClass(CompletedShareDTO, partial, {
       excludeExtraneousValues: true,

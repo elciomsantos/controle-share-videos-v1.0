@@ -113,11 +113,6 @@ export const configVariables = {
       defaultValue: "false",
       secret: false,
     },
-    reverseShareSimpleOnly: {
-      type: "boolean",
-      defaultValue: "false",
-      secret: false,
-    },
     allowAdminAccessAllShares: {
       type: "boolean",
       defaultValue: "false",
@@ -176,15 +171,6 @@ export const configVariables = {
       type: "text",
       defaultValue:
         "Hey!\n\n{creator} ({creatorEmail}) shared some files with you. You can view or download the files with this link: {shareUrl}\n\nThe share will expire {expires}.\n\nNote: {desc}\n\nShared securely with Controle Share Videos",
-    },
-    reverseShareSubject: {
-      type: "string",
-      defaultValue: "Reverse share link used",
-    },
-    reverseShareMessage: {
-      type: "text",
-      defaultValue:
-        "Hey!\n\nA share was just created with your reverse share link: {shareUrl}\n\nShared securely with Controle Share Videos",
     },
     resetPasswordSubject: {
       type: "string",
@@ -265,42 +251,6 @@ export const configVariables = {
       type: "string",
       defaultValue: "",
       obscured: true,
-    },
-  },
-  s3: {
-    enabled: {
-      type: "boolean",
-      defaultValue: "false",
-    },
-    endpoint: {
-      type: "string",
-      defaultValue: "",
-    },
-    region: {
-      type: "string",
-      defaultValue: "",
-    },
-    bucketName: {
-      type: "string",
-      defaultValue: "",
-    },
-    bucketPath: {
-      type: "string",
-      defaultValue: "",
-    },
-    key: {
-      type: "string",
-      defaultValue: "",
-      secret: true,
-    },
-    secret: {
-      type: "string",
-      defaultValue: "",
-      obscured: true,
-    },
-    useChecksum: {
-      type: "boolean",
-      defaultValue: "true",
     },
   },
   legal: {

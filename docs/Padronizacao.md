@@ -128,7 +128,7 @@ Documento-alvo | Ação
 
 ---
 
-## 6. Programa de padronização (itens 1–9)
+## 6. Programa de padronização (itens 1–10)
 
 A padronização documental contempla os seguintes temas, derivados das notas entre parênteses na `Visao-geral.md` v2.0.0:
 
@@ -143,6 +143,10 @@ A padronização documental contempla os seguintes temas, derivados das notas en
 | 7 | Integração ClamAV (validar funcionamento atual — marcado "a integrar") | Pendente |
 | 8 | Refino do documento `Visao-geral.md` como um todo | Pendente |
 | 9 | Atualização final de README | Pendente |
+| 10| Criar popup de interação com usuário informando de senha ou usuário incorretos na tela de login e demais erros do sistema como falha em uploads, por que os erros são apenas 
+silenciosos
+| 11 | informar ao criar usuario se osuario usado já existe
+
 
 Cada tema terá seu próprio documento de decisão (em `docs/Padronizacao-XX-*.md`) ou seção única consolidada, conforme evacuação.
 

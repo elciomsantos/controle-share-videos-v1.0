@@ -1,9 +1,8 @@
-import { forwardRef, Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { ClamScanModule } from "../clamscan/clamscan.module";
 import { EmailModule } from "../email/email.module";
 import { FileModule } from "../file/file.module";
-import { ReverseShareModule } from "../reverseShare/reverseShare.module";
 import { SystemModule } from "../system/system.module";
 import { ShareController } from "./share.controller";
 import { ShareService } from "./share.service";
@@ -13,7 +12,6 @@ import { ShareService } from "./share.service";
     JwtModule.register({}),
     EmailModule,
     forwardRef(() => ClamScanModule),
-    ReverseShareModule,
     forwardRef(() => FileModule),
     SystemModule,
   ],

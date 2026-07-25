@@ -11,7 +11,6 @@ import Link from "next/link";
 import { Dispatch, SetStateAction } from "react";
 import {
   TbAt,
-  TbBucket,
   TbMail,
   TbPalette,
   TbScale,
@@ -27,7 +26,6 @@ export const categories = [
   { name: "Email", icon: <TbMail /> },
   { name: "Share", icon: <TbShare /> },
   { name: "SMTP", icon: <TbAt /> },
-  { name: "S3", icon: <TbBucket /> },
   { name: "Legal", icon: <TbScale /> },
   { name: "Cache", icon: <TbServerBolt /> },
 ];

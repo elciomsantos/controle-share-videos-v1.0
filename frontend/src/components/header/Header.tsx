@@ -110,10 +110,6 @@ const Header = () => {
       link: "/account/shares",
       label: t("navbar.links.shares"),
     },
-    {
-      link: "/account/reverseShares",
-      label: t("navbar.links.reverse"),
-    },
   ];
 
   const mobileProfileLinks: NavLink[] = [

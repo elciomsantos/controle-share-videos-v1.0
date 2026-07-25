@@ -22,7 +22,6 @@
     "find-my-way": "^9.7.0"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1092.0",
     "@keyv/redis": "^4.4.0",
     "@nestjs/cache-manager": "^3.0.1",
     "@nestjs/common": "^11.1.28",

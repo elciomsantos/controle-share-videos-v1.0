@@ -127,19 +127,6 @@ export class EmailService {
     );
   }
 
-  async sendMailToReverseShareCreator(recipientEmail: string, shareId: string) {
-    const shareUrl = `${this.config.get("general.appUrl")}/s/${shareId}`;
-
-    await this.sendMail(
-      recipientEmail,
-      this.config.get("email.reverseShareSubject"),
-      this.config
-        .get("email.reverseShareMessage")
-        .replaceAll("\\n", "\n")
-        .replaceAll("{shareUrl}", shareUrl),
-    );
-  }
-
   async sendResetPasswordEmail(recipientEmail: string, token: string) {
     const resetPasswordUrl = `${this.config.get(
       "general.appUrl",

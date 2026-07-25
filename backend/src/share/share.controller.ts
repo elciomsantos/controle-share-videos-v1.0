@@ -27,7 +27,6 @@ import { ShareMetaDataDTO } from "./dto/shareMetaData.dto";
 import { SharePasswordDto } from "./dto/sharePassword.dto";
 import { UpdateShareDTO } from "./dto/updateShare.dto";
 import { GetShare } from "./decorator/getShare.decorator";
-import { CreateShareGuard } from "./guard/createShare.guard";
 import { ShareOwnerGuard } from "./guard/shareOwner.guard";
 import { StrictShareOwnerGuard } from "./guard/strictShareOwner.guard";
 import { ShareSecurityGuard } from "./guard/shareSecurity.guard";
@@ -75,15 +74,13 @@ export class ShareController {
   }
 
   @Post()
-  @UseGuards(CreateShareGuard)
+  @UseGuards(JwtGuard)
   async create(
     @Body() body: CreateShareDTO,
-    @Req() request: Request,
     @GetUser() user: User,
   ) {
-    const { reverse_share_token } = request.cookies;
     return new ShareDTO().from(
-      (await this.shareService.create(body, user, reverse_share_token)) as unknown as Partial<ShareDTO>,
+      (await this.shareService.create(body, user)) as unknown as Partial<ShareDTO>,
     );
   }
 
@@ -102,11 +99,10 @@ export class ShareController {
 
   @Post(":id/complete")
   @HttpCode(202)
-  @UseGuards(IdValidation, CreateShareGuard, StrictShareOwnerGuard)
-  async complete(@Param("id") id: string, @Req() request: Request) {
-    const { reverse_share_token } = request.cookies;
+  @UseGuards(IdValidation, StrictShareOwnerGuard)
+  async complete(@Param("id") id: string) {
     return new CompletedShareDTO().from(
-      (await this.shareService.complete(id, reverse_share_token)) as unknown as Partial<CompletedShareDTO>,
+      (await this.shareService.complete(id)) as unknown as Partial<CompletedShareDTO>,
     );
   }
 

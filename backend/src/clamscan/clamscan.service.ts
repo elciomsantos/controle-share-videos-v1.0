@@ -42,60 +42,6 @@ export class ClamScanService {
 
     const infectedFiles = [];
 
-    const share = await this.prisma.share.findUnique({
-      where: { id: shareId },
-    });
-    const storageProvider = share?.storageProvider || "UNKNOWN";
-
-    if (storageProvider === "S3") {
-      const files = await this.prisma.file.findMany({
-        where: { shareId },
-        select: { id: true, name: true },
-      });
-
-      for (const f of files) {
-        let tmpPath: string | null = null;
-        try {
-          const fileObj = await this.fileService.get(shareId, f.id);
-
-          const tmpDir = `${SHARE_DIRECTORY}/${shareId}`;
-          tmpPath = `${tmpDir}/${f.id}`;
-
-          fs.mkdirSync(tmpDir, { recursive: true });
-
-          // Download S3 object stream to temp local file
-          await new Promise<void>((resolve, reject) => {
-            const writeStream = fs.createWriteStream(tmpPath!);
-            const readStream = fileObj.file;
-            readStream.pipe(writeStream);
-            writeStream.on("finish", resolve);
-            writeStream.on("error", reject);
-            readStream.on("error", reject);
-          });
-
-          const { isInfected } = await clamScan.isInfected(tmpPath);
-
-          if (isInfected) infectedFiles.push({ id: f.id, name: f.name });
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : "unknown error";
-          this.logger.error(
-            `ClamAV scan failed for S3 file ${f.id} in share ${shareId}: ${message}`,
-          );
-          throw err;
-        } finally {
-          if (tmpPath) {
-            try {
-              fs.unlinkSync(tmpPath);
-            } catch {
-              // ignore cleanup error
-            }
-          }
-        }
-      }
-
-      return infectedFiles;
-    }
-
     let files: string[] = [];
     try {
       files = fs

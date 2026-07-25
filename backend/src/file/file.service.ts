@@ -2,7 +2,6 @@ import { Inject, Injectable, Logger } from "@nestjs/common";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
 import { LocalFileService } from "./local.service";
-import { S3FileService } from "./s3.service";
 import { ConfigService } from "../config/config.service";
 import { Readable } from "stream";
 import { PrismaService } from "../prisma/prisma.service";
@@ -16,26 +15,11 @@ export class FileService {
   constructor(
     private prisma: PrismaService,
     private localFileService: LocalFileService,
-    private s3FileService: S3FileService,
     private configService: ConfigService,
     private emailService: EmailService,
     @Inject(CACHE_MANAGER) private cache: Cache,
   ) {}
   private readonly logger = new Logger(FileService.name);
-
-  // Determine which service to use based on the current config value
-  // shareId is optional -> can be used to overwrite a storage provider
-  private getStorageService(
-    storageProvider?: string,
-  ): S3FileService | LocalFileService {
-    if (storageProvider != undefined)
-      return storageProvider == "S3"
-        ? this.s3FileService
-        : this.localFileService;
-    return this.configService.get("s3.enabled")
-      ? this.s3FileService
-      : this.localFileService;
-  }
 
   async create(
     data: string,
@@ -47,8 +31,7 @@ export class FileService {
     shareId: string,
   ) {
     await this.touchShare(shareId);
-    const storageService = this.getStorageService();
-    return storageService.create(data, chunk, file, shareId);
+    return this.localFileService.create(data, chunk, file, shareId);
   }
 
   private async touchShare(shareId: string) {
@@ -69,38 +52,19 @@ export class FileService {
   }
 
   async get(shareId: string, fileId: string): Promise<File> {
-    const share = await this.prisma.share.findFirst({
-      where: { id: shareId },
-    });
-    const storageService = this.getStorageService(share?.storageProvider);
-    return storageService.get(shareId, fileId);
+    return this.localFileService.get(shareId, fileId);
   }
 
   async remove(shareId: string, fileId: string) {
-    const share = await this.prisma.share.findFirst({
-      where: { id: shareId },
-      select: { storageProvider: true },
-    });
-    const storageService = this.getStorageService(share?.storageProvider);
-    return storageService.remove(shareId, fileId);
+    return this.localFileService.remove(shareId, fileId);
   }
 
   async deleteAllFiles(shareId: string) {
-    const share = await this.prisma.share.findFirst({
-      where: { id: shareId },
-      select: { id: true, storageProvider: true },
-    });
-    const storageService = this.getStorageService(share?.storageProvider);
-    return storageService.deleteAllFiles(shareId);
+    return this.localFileService.deleteAllFiles(shareId);
   }
 
   async getZip(shareId: string): Promise<Readable> {
-    const share = await this.prisma.share.findFirst({
-      where: { id: shareId },
-      select: { storageProvider: true },
-    });
-    const storageService = this.getStorageService(share?.storageProvider);
-    return await storageService.getZip(shareId);
+    return await this.localFileService.getZip(shareId);
   }
 
   async notifyRecipientDownload(

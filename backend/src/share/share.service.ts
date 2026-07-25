@@ -17,7 +17,6 @@ import { ConfigService } from "../config/config.service";
 import { EmailService } from "../email/email.service";
 import { FileService } from "../file/file.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { ReverseShareService } from "../reverseShare/reverseShare.service";
 import { SystemService } from "../system/system.service";
 import {
   EPOCH_ZERO,
@@ -38,13 +37,12 @@ export class ShareService {
     private emailService: EmailService,
     private config: ConfigService,
     private jwtService: JwtService,
-    private reverseShareService: ReverseShareService,
     private clamScanService: ClamScanService,
     private systemService: SystemService,
     private readonly i18n: I18nService,
   ) {}
 
-  async create(share: CreateShareDTO, user?: User, reverseShareToken?: string) {
+  async create(share: CreateShareDTO, user?: User) {
     if (share.size) {
       const systemInfo = await this.systemService.getSystemInfo();
       if (systemInfo && systemInfo.total - systemInfo.used < share.size) {
@@ -62,18 +60,9 @@ export class ShareService {
       share.security.password = await argon.hash(share.security.password, ARGON2_OPTIONS);
     }
 
-    let expirationDate: Date;
-
-    // If share is created by a reverse share token override the expiration date
-    const reverseShare =
-      await this.reverseShareService.getByToken(reverseShareToken);
-    if (reverseShare) {
-      expirationDate = reverseShare.shareExpiration;
-    } else {
-      expirationDate = this.parseExpiration(share.expiration);
-      if (!user?.isAdmin) {
-        this.validateExpiration(expirationDate);
-      }
+    const expirationDate = this.parseExpiration(share.expiration);
+    if (!user?.isAdmin) {
+      this.validateExpiration(expirationDate);
     }
 
     fs.mkdirSync(`${SHARE_DIRECTORY}/${share.id}`, {
@@ -99,28 +88,14 @@ export class ShareService {
             ? share.recipients.map((email) => ({ email }))
             : [],
         },
-        storageProvider: this.configService.get("s3.enabled") ? "S3" : "LOCAL",
+        storageProvider: "LOCAL",
       },
     });
-
-    if (reverseShare) {
-      // Assign share to reverse share token
-      await this.prisma.reverseShare.update({
-        where: { token: reverseShareToken },
-        data: {
-          shares: {
-            connect: { id: shareTuple.id },
-          },
-        },
-      });
-    }
 
     return shareTuple;
   }
 
   async createZip(shareId: string) {
-    if (this.config.get("s3.enabled")) return;
-
     const path = `${SHARE_DIRECTORY}/${shareId}`;
 
     const files = await this.prisma.file.findMany({ where: { shareId } });
@@ -139,14 +114,13 @@ export class ShareService {
     await archive.finalize();
   }
 
-  async complete(id: string, reverseShareToken?: string) {
+  async complete(id: string) {
     const share = await this.prisma.share.findUnique({
       where: { id },
       include: {
         files: true,
         recipients: true,
         creator: true,
-        reverseShare: { include: { creator: true } },
       },
     });
 
@@ -179,37 +153,15 @@ export class ShareService {
       );
     }
 
-    const notifyReverseShareCreator = share.reverseShare
-      ? this.config.get("smtp.enabled") &&
-        share.reverseShare.sendEmailNotification
-      : undefined;
-
-    if (notifyReverseShareCreator) {
-      await this.emailService.sendMailToReverseShareCreator(
-        share.reverseShare!.creator.email,
-        share.id,
-      );
-    }
-
     // Check if any file is malicious with ClamAV
     void this.clamScanService.checkAndRemove(share.id);
-
-    if (share.reverseShare) {
-      await this.prisma.reverseShare.update({
-        where: { token: reverseShareToken },
-        data: { remainingUses: { decrement: 1 } },
-      });
-    }
 
     const updatedShare = await this.prisma.share.update({
       where: { id },
       data: { uploadLocked: true },
     });
 
-    return {
-      ...updatedShare,
-      notifyReverseShareCreator,
-    };
+    return updatedShare;
   }
 
   async revertComplete(id: string) {

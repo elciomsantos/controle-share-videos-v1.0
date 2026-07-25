@@ -39,7 +39,7 @@ export class LocalFileService {
 
     const share = await this.prisma.share.findUnique({
       where: { id: shareId },
-      include: { files: true, reverseShare: true, creator: true },
+      include: { files: true, creator: true },
     });
 
     if (!share)
@@ -88,9 +88,7 @@ export class LocalFileService {
     const shareSizeSum = fileSizeSum + diskFileSize + buffer.byteLength;
 
     let limit = parseInt(this.config.get("share.maxSize"));
-    if (share.reverseShare?.maxShareSize) {
-      limit = parseInt(share.reverseShare.maxShareSize);
-    } else if (share.creator?.shareSizeLimit) {
+    if (share.creator?.shareSizeLimit) {
       limit = parseInt(share.creator.shareSizeLimit);
     }
 

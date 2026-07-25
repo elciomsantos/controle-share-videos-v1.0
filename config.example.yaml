@@ -81,15 +81,6 @@ email:
 
 
     Shared securely with Controle-share-videos-v1.0 🐧
-  #Subject of the sent email when someone created a share with your reverse share link.
-  reverseShareSubject: Reverse share link used
-  #Message which gets sent when someone created a share with your reverse share link. {shareUrl} will be replaced with the creator's name and the share URL.
-  reverseShareMessage: |-
-    Hey!
-
-    A share was just created with your reverse share link: {shareUrl}
-
-    Shared securely with Controle-share-videos-v1.0 🐧
   #Subject of the sent email when a user requests a password reset.
   resetPasswordSubject: Controle-share-videos-v1.0 password reset
   #Message which gets sent when a user requests a password reset. {url} will be replaced with the reset password URL.
@@ -228,23 +219,6 @@ oauth:
   oidc-clientId: ""
   #Client secret of the OpenID Connect OAuth app
   oidc-clientSecret: ""
-s3:
-  #Whether S3 should be used to store the shared files instead of the local file system.
-  enabled: "false"
-  #The URL of the S3 bucket.
-  endpoint: ""
-  #The region of the S3 bucket.
-  region: ""
-  #The name of the S3 bucket.
-  bucketName: ""
-  #The default path which should be used to store the files in the S3 bucket.
-  bucketPath: ""
-  #The key which allows you to access the S3 bucket.
-  key: ""
-  #The secret which allows you to access the S3 bucket.
-  secret: ""
-  #Turn off for backends that do not support checksum (e.g. B2).
-  useChecksum: "true"
 legal:
   #Whether to show a link to imprint and privacy policy in the footer.
   enabled: "false"

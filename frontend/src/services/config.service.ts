@@ -8,7 +8,6 @@ const categories = [
   "email",
   "share",
   "smtp",
-  "s3",
   "legal",
   "cache",
 ];

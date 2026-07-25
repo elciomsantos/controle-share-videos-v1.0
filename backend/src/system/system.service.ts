@@ -12,10 +12,6 @@ export class SystemService {
   constructor(private configService: ConfigService) {}
 
   async getSystemInfo(): Promise<SystemInfoDTO | null> {
-    if (this.configService.get("s3.enabled")) {
-      return null;
-    }
-
     const resolvedPath = path.resolve(DATA_DIRECTORY, "uploads");
 
     try {

@@ -42,7 +42,6 @@ const showCreateUploadModal = (
   modals: ModalsContextProps,
   options: {
     isUserSignedIn: boolean;
-    isReverseShare: boolean;
     appUrl: string;
     defaultAppUrl: string;
     allowUnauthenticatedShares: boolean;
@@ -118,7 +117,6 @@ const CreateUploadModalBody = ({
   uploadCallback: (createShare: CreateShare, files: FileUpload[]) => void;
   options: {
     isUserSignedIn: boolean;
-    isReverseShare: boolean;
     appUrl: string;
     defaultAppUrl: string;
     allowUnauthenticatedShares: boolean;
@@ -291,92 +289,88 @@ const CreateUploadModalBody = ({
           >
             {`${options.appUrl !== options.defaultAppUrl ? options.appUrl : window.location.origin}/s/${form.values.link}`}
           </Text>
-          {!options.isReverseShare && (
-            <>
-              <Grid align={form.errors.expiration_num ? "center" : "flex-end"}>
-                <Grid.Col span={6}>
-                  <NumberInput
-                    min={1}
-                    max={99999}
-                   
-                    variant="filled"
-                    label={t("upload.modal.expires.label")}
-                    disabled={form.values.never_expires}
-                    {...form.getInputProps("expiration_num")}
-                  />
-                </Grid.Col>
-                <Grid.Col span={6}>
-                  <Select
-                    disabled={form.values.never_expires}
-                    {...form.getInputProps("expiration_unit")}
-                    data={[
-                      {
-                        value: "-minutes",
-                        label:
-                          form.values.expiration_num == 1
-                            ? t("upload.modal.expires.minute-singular")
-                            : t("upload.modal.expires.minute-plural"),
-                      },
-                      {
-                        value: "-hours",
-                        label:
-                          form.values.expiration_num == 1
-                            ? t("upload.modal.expires.hour-singular")
-                            : t("upload.modal.expires.hour-plural"),
-                      },
-                      {
-                        value: "-days",
-                        label:
-                          form.values.expiration_num == 1
-                            ? t("upload.modal.expires.day-singular")
-                            : t("upload.modal.expires.day-plural"),
-                      },
-                      {
-                        value: "-weeks",
-                        label:
-                          form.values.expiration_num == 1
-                            ? t("upload.modal.expires.week-singular")
-                            : t("upload.modal.expires.week-plural"),
-                      },
-                      {
-                        value: "-months",
-                        label:
-                          form.values.expiration_num == 1
-                            ? t("upload.modal.expires.month-singular")
-                            : t("upload.modal.expires.month-plural"),
-                      },
-                      {
-                        value: "-years",
-                        label:
-                          form.values.expiration_num == 1
-                            ? t("upload.modal.expires.year-singular")
-                            : t("upload.modal.expires.year-plural"),
-                      },
-                    ]}
-                  />
-                </Grid.Col>
-              </Grid>
-              {options.maxExpiration.value == 0 && (
-                <Checkbox
-                  label={t("upload.modal.expires.never-long")}
-                  {...form.getInputProps("never_expires")}
-                />
-              )}
-              <Text
-                fs="italic"
-                size="xs"
-                style={{ color: "var(--mantine-color-gray-6)" }}
-              >
-                {getExpirationPreview(
+          <Grid align={form.errors.expiration_num ? "center" : "flex-end"}>
+            <Grid.Col span={6}>
+              <NumberInput
+                min={1}
+                max={99999}
+                
+                variant="filled"
+                label={t("upload.modal.expires.label")}
+                disabled={form.values.never_expires}
+                {...form.getInputProps("expiration_num")}
+              />
+            </Grid.Col>
+            <Grid.Col span={6}>
+              <Select
+                disabled={form.values.never_expires}
+                {...form.getInputProps("expiration_unit")}
+                data={[
                   {
-                    neverExpires: t("upload.modal.completed.never-expires"),
-                    expiresOn: t("upload.modal.completed.expires-on"),
+                    value: "-minutes",
+                    label:
+                      form.values.expiration_num == 1
+                        ? t("upload.modal.expires.minute-singular")
+                        : t("upload.modal.expires.minute-plural"),
                   },
-                  form,
-                )}
-              </Text>
-            </>
+                  {
+                    value: "-hours",
+                    label:
+                      form.values.expiration_num == 1
+                        ? t("upload.modal.expires.hour-singular")
+                        : t("upload.modal.expires.hour-plural"),
+                  },
+                  {
+                    value: "-days",
+                    label:
+                      form.values.expiration_num == 1
+                        ? t("upload.modal.expires.day-singular")
+                        : t("upload.modal.expires.day-plural"),
+                  },
+                  {
+                    value: "-weeks",
+                    label:
+                      form.values.expiration_num == 1
+                        ? t("upload.modal.expires.week-singular")
+                        : t("upload.modal.expires.week-plural"),
+                  },
+                  {
+                    value: "-months",
+                    label:
+                      form.values.expiration_num == 1
+                        ? t("upload.modal.expires.month-singular")
+                        : t("upload.modal.expires.month-plural"),
+                  },
+                  {
+                    value: "-years",
+                    label:
+                      form.values.expiration_num == 1
+                        ? t("upload.modal.expires.year-singular")
+                        : t("upload.modal.expires.year-plural"),
+                  },
+                ]}
+              />
+            </Grid.Col>
+          </Grid>
+          {options.maxExpiration.value == 0 && (
+            <Checkbox
+              label={t("upload.modal.expires.never-long")}
+              {...form.getInputProps("never_expires")}
+            />
           )}
+          <Text
+            fs="italic"
+            size="xs"
+            style={{ color: "var(--mantine-color-gray-6)" }}
+          >
+            {getExpirationPreview(
+              {
+                neverExpires: t("upload.modal.completed.never-expires"),
+                expiresOn: t("upload.modal.completed.expires-on"),
+              },
+              form,
+            )}
+          </Text>
           <Accordion>
             <Accordion.Item value="description" style={{ borderBottom: "none" }}>
               <Accordion.Control>
@@ -484,7 +478,6 @@ const SimplifiedCreateUploadModalModal = ({
   uploadCallback: (createShare: CreateShare, files: FileUpload[]) => void;
   options: {
     isUserSignedIn: boolean;
-    isReverseShare: boolean;
     allowUnauthenticatedShares: boolean;
     enableEmailRecepients: boolean;
     maxExpiration: Timespan;

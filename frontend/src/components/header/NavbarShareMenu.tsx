@@ -1,6 +1,6 @@
 import { ActionIcon, Menu } from "@mantine/core";
 import Link from "next/link";
-import { TbArrowLoopLeft, TbLink } from "react-icons/tb";
+import { TbLink } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
 import { HoverTip } from "../../components/core/HoverTip";
 import useTranslate from "../../hooks/useTranslate.hook";
@@ -24,13 +24,6 @@ const NavbarShareMneu = () => {
       <Menu.Dropdown>
         <Menu.Item component={Link} href="/account/shares" leftSection={<TbLink />}>
           <FormattedMessage id="navbar.links.shares" />
-        </Menu.Item>
-        <Menu.Item
-          component={Link}
-          href="/account/reverseShares"
-          leftSection={<TbArrowLoopLeft />}
-        >
-          <FormattedMessage id="navbar.links.reverse" />
         </Menu.Item>
       </Menu.Dropdown>
     </Menu>

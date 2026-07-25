@@ -51,8 +51,6 @@ const Body = ({
     setShowQR(!showQR);
   };
 
-  const isReverseShare = !!router.query["reverseShareToken"];
-
   const link = `${appUrl !== defaultAppUrl ? appUrl : window.location.origin}/s/${share.id}`;
 
   return (
@@ -61,19 +59,6 @@ const Body = ({
       <Collapse expanded={showQR}>
         <QRCode link={link} />
       </Collapse>
-      {share.notifyReverseShareCreator === true && (
-        <Text
-          size="sm"
-          style={{
-            color:
-              colorScheme === "dark"
-                ? theme.colors.gray[3]
-                : theme.colors.dark[4],
-          }}
-        >
-          {t("upload.modal.completed.notified-reverse-share-creator")}
-        </Text>
-      )}
       <Text
         size="xs"
         style={{ color: theme.colors.gray[6] }}
@@ -89,11 +74,7 @@ const Body = ({
       <Button
         onClick={() => {
           modals.closeAll();
-          if (isReverseShare) {
-            router.reload();
-          } else {
-            router.push("/upload");
-          }
+          router.push("/upload");
         }}
       >
         <FormattedMessage id="common.button.done" />

@@ -18,7 +18,6 @@ import { EmailModule } from "./email/email.module";
 import { FileModule } from "./file/file.module";
 import { JobsModule } from "./jobs/jobs.module";
 import { PrismaModule } from "./prisma/prisma.module";
-import { ReverseShareModule } from "./reverseShare/reverseShare.module";
 import { ShareModule } from "./share/share.module";
 import { UserModule } from "./user/user.module";
 import { SystemModule } from "./system/system.module";
@@ -48,7 +47,6 @@ const i18nPath = existsSync(join(__dirname, "../i18n"))
     ]),
     ScheduleModule.forRoot(),
     ClamScanModule,
-    ReverseShareModule,
     AppCacheModule,
     DownloadLogModule,
     I18nModule.forRoot({

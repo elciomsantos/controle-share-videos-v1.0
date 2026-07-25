@@ -39,7 +39,7 @@ export class ShareSecurityGuard extends JwtGuard {
 
     const share = await this.prisma.share.findUnique({
       where: { id: shareId },
-      include: { security: true, reverseShare: true },
+      include: { security: true },
     });
 
     if (!share) throw new NotFoundException(this.i18n.t("share.notFound"));
@@ -77,18 +77,6 @@ export class ShareSecurityGuard extends JwtGuard {
       throw new ForbiddenException(
         this.i18n.t("share.tokenRequired"),
         "share_token_required",
-      );
-
-    // Only the creator and reverse share creator can access the reverse share if it's not public
-    if (
-      share.reverseShare &&
-      !share.reverseShare.publicAccess &&
-      share.creatorId !== user?.id &&
-      share.reverseShare.creatorId !== user?.id
-    )
-      throw new ForbiddenException(
-        this.i18n.t("share.privateShare"),
-        "private_share",
       );
 
     return true;

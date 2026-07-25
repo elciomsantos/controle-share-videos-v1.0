@@ -4,7 +4,6 @@ import * as fs from "fs";
 import dayjs from "dayjs";
 import { FileService } from "../file/file.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { ReverseShareService } from "../reverseShare/reverseShare.service";
 import { ConfigService } from "../config/config.service";
 import { EPOCH_ZERO } from "../utils/date.util";
 import { SHARE_DIRECTORY } from "../constants";
@@ -15,7 +14,6 @@ export class JobsService {
 
   constructor(
     private prisma: PrismaService,
-    private reverseShareService: ReverseShareService,
     private fileService: FileService,
     private configServer: ConfigService,
   ) {}
@@ -56,25 +54,6 @@ export class JobsService {
 
     if (expiredShares.length > 0) {
       this.logger.log(`Deleted ${expiredShares.length} expired shares`);
-    }
-  }
-
-  @Cron("0 * * * *")
-  async deleteExpiredReverseShares() {
-    const expiredReverseShares = await this.prisma.reverseShare.findMany({
-      where: {
-        shareExpiration: { lt: new Date() },
-      },
-    });
-
-    for (const expiredReverseShare of expiredReverseShares) {
-      await this.reverseShareService.remove(expiredReverseShare.id);
-    }
-
-    if (expiredReverseShares.length > 0) {
-      this.logger.log(
-        `Deleted ${expiredReverseShares.length} expired reverse shares`,
-      );
     }
   }
 

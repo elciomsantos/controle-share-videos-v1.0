@@ -37,7 +37,6 @@ const categories = [
   "Email",
   "Share",
   "SMTP",
-  "S3",
   "Legal",
   "Cache",
 ];

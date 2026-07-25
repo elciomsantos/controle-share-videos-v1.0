@@ -27,11 +27,9 @@ let createdShare: Share;
 
 const Upload = ({
   maxShareSize,
-  isReverseShare = false,
   simplified,
 }: {
   maxShareSize?: number;
-  isReverseShare: boolean;
   simplified: boolean;
 }) => {
   const modals = useModals();
@@ -64,12 +62,11 @@ const Upload = ({
     setisUploading(true);
 
     try {
-      const isReverseShare = router.pathname != "/upload";
       const totalSize = files.reduce((acc, file) => acc + file.size, 0);
-      createdShare = await shareService.create(
-        { ...share, size: totalSize },
-        isReverseShare,
-      );
+      createdShare = await shareService.create({
+        ...share,
+        size: totalSize,
+      });
     } catch (e) {
       toast.axiosError(e);
       setisUploading(false);
@@ -149,7 +146,6 @@ const Upload = ({
       modals,
       {
         isUserSignedIn: user ? true : false,
-        isReverseShare,
         appUrl: config.get("general.appUrl"),
         defaultAppUrl: config.get("general.appUrl", true),
         allowUnauthenticatedShares: config.get(

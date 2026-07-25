@@ -1,10 +1,8 @@
-import { deleteCookie, setCookie } from "cookies-next";
 import mime from "mime-types";
 import { FileUploadResponse } from "../types/File.type";
 
 import {
   CreateShare,
-  MyReverseShare,
   MyShare,
   Share,
   ShareMetaData,
@@ -20,17 +18,13 @@ const list = async (): Promise<MyShare[]> => {
   return (await api.get(`shares/all`)).data;
 };
 
-const create = async (share: CreateShare, isReverseShare = false) => {
-  if (!isReverseShare) {
-    deleteCookie("reverse_share_token");
-  }
+const create = async (share: CreateShare) => {
   return (await api.post("shares", share)).data;
 };
 
 const completeShare = async (id: string) => {
   if (!isValidId(id)) throw new Error("Invalid ID");
   const response = (await api.post(`shares/${id}/complete`)).data;
-  deleteCookie("reverse_share_token");
   return response;
 };
 
@@ -147,43 +141,6 @@ const uploadFile = async (
   ).data;
 };
 
-const createReverseShare = async (
-  shareExpiration: string,
-  maxShareSize: number,
-  maxUseCount: number,
-  sendEmailNotification: boolean,
-  simplified: boolean,
-  publicAccess: boolean,
-) => {
-  return (
-    await api.post("reverseShares", {
-      shareExpiration,
-      maxShareSize: maxShareSize.toString(),
-      maxUseCount,
-      sendEmailNotification,
-      simplified,
-      publicAccess,
-    })
-  ).data;
-};
-
-const getMyReverseShares = async (): Promise<MyReverseShare[]> => {
-  return (await api.get("reverseShares")).data;
-};
-
-const setReverseShare = async (reverseShareToken: string) => {
-  if (!isValidId(reverseShareToken))
-    throw new Error("Invalid Reverse Share Token");
-  const { data } = await api.get(`/reverseShares/${reverseShareToken}`);
-  setCookie("reverse_share_token", reverseShareToken);
-  return data;
-};
-
-const removeReverseShare = async (id: string) => {
-  if (!isValidId(id)) throw new Error("Invalid ID");
-  await api.delete(`/reverseShares/${id}`);
-};
-
 export default {
   list,
   create,
@@ -203,8 +160,4 @@ export default {
   downloadFile,
   removeFile,
   uploadFile,
-  setReverseShare,
-  createReverseShare,
-  getMyReverseShares,
-  removeReverseShare,
 };
