@@ -6,9 +6,16 @@
 - Set an expiration date for shares
 - Secure shares with visitor limits and passwords
 - Email recipients
-- Reverse shares
+- Upload only by the authenticated owner (no reverse shares)
 - Integration with ClamAV for security scans
-- Different file providers: local storage and S3
+- Local-only storage on the server (no S3 providers)
+- Automatic password generation with shareable link (configurable length)
+- Per-share limits: max views, max downloads, expiration
+- Dedicated share-viewing page (no admin chrome when accessing via link)
+- Full audit log of views and downloads (IP, user-agent, timestamp, success/failure)
+- Admin dashboard for download/view logs with filters and pagination
+- Role-based access control (admin / operator / auditor)
+- Forced password change on first login for admin-created users
 
 ## Setup
 

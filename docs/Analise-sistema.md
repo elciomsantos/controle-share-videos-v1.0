@@ -1,5 +1,15 @@
 # Análise do projeto `controle-share-videos-v1.0` para uso interno restrito
 
+> **NOTA DE PADRONIZAÇÃO (atualizada em 2026-07-25):** este documento é um **registro histórico** da análise em 2026-07-19, antes das evoluções. As decisões sobre S3 (`§5.2`, `§7.5`, `§9.1`, `§11`, `§12`) e reverse shares aqui descritas como "desativar / código pode permanecer" foram **evoluídas para remoção completa** em 2026-07-25. Ver `docs/Padronizacao.md` para a decisão vigente.
+>
+> Principais diferenças vigentes vs. este documento:
+> - **S3:** remover completamente (não apenas desativar). Remover `backend/src/file/s3.service.ts`, dependência `@aws-sdk/client-s3`, categoria `s3.*` do `config.seed.ts`.
+> - **Reverse shares:** remover completamente (não apenas desativar). Apagar `backend/src/reverseShare/`, página `/upload/[token]`, tabela `ReverseShare`, FK `Share.reverseShareId`.
+>
+> Os demais requisitos R1-R8 continuam válidos conforme esta análise.
+
+---
+
 - **Base histórica:** Pingvin Share X v1.21.1 ( fork já independente, renomeado para **Controle Share Videos** )
 - **Objetivo:** restringir a uso interno, fixar PT-BR como único idioma, remover acesso/links externos, hardening de segurança.
 - **Data da análise:** 2026-07-19
