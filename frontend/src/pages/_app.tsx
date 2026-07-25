@@ -33,7 +33,7 @@ import userPreferences from "../utils/userPreferences.util";
 import Footer from "../components/footer/Footer";
 import { getDefaultConfig } from "../utils/defaultConfig.util";
 
-const excludeDefaultLayoutRoutes = ["/admin/config/[category]"];
+const excludeDefaultLayoutRoutes = ["/admin/config/[category]", "/share/[shareId]"];
 const availableMantineColors = [
   "dark",
   "gray",
@@ -247,6 +247,11 @@ function App({ Component, pageProps }: AppProps) {
   const language = useRef(pageProps.language);
   dayjs.locale(language.current.toLowerCase());
 
+  const isExcludedRoute = excludeDefaultLayoutRoutes.some((pattern) => {
+    const regex = new RegExp("^" + pattern.replace(/\[.*?\]/g, "[^/]+") + "$");
+    return regex.test(route) || regex.test(router.pathname);
+  });
+
   return (
     <>
       <Head>
@@ -290,7 +295,7 @@ function App({ Component, pageProps }: AppProps) {
                   },
                 }}
               >
-                {excludeDefaultLayoutRoutes.includes(route) ? (
+                {isExcludedRoute ? (
                   <Component {...pageProps} />
                 ) : (
                   <>

@@ -120,6 +120,7 @@ export default {
   "account.shares.table.name": "Nome",
   "account.shares.table.description": "Descrição",
   "account.shares.table.visitors": "Visitantes",
+  "account.shares.table.downloads": "Downloads",
   "account.shares.table.expiresAt": "Expira em",
   "account.shares.table.createdAt": "Criada em",
   "account.shares.table.size": "Tamanho",
@@ -229,10 +230,21 @@ export default {
   "upload.modal.accordion.security.password.placeholder": "Sem senha",
   "upload.modal.accordion.security.max-views.label": "Máximo de visualizações",
   "upload.modal.accordion.security.max-views.placeholder": "Sem limite",
+  "upload.modal.accordion.security.max-downloads.label": "Máximo de downloads",
+  "upload.modal.accordion.security.max-downloads.placeholder": "0 = ilimitado",
+  "upload.modal.accordion.security.auto-generate.description": "Uma senha forte sera gerada automaticamente.",
+  "upload.modal.accordion.security.manual-password.label": "Definir senha manualmente",
+  "upload.modal.accordion.security.generate-password.button": "Gerar senha",
   // showCompletedUploadModal.tsx
   "upload.modal.completed.never-expires": "Este compartilhamento nunca irá expirar.",
   "upload.modal.completed.expires-on": "Este compartilhamento irá expirar em {expiration}.",
   "upload.modal.completed.share-ready": "Compartilhamento pronto",
+  "upload.modal.completed.generated-password": "Senha gerada",
+  "upload.modal.completed.copy-all.button": "Copiar link e senha",
+  "upload.modal.completed.copy-all.success": "Link e senha copiados!",
+  "upload.modal.completed.copy-all.error": "Erro ao copiar. Copie manualmente.",
+  "upload.modal.completed.max-views": "Limite de visualizacoes: {count}",
+  "upload.modal.completed.max-downloads": "Limite de downloads: {count}",
   // END /upload
 
   // /share/[id]

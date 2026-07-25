@@ -56,8 +56,20 @@ export class ShareService {
     if (!share.security || Object.keys(share.security).length == 0)
       share = { ...share, security: undefined as unknown as ShareSecurityDTO };
 
+    let generatedPassword: string | undefined;
+
     if (share.security?.password) {
       share.security.password = await argon.hash(share.security.password, ARGON2_OPTIONS);
+    } else if (
+      this.config.get("share.autoGeneratePassword") &&
+      !share.security?.password
+    ) {
+      const length = this.config.get("share.generatedPasswordLength");
+      generatedPassword = this.generateRandomPassword(length);
+      share.security = {
+        ...share.security,
+        password: await argon.hash(generatedPassword, ARGON2_OPTIONS),
+      } as ShareSecurityDTO;
     }
 
     const expirationDate = this.parseExpiration(share.expiration);
@@ -92,7 +104,7 @@ export class ShareService {
       },
     });
 
-    return shareTuple;
+    return { ...shareTuple, generatedPassword };
   }
 
   async createZip(shareId: string) {
@@ -121,6 +133,7 @@ export class ShareService {
         files: true,
         recipients: true,
         creator: true,
+        security: true,
       },
     });
 
@@ -159,9 +172,15 @@ export class ShareService {
     const updatedShare = await this.prisma.share.update({
       where: { id },
       data: { uploadLocked: true },
+      include: { security: true, files: true, creator: true },
     });
 
-    return updatedShare;
+    return {
+      ...updatedShare,
+      hasPassword: !!updatedShare.security?.password,
+      maxViews: updatedShare.security?.maxViews,
+      maxDownloads: updatedShare.security?.maxDownloads,
+    };
   }
 
   async revertComplete(id: string) {
@@ -529,5 +548,13 @@ export class ShareService {
       .createHmac("sha512", this.config.get("internal.jwtSecret"))
       .update(password)
       .digest("hex");
+  }
+
+  private generateRandomPassword(length: number): string {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+    const bytes = crypto.randomBytes(length);
+    return Array.from(bytes)
+      .map((b) => chars[b % chars.length])
+      .join("");
   }
 }

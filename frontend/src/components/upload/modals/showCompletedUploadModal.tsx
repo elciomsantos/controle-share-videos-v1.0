@@ -1,4 +1,4 @@
-import { Button, Stack, Text, Collapse, useComputedColorScheme, useMantineTheme } from "@mantine/core";
+import { Button, Stack, Text, Collapse, useComputedColorScheme, useMantineTheme, Group, Divider } from "@mantine/core";
 import { useModals } from "@mantine/modals";
 type ModalsContextProps = ReturnType<typeof useModals>;
 import { useState } from "react";
@@ -11,12 +11,14 @@ import useTranslate, {
 import { CompletedShare } from "../../../types/share.type";
 import CopyTextField from "../CopyTextField";
 import QRCode from "../../share/QRCode";
+import toast from "../../../utils/toast.util";
 
 const showCompletedUploadModal = (
   modals: ModalsContextProps,
   share: CompletedShare,
   appUrl: string,
   defaultAppUrl: string,
+  generatedPassword?: string,
 ) => {
   const t = translateOutsideContext();
   return modals.openModal({
@@ -25,7 +27,7 @@ const showCompletedUploadModal = (
     closeOnEscape: false,
     title: t("upload.modal.completed.share-ready"),
     children: (
-      <Body share={share} appUrl={appUrl} defaultAppUrl={defaultAppUrl} />
+      <Body share={share} appUrl={appUrl} defaultAppUrl={defaultAppUrl} generatedPassword={generatedPassword} />
     ),
   });
 };
@@ -34,10 +36,12 @@ const Body = ({
   share,
   appUrl,
   defaultAppUrl,
+  generatedPassword,
 }: {
   share: CompletedShare;
   appUrl: string;
   defaultAppUrl: string;
+  generatedPassword?: string;
 }) => {
   const modals = useModals();
   const router = useRouter();
@@ -51,7 +55,29 @@ const Body = ({
     setShowQR(!showQR);
   };
 
-  const link = `${appUrl !== defaultAppUrl ? appUrl : window.location.origin}/s/${share.id}`;
+  const baseUrl = `${appUrl !== defaultAppUrl ? appUrl : window.location.origin}/share/${share.id}`;
+  const link = generatedPassword ? `${baseUrl}?pwd=${generatedPassword}` : baseUrl;
+
+  const handleCopyAll = async () => {
+    const text = [
+      `Link: ${link}`,
+      generatedPassword ? `Senha: ${generatedPassword}` : null,
+      dayjs(share.expiration).unix() === 0
+        ? `Expira em: Nunca`
+        : `Expira em: ${dayjs(share.expiration).format("LLL")}`,
+      share.maxViews ? `Limite de visualizacoes: ${share.maxViews}` : null,
+      share.maxDownloads ? `Limite de downloads: ${share.maxDownloads}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(t("upload.modal.completed.copy-all.success"));
+    } catch {
+      toast.error(t("upload.modal.completed.copy-all.error"));
+    }
+  };
 
   return (
     <Stack align="stretch">
@@ -59,17 +85,43 @@ const Body = ({
       <Collapse expanded={showQR}>
         <QRCode link={link} />
       </Collapse>
-      <Text
-        size="xs"
-        style={{ color: theme.colors.gray[6] }}
-      >
-        {/* If our share.expiration is timestamp 0, show a different message */}
+
+      {generatedPassword && (
+        <>
+          <Divider />
+          <Text size="sm">
+            <b>
+              <FormattedMessage id="upload.modal.completed.generated-password" />:{" "}
+            </b>
+            <Text component="span" fw={700} c="blue">
+              {generatedPassword}
+            </Text>
+          </Text>
+        </>
+      )}
+
+      <Text size="xs" style={{ color: theme.colors.gray[6] }}>
         {dayjs(share.expiration).unix() === 0
           ? t("upload.modal.completed.never-expires")
           : t("upload.modal.completed.expires-on", {
               expiration: dayjs(share.expiration).format("LLL"),
             })}
       </Text>
+
+      {share.maxViews && (
+        <Text size="xs" style={{ color: theme.colors.gray[6] }}>
+          <FormattedMessage id="upload.modal.completed.max-views" values={{ count: share.maxViews }} />
+        </Text>
+      )}
+      {share.maxDownloads && (
+        <Text size="xs" style={{ color: theme.colors.gray[6] }}>
+          <FormattedMessage id="upload.modal.completed.max-downloads" values={{ count: share.maxDownloads }} />
+        </Text>
+      )}
+
+      <Button variant="light" onClick={handleCopyAll}>
+        <FormattedMessage id="upload.modal.completed.copy-all.button" />
+      </Button>
 
       <Button
         onClick={() => {

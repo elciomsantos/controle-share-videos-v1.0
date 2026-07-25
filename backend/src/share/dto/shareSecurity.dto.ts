@@ -9,4 +9,8 @@ export class ShareSecurityDTO {
   @IsNumber()
   @IsOptional()
   maxViews!: number;
+
+  @IsNumber()
+  @IsOptional()
+  maxDownloads!: number;
 }

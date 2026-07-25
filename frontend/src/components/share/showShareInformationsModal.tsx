@@ -84,7 +84,7 @@ const Body = ({
     setShowQR(!showQR);
   };
 
-  const link = `${appUrl !== defaultAppUrl ? appUrl : window.location.origin}/s/${currentShare.id}`;
+  const link = `${appUrl !== defaultAppUrl ? appUrl : window.location.origin}/share/${currentShare.id}`;
 
   const resolvedMaxShareSize = currentShare.creator?.shareSizeLimit
     ? parseInt(currentShare.creator.shareSizeLimit)
@@ -213,6 +213,7 @@ const EditShareBody = ({
   const security = share.security ?? {
     passwordProtected: false,
     maxViews: undefined,
+    maxDownloads: undefined,
   };
 
   const validationSchema = yup.object().shape({
@@ -248,6 +249,7 @@ const EditShareBody = ({
       password: "",
       removePassword: false,
       maxViews: security.maxViews || undefined,
+      maxDownloads: security.maxDownloads || undefined,
     },
     validate: (values) => {
       try {
@@ -298,6 +300,7 @@ const EditShareBody = ({
         password: values.password || undefined,
         removePassword: values.removePassword,
         maxViews: values.maxViews || null,
+        maxDownloads: values.maxDownloads || null,
       },
     };
 
@@ -372,6 +375,15 @@ const EditShareBody = ({
           )}
           label={t("upload.modal.accordion.security.max-views.label")}
           {...form.getInputProps("maxViews")}
+        />
+        <NumberInput
+          min={0}
+          variant="filled"
+          placeholder={t(
+            "upload.modal.accordion.security.max-downloads.placeholder",
+          )}
+          label={t("upload.modal.accordion.security.max-downloads.label")}
+          {...form.getInputProps("maxDownloads")}
         />
         <Group justify="flex-end">
           <Button variant="default" onClick={onCancel}>

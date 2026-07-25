@@ -11,7 +11,10 @@ export type Share = {
   hasPassword: boolean;
 };
 
-export type CompletedShare = Share;
+export type CompletedShare = Share & {
+  maxViews?: number;
+  maxDownloads?: number;
+};
 
 export type CreateShare = {
   id: string;
@@ -31,6 +34,7 @@ export type UpdateShare = {
     password?: string;
     removePassword?: boolean;
     maxViews?: number | null;
+    maxDownloads?: number | null;
   };
 };
 
@@ -41,16 +45,19 @@ export type ShareMetaData = {
 
 export type MyShare = Omit<Share, "hasPassword"> & {
   views: number;
+  downloads?: number;
   createdAt: Date;
   security?: MyShareSecurity;
 };
 
 export type ShareSecurity = {
   maxViews?: number;
+  maxDownloads?: number;
   password?: string;
 };
 
 export type MyShareSecurity = {
   passwordProtected: boolean;
   maxViews?: number;
+  maxDownloads?: number;
 };

@@ -133,6 +133,21 @@ export const configVariables = {
       defaultValue: "0",
       secret: false,
     },
+    generatedPasswordLength: {
+      type: "number",
+      defaultValue: "12",
+      secret: false,
+    },
+    autoGeneratePassword: {
+      type: "boolean",
+      defaultValue: "true",
+      secret: false,
+    },
+    includePasswordInShareLink: {
+      type: "boolean",
+      defaultValue: "false",
+      secret: false,
+    },
   },
   cache: {
     "redis-enabled": {

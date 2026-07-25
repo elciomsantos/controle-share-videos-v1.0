@@ -36,6 +36,7 @@ export class ShareSecurityGuard extends JwtGuard {
       : request.params.id;
 
     const shareToken = request.cookies[`share_${shareId}_token`];
+    const pwdFromQuery = request.query.pwd as string | undefined;
 
     const share = await this.prisma.share.findUnique({
       where: { id: shareId },
@@ -64,6 +65,23 @@ export class ShareSecurityGuard extends JwtGuard {
       !isEpochZero(share.expiration)
     ) {
       throw new NotFoundException(this.i18n.t("share.notFound"));
+    }
+
+    // Auto-authenticate via ?pwd= query parameter
+    if (pwdFromQuery && share.security?.password) {
+      if (this.configService.get("share.includePasswordInShareLink")) {
+        try {
+          const token = await this.shareService.getShareToken(shareId, pwdFromQuery);
+          const res = context.switchToHttp().getResponse();
+          res.cookie(`share_${shareId}_token`, token, {
+            path: "/",
+            httpOnly: true,
+          });
+          return true;
+        } catch {
+          // Invalid password via query — fall through to normal flow
+        }
+      }
     }
 
     if (share.security?.password && !shareToken)

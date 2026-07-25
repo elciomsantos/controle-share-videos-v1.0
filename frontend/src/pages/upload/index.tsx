@@ -24,6 +24,7 @@ import { getNormalizedFileName, filterDuplicateFiles } from "../../utils/file.ut
 const promiseLimit = pLimit(3);
 let errorToastShown = false;
 let createdShare: Share;
+let pendingGeneratedPassword: string | undefined;
 
 const Upload = ({
   maxShareSize,
@@ -63,10 +64,12 @@ const Upload = ({
 
     try {
       const totalSize = files.reduce((acc, file) => acc + file.size, 0);
-      createdShare = await shareService.create({
+      const result = await shareService.create({
         ...share,
         size: totalSize,
       });
+      createdShare = result;
+      pendingGeneratedPassword = (result as any).generatedPassword;
     } catch (e) {
       toast.axiosError(e);
       setisUploading(false);
@@ -158,6 +161,8 @@ const Upload = ({
         defaultExpiration: config.get("share.defaultExpiration"),
         shareIdLength: config.get("share.shareIdLength"),
         simplified,
+        autoGeneratePassword: config.get("share.autoGeneratePassword"),
+        generatedPasswordLength: parseInt(config.get("share.generatedPasswordLength")),
       },
       files,
       uploadFiles,
@@ -271,7 +276,9 @@ const Upload = ({
             share,
             config.get("general.appUrl"),
             config.get("general.appUrl", true),
+            pendingGeneratedPassword,
           );
+          pendingGeneratedPassword = undefined;
           setFiles([]);
         })
         .catch(() => toast.error(t("upload.notify.generic-error")));

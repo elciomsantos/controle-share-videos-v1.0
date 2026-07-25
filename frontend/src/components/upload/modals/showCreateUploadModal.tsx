@@ -18,7 +18,7 @@ import {
 import { useForm } from "@mantine/form";
 import { useModals } from "@mantine/modals";
 import React, { useState } from "react";
-import { TbAlertCircle } from "react-icons/tb";
+import { TbAlertCircle, TbRefresh } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
 import * as yup from "yup";
 import useTranslate, {
@@ -50,6 +50,8 @@ const showCreateUploadModal = (
     defaultExpiration: Timespan;
     shareIdLength: number;
     simplified: boolean;
+    autoGeneratePassword: boolean;
+    generatedPasswordLength: number;
   },
   files: FileUpload[],
   uploadCallback: (createShare: CreateShare, files: FileUpload[]) => void,
@@ -108,6 +110,15 @@ const generateAvailableLink = async (
   }
 };
 
+const generateRandomPassword = (length: number = 12) => {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  const randomArray = new Uint8Array(length);
+  crypto.getRandomValues(randomArray);
+  return Array.from(randomArray)
+    .map((b) => chars[b % chars.length])
+    .join("");
+};
+
 const CreateUploadModalBody = ({
   uploadCallback,
   files,
@@ -124,6 +135,8 @@ const CreateUploadModalBody = ({
     maxExpiration: Timespan;
     defaultExpiration: Timespan;
     shareIdLength: number;
+    autoGeneratePassword: boolean;
+    generatedPasswordLength: number;
   };
 }) => {
   const modals = useModals();
@@ -133,6 +146,7 @@ const CreateUploadModalBody = ({
 
   const [showNotSignedInAlert, setShowNotSignedInAlert] = useState(true);
   const [emailSearch, setEmailSearch] = useState("");
+  const [useManualPassword, setUseManualPassword] = useState(false);
 
   const validationSchema = yup.object().shape({
     link: yup
@@ -165,12 +179,13 @@ const CreateUploadModalBody = ({
 
   const form = useForm({
     initialValues: {
-      name: undefined,
+      name: undefined as string | undefined,
       link: generatedLink,
       recipients: [] as string[],
-      password: undefined,
-      maxViews: undefined,
-      description: undefined,
+      password: undefined as string | undefined,
+      maxViews: undefined as number | undefined,
+      maxDownloads: undefined as number | undefined,
+      description: undefined as string | undefined,
       expiration_num: defaultTimespan.value,
       expiration_unit: `-${defaultTimespan.unit}` as string,
       never_expires: false,
@@ -236,6 +251,7 @@ const CreateUploadModalBody = ({
           security: {
             password: values.password || undefined,
             maxViews: values.maxViews || undefined,
+            maxDownloads: values.maxDownloads || undefined,
           },
         },
         files,
@@ -287,7 +303,7 @@ const CreateUploadModalBody = ({
             size="xs"
             style={{ color: "var(--mantine-color-gray-6)" }}
           >
-            {`${options.appUrl !== options.defaultAppUrl ? options.appUrl : window.location.origin}/s/${form.values.link}`}
+            {`${options.appUrl !== options.defaultAppUrl ? options.appUrl : window.location.origin}/share/${form.values.link}`}
           </Text>
           <Grid align={form.errors.expiration_num ? "center" : "flex-end"}>
             <Grid.Col span={6}>
@@ -438,15 +454,46 @@ const CreateUploadModalBody = ({
               </Accordion.Control>
               <Accordion.Panel>
                 <Stack align="stretch">
-                  <PasswordInput
-                    variant="filled"
-                    placeholder={t(
-                      "upload.modal.accordion.security.password.placeholder",
-                    )}
-                    label={t("upload.modal.accordion.security.password.label")}
-                    autoComplete="new-password"
-                    {...form.getInputProps("password")}
+                  {!useManualPassword && options.autoGeneratePassword && (
+                    <Text size="sm" color="dimmed">
+                      <FormattedMessage id="upload.modal.accordion.security.auto-generate.description" />
+                    </Text>
+                  )}
+                  <Checkbox
+                    label={t("upload.modal.accordion.security.manual-password.label")}
+                    checked={useManualPassword}
+                    onChange={(e) => {
+                      setUseManualPassword(e.currentTarget.checked);
+                      if (!e.currentTarget.checked) {
+                        form.setFieldValue("password", undefined);
+                      }
+                    }}
                   />
+                  {useManualPassword && (
+                    <Group align="flex-end">
+                      <PasswordInput
+                        variant="filled"
+                        placeholder={t(
+                          "upload.modal.accordion.security.password.placeholder",
+                        )}
+                        label={t("upload.modal.accordion.security.password.label")}
+                        autoComplete="new-password"
+                        style={{ flex: 1 }}
+                        {...form.getInputProps("password")}
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          const pwd = generateRandomPassword(options.generatedPasswordLength);
+                          form.setFieldValue("password", pwd);
+                        }}
+                        mb={2}
+                      >
+                        <TbRefresh size={16} style={{ marginRight: 4 }} />
+                        <FormattedMessage id="upload.modal.accordion.security.generate-password.button" />
+                      </Button>
+                    </Group>
+                  )}
                   <NumberInput
                     min={1}
                     variant="filled"
@@ -455,6 +502,15 @@ const CreateUploadModalBody = ({
                     )}
                     label={t("upload.modal.accordion.security.max-views.label")}
                     {...form.getInputProps("maxViews")}
+                  />
+                  <NumberInput
+                    min={0}
+                    variant="filled"
+                    placeholder={t(
+                      "upload.modal.accordion.security.max-downloads.placeholder",
+                    )}
+                    label={t("upload.modal.accordion.security.max-downloads.label")}
+                    {...form.getInputProps("maxDownloads")}
                   />
                 </Stack>
               </Accordion.Panel>

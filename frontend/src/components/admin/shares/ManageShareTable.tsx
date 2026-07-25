@@ -58,6 +58,9 @@ const ManageShareTable = ({
             <th>
               <FormattedMessage id="account.shares.table.visitors" />
             </th>
+            <th className="hide-on-mobile">
+              <FormattedMessage id="account.shares.table.downloads" />
+            </th>
             <th>
               <FormattedMessage id="account.shares.table.size" />
             </th>
@@ -89,6 +92,10 @@ const ManageShareTable = ({
                     )}
                   </td>
                   <td>{share.views}</td>
+                  <td className="hide-on-mobile">
+                    {share.downloads ?? 0}
+                    {share.security?.maxDownloads ? `/${share.security.maxDownloads}` : ""}
+                  </td>
                   <td>{byteToHumanSizeString(share.size)}</td>
                   <td>
                     {dayjs(share.expiration).unix() === 0
@@ -140,7 +147,7 @@ const ManageShareTable = ({
                           onClick={() => {
                             if (window.isSecureContext) {
                               clipboard.copy(
-                                `${config.get("general.appUrl") !== config.get("general.appUrl", true) ? config.get("general.appUrl") : window.location.origin}/s/${share.id}`,
+                                `${config.get("general.appUrl") !== config.get("general.appUrl", true) ? config.get("general.appUrl") : window.location.origin}/share/${share.id}`,
                               );
                               toast.success(t("common.notify.copied-link"));
                             } else {
@@ -190,7 +197,7 @@ const skeletonRows = [...Array(10)].map((v, i) => (
     <td>
       <Skeleton key={i} height={20} />
     </td>
-    <td>
+    <td className="hide-on-mobile">
       <Skeleton key={i} height={20} />
     </td>
     <td>
