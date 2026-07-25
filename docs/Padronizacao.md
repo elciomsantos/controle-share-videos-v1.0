@@ -1,11 +1,11 @@
-# Padronização — Remoção de Reverse Shares e S3
+# Padronização — Programa Completo
 
 > **Sistema de Compartilhamento Seguro de Arquivos — Controle Share Videos**
-> Documento de decisão de padronização
+> Documento de decisão de padronização — programa 11 temas
 
-**Versão:** 1.0.0
+**Versão:** 2.0.0
 **Data:** 2026-07-25
-**Status:** Executado — código commitado (`f4a9842`)
+**Status:** Em andamento — Temas 1–5 executados, 7/10/11 documentados, 8/9 pendentes
 **Branch de trabalho:** `main`
 
 ---
@@ -136,17 +136,16 @@ A padronização documental contempla os seguintes temas, derivados das notas en
 | # | Tema | Status |
 |---|------|--------|
 | 1 | Remoção de Reverse Shares + S3 (este documento) | Executado — commit `f4a9842` |
-| 2 | Compartilhamento por link seguro (geração automática de senha + link, limites de views/downloads, tela exclusiva de visualização) | Decidido — ver `Padronizacao-02-link-seguro.md`; código pendente |
-| 3 | Auditoria e logs de vídeo (tamanho, datas, usuário IP/data/hora) | Decidido — ver `docs/Padronizacao-03-auditoria-logs.md`; código pendente |
-| 4 | Gestão de usuários e permissões (admin cria usuários; troca de senha no primeiro acesso) | Decidido — ver `docs/Padronizacao-04-usuarios-permissoes.md`; código pendente |
-| 5 | Limite de tamanho de arquivo via painel administrativo | Decidido — já implementado; ver `docs/Padronizacao-05-limite-tamanho.md`; sem mudança de código |
+| 2 | Compartilhamento por link seguro (geração automática de senha + link, limites de views/downloads, tela exclusiva de visualização) | Executado — commits `191ea0a`, `d798d9d`; ver `Padronizacao-02-link-seguro.md` |
+| 3 | Auditoria e logs de vídeo (tamanho, datas, usuário IP/data/hora) | Executado — commit `ec971dc`; ver `Padronizacao-03-auditoria-logs.md` |
+| 4 | Gestão de usuários e permissões (admin cria usuários; troca de senha no primeiro acesso) | Executado — commit `d798d9d`; ver `Padronizacao-04-usuarios-permissoes.md` |
+| 5 | Limite de tamanho de arquivo via painel administrativo | Executado — sem mudança de código; ver `Padronizacao-05-limite-tamanho.md` |
 | 6 | Tela exclusiva de visualização por link (sem tela inicial) | Coberto pelo Tema 2 — ver `Padronizacao-02-link-seguro.md` §3.3 |
-| 7 | Integração ClamAV (validar funcionamento atual — marcado "a integrar") | Pendente |
+| 7 | Integração ClamAV (daemon compose, toggle admin, i18n, status endpoint, bloquear download se scan pendente) | Decidido — ver `Padronizacao-07-clamav.md`; código pendente |
 | 8 | Refino do documento `Visao-geral.md` como um todo | Pendente |
 | 9 | Atualização final de README | Pendente |
-| 10| Criar popup de interação com usuário informando de senha ou usuário incorretos na tela de login e demais erros do sistema como falha em uploads, por que os erros são apenas 
-silenciosos
-| 11 | informar ao criar usuario se osuario usado já existe
+| 10| Popups de erro — login (credenciais, conta não ativada, 429, 500/rede) e upload (completeShare, chunk, isShareIdAvailable); helper `showBlockingErrorModal`; correção de i18n ausente | Decidido — ver `Padronizacao-10-popups-erro.md`; código pendente |
+| 11| Usuário duplicado — contrato de erro `field` no backend, inline field error, debounce pre-validation (admin), i18n nova | Decidido — ver `Padronizacao-11-usuario-duplicado.md`; código pendente |
 
 
 Cada tema terá seu próprio documento de decisão (em `docs/Padronizacao-XX-*.md`) ou seção única consolidada, conforme evacuação.

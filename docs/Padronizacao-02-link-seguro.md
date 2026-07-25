@@ -230,6 +230,8 @@ Não é enviado por email automaticamente (essa decisão fica no tema sobre noti
 | `frontend/src/components/admin/shares/ManageShareTable.tsx` | Adicionar colunas `views/maxViews` e `downloads/maxDownloads`. Edição via `showShareInformationsModal` já suporta `maxViews`; estender para `maxDownloads`. |
 | `frontend/src/components/share/showShareInformationsModal.tsx` | Adicionar campo `maxDownloads` ao `EditShareBody` (atual: só `maxViews`). |
 
+| Usar imagens - tela-downloads.png  na pagina de links-seguro com tamanho adequado|
+
 ### 4.3 Schema / Migration
 
 **Nenhuma migração de schema necessária** — `maxViews`, `maxDownloads`, `password` já existem em `ShareSecurity`. As novas chaves de config (`share.generatedPasswordLength`, `share.autoGeneratePassword`, `share.includePasswordInShareLink`) são **apenas linhas na tabela `Config`**, populadas pelo seed (`seedConfigVariables`).
