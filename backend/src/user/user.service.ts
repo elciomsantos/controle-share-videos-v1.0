@@ -3,6 +3,7 @@ import { Prisma } from "../../prisma/generated/prisma/client";
 import argon from "argon2";
 import { I18nService } from "nestjs-i18n";
 import { ARGON2_OPTIONS } from "../constants";
+import { DuplicatedFieldException } from "../common/duplicated-field.exception";
 import { EmailService } from "../email/email.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { FileService } from "../file/file.service";
@@ -70,11 +71,11 @@ export class UserService {
         e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code == "P2002"
       ) {
-        const duplicatedField: string = (e.meta?.target as string[] | undefined)?.[0] ?? "field";
-        throw new BadRequestException(
-          this.i18n.t("auth.userAlreadyExists", {
-            args: { field: duplicatedField },
-          }),
+        const rawField: string = (e.meta?.target as string[] | undefined)?.[0] ?? "field";
+        const field: "username" | "email" = rawField === "email" ? "email" : "username";
+        throw new DuplicatedFieldException(
+          this.i18n.t("auth.userAlreadyExists", { args: { field } }),
+          field,
         );
       }
       throw e;
@@ -109,15 +110,27 @@ export class UserService {
         e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code == "P2002"
       ) {
-        const duplicatedField: string = (e.meta?.target as string[] | undefined)?.[0] ?? "field";
-        throw new BadRequestException(
-          this.i18n.t("auth.userAlreadyExists", {
-            args: { field: duplicatedField },
-          }),
+        const rawField: string = (e.meta?.target as string[] | undefined)?.[0] ?? "field";
+        const field: "username" | "email" = rawField === "email" ? "email" : "username";
+        throw new DuplicatedFieldException(
+          this.i18n.t("auth.userAlreadyExists", { args: { field } }),
+          field,
         );
       }
       throw e;
     }
+  }
+
+  async checkAvailability(username?: string, email?: string) {
+    if (username) {
+      const exists = await this.prisma.user.findUnique({ where: { username } });
+      if (exists) return { available: false, field: "username" as const };
+    }
+    if (email) {
+      const exists = await this.prisma.user.findUnique({ where: { email } });
+      if (exists) return { available: false, field: "email" as const };
+    }
+    return { available: true };
   }
 
   async delete(id: string) {

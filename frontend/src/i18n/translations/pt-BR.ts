@@ -45,6 +45,7 @@ export default {
   "signup.input.email": "E-mail",
   "signup.input.email.placeholder": "Seu e-mail",
   "signup.button.submit": "Vamos começar",
+  "signup.error.duplicated": "Este valor já está em uso",
   // /auth/verify
   "verify.title": "Verify Account",
   "verify.success": "Your account has been successfully verified! You can now sign in.",
@@ -181,6 +182,9 @@ export default {
   "admin.users.modal.create.generatePassword.description": "Uma senha temporária forte será gerada e exibida uma única vez.",
   "admin.users.modal.create.temporaryPassword": "Senha temporária gerada",
   "admin.users.modal.create.temporaryPassword.warning": "Copie esta senha e entregue ao usuário por canal seguro. Ela não será exibida novamente.",
+  "admin.users.error.duplicated": "Este valor já está em uso",
+  "admin.users.error.duplicated-username": "Este nome de usuário já está em uso",
+  "admin.users.error.duplicated-email": "Este e-mail já está em uso",
   // END /admin/users
 
   // /admin/shares

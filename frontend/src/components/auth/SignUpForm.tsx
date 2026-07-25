@@ -17,6 +17,7 @@ import useConfig from "../../hooks/config.hook";
 import useTranslate from "../../hooks/useTranslate.hook";
 import useUser from "../../hooks/user.hook";
 import authService from "../../services/auth.service";
+import { getApiErrorField, getApiErrorMessage } from "../../utils/error.util";
 import toast from "../../utils/toast.util";
 
 const SignUpForm = () => {
@@ -75,7 +76,14 @@ const SignUpForm = () => {
           }
         }
       })
-      .catch(toast.axiosError);
+      .catch((e) => {
+        const field = getApiErrorField(e);
+        if (field === "username" || field === "email") {
+          form.setFieldError(field, getApiErrorMessage(e) ?? t("signup.error.duplicated"));
+        } else {
+          toast.axiosError(e);
+        }
+      });
   };
 
   return (

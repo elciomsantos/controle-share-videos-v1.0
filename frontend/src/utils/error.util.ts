@@ -22,3 +22,10 @@ export function getApiErrorMessage(error: any): string | undefined {
   }
   return undefined;
 }
+
+export function getApiErrorField(error: any): string | undefined {
+  const data = error?.response?.data;
+  const field = data?.field;
+  if (typeof field === "string" && field.trim().length > 0) return field;
+  return undefined;
+}

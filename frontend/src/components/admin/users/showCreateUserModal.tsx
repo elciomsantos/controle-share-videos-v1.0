@@ -1,6 +1,7 @@
 import {
   Button,
   Group,
+  Loader,
   PasswordInput,
   Select,
   Stack,
@@ -9,10 +10,12 @@ import {
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useModals } from "@mantine/modals";
+import { useEffect, useState } from "react";
 import { FormattedMessage } from "react-intl";
 import * as yup from "yup";
 import useTranslate from "../../../hooks/useTranslate.hook";
 import userService from "../../../services/user.service";
+import { getApiErrorField, getApiErrorMessage } from "../../../utils/error.util";
 import toast from "../../../utils/toast.util";
 import FileSizeInput from "../../core/FileSizeInput";
 
@@ -23,8 +26,9 @@ const showCreateUserModal = (
   smtpEnabled: boolean,
   getUsers: () => void,
 ) => {
+  const t = useTranslate();
   return modals.openModal({
-    title: "Create user",
+    title: t("admin.users.modal.create.title"),
     children: (
       <Body modals={modals} smtpEnabled={smtpEnabled} getUsers={getUsers} />
     ),
@@ -41,6 +45,7 @@ const Body = ({
   getUsers: () => void;
 }) => {
   const t = useTranslate();
+  const [checkingField, setCheckingField] = useState<"username" | "email" | null>(null);
   const form = useForm({
     initialValues: {
       username: "",
@@ -75,6 +80,44 @@ const Body = ({
       }
     },
   });
+
+  useEffect(() => {
+    if (!form.values.username || form.values.username.length < 3) return;
+    const timer = setTimeout(async () => {
+      setCheckingField("username");
+      try {
+        const result = await userService.checkAvailability({ username: form.values.username });
+        if (!result.available && result.field === "username") {
+          form.setFieldError("username", t("admin.users.error.duplicated-username"));
+        } else if (form.errors.username === t("admin.users.error.duplicated-username")) {
+          form.clearFieldError("username");
+        }
+      } catch {
+        // ignore network errors during debounce
+      }
+      setCheckingField(null);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [form.values.username]);
+
+  useEffect(() => {
+    if (!form.values.email || !form.values.email.includes("@")) return;
+    const timer = setTimeout(async () => {
+      setCheckingField("email");
+      try {
+        const result = await userService.checkAvailability({ email: form.values.email });
+        if (!result.available && result.field === "email") {
+          form.setFieldError("email", t("admin.users.error.duplicated-email"));
+        } else if (form.errors.email === t("admin.users.error.duplicated-email")) {
+          form.clearFieldError("email");
+        }
+      } catch {
+        // ignore network errors during debounce
+      }
+      setCheckingField(null);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [form.values.email]);
 
   return (
     <Stack>
@@ -125,20 +168,31 @@ const Body = ({
                     cancel: t("common.button.cancel"),
                   },
                   cancelProps: { style: { display: "none" } },
+                  onClose: () => modals.closeAll(),
                 });
+              } else {
+                modals.closeAll();
               }
-              modals.closeAll();
             })
-            .catch(toast.axiosError);
+            .catch((e) => {
+              const field = getApiErrorField(e);
+              if (field === "username" || field === "email") {
+                form.setFieldError(field, getApiErrorMessage(e) ?? t("admin.users.error.duplicated"));
+              } else {
+                toast.axiosError(e);
+              }
+            });
         })}
       >
         <Stack>
           <TextInput
             label={t("admin.users.modal.create.username")}
+            rightSection={checkingField === "username" ? <Loader size="xs" /> : undefined}
             {...form.getInputProps("username")}
           />
           <TextInput
             label={t("admin.users.modal.create.email")}
+            rightSection={checkingField === "email" ? <Loader size="xs" /> : undefined}
             {...form.getInputProps("email")}
           />
           <Select

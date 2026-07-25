@@ -5,6 +5,7 @@ import {
   Logger,
   UnauthorizedException,
 } from "@nestjs/common";
+import { DuplicatedFieldException } from "../common/duplicated-field.exception";
 import { JwtService } from "@nestjs/jwt";
 import { Prisma, User } from "../../prisma/generated/prisma/client";
 import argon from "argon2";
@@ -83,11 +84,11 @@ export class AuthService {
         e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code == "P2002"
       ) {
-        const duplicatedField: string = (e.meta?.target as string[] | undefined)?.[0] ?? "field";
-        throw new BadRequestException(
-          this.i18n.t("auth.userAlreadyExists", {
-            args: { field: duplicatedField },
-          }),
+        const rawField: string = (e.meta?.target as string[] | undefined)?.[0] ?? "field";
+        const field: "username" | "email" = rawField === "email" ? "email" : "username";
+        throw new DuplicatedFieldException(
+          this.i18n.t("auth.userAlreadyExists", { args: { field } }),
+          field,
         );
       }
       throw e;

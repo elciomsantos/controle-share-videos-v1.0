@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Res,
   UseGuards,
 } from "@nestjs/common";
@@ -78,6 +79,16 @@ export class UserController {
   @Roles("admin")
   async list() {
     return new UserDTO().fromList(await this.userService.list() as unknown as Partial<UserDTO>[]);
+  }
+
+  @Get("check-availability")
+  @UseGuards(JwtGuard, RolesGuard)
+  @Roles("admin")
+  async checkAvailability(
+    @Query("username") username?: string,
+    @Query("email") email?: string,
+  ) {
+    return this.userService.checkAvailability(username, email);
   }
 
   @Post()

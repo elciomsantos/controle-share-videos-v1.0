@@ -40,6 +40,10 @@ const getCurrentUser = async (): Promise<CurrentUser | null> => {
   }
 };
 
+const checkAvailability = async (params: { username?: string; email?: string }) => {
+  return (await api.get("/users/check-availability", { params })).data;
+};
+
 export default {
   list,
   create,
@@ -48,4 +52,5 @@ export default {
   getCurrentUser,
   updateCurrentUser,
   removeCurrentUser,
+  checkAvailability,
 };
