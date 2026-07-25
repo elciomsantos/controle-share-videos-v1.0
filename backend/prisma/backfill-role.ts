@@ -1,9 +1,11 @@
 import { PrismaClient } from './generated/prisma/client';
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
-import * as fs from 'fs';
 import * as path from 'path';
 
-const dbPath = path.join(__dirname, '..', 'data', 'controle-videos.db');
+const DEFAULT_DB_PATH = path.join(__dirname, '..', 'data', 'controle-videos.db');
+const dbPath = process.env.DATABASE_FILE
+  ? path.resolve(process.env.DATABASE_FILE)
+  : DEFAULT_DB_PATH;
 const adapter = new PrismaBetterSqlite3({ url: `file:${dbPath}` });
 const prisma = new PrismaClient({ adapter });
 
