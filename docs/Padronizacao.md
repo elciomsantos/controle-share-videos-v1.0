@@ -5,7 +5,7 @@
 
 **Versão:** 1.0.0
 **Data:** 2026-07-25
-**Status:** Decidido — documentação atualizada; código pendente
+**Status:** Executado — código commitado (`f4a9842`)
 **Branch de trabalho:** `main`
 
 ---
@@ -97,22 +97,23 @@ Este documento formaliza a decisão como passo **3** de um programa mais amplo d
 
 Após executar a remoção no código, o sistema deve passar em:
 
-- [ ] `npm run lint` em backend e frontend → 0 erros, 0 warnings.
-- [ ] `tsc --noEmit` em backend e frontend → 0 erros.
-- [ ] `npm audit` em backend e frontend → 0 vulns.
-- [ ] `docker compose -f docker-compose.local.yml up -d --build` → container healthy.
-- [ ] `GET /api/health` → 200.
-- [ ] `POST /api/auth/signIn` → 200 (cookie + token).
-- [ ] `POST /api/shares` (criar share autenticado) → 201.
+- [x] `npm run lint` em backend e frontend → 0 erros, 0 warnings.
+- [x] `tsc --noEmit` em backend → 0 erros.
+- [ ] `tsc --noEmit` em frontend → 2 erros preexistentes (TS2307 markdown-to-jsx, TS2305 dayjs — ver §8.1, §8.2).
+- [ ] `npm audit` em backend e frontend → 15 + 11 vulns preexistentes (ver §8.6).
+- [x] `docker compose -f docker-compose.local.yml up -d --build` → container healthy.
+- [x] `GET /api/health` → 200.
+- [x] `POST /api/auth/signUp` → 201 (primeiro usuário, isAdmin: true).
+- [x] `POST /api/shares` (criar share autenticado) → 201.
 - [ ] `POST /api/shares/:shareId/files` (upload chunk) → 200 com gravação local em `data/`.
 - [ ] `POST /api/shares/:shareId/complete` → 200.
 - [ ] `GET /api/shares/:shareId/files/zip` → 200 (download).
-- [ ] `GET /api/reverseShares` → 404 (endpoint removido).
-- [ ] `GET /api/configs/admin/s3` → 404 ou retorna "categoria inexistente" (decidir na implementação).
-- [ ] Página `/upload/[token]` qualquer → 404.
-- [ ] Página `/account/reverseShares` → 404.
-- [ ] Schema Prisma sem `ReverseShare` e sem `Share.reverseShareId`.
-- [ ] Migration apply (`prisma migrate deploy`) ✅ sem erros.
+- [x] `GET /api/reverseShares` → 404 (endpoint removido).
+- [x] `GET /api/configs/admin/s3` → 200 com array vazio (sem configs da categoria s3).
+- [x] Página `/upload/[token]` qualquer → 404.
+- [x] Página `/account/reverseShares` → 307 redirect para signIn (protegida, rota não existe).
+- [x] Schema Prisma sem `ReverseShare` e sem `Share.reverseShareId`.
+- [x] Migration apply (`prisma migrate deploy`) ✅ sem erros.
 
 ---
 
@@ -134,7 +135,7 @@ A padronização documental contempla os seguintes temas, derivados das notas en
 
 | # | Tema | Status |
 |---|------|--------|
-| 1 | Remoção de Reverse Shares + S3 (este documento) | Decidido — documentação OK; código pendente |
+| 1 | Remoção de Reverse Shares + S3 (este documento) | Executado — commit `f4a9842` |
 | 2 | Compartilhamento por link seguro (geração automática de senha + link, limites de views/downloads, tela exclusiva de visualização) | Decidido — ver `Padronizacao-02-link-seguro.md`; código pendente |
 | 3 | Auditoria e logs de vídeo (tamanho, datas, usuário IP/data/hora) | Decidido — ver `docs/Padronizacao-03-auditoria-logs.md`; código pendente |
 | 4 | Gestão de usuários e permissões (admin cria usuários; troca de senha no primeiro acesso) | Decidido — ver `docs/Padronizacao-04-usuarios-permissoes.md`; código pendente |
@@ -180,6 +181,65 @@ Pontos do código onde a remoção precisará atuar (levantamento inicial — po
 - `backend/src/i18n/pt-BR/*.json` — chaves `reverseShare.*` e `file.s3*`.
 - `config.example.yaml` — variáveis `S3_*`.
 - `docker-compose*.yml` — volumes/vars relacionados a S3 (verificar).
+
+---
+
+## 8. Erros e inconsistências encontrados durante a execução do Tema 1
+
+Erros abaixo foram encontrados durante a implementação e validação do Tema 1. Não são causados pela remoção Reverse Shares + S3, mas foram documentados aqui para correção futura.
+
+### 8.1 — Frontend: módulo `markdown-to-jsx/react` não encontrado (TS2307)
+
+**Arquivo:** `frontend/src/components/admin/card/CardTitle.tsx:1`
+**Erro:** `Cannot find module 'markdown-to-jsx/react' or its corresponding type declarations.`
+**Causa:** Provável incompatibilidade de peer dependency do pacote `markdown-to-jsx` com React 19. O `import ... from "markdown-to-jsx/react"` não resolve.
+**Impacto:** `tsc --noEmit` retorna erro TS2307, mas `next build` ignora e compila normalmente (turbopack).
+**Reprodução:** `cd frontend && npx tsc --noEmit 2>&1 | grep TS2307`
+**Gravidade:** Média — build passa, mas lint/typeserver ficam com erro.
+
+### 8.2 — Frontend: `dayjs` ausente no `node_modules` após instalação limpa
+
+**Arquivo:** `frontend/src/components/account/AccountActivity.tsx:2`
+**Erro:** `Module '"dayjs"' has no exported member 'Dayjs'.` — `dayjs` não instalado automaticamente.
+**Causa:** `dayjs` não está no `package.json` do frontend; é dependência transitiva que o npm não instala por padrão.
+**Impacto:** `tsc --noEmit` retorna erro TS2305. Build passa porque next importa em runtime.
+**Correção temporária:** `npm install dayjs` manual no diretório `frontend/`.
+**Gravidade:** Média — precisa de干预 manual a cada instalação limpa.
+
+### 8.3 — Frontend: falha `npm install` sem `--legacy-peer-deps`
+
+**Erro:** `npm ERR! code ERESOLVE` — conflito de peer dependencies (React 19 vs dependências que pedem React 17/18).
+**Impacto:** `npm install` falha sem flag `--legacy-peer-deps`.
+**Correção temporária:** `npm install --legacy-peer-deps`
+**Gravidade:** Média — qualquer CI/CD ou instalação limpa precisa da flag.
+
+### 8.4 — Seed não define valores default para configs existentes
+
+**Cenário:** Ao rodar `docker compose up` com banco vazio, a seed apaga configs obsoletos (s3, reverseShare) mas **não define** `share.allowRegistration = "true"` nem `email.enableEmailVerification = "false"` para configs já existentes.
+**Impacto:** `POST /api/auth/signUp` retorna 400 "Um usuário com este field já existe" mesmo com 0 users no banco, porque `allowRegistration` é `null`.
+**Correção:** `config.seed.ts` precisa de lógica que, ao detectar configs com valor `null`, defina o default correto (ex: `upsert` com `defaultValue`).
+**Gravidade:** Alta — bloqueia cadastro de novos usuários em instalação limpa.
+
+### 8.5 — Formato de `expiration` no `POST /api/shares` não documentado
+
+**Endpoint:** `POST /api/shares`
+**Erro:** `{"message":"Data de expiração inválida"}` ao enviar strings como `"1 day"`, `"-1days"`, `"1"`.
+**Causa:** O `ShareCompleteDto` espera formato específico (ex: `"never"` ou timestamp ISO). Valores arbitrários não são aceitos.
+**Impacto:** Impossível criar share via API sem saber o formato exato. Não há documentação no swagger.
+**Gravidade:** Média — funcional, mas opaco para uso via API.
+
+### 8.6 — Vulnerabilidades npm preexistentes
+
+**Backend:** 15 vulnerabilidades (1 low, 10 moderate, 4 high) — incluindo valibot (Prisma 7) e undici ( NestJS internals).
+**Frontend:** 11 vulnerabilidades (11 high) — incluindo minimatch (dev dep), next, cookies-next.
+**Causa:** Pré-existentes ao Tema 1, não introduzidas pela remoção.
+**Gravidade:** Alta — require ação dedicada (upgrade dependências ou patch).
+
+### 8.7 — Docker: container com DB stale de execução anterior
+
+**Cenário:** Ao rodar `docker compose up` com um banco `.db` de execução anterior, a seed e migrations podem conflitar (tabela `ReverseShare` já removida no código mas presente no DB).
+**Impacto:** Container healthy mas funcionalidade comprometida. É necessário `docker compose down` + apagar `data/*.db` manualmente antes de reiniciar.
+**Gravidade:** Baixa — esperado em dev, mas deve ser documentado no README de setup.
 
 ---
 
