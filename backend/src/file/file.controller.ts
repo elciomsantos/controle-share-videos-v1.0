@@ -24,6 +24,7 @@ import { FileService } from "./file.service";
 import { DownloadLimitGuard } from "./guard/downloadLimit.guard";
 import { FileSecurityGuard } from "./guard/fileSecurity.guard";
 import mime from "mime-types";
+import { getRequestIp, getRequestUserAgent } from "../utils/request.util";
 
 const VALID_ID_REGEX = /^[a-zA-Z0-9-]*={0,2}$/;
 
@@ -94,10 +95,13 @@ export class FileController {
     void this.downloadLogService.record({
       shareId,
       fileName: `${shareId}.zip`,
+      fileSize: null,
       userId: user?.id,
       username: user?.username,
-      ip: req.ip || req.socket.remoteAddress || "unknown",
+      ip: getRequestIp(req),
+      userAgent: getRequestUserAgent(req),
       success: true,
+      event: "download",
     });
     void this.downloadLimitGuard.incrementDownloadCount(shareId);
     void this.fileService.notifyRecipientDownload(
@@ -150,10 +154,13 @@ export class FileController {
         shareId,
         fileId,
         fileName: file.metaData.name,
+        fileSize: file.metaData.size,
         userId: user?.id,
         username: user?.username,
-        ip: req.ip || req.socket.remoteAddress || "unknown",
+        ip: getRequestIp(req),
+        userAgent: getRequestUserAgent(req),
         success: true,
+        event: "download",
       });
       void this.downloadLimitGuard.incrementDownloadCount(shareId);
       void this.fileService.notifyRecipientDownload(

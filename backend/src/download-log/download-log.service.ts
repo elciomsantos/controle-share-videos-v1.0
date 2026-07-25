@@ -6,15 +6,20 @@ import {
 import { Prisma } from "../../prisma/generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 
+export type DownloadLogEvent = "download" | "view";
+
 export interface DownloadLogEntry {
   shareId: string;
   fileId?: string;
   fileName: string;
+  fileSize?: string | null;
   userId?: string;
   username?: string;
   ip: string;
+  userAgent?: string | null;
   success: boolean;
   reason?: string;
+  event?: DownloadLogEvent;
 }
 
 @Injectable()
@@ -30,11 +35,14 @@ export class DownloadLogService {
           shareId: entry.shareId,
           fileId: entry.fileId ?? null,
           fileName: entry.fileName,
+          fileSize: entry.fileSize ?? null,
           userId: entry.userId ?? null,
           username: entry.username ?? null,
           ip: entry.ip,
+          userAgent: entry.userAgent ?? null,
           success: entry.success,
           reason: entry.reason ?? null,
+          event: entry.event ?? "download",
         },
       });
     } catch (err: unknown) {
@@ -50,14 +58,27 @@ export class DownloadLogService {
     userId?: string;
     from?: string;
     to?: string;
+    event?: DownloadLogEvent;
+    success?: boolean;
     page?: number;
     limit?: number;
   }) {
-    const { shareId, userId, from, to, page = 1, limit = 50 } = params;
+    const {
+      shareId,
+      userId,
+      from,
+      to,
+      event,
+      success,
+      page = 1,
+      limit = 50,
+    } = params;
 
     const where: Prisma.DownloadLogWhereInput = {};
     if (shareId) where.shareId = shareId;
     if (userId) where.userId = userId;
+    if (event) where.event = event;
+    if (success !== undefined) where.success = success;
     if (from || to) {
       where.createdAt = {};
       if (from) {

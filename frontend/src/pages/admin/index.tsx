@@ -9,7 +9,12 @@ import {
   useMantineTheme,
 } from "@mantine/core";
 import Link from "next/link";
-import { TbLink, TbSettings, TbUsers } from "react-icons/tb";
+import {
+  TbClipboardList,
+  TbLink,
+  TbSettings,
+  TbUsers,
+} from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
 import Meta from "../../components/Meta";
 import useTranslate from "../../hooks/useTranslate.hook";
@@ -33,6 +38,12 @@ const Admin = () => {
       title: t("admin.button.shares"),
       icon: TbLink,
       route: "/admin/shares",
+      roles: ["admin", "auditor"],
+    },
+    {
+      title: t("admin.button.downloadLogs"),
+      icon: TbClipboardList,
+      route: "/admin/download-logs",
       roles: ["admin", "auditor"],
     },
     {

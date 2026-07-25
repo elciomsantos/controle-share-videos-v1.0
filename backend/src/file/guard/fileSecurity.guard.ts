@@ -9,10 +9,15 @@ import { Request } from "express";
 import dayjs from "dayjs";
 import { User } from "../../../prisma/generated/prisma/client";
 import { I18nService } from "nestjs-i18n";
+import { DownloadLogService } from "../../download-log/download-log.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ShareSecurityGuard } from "../../share/guard/shareSecurity.guard";
 import { ShareService } from "../../share/share.service";
 import { ConfigService } from "../../config/config.service";
+import {
+  getRequestIp,
+  getRequestUserAgent,
+} from "../../utils/request.util";
 import { isEpochZero } from "../../utils/date.util";
 
 @Injectable()
@@ -22,6 +27,7 @@ export class FileSecurityGuard extends ShareSecurityGuard {
     private _prisma: PrismaService,
     private _config: ConfigService,
     private readonly _i18n: I18nService,
+    private _downloadLogService: DownloadLogService,
   ) {
     super(_shareService, _prisma, _config, _i18n);
   }
@@ -75,13 +81,25 @@ export class FileSecurityGuard extends ShareSecurityGuard {
         throw new ForbiddenException(this._i18n.t("file.passwordProtected"));
 
       if (share.security?.maxViews && share.security.maxViews <= share.views) {
+        void this._downloadLogService.record({
+          shareId,
+          fileName: share.name ?? shareId,
+          ip: getRequestIp(request),
+          userAgent: getRequestUserAgent(request),
+          success: false,
+          reason: "maxViewsExceeded",
+          event: "view",
+        });
         throw new ForbiddenException(
           this._i18n.t("share.maxViewsExceeded"),
           "share_max_views_exceeded",
         );
       }
 
-      await this._shareService.increaseViewCount(share);
+      await this._shareService.increaseViewCount(share, {
+        ip: getRequestIp(request),
+        userAgent: getRequestUserAgent(request),
+      });
       return true;
     } else {
       return super.canActivate(context);

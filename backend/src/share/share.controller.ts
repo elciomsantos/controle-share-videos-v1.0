@@ -35,6 +35,10 @@ import { ShareTokenSecurity } from "./guard/shareTokenSecurity.guard";
 import { IdValidation } from "./guard/shareIdValidation.guard";
 import { ShareService } from "./share.service";
 import { CompletedShareDTO } from "./dto/shareComplete.dto";
+import {
+  getRequestIp,
+  getRequestUserAgent,
+} from "../utils/request.util";
 @Controller("shares")
 export class ShareController {
   constructor(
@@ -156,7 +160,10 @@ export class ShareController {
     @Res({ passthrough: true }) response: Response,
     @Body() body: SharePasswordDto,
   ) {
-    const token = await this.shareService.getShareToken(id, body.password);
+    const token = await this.shareService.getShareToken(id, body.password, {
+      ip: getRequestIp(request),
+      userAgent: getRequestUserAgent(request),
+    });
 
     this.clearShareTokenCookies(request, response);
     response.cookie(`share_${id}_token`, token, {

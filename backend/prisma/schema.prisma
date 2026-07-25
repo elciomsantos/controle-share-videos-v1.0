@@ -144,15 +144,21 @@ model DownloadLog {
   shareId  String
   fileId   String?
   fileName String
+  fileSize String?
 
   userId   String?
   username String?
   ip       String
 
+  userAgent String?
+
   success  Boolean
   reason   String?
+
+  event String @default("download")
 
   @@index([shareId])
   @@index([userId])
   @@index([createdAt])
+  @@index([event])
 }

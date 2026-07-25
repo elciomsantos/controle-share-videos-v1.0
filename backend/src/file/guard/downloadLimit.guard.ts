@@ -9,6 +9,7 @@ import { Request } from "express";
 import { I18nService } from "nestjs-i18n";
 import { DownloadLogService } from "../../download-log/download-log.service";
 import { PrismaService } from "../../prisma/prisma.service";
+import { getRequestIp, getRequestUserAgent } from "../../utils/request.util";
 
 interface AuthenticatedRequest extends Request {
   user?: User;
@@ -46,9 +47,11 @@ export class DownloadLimitGuard {
         fileName: "",
         userId: user?.id,
         username: user?.username,
-        ip: request.ip || request.socket.remoteAddress || "unknown",
+        ip: getRequestIp(request),
+        userAgent: getRequestUserAgent(request),
         success: false,
         reason: "maxDownloadsExceeded",
+        event: "download",
       });
 
       throw new ForbiddenException(

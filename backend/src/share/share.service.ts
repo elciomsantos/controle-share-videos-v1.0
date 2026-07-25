@@ -14,6 +14,7 @@ import dayjs from "dayjs";
 import { I18nService } from "nestjs-i18n";
 import { ClamScanService } from "../clamscan/clamscan.service";
 import { ConfigService } from "../config/config.service";
+import { DownloadLogService } from "../download-log/download-log.service";
 import { EmailService } from "../email/email.service";
 import { FileService } from "../file/file.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -39,6 +40,7 @@ export class ShareService {
     private jwtService: JwtService,
     private clamScanService: ClamScanService,
     private systemService: SystemService,
+    private downloadLogService: DownloadLogService,
     private readonly i18n: I18nService,
   ) {}
 
@@ -441,14 +443,31 @@ export class ShareService {
     return { isAvailable: !share };
   }
 
-  async increaseViewCount(share: Share) {
+  async increaseViewCount(
+    share: Share,
+    context?: { ip?: string; userAgent?: string | null },
+  ) {
     await this.prisma.share.update({
       where: { id: share.id },
       data: { views: share.views + 1 },
     });
+    if (context) {
+      void this.downloadLogService.record({
+        shareId: share.id,
+        fileName: share.name ?? share.id,
+        ip: context.ip ?? "unknown",
+        userAgent: context.userAgent ?? null,
+        success: true,
+        event: "view",
+      });
+    }
   }
 
-  async getShareToken(shareId: string, password: string) {
+  async getShareToken(
+    shareId: string,
+    password: string,
+    context?: { ip?: string; userAgent?: string | null },
+  ) {
     const share = await this.prisma.share.findFirst({
       where: { id: shareId },
       include: {
@@ -472,6 +491,17 @@ export class ShareService {
         password,
       );
       if (!isPasswordValid) {
+        if (context) {
+          void this.downloadLogService.record({
+            shareId,
+            fileName: share.name ?? shareId,
+            ip: context.ip ?? "unknown",
+            userAgent: context.userAgent ?? null,
+            success: false,
+            reason: "wrong password",
+            event: "view",
+          });
+        }
         throw new ForbiddenException(
           this.i18n.t("share.wrongPassword"),
           "wrong_password",
@@ -480,6 +510,17 @@ export class ShareService {
     }
 
     if (share.security?.maxViews && share.security.maxViews <= share.views) {
+      if (context) {
+        void this.downloadLogService.record({
+          shareId,
+          fileName: share.name ?? shareId,
+          ip: context.ip ?? "unknown",
+          userAgent: context.userAgent ?? null,
+          success: false,
+          reason: "maxViewsExceeded",
+          event: "view",
+        });
+      }
       throw new ForbiddenException(
         this.i18n.t("share.maxViewsExceeded"),
         "share_max_views_exceeded",
@@ -487,7 +528,7 @@ export class ShareService {
     }
 
     const token = await this.generateShareToken({ ...share, security: share.security ?? undefined });
-    await this.increaseViewCount(share);
+    await this.increaseViewCount(share, context);
     return token;
   }
 

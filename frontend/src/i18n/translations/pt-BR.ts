@@ -139,6 +139,7 @@ export default {
   "admin.title": "Administração",
   "admin.button.users": "Gerenciamento de usuários",
   "admin.button.shares": "Gerenciamento de compartilhamentos",
+  "admin.button.downloadLogs": "Logs de download",
   "admin.button.config": "Configuração",
   "admin.version": "Versão",
   // END /admin
@@ -197,6 +198,32 @@ export default {
   "admin.shares.edit.delete.title": "Excluir o compartilhamento {id}",
   "admin.shares.edit.delete.description": "Tem certeza que deseja excluir este compartilhamento?",
   // END /admin/shares
+
+  // /admin/download-logs
+  "admin.downloadLogs.title": "Logs de Download",
+  "admin.downloadLogs.filters.shareId": "Share ID",
+  "admin.downloadLogs.filters.userId": "Usuário",
+  "admin.downloadLogs.filters.from": "De",
+  "admin.downloadLogs.filters.to": "Até",
+  "admin.downloadLogs.filters.event": "Evento",
+  "admin.downloadLogs.filters.success": "Status",
+  "admin.downloadLogs.filters.any": "Todos",
+  "admin.downloadLogs.columns.createdAt": "Data",
+  "admin.downloadLogs.columns.shareId": "Share",
+  "admin.downloadLogs.columns.fileName": "Arquivo",
+  "admin.downloadLogs.columns.fileSize": "Tamanho",
+  "admin.downloadLogs.columns.event": "Evento",
+  "admin.downloadLogs.columns.username": "Usuário",
+  "admin.downloadLogs.columns.ip": "IP",
+  "admin.downloadLogs.columns.userAgent": "User-Agent",
+  "admin.downloadLogs.columns.success": "Status",
+  "admin.downloadLogs.columns.reason": "Motivo",
+  "admin.downloadLogs.events.download": "Download",
+  "admin.downloadLogs.events.view": "Visualização",
+  "admin.downloadLogs.status.success": "Sucesso",
+  "admin.downloadLogs.status.failure": "Falha",
+  "admin.downloadLogs.empty": "Nenhum log encontrado.",
+  // END /admin/download-logs
 
   // /upload
   "upload.title": "Carregar",
