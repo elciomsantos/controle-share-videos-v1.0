@@ -17,13 +17,13 @@ const Intro = () => {
       <Container size="xs">
         <Stack>
           <Center>
-            <Logo height={80} width={80} />
+            <Logo height={100} width={100} />
           </Center>
           <Center>
-            <Title order={2}>Welcome to Controle Share Videos</Title>
+            <Title order={2}>Guarda Municipal de Londrina</Title>
           </Center>
-          <Text>Enough talked, have fun with Controle Share Videos!</Text>
-          <Text mt="lg">How to you want to continue?</Text>
+          <Text>Sistema de Controle e compartilhamento de Videos!</Text>
+          <Text mt="lg">Faça login no sistema para continuar</Text>
           <Stack>
             <Button href="/admin/config/general" component={Link}>
               Customize configuration
@@ -39,3 +39,5 @@ const Intro = () => {
 };
 
 export default Intro;
+
+

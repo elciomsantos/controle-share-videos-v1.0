@@ -25,7 +25,7 @@ const Admin = () => {
   const colorScheme = useComputedColorScheme("light");
   const t = useTranslate();
   const { user } = useUser();
-  const role = user?.role || (user?.isAdmin ? "admin" : "operador");
+  const role = user?.isAdmin ? "admin" : (user?.role || "operador");
 
   const allOptions = [
     {

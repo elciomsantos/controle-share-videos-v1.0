@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
 import { Request } from "express";
 import dayjs from "dayjs";
 import { I18nService } from "nestjs-i18n";
@@ -13,6 +14,10 @@ import { ConfigService } from "../../config/config.service";
 import { JwtGuard } from "../../auth/guard/jwt.guard";
 import { User } from "../../../prisma/generated/prisma/client";
 import { isEpochZero } from "../../utils/date.util";
+import {
+  getRequestIp,
+  getRequestUserAgent,
+} from "../../utils/request.util";
 
 @Injectable()
 export class ShareSecurityGuard extends JwtGuard {
@@ -21,8 +26,9 @@ export class ShareSecurityGuard extends JwtGuard {
     private prisma: PrismaService,
     private configService: ConfigService,
     private readonly i18n: I18nService,
+    reflector: Reflector,
   ) {
-    super(configService);
+    super(configService, reflector);
   }
 
   async canActivate(context: ExecutionContext) {
@@ -96,6 +102,17 @@ export class ShareSecurityGuard extends JwtGuard {
         this.i18n.t("share.tokenRequired"),
         "share_token_required",
       );
+
+    // Check view limit after valid token is verified
+    if (share.security?.maxViews && share.security.maxViews <= share.views) {
+      const ip = getRequestIp(request);
+      const userAgent = getRequestUserAgent(request);
+      void this.shareService.recordViewExceeded(shareId, ip, userAgent);
+      throw new ForbiddenException(
+        this.i18n.t("share.maxViewsExceeded"),
+        "share_max_views_exceeded",
+      );
+    }
 
     return true;
   }

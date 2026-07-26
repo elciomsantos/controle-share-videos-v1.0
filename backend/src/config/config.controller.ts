@@ -18,6 +18,7 @@ import { SkipThrottle } from "@nestjs/throttler";
 import { createKeyv, RedisClientOptions } from "@keyv/redis";
 import { I18nService } from "nestjs-i18n";
 import { JwtGuard } from "../auth/guard/jwt.guard";
+import { Public } from "../auth/decorator/public.decorator";
 import { Roles } from "../auth/decorator/roles.decorator";
 import { RolesGuard } from "../auth/guard/roles.guard";
 import { EmailService } from "../email/email.service";
@@ -39,6 +40,7 @@ export class ConfigController {
   ) {}
 
   @Get()
+  @Public()
   @SkipThrottle()
   async list() {
     return new ConfigDTO().fromList(await this.configService.list());

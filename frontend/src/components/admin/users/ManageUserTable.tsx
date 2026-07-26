@@ -56,7 +56,7 @@ const ManageUserTable = ({
                 <tr key={user.id}>
                   <td>{user.username}</td>
                   <td>{user.email}</td>
-                  <td>{getRoleBadge(user.role || (user.isAdmin ? "admin" : "operador"))}</td>
+                  <td>{getRoleBadge(user.isAdmin ? "admin" : (user.role || "operador"))}</td>
                   <td>
                     <Group justify="flex-end">
                       <HoverTip label={t("common.button.edit")}>

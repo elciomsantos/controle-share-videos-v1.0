@@ -17,6 +17,7 @@ import { Share, ShareSecurity, User } from "../../prisma/generated/prisma/client
 import { Request, Response } from "express";
 import dayjs from "dayjs";
 import { GetUser } from "../auth/decorator/getUser.decorator";
+import { Public } from "../auth/decorator/public.decorator";
 import { JwtGuard } from "../auth/guard/jwt.guard";
 import { Roles } from "../auth/decorator/roles.decorator";
 import { RolesGuard } from "../auth/guard/roles.guard";
@@ -62,9 +63,18 @@ export class ShareController {
   }
 
   @Get(":id")
+  @Public()
   @UseGuards(IdValidation, ShareSecurityGuard)
-  async get(@Param("id") id: string) {
-    return new ShareDTO().from(await this.shareService.get(id));
+  async get(@Param("id") id: string, @Req() req: Request) {
+    const share = await this.shareService.get(id);
+    void this.shareService.increaseViewCount(
+      share as Share,
+      {
+        ip: getRequestIp(req),
+        userAgent: getRequestUserAgent(req),
+      },
+    );
+    return new ShareDTO().from(share);
   }
 
   @Get(":id/from-owner")
@@ -74,6 +84,7 @@ export class ShareController {
   }
 
   @Get(":id/metaData")
+  @Public()
   @UseGuards(IdValidation, ShareSecurityGuard)
   async getMetaData(@Param("id") id: string) {
     return new ShareMetaDataDTO().from(await this.shareService.getMetaData(id));
@@ -141,6 +152,7 @@ export class ShareController {
     },
   })
   @Get("isShareIdAvailable/:id")
+  @Public()
   async isShareIdAvailable(@Param("id") id: string) {
     return this.shareService.isShareIdAvailable(id);
   }
@@ -153,6 +165,7 @@ export class ShareController {
     },
   })
   @UseGuards(IdValidation, ShareTokenSecurity)
+  @Public()
   @Post(":id/token")
   async getShareToken(
     @Param("id") id: string,

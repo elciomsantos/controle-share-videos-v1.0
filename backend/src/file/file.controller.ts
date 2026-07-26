@@ -18,6 +18,7 @@ import { Request, Response } from "express";
 import { DownloadLogService } from "../download-log/download-log.service";
 import { User } from "../../prisma/generated/prisma/client";
 import { JwtGuard } from "../auth/guard/jwt.guard";
+import { Public } from "../auth/decorator/public.decorator";
 import { StrictShareOwnerGuard } from "../share/guard/strictShareOwner.guard";
 import { IdValidation } from "../share/guard/shareIdValidation.guard";
 import { FileService } from "./file.service";
@@ -71,6 +72,7 @@ export class FileController {
   }
 
   @Get("zip")
+  @Public()
   @UseGuards(FileSecurityGuard)
   async getZip(
     @Req() req: Request,
@@ -114,6 +116,7 @@ export class FileController {
   }
 
   @Get(":fileId")
+  @Public()
   @UseGuards(FileSecurityGuard)
   async getFile(
     @Req() req: Request,

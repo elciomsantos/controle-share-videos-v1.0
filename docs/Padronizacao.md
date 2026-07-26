@@ -3,9 +3,9 @@
 > **Sistema de Compartilhamento Seguro de Arquivos — Controle Share Videos**
 > Documento de decisão de padronização — programa 11 temas
 
-**Versão:** 2.3.0
-**Data:** 2026-07-25
-**Status:** Em andamento — Temas 1–5, 8–11 executados, 7 documentado (código pendente)
+**Versão:** 2.6.0
+**Data:** 2026-07-26
+**Status:** Concluído — Temas 1–5, 8–11 executados; Tema 7 rejeitado; §8.4 corrigido (JwtGuard + @Public); §8.4b: signup bloqueado + admin seed
 **Branch de trabalho:** `main`
 
 ---
@@ -141,7 +141,7 @@ A padronização documental contempla os seguintes temas, derivados das notas en
 | 4 | Gestão de usuários e permissões (admin cria usuários; troca de senha no primeiro acesso) | Executado — commit `d798d9d`; ver `Padronizacao-04-usuarios-permissoes.md` |
 | 5 | Limite de tamanho de arquivo via painel administrativo | Executado — sem mudança de código; ver `Padronizacao-05-limite-tamanho.md` |
 | 6 | Tela exclusiva de visualização por link (sem tela inicial) | Coberto pelo Tema 2 — ver `Padronizacao-02-link-seguro.md` §3.3 |
-| 7 | Integração ClamAV (daemon compose, toggle admin, i18n, status endpoint, bloquear download se scan pendente) | Decidido — ver `Padronizacao-07-clamav.md`; código pendente |
+| 7 | Integração ClamAV (daemon compose, toggle admin, i18n, status endpoint, bloquear download se scan pendente) | **Rejeitado** — ver `Padronizacao-07-clamav.md` (decisão técnica, sem código) |
 | 8 | Refino do documento `Visao-geral.md` como um todo | Executado — commit próprio (apenas doc); ver `docs/Visao-geral.md` v2.6.0 |
 | 9 | Atualização final de README | Executado — commit próprio (apenas doc); ver `README.md` (PT-BR, features completas) |
 | 10| Popups de erro — login (credenciais, conta não ativada, 429, 500/rede) e upload (completeShare, chunk, isShareIdAvailable); helper `showBlockingErrorModal`; correção de i18n ausente | Executado — commit `9e53ff9`; ver `Padronizacao-10-popups-erro.md` |
@@ -212,12 +212,23 @@ Erros abaixo foram encontrados durante a implementação e validação do Tema 1
 **Correção temporária:** `npm install --legacy-peer-deps`
 **Gravidade:** Média — qualquer CI/CD ou instalação limpa precisa da flag.
 
-### 8.4 — Seed não define valores default para configs existentes
+### 8.4 — JwtGuard bloqueia endpoints públicos em instalação limpa (CORRIGIDO)
 
-**Cenário:** Ao rodar `docker compose up` com banco vazio, a seed apaga configs obsoletos (s3, reverseShare) mas **não define** `share.allowRegistration = "true"` nem `email.enableEmailVerification = "false"` para configs já existentes.
-**Impacto:** `POST /api/auth/signUp` retorna 400 "Um usuário com este field já existe" mesmo com 0 users no banco, porque `allowRegistration` é `null`.
-**Correção:** `config.seed.ts` precisa de lógica que, ao detectar configs com valor `null`, defina o default correto (ex: `upsert` com `defaultValue`).
-**Gravidade:** Alta — bloqueia cadastro de novos usuários em instalação limpa.
+**Cenário:** Em instalação limpa (DB vazio), TODOS os endpoints retornam 403 Forbidden — incluindo `/api/health`, `/api/configs`, `/api/auth/signUp`, `/api/auth/signUp`.
+**Causa raiz:** `JwtGuard` é registrado globalmente via `APP_GUARD` em `app.module.ts:71-73`. Sua lógica de fallback (`this.config.get("share.allowUnauthenticatedShares")`) retorna `false` (default `"false"` → coerção boolean) quando não há JWT, bloqueando endpoints que deveriam ser públicos. Não existia mecanismo para marcar rotas como públicas.
+**Sintoma original documentado (incorreto):** `POST /api/auth/signUp` retornava 400 "field já existe" — na verdade retornava **403 Forbidden** em todos os endpoints.
+**Correção aplicada:**
+1. Criado decorator `@Public()` em `backend/src/auth/decorator/public.decorator.ts` — usa `SetMetadata(IS_PUBLIC_KEY, true)`.
+2. Modificado `JwtGuard.canActivate` — injeta `Reflector`, verifica `IS_PUBLIC_KEY` via `getAllAndOverride([handler, class])` antes de `super.canActivate()`. Retorna `true` imediatamente se `@Public()`.
+3. Marcado `@Public()` nos endpoints públicos:
+   - `AppController.health`
+   - `AuthController`: signUp, signIn, signIn/totp, resetPassword/:email, resetPassword, verify, verify/resend, token, signOut (9 endpoints)
+   - `ConfigController.list` (GET /api/configs — consumido pelo frontend SSR)
+   - `ShareController`: GET /:id, GET /:id/metaData, GET /isShareIdAvailable/:id, POST /:id/token (4 endpoints de acesso público via share link)
+   - `FileController`: GET /zip, GET /:fileId (2 endpoints de download com FileSecurityGuard)
+4. Atualizados guards que estendem `JwtGuard` para passar `Reflector`: `ShareSecurityGuard`, `ShareOwnerGuard`, `FileSecurityGuard`.
+**Gravidade:** Alta — bloqueava cadastro e acesso a compartilhamentos em instalação limpa. **Corrigido em v2.5.0.**
+**Teste:** 10 endpoints testados via script automatizado (públicos: 200/201; protegidos: 403 sem cookie, 200 com cookie).
 
 ### 8.5 — Formato de `expiration` no `POST /api/shares` não documentado
 
@@ -239,6 +250,23 @@ Erros abaixo foram encontrados durante a implementação e validação do Tema 1
 **Cenário:** Ao rodar `docker compose up` com um banco `.db` de execução anterior, a seed e migrations podem conflitar (tabela `ReverseShare` já removida no código mas presente no DB).
 **Impacto:** Container healthy mas funcionalidade comprometida. É necessário `docker compose down` + apagar `data/*.db` manualmente antes de reiniciar.
 **Gravidade:** Baixa — esperado em dev, mas deve ser documentado no README de setup.
+
+### 8.8 — Signup público bloqueado + seed de admin (v2.6.0)
+
+**Problema:** Em instalação limpa, qualquer pessoa podia criar conta via `POST /api/auth/signUp` (allowRegistration = true). Não havia forma de limitar a apenas o admin interno.
+**Mudanças:**
+1. `share.allowRegistration` default alterado de `"true"` para `"false"` em `config.seed.ts` — signup público bloqueado por padrão.
+2. Config morta `signUp.removed` (nunca lida pelo código) removida do seed.
+3. Criado `prisma/seed/user.seed.ts` — cria admin via env vars `ADMIN_EMAIL`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`. Só executa se 0 users existirem.
+4. `entrypoint.sh` atualizado para rodar user seed após config seed.
+**Uso:** Para implantação, defina as env vars no `docker-compose.local.yml` ou no ambiente:
+```yaml
+environment:
+  - ADMIN_EMAIL=admin@empresa.local
+  - ADMIN_USERNAME=admin
+  - ADMIN_PASSWORD=sua-senha-segura
+```
+**Resultado:** Instalação limpa cria automaticamente o admin e bloqueia cadastro público. Admin pode criar outros users via painel admin (`POST /api/users`).
 
 ---
 

@@ -8,6 +8,9 @@ services:
       - TRUST_PROXY=false
       - BACKEND_PORT=8090
       - API_URL=http://localhost:8090
+      - ADMIN_EMAIL=admin@empresa.local
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=Admin@123
     volumes:
       - "./data:/opt/app/backend/data:rw,z"
       - "./data/images:/opt/app/frontend/public/img:rw,z"

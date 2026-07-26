@@ -21,6 +21,7 @@ import { byteToHumanSizeString } from "../../utils/fileSize.util";
 import toast from "../../utils/toast.util";
 import TableSortIcon, { TableSort } from "../core/SortIcon";
 import showFilePreviewModal from "./modals/showFilePreviewModal";
+import showErrorModal from "./showErrorModal";
 import { HoverTip } from "../core/HoverTip";
 import api from "../../services/api.service";
 
@@ -197,11 +198,32 @@ const FileList = ({
                           variant="light"
                           size={25}
                           onClick={async () => {
-                            await shareService.downloadFile(
-                              share.id,
-                              file.id,
-                              recipientId,
-                            );
+                            try {
+                              await shareService.downloadFile(
+                                share.id,
+                                file.id,
+                                recipientId,
+                              );
+                            } catch (e: any) {
+                              const error = e?.response?.data?.error;
+                              if (error === "share_max_downloads_exceeded") {
+                                showErrorModal(
+                                  modals,
+                                  t("share.error.download-limit-exceeded.title"),
+                                  t("share.error.download-limit-exceeded.description"),
+                                  "go-home",
+                                );
+                              } else if (error === "share_max_views_exceeded") {
+                                showErrorModal(
+                                  modals,
+                                  t("share.error.visitor-limit-exceeded.title"),
+                                  t("share.error.visitor-limit-exceeded.description"),
+                                  "go-home",
+                                );
+                              } else {
+                                toast.axiosError(e);
+                              }
+                            }
                           }}
                         >
                           <TbDownload />

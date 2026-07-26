@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
 import { User, Share, ShareSecurity } from "../../../prisma/generated/prisma/client";
 import { Request } from "express";
 import { I18nService } from "nestjs-i18n";
@@ -21,10 +22,11 @@ interface ShareRequest extends Request {
 export class ShareOwnerGuard extends JwtGuard {
   constructor(
     configService: ConfigService,
+    reflector: Reflector,
     private prisma: PrismaService,
     private readonly i18n: I18nService,
   ) {
-    super(configService);
+    super(configService, reflector);
   }
 
   isBase64(toCheck: string) {

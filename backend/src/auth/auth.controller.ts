@@ -19,6 +19,7 @@ import { ConfigService } from "../config/config.service";
 import { AuthService } from "./auth.service";
 import { AuthTotpService } from "./authTotp.service";
 import { GetUser } from "./decorator/getUser.decorator";
+import { Public } from "./decorator/public.decorator";
 import { AuthRegisterDTO } from "./dto/authRegister.dto";
 import { AuthSignInDTO } from "./dto/authSignIn.dto";
 import { AuthSignInTotpDTO } from "./dto/authSignInTotp.dto";
@@ -41,6 +42,7 @@ export class AuthController {
   ) {}
 
   @Post("signUp")
+  @Public()
   @Throttle({
     default: {
       limit: 20,
@@ -67,6 +69,7 @@ export class AuthController {
   }
 
   @Post("signIn")
+  @Public()
   @Throttle({
     default: {
       limit: 5,
@@ -93,6 +96,7 @@ export class AuthController {
   }
 
   @Post("signIn/totp")
+  @Public()
   @Throttle({
     default: {
       limit: 5,
@@ -116,6 +120,7 @@ export class AuthController {
   }
 
   @Post("resetPassword/:email")
+  @Public()
   @Throttle({
     default: {
       limit: 20,
@@ -128,6 +133,7 @@ export class AuthController {
   }
 
   @Post("resetPassword")
+  @Public()
   @Throttle({
     default: {
       limit: 20,
@@ -140,6 +146,7 @@ export class AuthController {
   }
 
   @Post("verify")
+  @Public()
   @Throttle({
     default: {
       limit: 20,
@@ -152,6 +159,7 @@ export class AuthController {
   }
 
   @Post("verify/resend")
+  @Public()
   @Throttle({
     default: {
       limit: 20,
@@ -181,6 +189,7 @@ export class AuthController {
   }
 
   @Post("token")
+  @Public()
   @HttpCode(200)
   async refreshAccessToken(
     @Req() request: Request,
@@ -200,6 +209,7 @@ export class AuthController {
   }
 
   @Post("signOut")
+  @Public()
   async signOut(
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,

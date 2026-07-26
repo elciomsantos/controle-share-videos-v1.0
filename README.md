@@ -104,3 +104,13 @@ No momento existem apenas testes de sistema para o backend. Para rodá-los, exec
 - `docs/Padronizacao-07-clamav.md` — integração ClamAV (Decidido, código pendente)
 - `docs/Padronizacao-10-popups-erro.md` — popups de erro em três camadas
 - `docs/Padronizacao-11-usuario-duplicado.md` — detecção de usuário duplicado
+
+
+
+# Setup teste em desenvolvimento
+
+- docker compose -f docker-compose.local.yml down
+- rm data/controle-videos.db
+- ocker compose -f docker-compose.local.yml up -d --build
+
+Acesso:  http://localhost:3000

@@ -5,6 +5,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
 import { Request } from "express";
 import dayjs from "dayjs";
 import { User } from "../../../prisma/generated/prisma/client";
@@ -28,8 +29,9 @@ export class FileSecurityGuard extends ShareSecurityGuard {
     private _config: ConfigService,
     private readonly _i18n: I18nService,
     private _downloadLogService: DownloadLogService,
+    reflector: Reflector,
   ) {
-    super(_shareService, _prisma, _config, _i18n);
+    super(_shareService, _prisma, _config, _i18n, reflector);
   }
 
   isBase64(toCheck: string) {

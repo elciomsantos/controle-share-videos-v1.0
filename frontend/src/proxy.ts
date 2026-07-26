@@ -36,7 +36,7 @@ export async function proxy(request: NextRequest) {
       "/imprint",
       "/privacy",
     ]),
-    admin: new Routes(["/admin/*"]),
+    admin: new Routes(["/admin*"]),
     account: new Routes(["/account*"]),
     disabled: new Routes([]),
   };
@@ -49,11 +49,11 @@ export async function proxy(request: NextRequest) {
   };
 
   const route = request.nextUrl.pathname;
-  let user: { isAdmin: boolean } | null = null;
+    let user: { role: string } | null = null;
   const accessToken = request.cookies.get("access_token")?.value;
 
   try {
-    const claims = jwtDecode<{ exp: number; isAdmin: boolean }>(
+    const claims = jwtDecode<{ exp: number; role: string }>(
       accessToken as string,
     );
     if (claims.exp * 1000 > Date.now()) {
@@ -108,7 +108,7 @@ export async function proxy(request: NextRequest) {
       path: "/upload",
     },
     {
-      condition: routes.admin.contains(route) && !user?.isAdmin,
+      condition: routes.admin.contains(route) && user?.role !== "admin",
       path: "/upload",
     },
     {

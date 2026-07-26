@@ -54,7 +54,7 @@ const Body = ({
       username: user.username,
       email: user.email,
       isActivated: user.isActivated,
-      role: user.role || (user.isAdmin ? "admin" : "operador"),
+      role: user.isAdmin ? "admin" : (user.role || "operador"),
       hasCustomShareSizeLimit: !!user.shareSizeLimit,
       shareSizeLimit: user.shareSizeLimit
         ? parseInt(user.shareSizeLimit)

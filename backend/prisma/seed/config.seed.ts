@@ -71,7 +71,7 @@ export const configVariables = {
   share: {
     allowRegistration: {
       type: "boolean",
-      defaultValue: "true",
+      defaultValue: "false",
       secret: false,
     },
     allowUnauthenticatedShares: {
@@ -146,13 +146,6 @@ export const configVariables = {
     includePasswordInShareLink: {
       type: "boolean",
       defaultValue: "false",
-      secret: false,
-    },
-  },
-  signUp: {
-    disabled: {
-      type: "boolean",
-      defaultValue: "true",
       secret: false,
     },
   },

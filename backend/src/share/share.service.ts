@@ -463,6 +463,22 @@ export class ShareService {
     }
   }
 
+  async recordViewExceeded(
+    shareId: string,
+    ip?: string,
+    userAgent?: string | null,
+  ) {
+    void this.downloadLogService.record({
+      shareId,
+      fileName: shareId,
+      ip: ip ?? "unknown",
+      userAgent: userAgent ?? null,
+      success: false,
+      reason: "maxViewsExceeded",
+      event: "view",
+    });
+  }
+
   async getShareToken(
     shareId: string,
     password: string,
@@ -528,7 +544,6 @@ export class ShareService {
     }
 
     const token = await this.generateShareToken({ ...share, security: share.security ?? undefined });
-    await this.increaseViewCount(share, context);
     return token;
   }
 

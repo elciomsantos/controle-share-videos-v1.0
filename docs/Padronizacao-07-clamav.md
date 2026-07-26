@@ -3,19 +3,68 @@
 > **Tema:** "Integração ClamAV (validar funcionamento atual — marcado 'a integrar')"
 > (item 7 da lista de objetivos em `Padronizacao.md`).
 >
-> **Status:** Decidido — documentação completa; implementação de código pendente.
-> **Decisão formal:** 25/07/2026.
-> **Dependências:** Tema 1 (já executado); Tema 4 (RBAC — para acesso admin ao
-> status endpoint); Tema 3 (logs de auditoria para registro de infecções/malware).
+> **Status:** **REJEITADO** — decisão formal de 26/07/2026.
+> **Decisão formal:** 26/07/2026.
+> **Dependências:** (não aplicável — tema rejeitado antes da implementação).
 
 ---
 
-## 1. Decisão
+## 0. Rescisão da decisão anterior
 
-ClamAV passa de "auto-detect no boot, fire-and-forget, sem governança" para
-**integração administrável, observável e blindada contra a janela de race**.
-Pilar: o `removedReason` vira chave i18n, todo scan é registrado no log de
-auditoria, e o admin pode ligar/desligar em runtime sem tocar env vars.
+A decisão anterior (25/07/2026) previa implementar integração ClamAV
+administrável (toggle, status endpoint, bloqueio de download, auditoria de
+scan). **Esta decisão foi rescindida em 26/07/2026** com base na análise do
+modelo de ameaças real do sistema.
+
+**Justificativa técnica da rejeição:**
+
+1. **Origem dos arquivos é controlada.** O upload é feito exclusivamente pelo
+   **dono (admin ou operador)** autenticado — não há upload por terceiros
+   (reverse shares removidos no Tema 1). Vídeos entram no sistema a partir de
+   fonte confiável interna.
+2. **Somente mídia (vídeo).** O sistema é especializado em compartilhamento de
+   **vídeos** — arquivos de mídia (.mp4, .mkv, .mov, .webm) não são vetores de
+   execução de malware por download/pass-through em uso normal de navegador.
+   ClamAV é desenhado paraDetectar PE executáveis, scripts e documentos Office —
+   não vídeo puro.
+3. **Destinatários só baixam.** Não há cenário em que o destinatário do link
+   execute/suba o arquivo de volta no sistema. A ameaça "vírus entra no sistema
+   via reverse share e infecta outros usuários" foi removida junto com o Tema 1.
+4. **Overhead desproporcional ao benefício.** O `clamav/clamav` daemon:
+   - Consome ~1-2 GB RAM adicional em produção (signatures em memória).
+   - Cold start de 5-15 min baixando signatures (~200 MB) — incompatível com
+     deploy air-gapped sem infraestrutura de importação.
+   - Scan de vídeo grande (GB+) é CPU-intensive e atrasa `scanStatus` do share.
+5. **Air-gapped incompatível com freshclam.** O daemon precisa de saída para
+   atualizar signatures (database ClamAV). Em rede isolada, signatures
+   envelhecem e a detecção decai — mitigação "técnicas" (pré-cache, importação
+   manual) adiciona complexidade operacional sem contrapartida real.
+6. **Caso de uso interno restrito.** Sistema é para compartilhamento interno
+   de vídeos. A soberania dos dados e simplicidade operacional prevalecem sobre
+   defesa antimalware voltada para sistemas de e-mail/file-transfer genéricos.
+
+**Conclusão:** a integração ClamAV não se aplica ao escopo do *Controle Share
+Videos*. O código existente (`backend/src/clamscan/`) permanece **inerte** por
+default (clamd nunca provisionado em produção), sem necessidade de remoção no
+curto prazo — mantém-se como hook para eventual cenário futuro ( uploads
+genéricos, regulatory compliance), mas não está mais no programa de
+padronização como pendência aberta.
+
+**Status anterior (decisão de 25/07/2026) — registro histórico:**
+
+> ClamAV passaria de "auto-detect no boot, fire-and-forget, sem governança" para
+> **integração administrável, observável e blindada contra a janela de race**.
+> Pilar: o `removedReason` vira chave i18n, todo scan seria registrado no log de
+> auditoria, e o admin poderia ligar/desligar em runtime sem tocar env vars.
+
+O conteúdo das seções 1–8 abaixo é mantido como **registro histórico** da
+decisão original (não executada). nenhuma das ações ali descritas foi
+implementada em código.
+
+## 1. Decisão (registro histórico — não executada)
+
+> ⚠️ As seções 1–8 abaixo descrevem a decisão original de 25/07/2026, **rescindida
+> em 26/07/2026** (ver §0 acima). Nenhuma das ações foi implementada.
 
 **Decisões formais:**
 

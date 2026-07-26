@@ -3,10 +3,10 @@
 > **Sistema de Compartilhamento Seguro de Arquivos — Controle Share Videos**
 > Documento de Arquitetura - Capítulo 01
 
-**Versão:** 2.6.0
+**Versão:** 2.7.0
 **Status:** Em Produção (Docker)
 **Base histórica:** Fork independente do Pingvin Share X v1.21.1, renomeado e adaptado para uso interno restrito PT-BR
-**Padronização:** Tema 1 — `docs/Padronizacao.md`; Tema 2 — `docs/Padronizacao-02-link-seguro.md`; Tema 3 — `docs/Padronizacao-03-auditoria-logs.md`; Tema 4 — `docs/Padronizacao-04-usuarios-permissoes.md`; Tema 5 — `docs/Padronizacao-05-limite-tamanho.md`; Tema 7 — `docs/Padronizacao-07-clamav.md` (Decidido, código pendente); Tema 10 — `docs/Padronizacao-10-popups-erro.md` (Executado); Tema 11 — `docs/Padronizacao-11-usuario-duplicado.md` (Executado)
+**Padronização:** Tema 1 — `docs/Padronizacao.md`; Tema 2 — `docs/Padronizacao-02-link-seguro.md`; Tema 3 — `docs/Padronizacao-03-auditoria-logs.md`; Tema 4 — `docs/Padronizacao-04-usuarios-permissoes.md`; Tema 5 — `docs/Padronizacao-05-limite-tamanho.md`; Tema 7 — `docs/Padronizacao-07-clamav.md` (**Rejeitado** — fora de escopo, sem código); Tema 10 — `docs/Padronizacao-10-popups-erro.md` (Executado); Tema 11 — `docs/Padronizacao-11-usuario-duplicado.md` (Executado)
 
 ---
 
@@ -32,7 +32,7 @@ O sistema garante:
 * Controle de acesso granular por share (público, senha, expiração, limite de views/downloads)
 * Registro completo de auditoria (download logs com usuário/IP/timestamp)
 * Upload nativo via navegador (chunked, multipart, resumível) — **somente pelo dono** do share (autenticado)
-* Integração opcional com **ClamAV** para varredura antivírus (**Decidido** — `docs/Padronizacao-07-clamav.md`, código pendente)
+* Integração com **ClamAV** para varredura antivírus — **rejeitada** (fora de escopo; ver `docs/Padronizacao-07-clamav.md` §0)
 * **Armazenamento apenas local** no servidor Ubuntu (drive D:), sem buckets S3 externos
 * Facilidade de administração via painel web
 * Escalabilidade horizontal via containers Docker
@@ -58,7 +58,6 @@ As principais dificuldades observadas são:
 * Ausência de controle de acesso e rastreabilidade
 * Falta de expiração automática e limites de download
 * Ausência de auditoria de quem baixou o quê e quando
-* Necessidade de varredura antivírus em arquivos recebidos
 
 O sistema proposto resolve esses problemas centralizando o gerenciamento, automatizando a segurança e fornecendo trilha de auditoria completa.
 
@@ -73,7 +72,7 @@ O sistema é responsável por:
 * **Download** individual ou em ZIP (streaming, sem carregar tudo em memória)
 * **Validações de segurança** em cada acesso (token, senha, expiração, limites, owner)
 * **Registro de auditoria** (DownloadLog: usuário, IP, timestamp, share, arquivo)
-* **Varredura ClamAV** assíncrona ao finalizar upload (opcional, auto-detectada)
+* **Varredura ClamAV** assíncrona ao finalizar upload — **removida do escopo** (ver `docs/Padronizacao-07-clamav.md`; código inert por default, daemon nunca provisionado em produção)
 * **Gerenciamento de usuários** (admin cria, usuário self-service: perfil, senha, TOTP)
 * **Autenticação** local (usuário/senha + Argon2id) + JWT access/refresh + TOTP opcional
 * **Configuração via painel** (YAML persistido no banco, categorias: general, appearance, share, cache, email, smtp, legal, initUser)
@@ -93,6 +92,7 @@ As funcionalidades abaixo **não** fazem parte desta versão:
 * Streaming de mídia adaptativo (HLS/DASH)
 * Edição de vídeo/áudio
 * Compressão automática de arquivos
+* **Varredura antivírus ClamAV** — removida do escopo (upload esclusivamente de vídeos, origem confiável interna, destinatários só baixam; ver `docs/Padronizacao-07-clamav.md`)
 * Upload reverso de arquivos (reverse shares) — **removido intencionalmente**, upload apenas pelo dono
 * Integração com serviços de armazenamento em nuvem (S3 e compatíveis foram **removidos** — apenas storage local em servidor Ubuntu)
 * Reprodução online de vídeo no navegador (player nativo do browser apenas)
@@ -176,7 +176,7 @@ Permissões:
 * **CORS** configurável via `CORS_ORIGIN` (credentials: true)
 * **Cookie-parser** (HttpOnly, Secure, SameSite=lax)
 * **ValidationPipe** global com `class-validator` + `nestjs-i18n` (mensagens PT-BR)
-* **ClamAV** via `clamscan@2.4.0` (host/port via env `CLAMAV_HOST`/`CLAMAV_PORT`, auto-detect on boot)
+* **ClamAV** via `clamscan@2.4.0` (host/port via env `CLAMAV_HOST`/`CLAMAV_PORT`) — **fora de escopo**, daemon não provisionado em produção (ver `docs/Padronizacao-07-clamav.md` §0); mantido como hook inerte
 * **Nodemailer** emails transacionais (SMTP configurável, templates PT-BR)
 * **Sharp** processamento de imagens (thumbnails, validação)
 * **Archiver** criação de ZIPs para download em lote
@@ -225,7 +225,7 @@ Permissões:
 ## Ferramentas / Ecossistema
 
 * **Docker** multi-stage build (5 stages: frontend-deps, frontend-build, backend-deps, backend-build, runner)
-* **Docker Compose** (produção: `docker-compose.yml`; dev local: `docker-compose.local.yml`; ClamAV dev: `docker-compose.dev.yml`)
+* **Docker Compose** (produção: `docker-compose.yml`; dev local: `docker-compose.local.yml`; dev com ClamAV: `docker-compose.dev.yml` — **não provisionado em produção**, ver `docs/Padronizacao-07-clamav.md`)
 * **Supervisor** (não usado — Caddy + Node processos diretos no entrypoint)
 * **Cron** (via `@nestjs/schedule` no processo Node, não system cron)
 * **Composer** (N/A — Node.js usa npm)
@@ -309,7 +309,7 @@ Essa separação facilita manutenção, testes, evolução independente e deploy
 3. Backend recebe chunks em `POST /api/shares/:shareId/files` (raw body, `application/octet-stream`)
 4. Chunks salvos em `./data/uploads/_temp/<shareId>/` como `.tmp-chunk-N`
 5. Usuário finaliza share → `POST /api/shares/:shareId/complete`
-6. Backend: move chunks → arquivo final, calcula hash, atualiza `File` model, **aciona ClamAV scan** (se ativo)
+6. Backend: move chunks → arquivo final, calcula hash, atualiza `File` model. (ClamAV scan removido do fluxo — ver `docs/Padronizacao-07-clamav.md`)
 7. Se scan limpo: share fica `uploadLocked=true`, disponível para download
 8. Se infectado: share + arquivos deletados, log de auditoria
 9. Operação registrada em `DownloadLog` (tipo upload) e audit trail
@@ -367,7 +367,7 @@ Essa separação facilita manutenção, testes, evolução independente e deploy
 ### Ambiente de Produção
 
 * 4+ núcleos CPU (Intel Xeon / AMD EPYC / ARM Neoverse)
-* 16+ GB RAM (recomendado 32 GB para cache Redis + ClamAV + arquivos grandes)
+* 16+ GB RAM (recomendado 32 GB para cache Redis + arquivos grandes; ClamAV removido do escopo — ver `docs/Padronizacao-07-clamav.md`)
 * SSD NVMe para sistema operacional + banco de dados
 * **Disco dedicado para armazenamento** (HDD/SSD/SAN/NAS montado em `/opt/app/backend/data` ou volume Docker)
 * Interface de rede 1 Gbps+ (10 Gbps para arquivos grandes)
@@ -381,7 +381,7 @@ Essa separação facilita manutenção, testes, evolução independente e deploy
 * **OpenSSL** (certificados, geração de segredos JWT)
 * **NTP** sincronizado (chrony/systemd-timesyncd) — crítico para JWT/TOTP/expiração
 * **Firewall** (ufw/iptables/nftables) — apenas portas 80/443 (Caddy) + 22 (SSH admin) expostas
-* **ClamAV daemon** (opcional, container separado `docker-compose.dev.yml` ou serviço systemd)
+* **ClamAV daemon** — **removido do escopo** (`docs/Padronizacao-07-clamav.md`); `docker-compose.dev.yml` mantém serviço para experimentação local apenas
 
 ## Configuração de Ambiente (Variáveis Principais)
 
@@ -394,7 +394,7 @@ Essa separação facilita manutenção, testes, evolução independente e deploy
 | `DATABASE_URL` | Connection string Prisma | `file:./data/controle-videos.db` |
 | `JWT_SECRET` | Segredo assinatura JWT (mín 32 chars) | **obrigatório** |
 | `JWT_REFRESH_SECRET` | Segredo refresh token | **obrigatório** |
-| `CLAMAV_HOST` / `CLAMAV_PORT` | Daemon ClamAV | `clamav` / `3310` (docker) |
+| `CLAMAV_HOST` / `CLAMAV_PORT` | Daemon ClamAV — **removido do escopo**; mantido como env var legada (sem provisionamento em produção) | `clamav` / `3310` (docker) |
 | `SMTP_*` | Configurações e-mail | (opcional) |
 | `PUID`/`PGID` | User/Group ID não-root no container | `1000`/`1000` |
 
@@ -410,7 +410,7 @@ Essa separação facilita manutenção, testes, evolução independente e deploy
 * **Zero egress não configurado** — bloquear saídas para `api.github.com`, registries Docker, update checkers, telemetria
 * Sincronização de horário via **NTP** (pool.ntp.org ou servidor interno)
 * Reverse proxy confiável (`TRUST_PROXY=true` se atrás de LB/Cloudflare)
-* Portas internas: 3000 (Caddy), 3333 (Next), 8080/8090 (NestJS), 3310 (ClamAV), 6379 (Redis opcional)
+* Portas internas: 3000 (Caddy), 3333 (Next), 8080/8090 (NestJS), 6379 (Redis opcional); ClamAV 3310 — não provisionado em produção (fora de escopo)
 
 ---
 
@@ -419,7 +419,7 @@ Essa separação facilita manutenção, testes, evolução independente e deploy
 O sistema implementa defesa em profundidade:
 
 * **Confidencialidade**: Arquivos nunca servidos sem token válido + validações; senhas Argon2id; JWT HS256/RS256; cookies HttpOnly+Secure+SameSite
-* **Integridade**: Hash de arquivos no upload; validação de chunks; Prisma transactions; ClamAV scan
+* **Integridade**: Hash de arquivos no upload; validação de chunks; Prisma transactions
 * **Disponibilidade**: Healthchecks Docker; restart `unless-stopped`; cron limpeza; monitoramento de disco; rate limiting (throttler)
 * **Autenticação forte**: Local user/pass + Argon2id + JWT access (15min) + refresh (7d) + rotação + TOTP opcional
 * **Autorização granular**: Guards `JwtAuthGuard`, `OwnerGuard`, `AdminGuard`, `ShareAccessGuard` (token+pwd+expiração+limites)
@@ -436,7 +436,7 @@ A arquitetura permite expansão futura:
 
 * **Horizontal**: Múltiplas réplicas do backend (stateless, JWT shared secret, Redis para cache/rate-limit)
 * **Cache distribuído**: Redis (`@keyv/redis`) para configs, sessões, rate-limit
-* **Filas de processamento**: BullMQ / `@nestjs/microservices` para scan ClamAV assíncrono, e-mails, ZIPs grandes
+* **Filas de processamento**: BullMQ / `@nestjs/microservices` para e-mails, ZIPs grandes (ClamAV scan removido do escopo)
 * **Armazenamento externo**: caso futuramente necessário, reativar provider S3 (removido por padrão — ver `docs/Padronizacao.md`)
 * **Replicação de banco**: Migração para PostgreSQL + Patroni/pgpool / MySQL Group Replication
 * **Load balancing**: Caddy/Traefik/NGINX upstream múltiplos backends
@@ -479,9 +479,9 @@ O sistema opera continuamente com mecanismos de resiliência:
 * Ambiente deve possuir **Node.js 24+** (imagem Docker `node:24-alpine` garante)
 * Banco de dados padrão **SQLite** — para produção com alta concorrência, migrar para **PostgreSQL 15+** ou **MySQL 8+**
 * Acesso externo **deve** utilizar HTTPS (Caddy gerencia automaticamente)
-* **Sem conectividade externa obrigatória** — funciona em rede isolada (air-gapped) se ClamAV, SMTP, NTP forem internos (S3 foi removido, não é mais necessário)
+* **Sem conectividade externa obrigatória** — funciona em rede isolada (air-gapped) se SMTP e NTP forem internos (S3 e ClamAV foram removidos do escopo)
 * Upload máximo limitado por `share.maxFileSize` (config) e espaço em disco (`check-disk-space`)
-* ClamAV é **opcional** — sistema funciona sem ele (auto-detect, scan vira no-op)
+* ClamAV — **removido do escopo** (`docs/Padronizacao-07-clamav.md`); código legado mantido inerte em `backend/src/clamscan/`, daemon nunca provisionado
 
 ---
 
@@ -500,7 +500,7 @@ A stack tecnológica consolidada é:
 | Container | Docker multi-stage (Alpine) + Compose |
 | Auth | JWT + Argon2id + TOTP (opcional) |
 | Storage | Local FS apenas (servidor Ubuntu, drive D:) — S3 removido |
-| Antivírus | ClamAV (opcional, auto-detect) |
+| Antivírus | ClamAV — removido do escopo (ver `docs/Padronizacao-07-clamav.md`) |
 | PWA | Serwist (Workbox) |
 | i18n | PT-BR único (nestjs-i18n + react-intl) |
 
@@ -514,4 +514,4 @@ Os próximos documentos detalham:
 
 ---
 
-*Documento gerado a partir da análise do código-fonte em `main` (Jul/2026). Atualizado em 2026-07-25 para refletir os Temas 1–5, 10, 11 executados e Tema 7 documentado (código pendente) — ver `docs/Padronizacao.md`.*
+*Documento gerado a partir da análise do código-fonte em `main` (Jul/2026). Atualizado em 2026-07-26 para refletir Temas 1–5, 10, 11 executados e Tema 7 rejeitado (sem implementação de código) — ver `docs/Padronizacao.md`.*

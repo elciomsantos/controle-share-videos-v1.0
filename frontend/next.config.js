@@ -17,6 +17,7 @@ module.exports = withSerwist({
   images: {
     unoptimized: true,
   },
+  cacheMaxMemorySize: 0,
   env: {
     VERSION: version,
   },
