@@ -8,7 +8,7 @@ import cors from "cors";
 import { NextFunction, Request, Response } from "express";
 import * as fs from "fs";
 import helmet from "helmet";
-import { I18nValidationExceptionFilter, I18nValidationPipe } from "nestjs-i18n";
+import { I18nValidationExceptionFilter, I18nValidationPipe, I18nService } from "nestjs-i18n";
 import { AppModule } from "./app.module";
 import { ConfigService } from "./config/config.service";
 import {
@@ -44,7 +44,7 @@ async function bootstrap() {
   app.useGlobalPipes(new I18nValidationPipe({ whitelist: true }));
   app.useGlobalFilters(
     new I18nValidationExceptionFilter(),
-    new ThrottlerExceptionFilter(),
+    new ThrottlerExceptionFilter(app.get(I18nService)),
   );
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
 

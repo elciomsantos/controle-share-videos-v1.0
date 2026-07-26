@@ -1,6 +1,6 @@
 import { Button, Group } from "@mantine/core";
 import { useModals } from "@mantine/modals";
-import { cleanNotifications } from "@mantine/notifications";
+import { notifications } from "@mantine/notifications";
 import { AxiosError } from "axios";
 import pLimit from "p-limit";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -10,6 +10,7 @@ import Dropzone from "../../components/upload/Dropzone";
 import FileList from "../../components/upload/FileList";
 import showCompletedUploadModal from "../../components/upload/modals/showCompletedUploadModal";
 import showCreateUploadModal from "../../components/upload/modals/showCreateUploadModal";
+import { showBlockingErrorModal } from "../../components/core/showBlockingErrorModal";
 import useConfig from "../../hooks/config.hook";
 import useConfirmLeave from "../../hooks/confirm-leave.hook";
 import useTranslate from "../../hooks/useTranslate.hook";
@@ -22,6 +23,7 @@ import { useRouter } from "next/router";
 import { getNormalizedFileName, filterDuplicateFiles } from "../../utils/file.util";
 
 const promiseLimit = pLimit(3);
+const UPLOAD_ERROR_TOAST_ID = "upload-error-toast";
 let errorToastShown = false;
 let createdShare: Share;
 let pendingGeneratedPassword: string | undefined;
@@ -247,17 +249,21 @@ const Upload = ({
 
     if (fileErrorCount > 0) {
       if (!errorToastShown) {
-        toast.error(
-          t("upload.notify.count-failed", { count: fileErrorCount }),
-          {
-            withCloseButton: false,
-            autoClose: false,
-          },
-        );
+        notifications.show({
+          id: UPLOAD_ERROR_TOAST_ID,
+          color: "red",
+          icon: undefined,
+          title: t("common.error"),
+          message: t("upload.notify.count-failed-honest", {
+            count: fileErrorCount,
+          }),
+          withCloseButton: true,
+          autoClose: false,
+        });
       }
       errorToastShown = true;
     } else {
-      cleanNotifications();
+      notifications.hide(UPLOAD_ERROR_TOAST_ID);
       errorToastShown = false;
     }
 
@@ -267,21 +273,51 @@ const Upload = ({
       files.every((file) => file.uploadingProgress >= 100) &&
       fileErrorCount == 0
     ) {
-      shareService
-        .completeShare(createdShare.id)
-        .then((share) => {
-          setisUploading(false);
-          showCompletedUploadModal(
-            modals,
-            share,
-            config.get("general.appUrl"),
-            config.get("general.appUrl", true),
-            pendingGeneratedPassword,
-          );
-          pendingGeneratedPassword = undefined;
-          setFiles([]);
-        })
-        .catch(() => toast.error(t("upload.notify.generic-error")));
+      const attemptComplete = () =>
+        shareService
+          .completeShare(createdShare.id)
+          .then((share) => {
+            setisUploading(false);
+            modals.closeAll();
+            showCompletedUploadModal(
+              modals,
+              share,
+              config.get("general.appUrl"),
+              config.get("general.appUrl", true),
+              pendingGeneratedPassword,
+            );
+            pendingGeneratedPassword = undefined;
+            setFiles([]);
+          })
+          .catch((e: any) => {
+            const discard = () =>
+              shareService
+                .remove(createdShare.id)
+                .then(() => {
+                  setisUploading(false);
+                  setFiles([]);
+                })
+                .catch(() => setisUploading(false));
+
+            showBlockingErrorModal(modals, {
+              title: t("upload.complete.error.title"),
+              description: t("upload.complete.error.description"),
+              actions: [
+                {
+                  label: t("common.button.retry"),
+                  color: "blue",
+                  variant: "filled",
+                  onClick: attemptComplete,
+                },
+                {
+                  label: t("upload.button.discard"),
+                  onClick: discard,
+                },
+              ],
+            });
+          });
+
+      attemptComplete();
     }
   }, [files]);
 

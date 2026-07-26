@@ -121,7 +121,7 @@ export class AuthService {
       return this.generateToken(user);
     }
 
-    this.logger.log(
+    this.logger.debug(
       `Failed login attempt for user ${dto.email || dto.username} from IP ${ip}`,
     );
     throw new UnauthorizedException(this.i18n.t("auth.wrongCredentials"));

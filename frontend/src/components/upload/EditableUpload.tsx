@@ -1,5 +1,6 @@
 import { Button, Group } from "@mantine/core";
-import { cleanNotifications } from "@mantine/notifications";
+import { useModals } from "@mantine/modals";
+import { notifications } from "@mantine/notifications";
 import { AxiosError } from "axios";
 import { useRouter } from "next/router";
 import pLimit from "p-limit";
@@ -7,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { FormattedMessage } from "react-intl";
 import Dropzone from "../../components/upload/Dropzone";
 import FileList from "../../components/upload/FileList";
+import { showBlockingErrorModal } from "../core/showBlockingErrorModal";
 import useConfig from "../../hooks/config.hook";
 import useTranslate from "../../hooks/useTranslate.hook";
 import useUser from "../../hooks/user.hook";
@@ -16,6 +18,7 @@ import toast from "../../utils/toast.util";
 import { getNormalizedFileName, filterDuplicateFiles } from "../../utils/file.util";
 
 const promiseLimit = pLimit(3);
+const EDITABLE_ERROR_TOAST_ID = "editable-upload-error-toast";
 let errorToastShown = false;
 
 const EditableUpload = ({
@@ -30,6 +33,7 @@ const EditableUpload = ({
   const t = useTranslate();
   const router = useRouter();
   const config = useConfig();
+  const modals = useModals();
   const { user } = useUser();
 
   const chunkSize = useRef(parseInt(config.get("share.chunkSize")));
@@ -167,27 +171,44 @@ const EditableUpload = ({
 
   const save = async () => {
     setIsUploading(true);
-
     try {
-      await revertComplete();
-      await uploadFiles(uploadingFiles);
+      try {
+        await revertComplete();
+        await uploadFiles(uploadingFiles);
 
-      const hasFailed = uploadingFiles.some(
-        (file) => file.uploadingProgress == -1,
-      );
+        const hasFailed = uploadingFiles.some(
+          (file) => file.uploadingProgress == -1,
+        );
 
-      if (!hasFailed) {
-        await removeFiles();
+        if (!hasFailed) {
+          await removeFiles();
+        }
+
+        await completeShare();
+
+        if (!hasFailed) {
+          toast.success(t("share.edit.notify.save-success"));
+          router.back();
+        }
+      } catch {
+        const retry = () => save();
+        showBlockingErrorModal(modals, {
+          title: t("upload.save.error.title"),
+          description: t("upload.save.error.description"),
+          actions: [
+            {
+              label: t("common.button.retry"),
+              color: "blue",
+              variant: "filled",
+              onClick: retry,
+            },
+            {
+              label: t("common.button.go-back"),
+              onClick: () => router.back(),
+            },
+          ],
+        });
       }
-
-      await completeShare();
-
-      if (!hasFailed) {
-        toast.success(t("share.edit.notify.save-success"));
-        router.back();
-      }
-    } catch {
-      toast.error(t("share.edit.notify.generic-error"));
     } finally {
       setIsUploading(false);
     }
@@ -212,17 +233,20 @@ const EditableUpload = ({
 
     if (fileErrorCount > 0) {
       if (!errorToastShown) {
-        toast.error(
-          t("upload.notify.count-failed", { count: fileErrorCount }),
-          {
-            withCloseButton: false,
-            autoClose: false,
-          },
-        );
+        notifications.show({
+          id: EDITABLE_ERROR_TOAST_ID,
+          color: "red",
+          title: t("common.error"),
+          message: t("upload.notify.count-failed-honest", {
+            count: fileErrorCount,
+          }),
+          withCloseButton: true,
+          autoClose: false,
+        });
       }
       errorToastShown = true;
     } else {
-      cleanNotifications();
+      notifications.hide(EDITABLE_ERROR_TOAST_ID);
       errorToastShown = false;
     }
   }, [uploadingFiles]);

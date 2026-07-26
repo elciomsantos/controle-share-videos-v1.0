@@ -1,7 +1,7 @@
-import { Button, Stack, Text } from "@mantine/core";
+import routerSingleton from "next/router";
 import { useModals } from "@mantine/modals";
-import { useRouter } from "next/router";
-import { FormattedMessage } from "react-intl";
+import { showBlockingErrorModal } from "../core/showBlockingErrorModal";
+import { translateOutsideContext } from "../../hooks/useTranslate.hook";
 
 type ModalsContextProps = ReturnType<typeof useModals>;
 
@@ -11,44 +11,29 @@ const showErrorModal = (
   text: string,
   action: "go-back" | "go-home" = "go-back",
 ) => {
-  return modals.openModal({
-    closeOnClickOutside: false,
-    withCloseButton: false,
-    closeOnEscape: false,
-    title: title,
+  const t = translateOutsideContext();
 
-    children: <Body text={text} action={action} />,
+  const handleNavigate = () => {
+    if (action === "go-back") {
+      routerSingleton.back();
+    } else if (action === "go-home") {
+      routerSingleton.push("/");
+    }
+  };
+
+  return showBlockingErrorModal(modals, {
+    title,
+    description: text,
+    actions: [
+      {
+        label: t(`common.button.${action}`),
+        variant: "filled",
+        color: "blue",
+        onClick: handleNavigate,
+      },
+    ],
   });
 };
 
-const Body = ({
-  text,
-  action,
-}: {
-  text: string;
-  action: "go-back" | "go-home";
-}) => {
-  const modals = useModals();
-  const router = useRouter();
-  return (
-    <>
-      <Stack align="stretch">
-        <Text size="sm">{text}</Text>
-        <Button
-          onClick={() => {
-            modals.closeAll();
-            if (action === "go-back") {
-              router.back();
-            } else if (action === "go-home") {
-              router.push("/");
-            }
-          }}
-        >
-          <FormattedMessage id={`common.button.${action}`} />
-        </Button>
-      </Stack>
-    </>
-  );
-};
-
 export default showErrorModal;
+

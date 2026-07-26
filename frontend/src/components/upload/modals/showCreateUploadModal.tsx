@@ -33,6 +33,7 @@ import {
   dayjs,
   type DurationUnitType,
 } from "../../../utils/date.util";
+import { showBlockingErrorModal } from "../../core/showBlockingErrorModal";
 import toast from "../../../utils/toast.util";
 import { Timespan } from "../../../types/timespan.type";
 
@@ -205,59 +206,80 @@ const CreateUploadModalBody = ({
   });
 
   const onSubmit = form.onSubmit(async (values) => {
-    if (!(await shareService.isShareIdAvailable(values.link))) {
-      form.setFieldError("link", t("upload.modal.link.error.taken"));
-    } else {
-      const expirationString = form.values.never_expires
-        ? "never"
-        : form.values.expiration_num + form.values.expiration_unit;
-
-      const expirationDate = dayjs().add(
-        form.values.expiration_num,
-        form.values.expiration_unit.replace(
-          "-",
-          "",
-        ) as DurationUnitType,
-      );
-
-      if (
-        options.maxExpiration.value != 0 &&
-        (form.values.never_expires ||
-          expirationDate.isAfter(
-            dayjs().add(
-              options.maxExpiration.value,
-              options.maxExpiration.unit,
-            ),
-          ))
-      ) {
-        form.setFieldError(
-          "expiration_num",
-          t("upload.modal.expires.error.too-long", {
-            max: dayjs
-              .duration(options.maxExpiration.value, options.maxExpiration.unit)
-              .humanize(),
-          }),
-        );
-        return;
-      }
-
-      uploadCallback(
-        {
-          id: values.link,
-          name: values.name,
-          expiration: expirationString,
-          recipients: values.recipients,
-          description: values.description,
-          security: {
-            password: values.password || undefined,
-            maxViews: values.maxViews || undefined,
-            maxDownloads: values.maxDownloads || undefined,
+    let isAvailable: boolean;
+    try {
+      isAvailable = await shareService.isShareIdAvailable(values.link);
+    } catch (e: any) {
+      showBlockingErrorModal(modals, {
+        title: t("common.error"),
+        description: t("common.error.unknown"),
+        actions: [
+          {
+            label: t("common.button.retry"),
+            color: "blue",
+            variant: "filled",
+            onClick: async () => {
+              await shareService.isShareIdAvailable(values.link);
+            },
           },
-        },
-        files,
-      );
-      modals.closeAll();
+        ],
+      });
+      return;
     }
+
+    if (!isAvailable) {
+      form.setFieldError("link", t("upload.modal.link.error.taken"));
+      return;
+    }
+
+    const expirationString = form.values.never_expires
+      ? "never"
+      : form.values.expiration_num + form.values.expiration_unit;
+
+    const expirationDate = dayjs().add(
+      form.values.expiration_num,
+      form.values.expiration_unit.replace(
+        "-",
+        "",
+      ) as DurationUnitType,
+    );
+
+    if (
+      options.maxExpiration.value != 0 &&
+      (form.values.never_expires ||
+        expirationDate.isAfter(
+          dayjs().add(
+            options.maxExpiration.value,
+            options.maxExpiration.unit,
+          ),
+        ))
+    ) {
+      form.setFieldError(
+        "expiration_num",
+        t("upload.modal.expires.error.too-long", {
+          max: dayjs
+            .duration(options.maxExpiration.value, options.maxExpiration.unit)
+            .humanize(),
+        }),
+      );
+      return;
+    }
+
+    uploadCallback(
+      {
+        id: values.link,
+        name: values.name,
+        expiration: expirationString,
+        recipients: values.recipients,
+        description: values.description,
+        security: {
+          password: values.password || undefined,
+          maxViews: values.maxViews || undefined,
+          maxDownloads: values.maxDownloads || undefined,
+        },
+      },
+      files,
+    );
   });
 
   return (
@@ -573,12 +595,30 @@ const SimplifiedCreateUploadModalModal = ({
   });
 
   const onSubmit = form.onSubmit(async (values) => {
-    const link = await generateAvailableLink(options.shareIdLength).catch(
-      () => {
+    let link: string | undefined;
+    try {
+      link = await generateAvailableLink(options.shareIdLength);
+    } catch (e: any) {
+      const errorCode = e?.response?.data?.error;
+      if (errorCode === "idInUse") {
+        // should not normally happen — recursive generation would have tried another id
         toast.error(t("upload.modal.link.error.taken"));
-        return undefined;
-      },
-    );
+        return;
+      }
+      showBlockingErrorModal(modals, {
+        title: t("common.error"),
+        description: t("common.error.unknown"),
+        actions: [
+          {
+            label: t("common.button.retry"),
+            color: "blue",
+            variant: "filled",
+            onClick: () => generateAvailableLink(options.shareIdLength),
+          },
+        ],
+      });
+      return;
+    }
 
     if (!link) {
       return;
@@ -598,7 +638,6 @@ const SimplifiedCreateUploadModalModal = ({
       },
       files,
     );
-    modals.closeAll();
   });
 
   return (
