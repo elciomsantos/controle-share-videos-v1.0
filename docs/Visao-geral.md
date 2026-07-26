@@ -3,10 +3,10 @@
 > **Sistema de Compartilhamento Seguro de Arquivos — Controle Share Videos**
 > Documento de Arquitetura - Capítulo 01
 
-**Versão:** 2.5.0
+**Versão:** 2.6.0
 **Status:** Em Produção (Docker)
 **Base histórica:** Fork independente do Pingvin Share X v1.21.1, renomeado e adaptado para uso interno restrito PT-BR
-**Padronização:** Tema 1 — `docs/Padronizacao.md`; Tema 2 — `docs/Padronizacao-02-link-seguro.md`; Tema 3 — `docs/Padronizacao-03-auditoria-logs.md`; Tema 4 — `docs/Padronizacao-04-usuarios-permissoes.md`; Tema 5 — `docs/Padronizacao-05-limite-tamanho.md`
+**Padronização:** Tema 1 — `docs/Padronizacao.md`; Tema 2 — `docs/Padronizacao-02-link-seguro.md`; Tema 3 — `docs/Padronizacao-03-auditoria-logs.md`; Tema 4 — `docs/Padronizacao-04-usuarios-permissoes.md`; Tema 5 — `docs/Padronizacao-05-limite-tamanho.md`; Tema 7 — `docs/Padronizacao-07-clamav.md` (Decidido, código pendente); Tema 10 — `docs/Padronizacao-10-popups-erro.md` (Executado); Tema 11 — `docs/Padronizacao-11-usuario-duplicado.md` (Executado)
 
 ---
 
@@ -32,7 +32,7 @@ O sistema garante:
 * Controle de acesso granular por share (público, senha, expiração, limite de views/downloads)
 * Registro completo de auditoria (download logs com usuário/IP/timestamp)
 * Upload nativo via navegador (chunked, multipart, resumível) — **somente pelo dono** do share (autenticado)
-* Integração opcional com **ClamAV** para varredura antivírus ( integrar)
+* Integração opcional com **ClamAV** para varredura antivírus (**Decidido** — `docs/Padronizacao-07-clamav.md`, código pendente)
 * **Armazenamento apenas local** no servidor Ubuntu (drive D:), sem buckets S3 externos
 * Facilidade de administração via painel web
 * Escalabilidade horizontal via containers Docker
@@ -43,6 +43,8 @@ O sistema garante:
 * Criação de log dos dados do vídeo como: tamanho, data criação, data download, identificação do usuário (IP, data, hora) que baixou o vídeo, etc. (**Padronizado** — ver `docs/Padronizacao-03-auditoria-logs.md`)
 * O usuário que recebe o link deve ter acesso somente ao seu vídeo, sem visualização da tela inicial do sistema (criar uma tela exclusiva de visualização quando acessado pelo link). (**Padronizado** — tela exclusiva sem Header/Footer, ver `docs/Padronizacao-02-link-seguro.md` §3.3)
 * Apenas o usuário admin será criado via painel; os demais usuários serão criados pelo admin e, ao acessarem o sistema pela primeira vez, poderão trocar a senha criada por uma nova (**Padronizado** — roles `admin`/`operador`/`auditor`, flag `passwordMustChange` com Guard, troca obrigatória no primeiro acesso, ver `docs/Padronizacao-04-usuarios-permissoes.md`)
+* Popups de erro honestos em três camadas — inline field error (credenciais inválidas, link em uso), modal bloqueante (conta não ativada, rate-limit 429 com countdown, falha de servidor, `completeShare` 500, erro de rede em `isShareIdAvailable`) e toast persistente agrupado para falha de chunks ("Falha ao enviar N. Toque para detalhes"). Helper reutilizável `showBlockingErrorModal` em `components/core/`. Corrigidas lacunas i18n (PT-BR). (**Padronizado** — ver `docs/Padronizacao-10-popups-erro.md`)
+* Detecção de usuário duplicado com inline field error + debounce pre-validation (admin) — contrato `field` no backend, debounce 500ms nos formulários de criação/edição de usuário (admin) e signup, i18n `admin.users.error.duplicated-username`/`duplicated-email`. (**Padronizado** — ver `docs/Padronizacao-11-usuario-duplicado.md`)
 ---
 
 # 3. Problema a Ser Resolvido
@@ -512,4 +514,4 @@ Os próximos documentos detalham:
 
 ---
 
-*Documento gerado a partir da análise do código-fonte em `main` (Jul/2026). Atualizado em 2026-07-25 para refletir a padronização de remoção de Reverse Shares + S3 — ver `docs/Padronizacao.md`.*
+*Documento gerado a partir da análise do código-fonte em `main` (Jul/2026). Atualizado em 2026-07-25 para refletir os Temas 1–5, 10, 11 executados e Tema 7 documentado (código pendente) — ver `docs/Padronizacao.md`.*
