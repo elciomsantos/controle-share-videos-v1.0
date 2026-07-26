@@ -5,7 +5,7 @@
 > uploads, por que os erros são apenas silenciosos"
 > (item 10 da lista de objetivos em `Padronizacao.md`).
 >
-> **Status:** Decidido — documentação completa; implementação de código pendente.
+> **Status:** Executado — implementação concluída em commit `9e53ff9` (25/07/2026).
 > **Decisão formal:** 25/07/2026.
 > **Dependências:** Tema 1 (sem bloqueio); tem relacionados o Tema 11
 > (frontend field-error) e o Tema 3 (toast agregado de upload persistente).
@@ -418,50 +418,50 @@ backend. Não introduz schema, não introduz chaves de `Config`.
 
 ## 5. Critérios de Aceite
 
-- [ ] Helper `showBlockingErrorModal` criado em `components/core/` reusando
+- [x] Helper `showBlockingErrorModal` criado em `components/core/` reusando
       padrão `showErrorModal`.
-- [ ] `showErrorModal.tsx` refatorado para usar o helper (sem regressão em
+- [x] `showErrorModal.tsx` refatorado para usar o helper (sem regressão em
       `pages/share/[shareId]`).
-- [ ] `SignInForm.tsx`: credenciais inválidas exibem **inline field error** no
+- [x] `SignInForm.tsx`: credenciais inválidas exibem **inline field error** no
       `PasswordInput` + limpeza do campo + exibição de link "Esqueci a senha".
       Toast removido para esse cenário.
-- [ ] `SignInForm.tsx`: conta não ativada abre **modal bloqueante** com botão
+- [x] `SignInForm.tsx`: conta não ativada abre **modal bloqueante** com botão
       "Reenviar verificação" (chama `POST /api/auth/verify/resend`).
-- [ ] `SignInForm.tsx`: rate-limit 429 abre **modal bloqueante com countdown**
+- [x] `SignInForm.tsx`: rate-limit 429 abre **modal bloqueante com countdown**
       lendo `Retry-After` (default 60s), botão "Iniciar sessão" desabilitado
       durante o countdown.
-- [ ] `SignInForm.tsx`: erro 500/rede/timeout abre **modal bloqueante** com
+- [x] `SignInForm.tsx`: erro 500/rede/timeout abre **modal bloqueante** com
       "Tentar novamente" + "Voltar".
-- [ ] `showCreateUploadModal.tsx`: erro 400 `idInUse` exibe inline field error
+- [x] `showCreateUploadModal.tsx`: erro 400 `idInUse` exibe inline field error
       no campo "Link".
-- [ ] `showCreateUploadModal.tsx`: erro 403/500 abre modal e **não fecha** o
+- [x] `showCreateUploadModal.tsx`: erro 403/500 abre modal e **não fecha** o
       modal de criação.
-- [ ] `upload/index.tsx`: toast `count-failed` agora com ID fixo e texto honesto
+- [x] `upload/index.tsx`: toast `count-failed` agora com ID fixo e texto honesto
       ("Falha ao enviar N. Toque para detalhes"), sem `cleanNotifications()`
       global.
-- [ ] `upload/index.tsx`: `completeShare` 500 abre modal bloqueante com
+- [x] `upload/index.tsx`: `completeShare` 500 abre modal bloqueante com
       "Tentar novamente" (refaz `completeShare`) e "Descartar" (chama `remove`).
-- [ ] `showCreateUploadModal.tsx`: `isShareIdAvailable` falha de rede abre
+- [x] `showCreateUploadModal.tsx`: `isShareIdAvailable` falha de rede abre
       modal genérico (não mais "link em uso" enganoso).
-- [ ] `EditableUpload.tsx`: `save()` envolto em `try/catch`; qualquer rejeição
+- [x] `EditableUpload.tsx`: `save()` envolto em `try/catch`; qualquer rejeição
       (`revertComplete`, `uploadFiles`, `completeShare`, `removeFiles`) abre
       modal bloqueante único.
-- [ ] `throttler-exception.filter.ts` injeta `I18nService` e usa
+- [x] `throttler-exception.filter.ts` injeta `I18nService` e usa
       `auth.tooManyRequests` em vez de hardcoded "Too Many Requests", mantém
       header `Retry-After: 60`.
-- [ ] Chave frontend `common.error.unknown` adicionada (não mais fallback vazio).
-- [ ] Chave frontend `common.button.retry` adicionada.
-- [ ] Chaves `verify.*` (10 chaves) traduzidas em `pt-BR.ts`.
-- [ ] Backend `accountNotActivated`, `userAlreadyActivated` traduzidos para
+- [x] Chave frontend `common.error.unknown` adicionada (não mais fallback vazio).
+- [x] Chave frontend `common.button.retry` adicionada.
+- [x] Chaves `verify.*` (10 chaves) traduzidas em `pt-BR.ts`.
+- [x] Backend `accountNotActivated`, `userAlreadyActivated` traduzidos para
       pt-BR em `auth.json`.
-- [ ] Backend `auth.tooManyRequests` adicionada com `{seconds}` interpolation.
-- [ ] Chaves frontend `share.copy-text-contents`, `share.notify.copied-contents`,
+- [x] Backend `auth.tooManyRequests` adicionada com `{seconds}` interpolation.
+- [x] Chaves frontend `share.copy-text-contents`, `share.notify.copied-contents`,
       `share.notify.copy-too-big-error`, `share.notify.copy-not-supported-error`
       traduzidas.
-- [ ] Chave frontend `upload.dropzone.description` traduzida.
-- [ ] Chaves `signin.*` (8 novas) adicionadas em `pt-BR.ts`.
-- [ ] Lint e typecheck passam em backend e frontend.
-- [ ] Teste manual: login com credenciais erradas não mostra toast (mostra
+- [x] Chave frontend `upload.dropzone.description` traduzida.
+- [x] Chaves `signin.*` (8 novas) adicionadas em `pt-BR.ts`.
+- [x] Lint e typecheck passam em backend e frontend.
+- [x] Teste manual: login com credenciais erradas não mostra toast (mostra
       inline + link esqueci); login com 500 mostra modal; `completeShare` 500
       mostra modal com retry.
 

@@ -3,9 +3,9 @@
 > **Sistema de Compartilhamento Seguro de Arquivos — Controle Share Videos**
 > Documento de decisão de padronização — programa 11 temas
 
-**Versão:** 2.1.0
+**Versão:** 2.2.0
 **Data:** 2026-07-25
-**Status:** Em andamento — Temas 1–5 e 11 executados, 7/10 documentados, 8/9 pendentes
+**Status:** Em andamento — Temas 1–5, 10 e 11 executados, 7 documentado, 8/9 pendentes
 **Branch de trabalho:** `main`
 
 ---
@@ -144,7 +144,7 @@ A padronização documental contempla os seguintes temas, derivados das notas en
 | 7 | Integração ClamAV (daemon compose, toggle admin, i18n, status endpoint, bloquear download se scan pendente) | Decidido — ver `Padronizacao-07-clamav.md`; código pendente |
 | 8 | Refino do documento `Visao-geral.md` como um todo | Pendente |
 | 9 | Atualização final de README | Pendente |
-| 10| Popups de erro — login (credenciais, conta não ativada, 429, 500/rede) e upload (completeShare, chunk, isShareIdAvailable); helper `showBlockingErrorModal`; correção de i18n ausente | Decidido — ver `Padronizacao-10-popups-erro.md`; código pendente |
+| 10| Popups de erro — login (credenciais, conta não ativada, 429, 500/rede) e upload (completeShare, chunk, isShareIdAvailable); helper `showBlockingErrorModal`; correção de i18n ausente | Executado — commit `9e53ff9`; ver `Padronizacao-10-popups-erro.md` |
 | 11| Usuário duplicado — contrato de erro `field` no backend, inline field error, debounce pre-validation (admin), i18n nova | Executado — commit `0caba85`; ver `Padronizacao-11-usuario-duplicado.md` |
 
 
