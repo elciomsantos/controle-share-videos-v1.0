@@ -13,6 +13,7 @@ import { useModals } from "@mantine/modals";
 import { useEffect, useState } from "react";
 import { FormattedMessage } from "react-intl";
 import * as yup from "yup";
+import { translateOutsideContext } from "../../../hooks/useTranslate.hook";
 import useTranslate from "../../../hooks/useTranslate.hook";
 import userService from "../../../services/user.service";
 import { getApiErrorField, getApiErrorMessage } from "../../../utils/error.util";
@@ -26,7 +27,7 @@ const showCreateUserModal = (
   smtpEnabled: boolean,
   getUsers: () => void,
 ) => {
-  const t = useTranslate();
+  const t = translateOutsideContext();
   return modals.openModal({
     title: t("admin.users.modal.create.title"),
     children: (
