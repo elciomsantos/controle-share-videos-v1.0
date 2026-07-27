@@ -92,7 +92,8 @@ const Share = ({ shareId }: { shareId: string }) => {
             modals,
             t("share.error.visitor-limit-exceeded.title"),
             t("share.error.visitor-limit-exceeded.description"),
-            "go-home",
+            "stay",
+            "/img/images/fechado-down.png",
           );
         } else if (error == "share_password_required") {
           showEnterPasswordModal(modals, getShareToken);
@@ -137,7 +138,8 @@ const Share = ({ shareId }: { shareId: string }) => {
             modals,
             t("share.error.visitor-limit-exceeded.title"),
             t("share.error.visitor-limit-exceeded.description"),
-            "go-home",
+            "stay",
+            "/img/images/fechado-down.png",
           );
         } else if (error == "share_password_required") {
           showEnterPasswordModal(modals, getShareToken);

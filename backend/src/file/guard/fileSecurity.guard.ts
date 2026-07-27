@@ -82,7 +82,7 @@ export class FileSecurityGuard extends ShareSecurityGuard {
       if (share.security?.password)
         throw new ForbiddenException(this._i18n.t("file.passwordProtected"));
 
-      if (share.security?.maxViews && share.security.maxViews <= share.views) {
+      if (share.security?.maxViews && share.security.maxViews < share.views) {
         void this._downloadLogService.record({
           shareId,
           fileName: share.name ?? shareId,

@@ -1,5 +1,6 @@
 import { Button, Group, Stack, Text } from "@mantine/core";
 import { useModals } from "@mantine/modals";
+import { ReactNode } from "react";
 
 type ModalsContextProps = ReturnType<typeof useModals>;
 
@@ -12,7 +13,7 @@ export interface BlockingErrorAction {
 
 export interface BlockingErrorParams {
   title: string;
-  description?: string;
+  description?: string | ReactNode;
   actions: BlockingErrorAction[];
   onClose?: () => void;
 }
@@ -22,7 +23,7 @@ const BlockingBody = ({
   actions,
   onClose,
 }: {
-  description?: string;
+  description?: string | ReactNode;
   actions: BlockingErrorAction[];
   onClose?: () => void;
 }) => {
@@ -43,7 +44,11 @@ const BlockingBody = ({
 
   return (
     <Stack align="stretch">
-      {description && <Text size="sm">{description}</Text>}
+      {description && typeof description === "string" ? (
+        <Text size="sm">{description}</Text>
+      ) : (
+        description
+      )}
       <Group justify="flex-end" mt="md">
         {actions.map((action, idx) => (
           <Button

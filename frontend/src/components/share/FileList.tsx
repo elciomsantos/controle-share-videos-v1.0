@@ -211,14 +211,16 @@ const FileList = ({
                                   modals,
                                   t("share.error.download-limit-exceeded.title"),
                                   t("share.error.download-limit-exceeded.description"),
-                                  "go-home",
+                                  "stay",
+                                  "/img/images/fechado-down.png",
                                 );
                               } else if (error === "share_max_views_exceeded") {
                                 showErrorModal(
                                   modals,
                                   t("share.error.visitor-limit-exceeded.title"),
                                   t("share.error.visitor-limit-exceeded.description"),
-                                  "go-home",
+                                  "stay",
+                                  "/img/images/fechado-down.png",
                                 );
                               } else {
                                 toast.axiosError(e);

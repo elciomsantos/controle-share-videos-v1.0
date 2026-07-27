@@ -186,60 +186,6 @@ const Upload = ({
   };
 
   useEffect(() => {
-    const handlePaste = (e: ClipboardEvent) => {
-      if (modals.modals.length > 0) {
-        return;
-      }
-
-      const clipboardData = e.clipboardData;
-
-      if (!clipboardData) {
-        return;
-      }
-
-      if (clipboardData?.getData("text/plain")) {
-        const pastedText = clipboardData.getData("text/plain");
-        if (!pastedText) {
-          return;
-        }
-
-        // Create a sanitised file name from the pasted text
-        const safeName = pastedText
-          .substring(0, 50)
-          .replace(/[^a-zA-Z0-9 ]/g, "")
-          .trim();
-        const fileName = `${safeName || "clipboard_paste"}.txt`;
-
-        const file = new File([pastedText], fileName, {
-          type: "text/plain",
-        });
-        const fileUpload = file as FileUpload;
-        fileUpload.uploadingProgress = 0;
-
-        const filtered = filterDuplicateFiles(
-          [fileUpload],
-          files,
-          (normalizedName) => toast.error(t("upload.notify.duplicate-skipped", { name: normalizedName }))
-        );
-        if (filtered.length === 0) return;
-
-        if (autoOpenCreateUploadModal) {
-          setFiles(filtered);
-          showCreateUploadModalCallback(filtered);
-        } else {
-          setFiles((oldArr) => [...oldArr, ...filtered]);
-        }
-      }
-    };
-
-    window.addEventListener("paste", handlePaste);
-
-    return () => {
-      window.removeEventListener("paste", handlePaste);
-    };
-  }, [autoOpenCreateUploadModal, modals.modals.length]);
-
-  useEffect(() => {
     // Check if there are any files that failed to upload
     const fileErrorCount = files.filter(
       (file) => file.uploadingProgress == -1,
@@ -320,7 +266,17 @@ const Upload = ({
   }, [files]);
 
   return (
-    <>
+    <div
+      style={{
+        minHeight: "100vh",
+        backgroundImage: "linear-gradient(rgba(255,255,255,0.15), rgba(255,255,255,0.15)), url('/img/tela-downloads.png')",
+        backgroundSize: "40% auto",
+        backgroundRepeat: "no-repeat",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+        padding: "1rem",
+      }}
+    >
       <Meta title={t("upload.title")} />
       <Group justify="flex-end" mb={20}>
         <Button
@@ -332,11 +288,6 @@ const Upload = ({
         </Button>
       </Group>
       <Dropzone
-        title={
-          !autoOpenCreateUploadModal && files.length > 0
-            ? t("share.edit.append-upload")
-            : undefined
-        }
         maxShareSize={maxShareSize}
         currentFilesSize={currentFilesSize}
         onFilesChanged={handleDropzoneFilesChanged}
@@ -345,7 +296,7 @@ const Upload = ({
       {files.length > 0 && (
         <FileList<FileUpload> files={files} setFiles={setFiles} />
       )}
-    </>
+    </div>
   );
 };
 export default Upload;

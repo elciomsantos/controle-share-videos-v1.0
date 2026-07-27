@@ -104,7 +104,7 @@ export class ShareSecurityGuard extends JwtGuard {
       );
 
     // Check view limit after valid token is verified
-    if (share.security?.maxViews && share.security.maxViews <= share.views) {
+    if (share.security?.maxViews && share.security.maxViews < share.views) {
       const ip = getRequestIp(request);
       const userAgent = getRequestUserAgent(request);
       void this.shareService.recordViewExceeded(shareId, ip, userAgent);

@@ -258,6 +258,7 @@ export default {
   "upload.dropzone.title": "Carregar arquivos",
   "upload.dropzone.description": "Arraste arquivos aqui para começar o compartilhamento ou use Ctrl+V para anexar conteúdo da área de transferência. Aceitamos arquivos de até {maxSize} no total.",
   "upload.dropzone.notify.file-too-big": "Seus arquivos excedem o tamanho máximo do compartilhamento {maxSize}.",
+  "upload.dropzone.notify.video-only": "Apenas arquivos de vídeo são permitidos.",
   // FileList.tsx
   "upload.filelist.name": "Nome",
   "upload.filelist.size": "Tamanho",
@@ -546,6 +547,7 @@ export default {
   "common.text.redirecting": "Redirecionando...",
   "common.button.go-back": "Voltar",
   "common.button.go-home": "Voltar para o Início",
+  "common.button.ok": "OK",
   "common.button.retry": "Tentar novamente",
   "common.notify.copied": "O seu link foi copiado para a área de transferência",
   "common.notify.copied-link": "O seu link foi copiado para a área de transferência",

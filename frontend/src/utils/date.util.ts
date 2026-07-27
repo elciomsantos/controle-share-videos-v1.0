@@ -2,6 +2,7 @@ import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import relativeTime from "dayjs/plugin/relativeTime";
 import customParseFormat from "dayjs/plugin/customParseFormat";
+import localizedFormat from "dayjs/plugin/localizedFormat";
 import "dayjs/locale/pt-br";
 import type { DurationUnitType } from "dayjs/plugin/duration";
 import { Timespan } from "../types/timespan.type";
@@ -9,6 +10,7 @@ import { Timespan } from "../types/timespan.type";
 dayjs.extend(duration as any);
 dayjs.extend(relativeTime as any);
 dayjs.extend(customParseFormat as any);
+dayjs.extend(localizedFormat as any);
 
 export { dayjs };
 export type { DurationUnitType };

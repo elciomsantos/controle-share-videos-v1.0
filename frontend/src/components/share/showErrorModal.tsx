@@ -1,4 +1,4 @@
-import routerSingleton from "next/router";
+import { Image } from "@mantine/core";
 import { useModals } from "@mantine/modals";
 import { showBlockingErrorModal } from "../core/showBlockingErrorModal";
 import { translateOutsideContext } from "../../hooks/useTranslate.hook";
@@ -9,27 +9,31 @@ const showErrorModal = (
   modals: ModalsContextProps,
   title: string,
   text: string,
-  action: "go-back" | "go-home" = "go-back",
+  action: "go-back" | "go-home" | "stay" = "go-back",
+  imageUrl?: string,
 ) => {
   const t = translateOutsideContext();
 
-  const handleNavigate = () => {
-    if (action === "go-back") {
-      routerSingleton.back();
-    } else if (action === "go-home") {
-      routerSingleton.push("/");
-    }
+  const handleClick = () => {
+    modals.closeAll();
   };
 
   return showBlockingErrorModal(modals, {
     title,
-    description: text,
+    description: (
+      <>
+        {imageUrl && (
+          <Image src={imageUrl} alt="" mx="auto" my="md" maw={300} />
+        )}
+        <div>{text}</div>
+      </>
+    ),
     actions: [
       {
-        label: t(`common.button.${action}`),
+        label: t(`common.button.${action === "stay" ? "ok" : action}`),
         variant: "filled",
         color: "blue",
-        onClick: handleNavigate,
+        onClick: handleClick,
       },
     ],
   });
