@@ -73,6 +73,17 @@ export class ShareSecurityGuard extends JwtGuard {
       throw new NotFoundException(this.i18n.t("share.notFound"));
     }
 
+    // Check view limit before auto-auth
+    if (share.security?.maxViews && share.security.maxViews < share.views) {
+      const ip = getRequestIp(request);
+      const userAgent = getRequestUserAgent(request);
+      void this.shareService.recordViewExceeded(shareId, ip, userAgent);
+      throw new ForbiddenException(
+        this.i18n.t("share.maxViewsExceeded"),
+        "share_max_views_exceeded",
+      );
+    }
+
     // Auto-authenticate via ?pwd= query parameter
     if (pwdFromQuery && share.security?.password) {
       if (this.configService.get("share.includePasswordInShareLink")) {
@@ -102,17 +113,6 @@ export class ShareSecurityGuard extends JwtGuard {
         this.i18n.t("share.tokenRequired"),
         "share_token_required",
       );
-
-    // Check view limit after valid token is verified
-    if (share.security?.maxViews && share.security.maxViews < share.views) {
-      const ip = getRequestIp(request);
-      const userAgent = getRequestUserAgent(request);
-      void this.shareService.recordViewExceeded(shareId, ip, userAgent);
-      throw new ForbiddenException(
-        this.i18n.t("share.maxViewsExceeded"),
-        "share_max_views_exceeded",
-      );
-    }
 
     return true;
   }
