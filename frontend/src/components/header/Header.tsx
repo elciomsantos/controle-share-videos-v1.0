@@ -56,6 +56,7 @@ const Header = () => {
       link: "/upload",
       label: t("navbar.upload"),
     },
+    ...(user?.isAdmin ? [{ link: "/admin", label: t("navbar.avatar.admin") }] : []),
     {
       component: <NavbarShareMenu />,
     },

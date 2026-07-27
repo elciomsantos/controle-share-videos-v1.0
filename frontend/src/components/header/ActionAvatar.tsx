@@ -1,15 +1,13 @@
 import { ActionIcon, Avatar, Menu } from "@mantine/core";
 import Link from "next/link";
-import { TbDoorExit, TbSettings, TbUser, TbUserCircle } from "react-icons/tb";
-import useUser from "../../hooks/user.hook";
+import { TbDoorExit, TbUser } from "react-icons/tb";
 import authService from "../../services/auth.service";
-import { FormattedMessage, useIntl } from "react-intl";
+import { FormattedMessage } from "react-intl";
 import { HoverTip } from "../../components/core/HoverTip";
 import useTranslate from "../../hooks/useTranslate.hook";
 import { useState } from "react";
 
 const ActionAvatar = () => {
-  const { user } = useUser();
   const t = useTranslate();
   const [menuOpened, setMenuOpened] = useState(false);
 
@@ -26,15 +24,6 @@ const ActionAvatar = () => {
         <Menu.Item component={Link} href="/account" leftSection={<TbUser size={14} />}>
           <FormattedMessage id="navbar.avatar.account" />
         </Menu.Item>
-        {user!.isAdmin && (
-          <Menu.Item
-            component={Link}
-            href="/admin"
-            leftSection={<TbSettings size={14} />}
-          >
-            <FormattedMessage id="navbar.avatar.admin" />
-          </Menu.Item>
-        )}
 
         <Menu.Item
           onClick={async () => {
