@@ -33,7 +33,7 @@ const signOut = async () => {
 
   if (URL.canParse(response.data?.redirectURI))
     window.location.href = response.data.redirectURI;
-  else window.location.reload();
+  else window.location.href = "/";
 };
 
 const refreshAccessToken = async () => {
