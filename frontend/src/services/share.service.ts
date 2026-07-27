@@ -82,10 +82,24 @@ const getBaseName = (fileName: string) => {
   return parts[parts.length - 1] || fileName;
 };
 
+const canBrowserPlayMime = (mimeType: string): boolean => {
+  if (mimeType.startsWith("video/")) {
+    return typeof document !== "undefined" &&
+      document.createElement("video").canPlayType(mimeType) !== "";
+  }
+  if (mimeType.startsWith("audio/")) {
+    return typeof document !== "undefined" &&
+      document.createElement("audio").canPlayType(mimeType) !== "";
+  }
+  return true;
+};
+
 const doesFileSupportPreview = (fileName: string) => {
   const mimeType = (mime.contentType(getBaseName(fileName)) || "").split(";")[0];
 
   if (!mimeType) return false;
+
+  if (!canBrowserPlayMime(mimeType)) return false;
 
   const supportedMimeTypes = [
     mimeType.startsWith("video/"),
