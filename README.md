@@ -111,6 +111,6 @@ No momento existem apenas testes de sistema para o backend. Para rodá-los, exec
 
 - docker compose -f docker-compose.local.yml down
 - rm data/controle-videos.db
-- ocker compose -f docker-compose.local.yml up -d --build
+- docker compose -f docker-compose.local.yml up -d --build
 
 Acesso:  http://localhost:3000

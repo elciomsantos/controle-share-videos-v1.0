@@ -28,27 +28,38 @@ async function seedAdminUser() {
   const prisma = new PrismaClient({ adapter });
 
   try {
-    const userCount = await prisma.user.count();
-    if (userCount > 0) {
-      console.log(
-        `Skipping admin user seed: ${userCount} user(s) already exist.`,
-      );
-      return;
-    }
-
     const hash = await argon2.hash(password, ARGON2_OPTIONS);
-    await prisma.user.create({
-      data: {
-        email: email.toLowerCase().trim(),
-        username: username.trim(),
-        password: hash,
-        isAdmin: true,
-        role: "admin",
-        isActivated: true,
-      },
+
+    const existingUser = await prisma.user.findFirst({
+      where: { OR: [{ email: email.toLowerCase().trim() }, { username: username.trim() }] },
     });
 
-    console.log(`Admin user created: ${email}`);
+    if (existingUser) {
+      await prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          email: email.toLowerCase().trim(),
+          username: username.trim(),
+          password: hash,
+          isAdmin: true,
+          role: "admin",
+          isActivated: true,
+        },
+      });
+      console.log(`Admin user updated: ${email}`);
+    } else {
+      await prisma.user.create({
+        data: {
+          email: email.toLowerCase().trim(),
+          username: username.trim(),
+          password: hash,
+          isAdmin: true,
+          role: "admin",
+          isActivated: true,
+        },
+      });
+      console.log(`Admin user created: ${email}`);
+    }
   } finally {
     await prisma.$disconnect();
   }

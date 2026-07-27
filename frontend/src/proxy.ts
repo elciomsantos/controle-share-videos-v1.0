@@ -49,15 +49,18 @@ export async function proxy(request: NextRequest) {
   };
 
   const route = request.nextUrl.pathname;
-    let user: { role: string } | null = null;
+    let user: { role: string; isAdmin: boolean } | null = null;
   const accessToken = request.cookies.get("access_token")?.value;
 
   try {
-    const claims = jwtDecode<{ exp: number; role: string }>(
+    const claims = jwtDecode<{ exp: number; role: string; isAdmin?: boolean }>(
       accessToken as string,
     );
     if (claims.exp * 1000 > Date.now()) {
-      user = claims;
+      user = {
+        role: claims.role,
+        isAdmin: claims.isAdmin === true,
+      };
     }
   } catch {
     user = null;
@@ -108,7 +111,7 @@ export async function proxy(request: NextRequest) {
       path: "/upload",
     },
     {
-      condition: routes.admin.contains(route) && user?.role !== "admin",
+      condition: routes.admin.contains(route) && user?.role !== "admin" && user?.isAdmin !== true,
       path: "/upload",
     },
     {

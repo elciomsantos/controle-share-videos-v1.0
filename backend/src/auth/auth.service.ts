@@ -273,6 +273,7 @@ export class AuthService {
         sub: user.id,
         email: user.email,
         role: user.role,
+        isAdmin: user.isAdmin,
         refreshTokenId,
       },
       {

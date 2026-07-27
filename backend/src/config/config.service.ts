@@ -94,6 +94,7 @@ export class ConfigService extends EventEmitter {
           ? await argon.hash(this.yamlConfig.initUser.password, ARGON2_OPTIONS)
           : null,
         isAdmin: this.yamlConfig.initUser.isAdmin,
+        role: this.yamlConfig.initUser.isAdmin ? "admin" : "operador",
       },
     });
   }
