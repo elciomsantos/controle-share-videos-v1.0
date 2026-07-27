@@ -51,9 +51,7 @@ const Upload = ({
 
   const chunkSize = useRef(parseInt(config.get("share.chunkSize")));
 
-  maxShareSize ??= user?.shareSizeLimit
-    ? parseInt(user.shareSizeLimit)
-    : parseInt(config.get("share.maxSize"));
+  maxShareSize ??= parseInt(config.get("share.maxSize"));
 
   const currentFilesSize = useMemo(() => {
     return files.reduce((acc, file) => acc + file.size, 0);

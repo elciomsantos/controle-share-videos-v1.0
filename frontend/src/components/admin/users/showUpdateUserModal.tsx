@@ -16,7 +16,6 @@ import useTranslate from "../../../hooks/useTranslate.hook";
 import userService from "../../../services/user.service";
 import User from "../../../types/user.type";
 import toast from "../../../utils/toast.util";
-import FileSizeInput from "../../core/FileSizeInput";
 
 type ModalsContextProps = ReturnType<typeof useModals>;
 
@@ -55,10 +54,6 @@ const Body = ({
       email: user.email,
       isActivated: user.isActivated,
       role: user.isAdmin ? "admin" : (user.role || "operador"),
-      hasCustomShareSizeLimit: !!user.shareSizeLimit,
-      shareSizeLimit: user.shareSizeLimit
-        ? parseInt(user.shareSizeLimit)
-        : 104857600,
     },
     validate: (values) => {
       const schema = yup.object().shape({
@@ -116,9 +111,6 @@ const Body = ({
               email: values.email,
               isActivated: values.isActivated,
               role: values.role,
-              shareSizeLimit: values.hasCustomShareSizeLimit
-                ? values.shareSizeLimit.toString()
-                : null,
             })
             .then(() => {
               getUsers();
@@ -154,32 +146,6 @@ const Body = ({
             {...accountForm.getInputProps("isActivated", { type: "checkbox" })}
             disabled={user.isActivated}
           />
-          <Switch
-            styles={{
-              body: {
-                display: "flex",
-                justifyContent: "space-between",
-              },
-            }}
-            mt="xs"
-            labelPosition="left"
-            label={t("admin.users.edit.update.custom-share-size-limit")}
-            description={t(
-              "admin.users.edit.update.custom-share-size-limit.description",
-            )}
-            {...accountForm.getInputProps("hasCustomShareSizeLimit", {
-              type: "checkbox",
-            })}
-          />
-          {accountForm.values.hasCustomShareSizeLimit && (
-            <FileSizeInput
-              label={t("admin.users.edit.update.custom-share-size-limit")}
-              value={accountForm.values.shareSizeLimit}
-              onChange={(val) =>
-                accountForm.setFieldValue("shareSizeLimit", val)
-              }
-            />
-          )}
         </Stack>
       </form>
       <Accordion>

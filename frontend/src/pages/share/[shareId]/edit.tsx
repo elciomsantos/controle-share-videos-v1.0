@@ -73,11 +73,6 @@ const Share = ({ shareId }: { shareId: string }) => {
       <EditableUpload
         shareId={shareId}
         files={share?.files || []}
-        maxShareSize={
-          share?.creator?.shareSizeLimit
-            ? parseInt(share.creator.shareSizeLimit)
-            : undefined
-        }
       />
     </>
   );

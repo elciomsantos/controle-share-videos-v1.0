@@ -11,7 +11,6 @@ import FileList from "../../components/upload/FileList";
 import { showBlockingErrorModal } from "../core/showBlockingErrorModal";
 import useConfig from "../../hooks/config.hook";
 import useTranslate from "../../hooks/useTranslate.hook";
-import useUser from "../../hooks/user.hook";
 import shareService from "../../services/share.service";
 import { FileListItem, FileMetaData, FileUpload } from "../../types/File.type";
 import toast from "../../utils/toast.util";
@@ -34,7 +33,6 @@ const EditableUpload = ({
   const router = useRouter();
   const config = useConfig();
   const modals = useModals();
-  const { user } = useUser();
 
   const chunkSize = useRef(parseInt(config.get("share.chunkSize")));
 
@@ -65,9 +63,7 @@ const EditableUpload = ({
     setExistingFiles(_existingFiles);
   };
 
-  maxShareSize ??= user?.shareSizeLimit
-    ? parseInt(user.shareSizeLimit)
-    : parseInt(config.get("share.maxSize"));
+  maxShareSize ??= parseInt(config.get("share.maxSize"));
 
   const currentFilesSize = useMemo(() => {
     return (

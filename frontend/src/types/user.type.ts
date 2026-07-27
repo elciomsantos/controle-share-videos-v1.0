@@ -18,7 +18,6 @@ export type CreateUser = {
   isAdmin?: boolean;
   role?: string;
   generatePassword?: boolean;
-  shareSizeLimit?: string | null;
 };
 
 export type UpdateUser = {
@@ -28,7 +27,6 @@ export type UpdateUser = {
   isAdmin?: boolean;
   role?: string;
   isActivated?: boolean;
-  shareSizeLimit?: string | null;
 };
 
 export type CreateUserResponse = {

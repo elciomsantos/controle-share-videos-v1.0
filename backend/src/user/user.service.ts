@@ -3,6 +3,7 @@ import { Prisma } from "../../prisma/generated/prisma/client";
 import argon from "argon2";
 import { I18nService } from "nestjs-i18n";
 import { ARGON2_OPTIONS } from "../constants";
+import { ConfigService } from "../config/config.service";
 import { DuplicatedFieldException } from "../common/duplicated-field.exception";
 import { EmailService } from "../email/email.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -19,6 +20,7 @@ export class UserService {
     private emailService: EmailService,
     private fileService: FileService,
     private readonly i18n: I18nService,
+    private config: ConfigService,
   ) {}
 
   async list() {
@@ -53,14 +55,17 @@ export class UserService {
       return await this.prisma.$transaction(async (tx) => {
         const user = await tx.user.create({
           data: {
-            ...dto,
+            username: dto.username,
+            email: dto.email,
             password: hash,
             role: dto.role ?? "operador",
+            isActivated: dto.isActivated ?? true,
+            shareSizeLimit: dto.shareSizeLimit,
             passwordMustChange: true,
           },
         });
 
-        if (temporaryPassword) {
+        if (temporaryPassword && this.config.get("smtp.enabled")) {
           await this.emailService.sendInviteEmail(dto.email, temporaryPassword);
         }
 
@@ -103,7 +108,15 @@ export class UserService {
 
       return await this.prisma.user.update({
         where: { id },
-        data: { ...user, password: hash },
+        data: {
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          isActivated: user.isActivated,
+          isAdmin: user.isAdmin,
+          shareSizeLimit: user.shareSizeLimit,
+          password: hash,
+        },
       });
     } catch (e) {
       if (

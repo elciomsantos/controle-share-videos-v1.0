@@ -25,7 +25,7 @@ export default function Home() {
   const { refreshUser } = useUser();
   const router = useRouter();
   const config = useConfig();
-  const [signupEnabled, setSignupEnabled] = useState(true);
+  const [signupEnabled, setSignupEnabled] = useState(false);
 
   // If user is already authenticated, redirect to the upload page
   useEffect(() => {
@@ -40,7 +40,7 @@ export default function Home() {
       const allowRegistration = config.get("share.allowRegistration");
       setSignupEnabled(allowRegistration !== false);
     } catch (error) {
-      setSignupEnabled(true);
+      setSignupEnabled(false);
     }
   }, [config]);
 

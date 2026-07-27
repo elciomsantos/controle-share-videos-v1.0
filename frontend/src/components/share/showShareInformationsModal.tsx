@@ -86,9 +86,7 @@ const Body = ({
 
   const link = `${appUrl !== defaultAppUrl ? appUrl : window.location.origin}/share/${currentShare.id}`;
 
-  const resolvedMaxShareSize = currentShare.creator?.shareSizeLimit
-    ? parseInt(currentShare.creator.shareSizeLimit)
-    : maxShareSize;
+  const resolvedMaxShareSize = maxShareSize;
 
   const shareSizeRatio =
     resolvedMaxShareSize > 0 ? currentShare.size / resolvedMaxShareSize : 0;

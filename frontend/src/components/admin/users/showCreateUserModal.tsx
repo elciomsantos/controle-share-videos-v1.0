@@ -18,7 +18,6 @@ import useTranslate from "../../../hooks/useTranslate.hook";
 import userService from "../../../services/user.service";
 import { getApiErrorField, getApiErrorMessage } from "../../../utils/error.util";
 import toast from "../../../utils/toast.util";
-import FileSizeInput from "../../core/FileSizeInput";
 
 type ModalsContextProps = ReturnType<typeof useModals>;
 
@@ -54,9 +53,7 @@ const Body = ({
       password: undefined,
       role: "operador",
       setPasswordManually: false,
-      generatePassword: true,
-      hasCustomShareSizeLimit: false,
-      shareSizeLimit: 104857600,
+      generatePassword: smtpEnabled,
     },
     validate: (values) => {
       const schema = yup.object().shape({
@@ -131,9 +128,6 @@ const Body = ({
               password: values.password,
               role: values.role,
               generatePassword: values.generatePassword,
-              shareSizeLimit: values.hasCustomShareSizeLimit
-                ? values.shareSizeLimit.toString()
-                : null,
             })
             .then((result) => {
               getUsers();
@@ -227,34 +221,10 @@ const Body = ({
             description={t("admin.users.modal.create.generatePassword.description")}
             {...form.getInputProps("generatePassword", { type: "checkbox" })}
           />
-          {(form.values.setPasswordManually || !smtpEnabled || !form.values.generatePassword) && (
+          {!form.values.generatePassword && (
             <PasswordInput
               label={t("admin.users.modal.create.password")}
               {...form.getInputProps("password")}
-            />
-          )}
-          <Switch
-            styles={{
-              body: {
-                display: "flex",
-                justifyContent: "space-between",
-              },
-            }}
-            mt="xs"
-            labelPosition="left"
-            label={t("admin.users.modal.create.custom-share-size-limit")}
-            description={t(
-              "admin.users.modal.create.custom-share-size-limit.description",
-            )}
-            {...form.getInputProps("hasCustomShareSizeLimit", {
-              type: "checkbox",
-            })}
-          />
-          {form.values.hasCustomShareSizeLimit && (
-            <FileSizeInput
-              label={t("admin.users.modal.create.custom-share-size-limit")}
-              value={form.values.shareSizeLimit}
-              onChange={(val) => form.setFieldValue("shareSizeLimit", val)}
             />
           )}
           <Group justify="flex-end">
