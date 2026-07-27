@@ -77,8 +77,13 @@ const isShareIdAvailable = async (id: string): Promise<boolean> => {
   return (await api.get(`/shares/isShareIdAvailable/${id}`)).data.isAvailable;
 };
 
+const getBaseName = (fileName: string) => {
+  const parts = fileName.split("/");
+  return parts[parts.length - 1] || fileName;
+};
+
 const doesFileSupportPreview = (fileName: string) => {
-  const mimeType = (mime.contentType(fileName) || "").split(";")[0];
+  const mimeType = (mime.contentType(getBaseName(fileName)) || "").split(";")[0];
 
   if (!mimeType) return false;
 
@@ -94,7 +99,7 @@ const doesFileSupportPreview = (fileName: string) => {
 };
 
 const isShareTextFile = (fileName: string) => {
-  const mimeType = (mime.contentType(fileName) || "").split(";")[0];
+  const mimeType = (mime.contentType(getBaseName(fileName)) || "").split(";")[0];
 
   if (!mimeType) return false;
 

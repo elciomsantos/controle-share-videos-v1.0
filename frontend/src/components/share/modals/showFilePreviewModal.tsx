@@ -10,7 +10,8 @@ const showFilePreviewModal = (
   file: FileMetaData,
   modals: ModalsContextProps,
 ) => {
-  const mimeType = (mime.contentType(file.name) || "").split(";")[0];
+  const baseName = file.name.split("/").pop() || file.name;
+  const mimeType = (mime.contentType(baseName) || "").split(";")[0];
   return modals.openModal({
     size: "xl",
     title: file.name,
