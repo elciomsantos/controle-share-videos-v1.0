@@ -305,7 +305,7 @@ function App({ Component, pageProps }: AppProps) {
                     >
                       <div>
                         <Header />
-                        <Container>
+                        <Container size={router.pathname === "/admin/download-logs" ? "xl" : undefined}>
                           <Component {...pageProps} />
                         </Container>
                       </div>
