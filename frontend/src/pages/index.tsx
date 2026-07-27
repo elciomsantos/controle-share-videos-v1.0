@@ -48,107 +48,127 @@ export default function Home() {
     return signupEnabled ? "/auth/signUp" : "/auth/signIn";
   };
 
+  const isDark = colorScheme === "dark";
+
   return (
     <>
       <Meta title="Home" />
-      <Container>
+      <div style={{ position: "relative" }}>
         <div
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            paddingTop: `calc(${theme.spacing.md} * 4)`,
-            paddingBottom: `calc(${theme.spacing.md} * 4)`,
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "50%",
+            height: "100%",
+            opacity: 0.4,
+            backgroundImage: `url(/img/logo-dark.png)`,
+            backgroundSize: "contain",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+            pointerEvents: "none",
+            zIndex: 0,
           }}
-        >
+        />
+        <Container>
           <div
             style={{
-              maxWidth: 480,
-              marginRight: `calc(${theme.spacing.md} * 3)`,
+              display: "flex",
+              justifyContent: "space-between",
+              paddingTop: `calc(${theme.spacing.md} * 4)`,
+              paddingBottom: `calc(${theme.spacing.md} * 4)`,
             }}
           >
-            <Title
+            <div
               style={{
-                color: colorScheme === "dark" ? theme.white : theme.black,
-                fontSize: 44,
-                lineHeight: 1.2,
-                fontWeight: 900,
+                maxWidth: 480,
+                marginRight: `calc(${theme.spacing.md} * 3)`,
               }}
             >
-              <FormattedMessage
-                id="home.title"
-                values={{
-                  h: (chunks) => (
-                    <span
-                      style={{
-                        position: "relative",
-                        backgroundColor:
-                          "light-dark(" + theme.colors[theme.primaryColor][0] + ", rgba(" + theme.colors[theme.primaryColor][6] + ", 0.55))",
-                        borderRadius: theme.radius.sm,
-                        padding: "4px 12px",
-                      }}
-                    >
-                      {chunks}
-                    </span>
-                  ),
+              <Title
+                style={{
+                  color: isDark ? theme.white : theme.black,
+                  fontSize: 44,
+                  lineHeight: 1.2,
+                  fontWeight: 900,
                 }}
-              />
-            </Title>
-            <Text color="dimmed" mt="md">
-              <FormattedMessage id="home.description" />
-            </Text>
-
-            <List
-              mt={30}
-              spacing="sm"
-              size="sm"
-              icon={
-                <ThemeIcon size={20} radius="xl">
-                  <TbCheck size={12} />
-                </ThemeIcon>
-              }
-            >
-              <List.Item>
-                <div>
-                  <b>
-                    <FormattedMessage id="home.bullet.a.name" />
-                  </b>{" "}
-                  - <FormattedMessage id="home.bullet.a.description" />
-                </div>
-              </List.Item>
-              <List.Item>
-                <div>
-                  <b>
-                    <FormattedMessage id="home.bullet.b.name" />
-                  </b>{" "}
-                  - <FormattedMessage id="home.bullet.b.description" />
-                </div>
-              </List.Item>
-              <List.Item>
-                <div>
-                  <b>
-                    <FormattedMessage id="home.bullet.c.name" />
-                  </b>{" "}
-                  - <FormattedMessage id="home.bullet.c.description" />
-                </div>
-              </List.Item>
-            </List>
-
-            <Group mt={30}>
-              <Button
-                component={Link}
-                href={getButtonHref()}
-                radius="xl"
-                size="md"
               >
-                <FormattedMessage id="home.button.start" />
-              </Button>
+                <FormattedMessage
+                  id="home.title"
+                  values={{
+                    h: (chunks) => (
+                      <span
+                        style={{
+                          position: "relative",
+                          backgroundColor:
+                            "light-dark(" + theme.colors[theme.primaryColor][0] + ", rgba(" + theme.colors[theme.primaryColor][6] + ", 0.55))",
+                          borderRadius: theme.radius.sm,
+                          padding: "4px 12px",
+                        }}
+                      >
+                        {chunks}
+                      </span>
+                    ),
+                  }}
+                />
+              </Title>
+              <Text color="dimmed" mt="md">
+                <FormattedMessage id="home.description" />
+              </Text>
+
+              <List
+                mt={30}
+                spacing="sm"
+                size="sm"
+                icon={
+                  <ThemeIcon size={20} radius="xl">
+                    <TbCheck size={12} />
+                  </ThemeIcon>
+                }
+              >
+                <List.Item>
+                  <div>
+                    <b>
+                      <FormattedMessage id="home.bullet.a.name" />
+                    </b>{" "}
+                    - <FormattedMessage id="home.bullet.a.description" />
+                  </div>
+                </List.Item>
+                <List.Item>
+                  <div>
+                    <b>
+                      <FormattedMessage id="home.bullet.b.name" />
+                    </b>{" "}
+                    - <FormattedMessage id="home.bullet.b.description" />
+                  </div>
+                </List.Item>
+                <List.Item>
+                  <div>
+                    <b>
+                      <FormattedMessage id="home.bullet.c.name" />
+                    </b>{" "}
+                    - <FormattedMessage id="home.bullet.c.description" />
+                  </div>
+                </List.Item>
+              </List>
+
+              <Group mt={30}>
+                <Button
+                  component={Link}
+                  href={getButtonHref()}
+                  radius="xl"
+                  size="md"
+                >
+                  <FormattedMessage id="home.button.start" />
+                </Button>
+              </Group>
+            </div>
+            <Group align="center">
+              <Logo width={200} height={200} />
             </Group>
           </div>
-          <Group align="center">
-            <Logo width={200} height={200} />
-          </Group>
-        </div>
-      </Container>
+        </Container>
+      </div>
     </>
   );
 }
