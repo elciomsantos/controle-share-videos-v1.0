@@ -257,19 +257,19 @@ res.cookie(`share_${id}_token`, token, {
 | **P0** | Implementar CSRF protection (double-submit cookie + SameSite strict) | Backend/Frontend | Imediato | ✅ Feito |
 | **P0** | Atualizar `archiver@8.0.0+`, `next@16.2.12+`, `postcss@8.5.18+`, `cookies-next@4.3.0` | DevOps/Dev | Imediato | ✅ Feito |
 | **P0** | Remover senha admin hardcoded do `docker-compose.local.yml` | DevOps | Imediato | ✅ Feito |
-| **P0** | Adicionar `secure`/`sameSite` nos cookies de share | Backend | Imediato | ✅ Feito |
+| **P0** | Adicionar `secure`/`sameSite` nos cookies de share | Backend | Imediato | ⚠️ Parcial |
 | **P0** | **Configurar TLS/HTTPS automático (Caddy/Let's Encrypt) + headers de segurança + rate limiting na borda** | DevOps | **Antes do go-live** | ✅ Feito |
 | **P1** | Habilitar CSP no Helmet (testar em staging) | Backend | 1 semana | ✅ Feito |
 | **P1** | Adicionar `forbidNonWhitelisted: true`, `transform: true` no ValidationPipe | Backend | 1 semana | ✅ Feito |
 | **P1** | Configurar CORS origin explícito + `trust proxy` + `TRUST_PROXY=true` | Backend/DevOps | 1 semana | ✅ Feito |
 | **P1** | Sanitizar markdown rendering (DOMPurify) | Frontend | 1 semana | ✅ Feito |
-| **P1** | Implementar logging estruturado com correlation ID + eventos sensíveis | Backend | 2 semanas | ✅ Feito |
+| **P1** | Implementar logging estruturado com correlation ID + eventos sensíveis | Backend | 2 semanas | ⚠️ Parcial |
 | **P1** | Explicit `secret: true` no seed do `jwtSecret` + migration idempotente | Backend | 1 semana | ✅ Feito |
 | **P1** | **Remover `network_mode: host` do compose prod; adicionar healthcheck, resource limits, bridge network** | DevOps | 1 semana | ✅ Feito |
 | **P1** | **Restringir `/api/health` a rede interna** | Backend/DevOps | 1 semana | ✅ Feito |
 | **P1** | **Provisionar firewall (UFW), Fail2ban, SSH hardening no host** | DevOps | 1 semana | ✅ Feito |
-| **P2** | Tornar ClamAV obrigatório em prod; allow-list MIME; signed URLs | Backend/DevOps | 2 semanas | ✅ Feito |
-| **P2** | Limites de zip bomb (maxFiles, maxSize, maxRatio) | Backend | 2 semanas | ✅ Feito |
+| **P2** | Tornar ClamAV obrigatório em prod; allow-list MIME; signed URLs | Backend/DevOps | 2 semanas | ⚠️ Parcial |
+| **P2** | Limites de zip bomb (maxFiles, maxSize, maxRatio) | Backend | 2 semanas | ⚠️ Parcial |
 | **P2** | Rate limiting em `/auth/forgot-password`, `/auth/reset-password`; remover `@SkipThrottle` de `/configs` | Backend | 1 semana | ✅ Feito |
 | **P2** | **Backup assinado/criptografado + restore testado; secrets via Docker secrets/Vault** | DevOps | 2 semanas | ✅ Feito |
 | **P3** | Headers COOP/COEP/CORP no Caddy | DevOps | 3 semanas | ✅ Feito |
@@ -297,19 +297,149 @@ res.cookie(`share_${id}_token`, token, {
 
 ---
 
+## Verificação Pós-Auditoria — Gaps na Implementação
+
+Em 29/07/2026 foi realizada verificação prática no código para confirmar a implementação de cada item. **19 dos 25 achados estão completamente corrigidos.** Os 6 itens abaixo apresentam gaps entre o status reportado e a implementação real:
+
+---
+
+### 🔴 GAP-01: ClamAV não é invocado no fluxo de upload (P2)
+
+**Arquivos:** `backend/src/file/local.service.ts`, `backend/src/clamscan/clamscan.service.ts`, `docker-compose.yml`
+
+**Status reportado:** ✅ Feito — "Tornar ClamAV obrigatório em prod; allow-list MIME; signed URLs"
+
+**Status real:** ⚠️ Parcial
+
+**Evidência:**
+- `ClamAV` está presente como serviço no `docker-compose.dev.yml` e o código `clamscan.service.ts` existe, mas o método `checkAndRemove()` **nunca é chamado** no fluxo de upload ou download — zero integração
+- `docker-compose.yml` (produção) **não inclui** o serviço ClamAV
+- Documentado como "removido do escopo" em `docs/Padronizacao-07-clamav.md`
+- Validação de upload usa **apenas extensão** (allow-list), sem verificação de magic bytes para arquivos de usuário (apenas logo admin usa `FileTypeValidator`)
+- Extensões executáveis na allowlist: `.sh`, `.bat`, `.ps1`, `.php`, `.js`, `.ts`, `.py`, `.rb`, `.go`, `.rs`
+- **Sem signed/expiring URLs** — arquivos servidos via streaming direto do filesystem
+- **Sem limite individual por arquivo** — apenas `share.maxSize` (1 GB total por share)
+- **Sem criptografia em repouso** — arquivos armazenados em plain text no disco
+
+**Recomendação:** Integrar ClamAV ao pipeline de upload (chamar `checkAndRemove`); adicionar validação de magic bytes via `file-type`; remover extensões executáveis da allowlist ou adicionar validação de conteúdo; implementar signed URLs com expiração; adicionar limite individual por arquivo.
+
+---
+
+### 🔴 GAP-02: Correlation ID não é incluído nos logs (P1)
+
+**Arquivos:** `backend/src/main.ts` (middleware `X-Request-Id`), `backend/src/auth/auth.service.ts`, `backend/src/totp/totp.service.ts`
+
+**Status reportado:** ✅ Feito — "Implementar logging estruturado com correlation ID + eventos sensíveis"
+
+**Status real:** ⚠️ Parcial
+
+**Evidência:**
+- Middleware customizado existe (linhas 88-97 do `main.ts`) e adiciona `X-Request-Id` nas responses
+- Porém, **nenhuma chamada a `Logger.log()` ou similar inclui o correlation ID**
+- Nenhuma biblioteca de structured logging (pino, winston, nestjs-pino) está instalada — usa Logger padrão do NestJS
+- IP é logado em signUp/signIn/failedLogin, mas **não em operações TOTP** (enableTotp, verifyTotp, disableTotp)
+- Banco `DownloadLog` não possui coluna `traceId`/`requestId`
+
+**Recomendação:** Adotar `nestjs-pino` ou `winston` com o correlation ID incluído em todo log; adicionar requestId nos logs de TOTP; adicionar coluna `traceId` no `DownloadLog`.
+
+---
+
+### 🟡 GAP-03: Rate limit ignorado em upload de arquivos (P2)
+
+**Arquivos:** `backend/src/file/file.controller.ts:50,180`
+
+**Status reportado:** ✅ Feito — "Rate limiting em /auth/forgot-password, /auth/reset-password; remover @SkipThrottle de /configs"
+
+**Status real:** ⚠️ Parcial (parte foi feita, parte não)
+
+**Evidência:**
+- `@SkipThrottle()` foi removido de `ConfigController` — ✅ correto
+- `@Throttle` foi adicionado em `/auth/resetPassword/:email` e `/auth/resetPassword` (20 req/5min) — ✅ correto
+- Porém, `POST /shares/:shareId/files` (upload) e `DELETE /shares/:shareId/files/:fileId` **ainda têm `@SkipThrottle()`** — sem nenhum rate limit
+- Upload de arquivos é um vetor crítico para DoS e abuso
+
+**Recomendação:** Remover `@SkipThrottle()` dos endpoints de file upload ou adicionar `@Throttle` específico (ex: 10 req/min para upload, 30 req/min para delete).
+
+---
+
+### 🟡 GAP-04: ZIP bomb sem proteção de taxa de compressão (P2)
+
+**Arquivos:** `backend/src/share/share.service.ts:112-145,170-173`
+
+**Status reportado:** ✅ Feito — "Limites de zip bomb (maxFiles, maxSize, maxRatio)"
+
+**Status real:** ⚠️ Parcial
+
+**Evidência:**
+- `MAX_FILES = 10000` e `MAX_TOTAL_SIZE = 10GB` implementados — ✅
+- `maxRatio` (taxa de compressão) **não implementado** — ❌ arquivo pequeno com alta compressão pode causar DoS (CPU/memória)
+- Limites são **hardcoded**, não configuráveis via admin/env
+- `createZip()` em `share.service.ts:170` é chamado com `.then()` mas **sem `.catch()`** — unhandled promise rejection trava o share
+- Limite de 10GB no ZIP bomb é inconsistente com `share.maxSize` (1 GB) configurado no seed
+
+**Recomendação:** Implementar `maxRatio` (ex: abortar se output > 103× input); adicionar `.catch()` no `createZip()`; tornar limites configuráveis via `Config` model; alinhar `MAX_TOTAL_SIZE` com `share.maxSize`.
+
+---
+
+### 🟡 GAP-05: Cookie de share auto-auth sem flags de segurança (P0)
+
+**Arquivos:** `backend/src/share/shareSecurity.guard.ts:93-96`
+
+**Status reportado:** ✅ Feito — "Adicionar secure/sameSite nos cookies de share"
+
+**Status real:** ⚠️ Parcial
+
+**Evidência:**
+- Cookies de share em `share.controller.ts` têm `sameSite: "lax"` e `secure: config.get("general.secureCookies")` — ✅
+- Porém, em `shareSecurity.guard.ts:93-96` (auto-auth via query param `?pwd=`), o cookie é criado **sem `sameSite`** e **sem `secure`**:
+  ```typescript
+  res.cookie(`share_${shareId}_token`, token, {
+    httpOnly: true,
+    path: "/",
+    // FALTA: sameSite, secure
+  });
+  ```
+- Também é um cookie de sessão (sem `maxAge`), diferente do de 1 ano em `share.controller.ts`
+
+**Recomendação:** Adicionar `sameSite: "lax"` e `secure: config.get("general.secureCookies")` no cookie do `shareSecurity.guard.ts`.
+
+---
+
+### 🟢 GAP-06: Dashboard e alertas do monitoramento não provisionados (P3)
+
+**Arquivos:** `docker-compose.monitoring.yml`, `scripts/monitoring/`
+
+**Status reportado:** ✅ Feito — "Implementar stack monitoramento (Prometheus/Grafana/Loki) + alertas"
+
+**Status real:** ⚠️ Parcial
+
+**Evidência:**
+- Stack de monitoramento (Prometheus + Grafana + Loki + Promtail) está configurada no `docker-compose.monitoring.yml` — ✅
+- Porém, **nenhum dashboard JSON do Grafana** foi provisionado (diretório `scripts/monitoring/grafana-dashboards/` não existe)
+- **Arquivo `alerts.yml`** do Prometheus não existe
+- `grafana_admin_password` é declarado como Docker secret `external: true` mas sem script de criação automatizado
+
+**Recomendação:** Criar dashboards básicos (CPU, memória, req/s, 5xx, latency p99, disk usage, DB integrity); criar `alerts.yml` com regras de alerta; automatizar criação dos secrets.
+
+---
+
 ## Conclusão
 
-A aplicação **Controle Share Videos v1.0** possui base arquitetural sólida (NestJS, Prisma, Argon2, JWT RS256, TOTP, separação frontend/backend). **Todos os 25 achados da auditoria foram corrigidos** (itens P0, P1, P2 e P3):
+A aplicação **Controle Share Videos v1.0** possui base arquitetural sólida (NestJS, Prisma, Argon2, JWT RS256, TOTP, separação frontend/backend). **19 dos 25 achados da auditoria foram completamente corrigidos; 6 apresentam gaps parciais:**
 
 1. ✅ **CSRF implementado** — double-submit cookie + SameSite strict
 2. ✅ **Dependências atualizadas** — archiver@8, next@16.2.12+, postcss@8.5.18+
 3. ✅ **Segredos removidos do compose** — uso de `.env.local` gitignorado
-4. ✅ **Cookies com Secure/SameSite** — tanto access_token quanto share tokens
+4. ⚠️ **Cookies com Secure/SameSite** — share.controller.ts ok, shareSecurity.guard.ts omite flags
 5. ✅ **CSP habilitado** — política restritiva no Helmet
 6. ✅ **Infraestrutura hardening** — TLS automático (Caddy/Let's Encrypt), rate limiting na borda, bridge network, healthcheck interno, firewall/fail2ban, backups assinados, secrets via Docker secrets
-7. ✅ **Monitoramento** — stack Prometheus/Grafana/Loki configurada
+7. ⚠️ **Monitoramento** — stack presente, mas dashboards e alertas não provisionados
+8. ⚠️ **Logging estruturado** — middleware X-Request-Id existe, mas correlation ID não entra nos logs
+9. ⚠️ **ClamAV/Upload** — não integrado ao fluxo; sem magic bytes; sem signed URLs
+10. ⚠️ **ZIP bomb** — maxFiles/maxSize ok, mas maxRatio não implementado
+11. ⚠️ **Rate limiting uploads** — dois endpoints de file ainda com `@SkipThrottle()`
 
-**Recomendação final:** ✅ **A aplicação está pronta para produção.** Recomenda-se realizar validação final em staging e testes de integração antes do go-live.
+**Recomendação final:** ⚠️ **Corrigir os 6 gaps listados antes do go-live em produção.** O risco geral permanece **BAIXO**, mas os gaps de ClamAV (GAP-01) e logging (GAP-02) devem ser priorizados por serem vetores de ataque e não conformidade LGPD, respectivamente.
 
 ---
 
