@@ -7,14 +7,14 @@ PUID=${PUID:-1000}
 PGID=${PGID:-1000}
 
 # Check if the group with PGID exists; if not, create it
-if ! getent group controle-share-videos-group > /dev/null 2>&1; then
-    addgroup -g "$PGID" controle-share-videos-group
+if ! getent group controle-group > /dev/null 2>&1; then
+    addgroup -g "$PGID" controle-group
 fi
 
 # Check if a user with PUID exists; if not, create it
-if ! id -u controle-share-videos > /dev/null 2>&1; then
+if ! id -u controle-user > /dev/null 2>&1; then
     if ! getent passwd "$PUID" > /dev/null 2>&1; then
-        adduser -u "$PUID" -G controle-share-videos-group controle-share-videos > /dev/null 2>&1
+        adduser -u "$PUID" -G controle-group controle-user > /dev/null 2>&1
     else
         # If a user with the PUID already exists, use that user
         existing_user=$(getent passwd "$PUID" | cut -d: -f1)
@@ -25,6 +25,7 @@ fi
 # Change ownership of the data directory
 mkdir -p /opt/app/backend/data
 find /opt/app/backend/data \( ! -group "${PGID}" -o ! -user "${PUID}" \) -exec chown "${PUID}:${PGID}" {} +
+
 # Change ownership of the frontend public directory
 find /opt/app/frontend/public \( ! -group "${PGID}" -o ! -user "${PUID}" \) -exec chown "${PUID}:${PGID}" {} +
 

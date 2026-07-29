@@ -264,6 +264,7 @@ export class AuthService {
       data: { password: hash, passwordMustChange: false },
     });
 
+    this.logger.log(`Password changed for user ${user.email}`);
     return this.createRefreshToken(user.id);
   }
 

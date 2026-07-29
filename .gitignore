@@ -27,6 +27,11 @@ yarn-error.log*
 
 # env file
 .env
+.env.local
+.env.production
+.env.*.local
+!.env.example
+!.env.local.example
 !/backend/prisma/.env
 
 # vercel

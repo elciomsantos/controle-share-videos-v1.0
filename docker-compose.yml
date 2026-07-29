@@ -1,14 +1,123 @@
 services:
-  controle-share-videos-v1.0:
-    container_name: controle-share-videos-v1.0
+  backend:
+    container_name: controle-share-videos-backend
     build:
       context: .
       dockerfile: Dockerfile
-  # To add ClamAV, to scan your shares for malicious files,
+      target: runner
+    restart: unless-stopped
+    # Bridge network (default) instead of host mode (INFRA-HIGH-02)
+    networks:
+      - app-network
+    # Healthcheck for orchestrator (INFRA-HIGH-02)
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://127.0.0.1:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    # Resource limits (INFRA-HIGH-02)
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "1.0"
+        reservations:
+          memory: 512M
+          cpus: "0.5"
+    # Trust proxy for correct client IP behind Caddy (MED-02)
+    environment:
+      - TRUST_PROXY=true
+      - NODE_ENV=production
+      - BACKEND_PORT=8080
+      - DATABASE_URL=file:/data/controle-videos.db
+      # CORS origin must be set explicitly for production (MED-02)
+      - CORS_ORIGIN=https://${DOMAIN}
+    # Secrets injected via Docker secrets (INFRA-MED-04)
+    secrets:
+      - jwt_secret
+      - admin_password
+      - smtp_password
+    volumes:
+      - backend-data:/opt/app/backend/data
+      - frontend-images:/opt/app/frontend/public/img
 
+  frontend:
+    container_name: controle-share-videos-frontend
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend-builder
+    restart: unless-stopped
+    networks:
+      - app-network
+    environment:
+      - NODE_ENV=production
+      - PORT=3333
+      - HOSTNAME=0.0.0.0
+      - API_URL=https://${DOMAIN}/api
+    volumes:
+      - frontend-images:/opt/app/frontend/public/img
 
-  
-#docker compose build --no-cache
-#docker compose up
-#
-#
+  caddy:
+    container_name: controle-share-videos-caddy
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    networks:
+      - app-network
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"  # HTTP/3
+    environment:
+      - DOMAIN=${DOMAIN}
+      - ACME_EMAIL=${ACME_EMAIL}
+    volumes:
+      - ./reverse-proxy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - backend
+      - frontend
+
+  # ClamAV for mandatory malware scanning in production (MED-06)
+  clamav:
+    container_name: controle-share-videos-clamav
+    image: clamav/clamav:latest
+    restart: unless-stopped
+    networks:
+      - app-network
+    volumes:
+      - clamav-db:/var/lib/clamav
+    # Resource limits for ClamAV
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+networks:
+  app-network:
+    driver: bridge
+    name: controle-share-videos-network
+
+volumes:
+  backend-data:
+    name: controle-share-videos-backend-data
+  frontend-images:
+    name: controle-share-videos-frontend-images
+  caddy-data:
+    name: controle-share-videos-caddy-data
+  caddy-config:
+    name: controle-share-videos-caddy-config
+  clamav-db:
+    name: controle-share-videos-clamav-db
+
+secrets:
+  jwt_secret:
+    external: true
+  admin_password:
+    external: true
+  smtp_password:
+    external: true

@@ -6,6 +6,7 @@ import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import { NextFunction, Request, Response } from "express";
+import * as crypto from "crypto";
 import * as fs from "fs";
 import helmet from "helmet";
 import { I18nValidationExceptionFilter, I18nValidationPipe, I18nService } from "nestjs-i18n";
@@ -18,6 +19,10 @@ import {
   LOG_LEVEL_ENV,
 } from "./constants";
 import { ThrottlerExceptionFilter } from "./throttler/throttler-exception.filter";
+
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const CSRF_COOKIE_NAME = "csrf_token";
+const CSRF_HEADER_NAME = "x-csrf-token";
 
 function generateNestJsLogLevels(): LogLevel[] {
   if (LOG_LEVEL_ENV) {
@@ -41,7 +46,14 @@ async function bootstrap() {
     logger: logLevels,
   });
 
-  app.useGlobalPipes(new I18nValidationPipe({ whitelist: true }));
+  app.useGlobalPipes(
+    new I18nValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      disableErrorMessages: process.env.NODE_ENV === "production",
+    }),
+  );
   app.useGlobalFilters(
     new I18nValidationExceptionFilter(),
     new ThrottlerExceptionFilter(app.get(I18nService)),
@@ -62,16 +74,95 @@ async function bootstrap() {
 
   app.set("trust proxy", process.env.TRUST_PROXY === "true");
 
+  const corsOriginsEnv = process.env.CORS_ORIGIN;
+  const corsOrigin = corsOriginsEnv
+    ? corsOriginsEnv.split(",").map((o) => o.trim())
+    : false;
+  app.use(
+    cors({
+      origin: corsOrigin,
+      credentials: true,
+    }),
+  );
+
+  // Correlation ID middleware (MED-04): attach a request id to every request
+  // and surface it via the X-Request-Id response header for traceability.
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const incomingId =
+      (req.headers["x-request-id"] as string | undefined) ??
+      crypto.randomUUID();
+    req.headers["x-request-id"] = incomingId;
+    res.setHeader("X-Request-Id", incomingId);
+    next();
+  });
+
+  // CSRF protection via double-submit cookie (CRIT-01).
+  // GET /api/auth/csrf-token sets an httpOnly+sameSite cookie with a random
+  // token; mutating requests must echo it back via the X-CSRF-Token header.
+  const isSecure = config.get("general.secureCookies");
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    // Endpoint that issues the CSRF token cookie
+    if (req.method === "GET" && req.path === "/api/auth/csrf-token") {
+      const token = crypto.randomBytes(32).toString("base64url");
+      res.cookie(CSRF_COOKIE_NAME, token, {
+        httpOnly: true,
+        sameSite: "strict",
+        secure: isSecure,
+        path: "/",
+        maxAge: 1000 * 60 * 60 * 24 * 30 * 3, // 3 months
+      });
+      res.json({ token });
+      return;
+    }
+
+    // Enforce on mutating methods, except auth refresh/signOut which rely on
+    // sameSite=strict cookies and are safe by virtue of SameSite.
+    if (MUTATING_METHODS.has(req.method)) {
+      const cookieToken = req.cookies?.[CSRF_COOKIE_NAME] as
+        | string
+        | undefined;
+      const headerToken = req.headers[CSRF_HEADER_NAME] as
+        | string
+        | undefined;
+      if (
+        !cookieToken ||
+        !headerToken ||
+        cookieToken.length < 32 ||
+        cookieToken !== headerToken
+      ) {
+        res.status(403).json({ statusCode: 403, message: "csrf_invalid" });
+        return;
+      }
+    }
+
+    next();
+  });
+
   app.use(
     helmet({
-      contentSecurityPolicy: false,
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", "data:", "blob:"],
+          fontSrc: ["'self'", "data:"],
+          connectSrc: ["'self'"],
+          frameAncestors: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
+          objectSrc: ["'none'"],
+          upgradeInsecureRequests: [],
+        },
+      },
       crossOriginEmbedderPolicy: false,
-      crossOriginOpenerPolicy: false,
+      crossOriginOpenerPolicy: { policy: "same-origin" },
       crossOriginResourcePolicy: { policy: "same-origin" },
       referrerPolicy: { policy: "same-origin" },
       strictTransportSecurity: {
-        maxAge: 31536000,
+        maxAge: 63072000,
         includeSubDomains: true,
+        preload: true,
       },
     }),
   );
@@ -84,17 +175,6 @@ async function bootstrap() {
     );
     next();
   });
-
-  const corsOriginsEnv = process.env.CORS_ORIGIN;
-  const corsOrigin = corsOriginsEnv
-    ? corsOriginsEnv.split(",").map((o) => o.trim())
-    : false;
-  app.use(
-    cors({
-      origin: corsOrigin,
-      credentials: true,
-    }),
-  );
 
   await fs.promises.mkdir(`${DATA_DIRECTORY}/uploads/_temp`, {
     recursive: true,

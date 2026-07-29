@@ -12,7 +12,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { ShareService } from "../../share/share.service";
 import { ConfigService } from "../../config/config.service";
 import { JwtGuard } from "../../auth/guard/jwt.guard";
-import { User } from "../../../prisma/generated/prisma/client";
+import { Prisma, User } from "../../../prisma/generated/prisma/client";
 import { isEpochZero } from "../../utils/date.util";
 import {
   getRequestIp,
@@ -34,12 +34,12 @@ export class ShareSecurityGuard extends JwtGuard {
   async canActivate(context: ExecutionContext) {
     const request: Request = context.switchToHttp().getRequest();
 
-    const shareId = Object.prototype.hasOwnProperty.call(
+    const shareId: string = Object.prototype.hasOwnProperty.call(
       request.params,
       "shareId",
     )
-      ? request.params.shareId
-      : request.params.id;
+      ? (request.params.shareId as string)
+      : (request.params.id as string);
 
     const shareToken = request.cookies[`share_${shareId}_token`];
     const pwdFromQuery = request.query.pwd as string | undefined;
@@ -47,7 +47,7 @@ export class ShareSecurityGuard extends JwtGuard {
     const share = await this.prisma.share.findUnique({
       where: { id: shareId },
       include: { security: true },
-    });
+    }) as Prisma.ShareGetPayload<{ include: { security: true } }> | null;
 
     if (!share) throw new NotFoundException(this.i18n.t("share.notFound"));
 

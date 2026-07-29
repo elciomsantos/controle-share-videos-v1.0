@@ -69,6 +69,7 @@ export class UserService {
           await this.emailService.sendInviteEmail(dto.email, temporaryPassword);
         }
 
+        this.logger.log(`User created: ${dto.email} (${dto.username})`);
         return { user, temporaryPassword };
       });
     } catch (e) {
@@ -106,6 +107,7 @@ export class UserService {
         }
       }
 
+      this.logger.log(`User updated: ${id}`);
       return await this.prisma.user.update({
         where: { id },
         data: {
@@ -171,6 +173,7 @@ export class UserService {
       user.shares.map((share) => this.fileService.deleteAllFiles(share.id)),
     );
 
+    this.logger.log(`User deleted: ${user.email}`);
     return await this.prisma.user.delete({ where: { id } });
   }
 }

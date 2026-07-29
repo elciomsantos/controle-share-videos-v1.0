@@ -8,6 +8,7 @@ export const configVariables = {
       type: "string",
       value: crypto.randomBytes(256).toString("base64"),
       locked: true,
+      secret: true,
     },
   },
   general: {

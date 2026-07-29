@@ -3,16 +3,32 @@ services:
     container_name: controle-share-videos-v1.0
     build: .
     restart: unless-stopped
-    network_mode: host
+    networks:
+      - app-network
+    ports:
+      - "8090:8080"
+      - "3000:3000"
+      - "3333:3333"
+    env_file:
+      # Contains ADMIN_PASSWORD and other local secrets. Ignored by git.
+      # Generate with: openssl rand -base64 32
+      - path: .env.local
+        required: false
     environment:
       - TRUST_PROXY=false
-      - BACKEND_PORT=8090
-      - API_URL=http://localhost:8090
+      - BACKEND_PORT=8080
+      - API_URL=http://localhost:3000
       - ADMIN_EMAIL=admin@empresa.local
       - ADMIN_USERNAME=admin
-      - ADMIN_PASSWORD=Admin@123
+      # ADMIN_PASSWORD must be provided via .env.local (gitignored) or the host
+      # environment. Do NOT hardcode credentials in version control.
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD is required. Create .env.local with openssl rand -base64 32 or pass via env.}
     volumes:
       - "./data:/opt/app/backend/data:rw,z"
       - "./data/images:/opt/app/frontend/public/img:rw,z"
 #      - "./config.yaml:/opt/app/config.yaml"
 
+networks:
+  app-network:
+    driver: bridge
+    name: controle-share-videos-network-local

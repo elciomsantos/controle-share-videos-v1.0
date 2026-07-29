@@ -1,11 +1,13 @@
-:3000 {
-	# Reverse proxy for /api
-	reverse_proxy /api/* http://localhost:{$BACKEND_PORT:8080} {
-		trusted_proxies 172.16.0.0/12
-	}
+# Development Caddyfile with trust proxy enabled
+# Used when TRUST_PROXY=true is set
 
-	# Reverse proxy for all other requests
-	reverse_proxy /* http://localhost:{$PORT:3333} {
-		trusted_proxies 172.16.0.0/12
-	}
+:3000 {
+    # Trust X-Forwarded-* headers from Caddy (running in same container)
+    trusted_proxies private_ranges
+
+    # Reverse proxy for /api
+    reverse_proxy /api/* http://localhost:8080
+
+    # Reverse proxy for all other requests
+    reverse_proxy http://localhost:3333
 }

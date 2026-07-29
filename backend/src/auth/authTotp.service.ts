@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from "@nestjs/common";
 import { User } from "../../prisma/generated/prisma/client";
@@ -31,6 +32,7 @@ export class AuthTotpService {
     private authService: AuthService,
     private readonly i18n: I18nService,
   ) {}
+  private readonly logger = new Logger(AuthTotpService.name);
 
   async signInTotp(dto: AuthSignInTotpDTO) {
     const token = await this.prisma.loginToken.findFirst({
@@ -51,7 +53,6 @@ export class AuthTotpService {
         "token_expired",
       );
 
-    // Check the TOTP code
     const { totpSecret } = token.user;
 
     if (!totpSecret) {
@@ -67,7 +68,6 @@ export class AuthTotpService {
       throw new BadRequestException(this.i18n.t("auth.invalidCode"));
     }
 
-    // Set the login token to used
     await this.prisma.loginToken.update({
       where: { token: token.token },
       data: { used: true },
@@ -80,6 +80,7 @@ export class AuthTotpService {
       refreshTokenId,
     );
 
+    this.logger.log(`TOTP sign-in success for user ${token.user.email}`);
     return { accessToken, refreshToken };
   }
 
@@ -87,7 +88,6 @@ export class AuthTotpService {
     if (!(await this.authService.verifyPassword(user, password)))
       throw new ForbiddenException(this.i18n.t("auth.invalidPassword"));
 
-    // Check if we have a secret already
     const result = await this.prisma.user.findUnique({
       where: { id: user.id },
       select: { totpVerified: true },
@@ -114,13 +114,13 @@ export class AuthTotpService {
       },
     });
 
-    // TODO: Maybe we should generate the QR code on the client rather than the server?
     const qrCode = new qrcode({
       content: otpURL,
       container: "svg-viewbox",
       join: true,
     }).svg();
 
+    this.logger.log(`TOTP enabled for user ${user.email}`);
     return {
       totpAuthUrl: otpURL,
       totpSecret: secret,
@@ -158,6 +158,7 @@ export class AuthTotpService {
       },
     });
 
+    this.logger.log(`TOTP verified for user ${user.email}`);
     return true;
   }
 
@@ -192,6 +193,7 @@ export class AuthTotpService {
       },
     });
 
+    this.logger.log(`TOTP disabled for user ${user.email}`);
     return true;
   }
 }

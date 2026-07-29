@@ -40,11 +40,13 @@ import {
   getRequestIp,
   getRequestUserAgent,
 } from "../utils/request.util";
+import { ConfigService } from "../config/config.service";
 @Controller("shares")
 export class ShareController {
   constructor(
     private shareService: ShareService,
     private jwtService: JwtService,
+    private config: ConfigService,
   ) {}
 
   @Get("all")
@@ -182,6 +184,9 @@ export class ShareController {
     response.cookie(`share_${id}_token`, token, {
       path: "/",
       httpOnly: true,
+      sameSite: "lax",
+      secure: this.config.get("general.secureCookies"),
+      maxAge: 365 * 24 * 60 * 60 * 1000,
     });
 
     return { token };
@@ -205,13 +210,25 @@ export class ShareController {
       (cookie) => cookie.payload.exp >= dayjs().unix(),
     );
 
-    expiredTokens.forEach((cookie) => response.clearCookie(cookie.key));
+    expiredTokens.forEach((cookie) =>
+      response.clearCookie(cookie.key, {
+        path: "/",
+        sameSite: "lax",
+        secure: this.config.get("general.secureCookies"),
+      }),
+    );
 
     if (validTokens.length > 10) {
       validTokens
         .sort((a, b) => a.payload.exp - b.payload.exp)
         .slice(0, -10)
-        .forEach((cookie) => response.clearCookie(cookie.key));
+        .forEach((cookie) =>
+          response.clearCookie(cookie.key, {
+            path: "/",
+            sameSite: "lax",
+            secure: this.config.get("general.secureCookies"),
+          }),
+        );
     }
   }
 }

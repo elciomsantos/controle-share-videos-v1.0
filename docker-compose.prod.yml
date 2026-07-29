@@ -1,0 +1,161 @@
+services:
+  backend:
+    container_name: controle-share-videos-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    restart: unless-stopped
+    # Use bridge network (default) for isolation (INFRA-HIGH-02)
+    networks:
+      - app-network
+    # Health check for orchestrator (INFRA-HIGH-02)
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://127.0.0.1:8080/api/health"]
+      interval: 10s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
+    # Resource limits (INFRA-HIGH-02)
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "2"
+        reservations:
+          memory: 512M
+          cpus: "0.5"
+    # Logging with rotation (INFRA-HIGH-02)
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    # Environment from secrets (INFRA-MED-04)
+    environment:
+      - NODE_ENV=production
+      - TRUST_PROXY=true
+      - BACKEND_PORT=8080
+      - DATABASE_URL=file:/opt/app/backend/data/controle-videos.db
+      - CADDY_DISABLED=false
+    # Secrets injected at runtime (INFRA-MED-04)
+    secrets:
+      - jwt_secret
+      - admin_password
+      - smtp_password
+      - acme_email
+      - domain
+    # Volumes
+    volumes:
+      - backend-data:/opt/app/backend/data:rw,z
+      - frontend-images:/opt/app/frontend/public/img:rw,z
+    # Entrypoint runs migrations, seed, then starts servers via Caddy
+    entrypoint: ["sh", "./scripts/docker/create-user.sh"]
+    command: ["sh", "./scripts/docker/entrypoint.sh"]
+
+  frontend:
+    container_name: controle-share-videos-frontend
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend-builder
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://127.0.0.1:3333"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+          cpus: "0.1"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    environment:
+      - NODE_ENV=production
+      - PORT=3333
+      - HOSTNAME=0.0.0.0
+    secrets:
+      - domain
+    volumes:
+      - frontend-images:/opt/app/frontend/public/img:rw,z
+
+  caddy:
+    container_name: controle-share-videos-caddy
+    image: caddy:2.9-alpine
+    restart: unless-stopped
+    networks:
+      - app-network
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    healthcheck:
+      test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+        reservations:
+          memory: 64M
+          cpus: "0.05"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    volumes:
+      - ./reverse-proxy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    secrets:
+      - acme_email
+      - domain
+    environment:
+      - ACME_EMAIL_FILE=/run/secrets/acme_email
+      - DOMAIN_FILE=/run/secrets/domain
+
+networks:
+  app-network:
+    driver: bridge
+    # Internal network - no external access except via Caddy
+    internal: false
+
+volumes:
+  backend-data:
+    driver: local
+  frontend-images:
+    driver: local
+  caddy-data:
+    driver: local
+  caddy-config:
+    driver: local
+
+secrets:
+  # These should be created externally via: echo "value" | docker secret create name -
+  # Or via Docker Swarm / Portainer / etc.
+  jwt_secret:
+    external: true
+  admin_password:
+    external: true
+  smtp_password:
+    external: true
+  acme_email:
+    external: true
+  domain:
+    external: true

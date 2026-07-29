@@ -1,7 +1,42 @@
 :3000 {
-	# Reverse proxy for /api
-	reverse_proxy /api/* http://localhost:{$BACKEND_PORT:8080}
+	# Security headers (INFRA-HIGH-01, LOW-01)
+	header {
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Cross-Origin-Opener-Policy "same-origin"
+		Cross-Origin-Resource-Policy "same-origin"
+		Cross-Origin-Embedder-Policy "require-corp"
+		Permissions-Policy "geolocation=(), camera=(), microphone=()"
+		-Server
+	}
 
-	# Reverse proxy for all other requests
-	reverse_proxy http://localhost:{$PORT:3333}
+	# Rate limiting (development - relaxed)
+	rate_limit {
+		zone dynamic {
+			key {remote_host}
+			events 200
+			window 10s
+		}
+	}
+
+	# Health check restricted to internal networks (INFRA-MED-01)
+	@health path /api/health
+	@internal_network remote_ip 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 127.0.0.0/8
+	respond @health @internal_network 200 "OK"
+	respond @health 404
+
+	# Reverse proxy for /api
+	reverse_proxy /api/* http://backend:{$BACKEND_PORT:8080} {
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Real-IP {remote_host}
+	}
+
+	# Reverse proxy for all other requests (frontend)
+	reverse_proxy http://frontend:{$PORT:3333} {
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Real-IP {remote_host}
+	}
 }

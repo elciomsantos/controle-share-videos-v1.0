@@ -1,0 +1,90 @@
+{
+    # Global options
+    admin off
+    auto_https disable_redirects
+}
+
+# HTTP -> HTTPS redirect
+http:// {
+    redir https://{host}{uri} permanent
+}
+
+# Production HTTPS site with automatic TLS via Let's Encrypt
+https://{$DOMAIN} {
+    # TLS configuration with Let's Encrypt
+    tls {$ACME_EMAIL} {
+        protocols tls1.2 tls1.3
+        ciphers TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256 TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+        curves x25519 secp256r1 secp384r1
+    }
+
+    # Security headers (INFRA-HIGH-01, LOW-01)
+    header {
+        # HSTS with preload (1 year = 31536000, 2 years = 63072000)
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        # Prevent clickjacking
+        X-Frame-Options "DENY"
+        # Prevent MIME sniffing
+        X-Content-Type-Options "nosniff"
+        # Referrer policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Cross-origin isolation (LOW-01)
+        Cross-Origin-Opener-Policy "same-origin"
+        Cross-Origin-Resource-Policy "same-origin"
+        Cross-Origin-Embedder-Policy "require-corp"
+        # Permissions policy
+        Permissions-Policy "geolocation=(), camera=(), microphone=()"
+        # Remove server header
+        -Server
+    }
+
+    # Rate limiting at the edge (INFRA-HIGH-01)
+    # 100 requests per 10 seconds per IP with burst of 200
+    rate_limit {
+        zone dynamic {
+            key {remote_host}
+            events 100
+            window 10s
+        }
+        # Stricter limit for auth endpoints
+        zone auth {
+            key {remote_host}
+            events 10
+            window 60s
+        }
+    }
+
+    # API routes
+    handle /api/* {
+        # Apply stricter rate limit to auth endpoints
+        @auth path /api/auth/signIn /api/auth/signUp /api/auth/token /api/auth/resetPassword* /api/auth/verify* /api/auth/totp/*
+        rate_limit @auth zone auth
+
+        # Health check restricted to internal networks only (INFRA-MED-01)
+        @health path /api/health
+        @internal_network remote_ip 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 127.0.0.0/8
+        respond @health @internal_network 200 "OK"
+        respond @health 404
+
+        reverse_proxy backend:8080 {
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+
+    # Frontend routes
+    handle {
+        reverse_proxy frontend:3333 {
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            header_up X-Real-IP {remote_host}
+        }
+    }
+
+    # Logging
+    log {
+        output stdout
+        format json
+    }
+}

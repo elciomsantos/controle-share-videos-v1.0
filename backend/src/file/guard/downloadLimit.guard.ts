@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { User } from "../../../prisma/generated/prisma/client";
+import { Prisma, User } from "../../../prisma/generated/prisma/client";
 import { Request } from "express";
 import { I18nService } from "nestjs-i18n";
 import { DownloadLogService } from "../../download-log/download-log.service";
@@ -25,12 +25,12 @@ export class DownloadLimitGuard {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request: Request = context.switchToHttp().getRequest();
-    const shareId = request.params.shareId;
+    const shareId = request.params.shareId as string;
 
     const share = await this.prisma.share.findUnique({
       where: { id: shareId },
       include: { security: true },
-    });
+    }) as Prisma.ShareGetPayload<{ include: { security: true } }> | null;
 
     if (!share) {
       throw new NotFoundException(this.i18n.t("share.notFound"));

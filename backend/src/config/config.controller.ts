@@ -14,7 +14,6 @@ import {
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { SkipThrottle } from "@nestjs/throttler";
 import { createKeyv, RedisClientOptions } from "@keyv/redis";
 import { I18nService } from "nestjs-i18n";
 import { JwtGuard } from "../auth/guard/jwt.guard";
@@ -41,7 +40,6 @@ export class ConfigController {
 
   @Get()
   @Public()
-  @SkipThrottle()
   async list() {
     return new ConfigDTO().fromList(await this.configService.list());
   }

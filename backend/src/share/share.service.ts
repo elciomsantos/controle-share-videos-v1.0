@@ -111,8 +111,24 @@ export class ShareService {
 
   async createZip(shareId: string) {
     const path = `${SHARE_DIRECTORY}/${shareId}`;
+    const MAX_FILES = 10000;
+    const MAX_TOTAL_SIZE = 10 * 1024 * 1024 * 1024; // 10 GB
 
     const files = await this.prisma.file.findMany({ where: { shareId } });
+
+    if (files.length > MAX_FILES) {
+      throw new BadRequestException(
+        `Share exceeds maximum file count of ${MAX_FILES}`,
+      );
+    }
+
+    const totalSize = files.reduce((sum, f) => sum + parseInt(f.size), 0);
+    if (totalSize > MAX_TOTAL_SIZE) {
+      throw new BadRequestException(
+        `Share exceeds maximum total size of ${MAX_TOTAL_SIZE} bytes`,
+      );
+    }
+
     const archive = archiver("zip", {
       zlib: { level: this.config.get("share.zipCompressionLevel") },
     });

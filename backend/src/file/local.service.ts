@@ -37,6 +37,34 @@ export class LocalFileService {
       throw new BadRequestException(this.i18n.t("file.invalidIdFormat"));
     }
 
+    // MIME-type allow-list for uploads (MED-06)
+    const ALLOWED_EXTENSIONS = new Set([
+      // Documents
+      ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+      ".odt", ".ods", ".odp", ".rtf", ".csv", ".tsv",
+      // Images
+      ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg", ".ico",
+      // Videos
+      ".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".webm", ".m4v", ".mpg", ".mpeg",
+      // Audio
+      ".mp3", ".wav", ".flac", ".ogg", ".aac", ".wma", ".m4a",
+      // Archives
+      ".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz",
+      // Text
+      ".txt", ".md", ".json", ".xml", ".yaml", ".yml", ".log",
+      // Code
+      ".js", ".ts", ".py", ".java", ".c", ".cpp", ".h", ".hpp", ".rb", ".php",
+      ".go", ".rs", ".sh", ".bat", ".ps1",
+      // Other
+      ".iso", ".dmg", ".apk", ".msi",
+    ]);
+    const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase();
+    if (!ALLOWED_EXTENSIONS.has(ext)) {
+      throw new BadRequestException(
+        `File extension "${ext}" is not allowed for upload`,
+      );
+    }
+
     const share = await this.prisma.share.findUnique({
       where: { id: shareId },
       include: { files: true, creator: true },

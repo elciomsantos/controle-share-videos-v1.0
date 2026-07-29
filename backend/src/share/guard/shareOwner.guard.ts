@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { User, Share, ShareSecurity } from "../../../prisma/generated/prisma/client";
+import { Prisma, User, Share, ShareSecurity } from "../../../prisma/generated/prisma/client";
 import { Request } from "express";
 import { I18nService } from "nestjs-i18n";
 import { ConfigService } from "../../config/config.service";
@@ -36,12 +36,12 @@ export class ShareOwnerGuard extends JwtGuard {
 
   async canActivate(context: ExecutionContext) {
     const request: Request = context.switchToHttp().getRequest();
-    const shareId = Object.prototype.hasOwnProperty.call(
+    const shareId: string = Object.prototype.hasOwnProperty.call(
       request.params,
       "shareId",
     )
-      ? request.params.shareId
-      : request.params.id;
+      ? (request.params.shareId as string)
+      : (request.params.id as string);
 
     if (!this.isBase64(shareId)) {
       throw new BadRequestException(this.i18n.t("file.invalidIdFormat"));
@@ -50,7 +50,7 @@ export class ShareOwnerGuard extends JwtGuard {
     const share = await this.prisma.share.findUnique({
       where: { id: shareId },
       include: { security: true },
-    });
+    }) as Prisma.ShareGetPayload<{ include: { security: true } }> | null;
 
     if (!share) throw new NotFoundException(this.i18n.t("share.notFound"));
 

@@ -1,12 +1,79 @@
-import axios from "axios";
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+
+const MUTATING_METHODS = new Set(["post", "put", "patch", "delete"]);
+const CSRF_HEADER = "X-CSRF-Token";
+
+let csrfToken: string | null = null;
+let csrfFetchPromise: Promise<string> | null = null;
+
+const fetchCsrfToken = async (): Promise<string> => {
+  if (csrfToken) return csrfToken;
+  if (csrfFetchPromise) return csrfFetchPromise;
+  csrfFetchPromise = axios
+    .get("/api/auth/csrf-token")
+    .then((res) => {
+      csrfToken = (res.data?.token as string) ?? null;
+      csrfFetchPromise = null;
+      return csrfToken ?? "";
+    })
+    .catch((e) => {
+      csrfFetchPromise = null;
+      // Re-throw so callers can handle; it means backend/csrf endpoint down
+      throw e;
+    });
+  return csrfFetchPromise;
+};
 
 const api = axios.create({
   baseURL: "/api",
+  withCredentials: true,
 });
 
+// Attach CSRF token to mutating requests.
+api.interceptors.request.use(
+  async (config: InternalAxiosRequestConfig) => {
+    if (MUTATING_METHODS.has(config.method?.toLowerCase() ?? "")) {
+      try {
+        const token = await fetchCsrfToken();
+        if (token) config.headers[CSRF_HEADER] = token;
+      } catch {
+        // If CSRF token cannot be fetched, allow the request to proceed; the
+        // backend will reject with 403 (csrf_invalid). This avoids blocking
+        // safe requests when the cookie hasn't been issued yet.
+      }
+    }
+    return config;
+  },
+  (error) => Promise.reject(error),
+);
+
+// On 403 csrf_invalid, refresh the token once and retry the original request.
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error: AxiosError) => {
+    const original = error.config as
+      | (InternalAxiosRequestConfig & { _csrfRetried?: boolean })
+      | undefined;
+    if (
+      error.response?.status === 403 &&
+      (error.response.data as { message?: string } | undefined)?.message ===
+        "csrf_invalid" &&
+      original &&
+      MUTATING_METHODS.has(original.method?.toLowerCase() ?? "") &&
+      !original._csrfRetried
+    ) {
+      original._csrfRetried = true;
+      csrfToken = null;
+      csrfFetchPromise = null;
+      try {
+        const token = await fetchCsrfToken();
+        original.headers![CSRF_HEADER] = token;
+        return api.request(original);
+      } catch {
+        return Promise.reject(error);
+      }
+    }
+
     if (
       error.response?.status === 403 &&
       error.response?.data?.message === "auth.passwordMustChange"

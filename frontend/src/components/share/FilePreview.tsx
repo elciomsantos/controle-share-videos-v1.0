@@ -8,7 +8,6 @@ import {
   useMantineTheme,
 } from "@mantine/core";
 import { modals, useModals } from "@mantine/modals";
-import Markdown, { MarkdownToJSX } from "markdown-to-jsx/react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { Dispatch, SetStateAction, useEffect, useState } from "react";
@@ -16,6 +15,7 @@ import { FormattedMessage } from "react-intl";
 import api from "../../services/api.service";
 import showErrorModal from "./showErrorModal";
 import useTranslate from "../../hooks/useTranslate.hook";
+import MarkdownRenderer from "../../components/MarkdownRenderer";
 
 const FilePreviewContext = React.createContext<{
   shareId: string;
@@ -200,30 +200,7 @@ const TextPreview = () => {
       .then((res) => setText(res.data ?? "Preview couldn't be fetched."));
   }, [shareId, fileId]);
 
-  const options: MarkdownToJSX.Options = {
-    disableParsingRawHTML: true,
-    overrides: {
-      pre: {
-        props: {
-          style: {
-            backgroundColor:
-              colorScheme == "dark"
-                ? "rgba(50, 50, 50, 0.5)"
-                : "rgba(220, 220, 220, 0.5)",
-            padding: "0.75em",
-            whiteSpace: "pre-wrap",
-          },
-        },
-      },
-      table: {
-        props: {
-          className: "md",
-        },
-      },
-    },
-  };
-
-  return <Markdown options={options}>{text}</Markdown>;
+  return <MarkdownRenderer forceBlock>{text}</MarkdownRenderer>;
 };
 
 const PdfPreview = () => {
