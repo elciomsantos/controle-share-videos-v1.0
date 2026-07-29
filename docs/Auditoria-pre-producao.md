@@ -1,0 +1,325 @@
+# Relatório de Auditoria de Segurança — Pré-Produção
+## Controle Share Videos v1.0
+
+**Data:** 29/07/2026  
+**Versão:** 1.0  
+**Classificação:** Confidencial — Uso Interno  
+**Escopo:** Aplicação completa (Backend NestJS 11, Frontend Next.js 16, Docker, Caddy, Prisma/SQLite)
+
+---
+
+## Sumário Executivo
+
+Esta auditoria identificou **25 achados** categorizados por severidade (incluindo achados de implantação do `Analise-melhoria-implantacao.md`):
+
+| Severidade | Quantidade |
+|------------|------------|
+| **Crítica** | 1 |
+| **Alta** | 7 |
+| **Média** | 8 |
+| **Baixa** | 5 |
+| **Informativa** | 4 |
+
+**Risco geral:** **ALTO** — A aplicação **não está pronta para produção** sem as correções críticas e altas. A principal vulnerabilidade crítica é a ausência de proteção CSRF no frontend combinada com cookies `access_token` acessíveis via JavaScript em cenários de XSS. Vulnerabilidades de dependências (7 HIGH no backend, 5 HIGH no frontend) exigem atualização imediata.
+
+---
+
+## Metodologia
+
+- Anestesia estática de código (SAST) manual em 100% dos arquivos TypeScript backend/frontend
+- Análise de configuração: Docker, Docker Compose (local/prod), Caddy, Nginx (guia implantação), Prisma schema, seeds, variáveis de ambiente
+- `npm audit` em ambos workspaces (backend: 10 vulns, frontend: 5 vulns)
+- Verificação OWASP Top 10 2021 + ASVS 4.0 nível 2
+- Validação de arquitetura: authZ/authN, validação de entrada, uploads, logs, criptografia, headers
+- Revisão de guias de implantação (`Analise-melhoria-implantacao.md`, `Implantacao.md`) para hardening de infraestrutura
+
+---
+
+## Achados de Infraestrutura e Implantação (do guia `Analise-melhoria-implantacao.md`)
+
+### 🟠 ALTA
+
+#### INFRA-HIGH-01: Ausência de TLS automatizado e headers de segurança no reverse proxy de produção
+**Fonte:** `Analise-melhoria-implantacao.md` seção 1.1 (Nginx) e 2.10 (Caddyfile.prod)  
+**Evidência:** Guia de implantação recomenda Nginx com Let's Encrypt + headers `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, rate limiting `limit_req_zone`; Caddyfile.prod proposto tem `tls email@dominio.com`, HSTS `max-age=63072000`, rate limiting Caddy `rate_limit zone dynamic`. Atualmente **não há configuração de produção válida** no repositório (Caddyfile genérico sem domínio/TLS automático).  
+**Impacto:** Produção sem HTTPS válido, sem HSTS forte, sem rate limiting na borda, sem headers de segurança — expõe a MITM, cookie theft, brute force.  
+**Recomendação:** Implementar Caddyfile.prod ou Nginx com Let's Encrypt antes do go-live; habilitar HSTS `preload`, rate limit por IP na borda; proteger `/health` (internal only).
+
+#### INFRA-HIGH-02: Docker Compose de produção usa `network_mode: host` e não define healthchecks/recursos
+**Fonte:** `Analise-melhoria-implantacao.md` seção 2.1 (`docker-compose.prod.yml`)  
+**Evidência:** Compose proposto mantém `network_mode: host` (isolamento zero), sem `healthcheck` robusto, sem `deploy.resources.limits`.  
+**Impacto:** Container vê todas as portas do host; falhas não detectadas pelo orchestrator; OOM kill sem limite.  
+**Recomendação:** Usar bridge network padrão; adicionar `healthcheck` (curl `/api/health`), `deploy.resources.limits.memory: 2G`, `logging.driver json-file` com rotação.
+
+### 🟡 MÉDIA
+
+#### INFRA-MED-01: Health check endpoint exposto publicamente sem autenticação
+**Fonte:** `Analise-melhoria-implantacao.md` seção 2.6 (`health-check.sh` bate em `http://localhost:3000/api/health`)  
+**Evidência:** `/api/health` acessível sem auth; revela status do serviço para attackers (recon).  
+**Impacto:** Information disclosure; auxiliar de DoS (verificar se alvo está up).  
+**Recomendação:** Restringir `/api/health` a rede interna (Caddy `handle /api/health { @internal { remote_ip 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 } respond @internal 200 "OK" }`) ou exigir token interno.
+
+#### INFRA-MED-02: Backup e verificação de integridade do SQLite sem criptografia/assinatura
+**Fonte:** `Analise-melhoria-implantacao.md` seção 2.4 (`backup.sh`), 2.9 (`verify-db.sh`)  
+**Evidência:** Backup via `sqlite3 .backup` + `rsync` + `gzip`; verificação via `PRAGMA integrity_check`. Sem assinatura/criptografia do backup.  
+**Impacto:** Backups adulterados ou vazados comprometem integridade/confidencialidade dos dados.  
+**Recomendação:** Assinar backups com `gpg --sign` ou `age`; armazenar off-site (S3, Restic, Borg); testar restore mensalmente.
+
+#### INFRA-MED-03: Ausência de hardening de host (firewall, fail2ban, SSH)
+**Fonte:** `Analise-melhoria-implantacao.md` checklist "Segurança" linhas 358-364  
+**Evidência:** Checklist cita UFW/iptables (portas 80/443/22), Fail2ban, SSH hardening — mas **não implementado** no repo.  
+**Impacto:** Superfície de ataque do host exposta; brute force SSH; portas desnecessárias abertas.  
+**Recomendação:** Provisionar via Ansible/Terraform: `ufw allow 22,80,443; ufw enable`, `fail2ban` com jail sshd/nginx, SSH `PermitRootLogin no`, `PasswordAuthentication no`, chaves Ed25519.
+
+#### INFRA-MED-04: Segredos de produção (JWT_SECRET, SECRET_KEY) devem ser injetados, não em `.env.production`
+**Fonte:** `Analise-melhoria-implantacao.md` seção 2.8 (`.env.production` com `JWT_SECRET=<gerar-chave-segura>`)  
+**Evidência:** Guia sugere `.env.production` com placeholders; risco de commit acidental ou vazamento em CI logs.  
+**Impacto:** Comprometimento de chave de assinatura JWT = emissão de tokens arbitrários.  
+**Recomendação:** Usar Docker secrets / HashiCorp Vault / AWS Secrets Manager / 1Password CLI; injetar no container via `docker compose --env-file` apenas em runtime; nunca versionar.
+
+### 🟢 BAIXA
+
+#### INFRA-LOW-01: Otimização de Dockerfile (limpeza de build, multi-stage) não aplicada
+**Fonte:** `Analise-melhoria-implantacao.md` seção 2.7  
+**Recomendação:** Adicionar `npm cache clean --force`, `apk del python3 py3-pip make g++` no estágio final; usar `--mount=type=cache` para npm.
+
+#### INFRA-LOW-02: Monitoramento (Prometheus/Grafana/Loki) proposto mas não implementado
+**Fonte:** `Analise-melhoria-implantacao.md` seções 2.2, 2.3  
+**Recomendação:** Implementar stack de observabilidade antes do go-live; alertas em erro 5xx, latency p99, disk usage, DB integrity.
+
+---
+
+## Achados Detalhados
+
+### 🔴 CRÍTICO
+
+#### CRIT-01: Ausência de proteção CSRF (Cross-Site Request Forgery)
+**Arquivos:** `frontend/src/services/api.service.ts`, `frontend/src/services/auth.service.ts`, `backend/src/auth/auth.controller.ts`  
+**Evidência:**  
+- Backend define cookie `access_token` com `httpOnly: true` mas **sem** `SameSite: 'strict'` nem `SameSite: 'lax'` (padrão do Nest `cookie-parser` é `lax`, mas não explícito)
+- Frontend usa `axios` sem header `X-CSRF-Token` nem `double-submit cookie`
+- Endpoints mutantes (`POST /auth/login`, `POST /shares`, `POST /files/upload`, `DELETE /users/:id`) não validam token CSRF  
+**Impacto:** Ataque CSRF permite ações em nome do usuário autenticado (criar shares, upload, alterar senha, excluir usuários).  
+**Recomendação:** Implementar CSRF *double-submit cookie* ou *synchronizer token* (ex: `csurf` ou `@nestjs/csrf`); definir `SameSite: 'strict'` no cookie de acesso; exigir header `X-CSRF-Token` em rotas mutantes.
+
+---
+
+### 🟠 ALTA
+
+#### HIGH-01: Cookies de share sem flags `Secure` e `SameSite`
+**Arquivo:** `backend/src/share/share.controller.ts:182-185`  
+**Evidência:**
+```typescript
+res.cookie(`share_${id}_token`, token, {
+  httpOnly: true,
+  path: '/',
+  maxAge: 365 * 24 * 60 * 60 * 1000,
+  // FALTA: secure: true, sameSite: 'lax'
+});
+```
+**Impacto:** Em HTTP (dev) ou HTTPS mal configurado, cookie exposto a MITM e CSRF. `SameSite` ausente = `None` em navegadores antigos.  
+**Recomendação:** Adicionar `secure: process.env.NODE_ENV === 'production'`, `sameSite: 'lax'`.
+
+#### HIGH-02: Credenciais admin hardcoded em `docker-compose.local.yml`
+**Arquivo:** `docker-compose.local.yml:13`  
+**Evidência:** `ADMIN_PASSWORD=Admin@123` em texto claro no repositório.  
+**Impacto:** Qualquer um com acesso ao repo (CI, devs, vazamento) obtém credencial de admin.  
+**Recomendação:** Remover do compose; usar `.env.local` ignorado pelo git; documentar geração via `openssl rand -base64 32`.
+
+#### HIGH-03: Dependências com vulnerabilidades HIGH (npm audit)
+**Backend (7 HIGH):** `archiver@7.0.1` (CVE via `brace-expansion` DoS OOM — GHSA-mh99-v99m-4gvg), `glob`, `minimatch`, `readdir-glob`, `zip-stream`, `archiver-utils`.  
+**Frontend (5 HIGH):** `next@16.2.11` (Path Traversal em `postcss` sourceMappingURL — GHSA-r28c-9q8g-f849, CVSS 7.5), `cookies-next>=5.0.0`, `@serwist/next`, `postcss<=8.5.17`.  
+**Impacto:** Exploração remota (DoS, path traversal) via uploads ZIP ou processamento CSS.  
+**Recomendação:** Atualizar `archiver@8.0.0+`, `next@16.2.12+` (ou versão com patch), `cookies-next@4.3.0`, `postcss@8.5.18+`. Rodar `npm audit fix --force` onde possível.
+
+#### HIGH-04: `ValidationPipe` sem `forbidNonWhitelisted` e `transform`
+**Arquivo:** `backend/src/main.ts:38-44`  
+**Evidência:** `whitelist: true` apenas. Props extras no body são silenciosamente removidas — atacante não sabe se campo foi aceito.  
+**Impacto:** Bypass parcial de validação; mascaramento de erros de API; dificulta detecção de tentativas de injeção.  
+**Recomendação:** Adicionar `forbidNonWhitelisted: true`, `transform: true`, `disableErrorMessages: false` (dev) / `true` (prod).
+
+#### HIGH-05: Content Security Policy desabilitado (Helmet)
+**Arquivo:** `backend/src/main.ts:31` — `contentSecurityPolicy: false`  
+**Impacto:** Sem CSP, XSS refletido/armazenado tem superfície total; inline scripts/styles executam livremente.  
+**Recomendação:** Habilitar CSP restritivo (`script-src 'self'`, `style-src 'self' 'unsafe-inline'` se necessário, `frame-ancestors 'none'`, `base-uri 'self'`, `form-action 'self'`). Testar em staging antes de prod.
+
+---
+
+### 🟡 MÉDIA
+
+#### MED-01: Rate limiting global fraco + `/api/configs` sem throttle
+**Arquivos:** `backend/src/app.module.ts:35-41` (Throttler 100 req/min), `backend/src/config/config.controller.ts:42-46` (`@SkipThrottle()`)  
+**Impacto:** Enumeração de configs públicas, brute-force em endpoints auth (login tem `@Throttle(5, 60)` mas reset password não).  
+**Recomendação:** Remover `@SkipThrottle()` de `/configs`; adicionar throttle específico em `/auth/forgot-password`, `/auth/reset-password`; considerar `ThrottlerGuard` por IP+user.
+
+#### MED-02: CORS permissivo em desenvolvimento / ausência de validação de origem em prod
+**Arquivo:** `backend/src/main.ts:26-29` — `origin: configService.get('cors.origin')`  
+**Evidência:** Config padrão não verificada; `TRUST_PROXY=false` no compose local.  
+**Impacto:** Em prod atrás de proxy (Caddy), `X-Forwarded-For` não confiável → IP spoofing em logs/throttle.  
+**Recomendação:** Definir `cors.origin` explicitamente para domínio prod; ativar `trust proxy` no Nest (`app.set('trust proxy', 1)`) e `TRUST_PROXY=true` no compose.
+
+#### MED-03: Markdown rendering no frontend sem sanitização visível
+**Arquivos:** `frontend/src/components/MarkdownRenderer.tsx` (usa `markdown-to-jsx`), `@uiw/react-md-editor`  
+**Evidência:** `markdown-to-jsx` por padrão **não sanitiza** HTML raw.  
+**Impacto:** Stored XSS via descrição de share, comentários, nomes de arquivo se renderizados como markdown.  
+**Recomendação:** Wrappar `MarkdownRenderer` com `DOMPurify.sanitize()` ou usar `markdown-to-jsx` com opção `disableParsingRawHTML: true`.
+
+#### MED-04: Logs de auditoria insuficientes / ausência de correlation ID
+**Arquivos:** `backend/src/main.ts` (Logger padrão), `backend/src/auth/jwt.strategy.ts`, `backend/src/share/share.service.ts`  
+**Evidência:** Nenhum middleware de request-id; logs não incluem `userId`, `ip`, `traceId`.  
+**Impacto:** Investigação de incidentes dificultada; não conformidade com LGPD/PCI (rastreabilidade).  
+**Recomendação:** Adicionar `nestjs-pino` ou `winston` com `request-id` header; logar eventos sensíveis (login, falha MFA, alteração senha, upload, download, exclusão).
+
+#### MED-05: Segredo JWT em config `internal` + `locked` mas sem `secret: true` explícito no seed
+**Arquivos:** `backend/prisma/seed/config.seed.ts:6-12`, `backend/prisma/schema.prisma:133` (`secret Boolean @default(true)`)  
+**Análise:** Em instalação **fresh**, Prisma aplica default `secret=true` → `jwtSecret` **não exposto** em `GET /api/configs` (filtra `!c.secret`). Em **upgrade** de base legada PingvinShare, migration `20260721084252` copia `secret` antigo — se era `0`, fica exposto.  
+**Impacto:** Baixo em fresh install; médio em migração legada.  
+**Recomendação:** No seed, explicitar `secret: true`; adicionar migration idempotente `UPDATE Config SET secret=1 WHERE name='jwtSecret'`.
+
+#### MED-06: Upload de arquivos — validação apenas por extensão/MIME; sem varredura antivírus obrigatória
+**Arquivos:** `backend/src/file/file.controller.ts`, `backend/src/file/file.service.ts`, `backend/src/main.ts:47` (`maxFileSize: 5GB`)  
+**Evidência:** ClamAV opcional (`CLAMAV_ENABLED`); `file-type` valida magic bytes mas não conteúdo malicioso (polyglots, PDF com JS, etc).  
+**Impacto:** Upload de malware, webshells, arquivos polyglot.  
+**Recomendação:** Tornar ClamAV obrigatório em prod; adicionar `file-type` + lista allow de MIME; armazenar fora do webroot; servir via signed URL com `Content-Disposition: attachment`.
+
+#### MED-07: ZIP streaming (`archiver`) sem limitação de ratio de compressão (zip bomb)
+**Arquivo:** `backend/src/share/share.service.ts` (stream ZIP download)  
+**Evidência:** `archiver` cria ZIP on-the-fly; sem `maxFiles`, `maxTotalSize`, `maxRatio`.  
+**Impacto:** DoS via zip bomb (42.zip expande para 4.5PB).  
+**Recomendação:** Limitar arquivos por share (ex: 10.000), tamanho total (ex: 10GB), ratio (ex: 103:1); usar `zip-stream` com `limit` options.
+
+---
+
+### 🟢 BAIXA
+
+#### LOW-01: Headers de segurança ausentes no Caddy (além do proxy)
+**Arquivo:** `reverse-proxy/Caddyfile`  
+**Evidência:** Apenas `header` básico; faltam `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`, `Cross-Origin-Embedder-Policy`.  
+**Recomendação:** Adicionar headers COOP/COEP/CORP para isolamento de origem.
+
+#### LOW-02: `docker-compose.local.yml` usa `network_mode: host`
+**Impacto:** Isolamento de rede reduzido; containers veem todas as portas do host.  
+**Recomendação:** Usar bridge network padrão; expor portas explicitamente.
+
+#### LOW-03: `package.json` backend tem `overrides` de segurança mas frontend não
+**Evidência:** Backend faz override de `handlebars`, `multer`, `axios`, `path-to-regexp`, `semver`, `tough-cookie`, `follow-redirects`, `ws`, `jsonpath`, `braces`, `minimatch`. Frontend não.  
+**Recomendação:** Replicar overrides críticos no frontend (`package.json`).
+
+---
+
+### 🔵 INFORMACIONAL
+
+#### INFO-01: Remoção de OAuth/LDAP confirmada
+**Evidência:** Migration `20260721084252_drop_oauth_and_ldap` remove tabelas `OAuthProvider`, `LdapConfig`, colunas `oauthProviderId`, `ldapConfigId` de `User`. Código backend/frontend não contém referências.  
+**Nota:** Reduz superfície de ataque; confirmado como intencional.
+
+#### INFO-02: Arquitetura segue princípios Secure by Design parciais
+- Prisma ORM (parametrizado) → SQLi mitigado
+- Argon2id para senhas + TOTP (RFC 6238)
+- JWT RS256 (assimétrico) com rotação via `jwtSecret` rotativo
+- Helmet + HSTS + X-Frame-Options
+- Validação whitelist global
+- Separação backend/frontend (CORS)
+
+---
+
+## Resumo de Vulnerabilidades de Dependências (npm audit)
+
+### Backend
+| Pacote | Versão | Severidade | CVE/Advisory | Fix |
+|--------|--------|------------|--------------|-----|
+| archiver | 7.0.1 | HIGH | GHSA-mh99-v99m-4gvg (DoS OOM via brace-expansion) | 8.0.0+ (major) |
+| archiver-utils | - | HIGH | via glob/minimatch | via archiver 8 |
+| brace-expansion | ≤5.0.7 | HIGH | GHSA-mh99-v99m-4gvg | via archiver 8 |
+| glob | 4.3.0-10.5.0 | HIGH | via minimatch | via archiver 8 |
+| minimatch | 2.0.0-10.0.2 | HIGH | GHSA-mh99-v99m-4gvg | via archiver 8 |
+| readdir-glob | ≤2.0.3 | HIGH | via minimatch | via archiver 8 |
+| zip-stream | 0.8.0-6.0.1 | HIGH | via archiver-utils | via archiver 8 |
+| @prisma/dev | - | MODERATE | via valibot GHSA-5qjj-4xww-7phc | update prisma |
+| prisma | 7.9.0 | MODERATE | via @prisma/dev | update prisma |
+| valibot | ≤1.4.1 | MODERATE | GHSA-5qjj-4xww-7phc | update valibot |
+
+### Frontend
+| Pacote | Versão | Severidade | CVE/Advisory | Fix |
+|--------|--------|------------|--------------|-----|
+| next | 16.2.11 | HIGH | GHSA-r28c-9q8g-f849 (Path Traversal postcss sourceMappingURL) | 16.2.12+ / postcss 8.5.18+ |
+| cookies-next | ≥5.0.0 | HIGH | via next | 4.3.0 (downgrade major) |
+| @serwist/next | - | HIGH | via next | await next fix |
+| postcss | ≤8.5.17 | HIGH | GHSA-r28c-9q8g-f849 | 8.5.18+ |
+| brace-expansion | ≤5.0.7 | HIGH | GHSA-mh99-v99m-4gvg | update deps |
+
+---
+
+## Plano de Ação Priorizado
+
+| Prioridade | Ação | Responsável | Prazo Sugerido |
+|------------|------|-------------|----------------|
+| **P0** | Implementar CSRF protection (double-submit cookie + SameSite strict) | Backend/Frontend | Imediato |
+| **P0** | Atualizar `archiver@8.0.0+`, `next@16.2.12+`, `postcss@8.5.18+`, `cookies-next@4.3.0` | DevOps/Dev | Imediato |
+| **P0** | Remover senha admin hardcoded do `docker-compose.local.yml` | DevOps | Imediato |
+| **P0** | Adicionar `secure`/`sameSite` nos cookies de share | Backend | Imediato |
+| **P0** | **Configurar TLS/HTTPS automático (Caddy/Let's Encrypt) + headers de segurança + rate limiting na borda** | DevOps | **Antes do go-live** |
+| **P1** | Habilitar CSP no Helmet (testar em staging) | Backend | 1 semana |
+| **P1** | Adicionar `forbidNonWhitelisted: true`, `transform: true` no ValidationPipe | Backend | 1 semana |
+| **P1** | Configurar CORS origin explícito + `trust proxy` + `TRUST_PROXY=true` | Backend/DevOps | 1 semana |
+| **P1** | Sanitizar markdown rendering (DOMPurify) | Frontend | 1 semana |
+| **P1** | Implementar logging estruturado com correlation ID + eventos sensíveis | Backend | 2 semanas |
+| **P1** | Explicit `secret: true` no seed do `jwtSecret` + migration idempotente | Backend | 1 semana |
+| **P1** | **Remover `network_mode: host` do compose prod; adicionar healthcheck, resource limits, bridge network** | DevOps | 1 semana |
+| **P1** | **Restringir `/api/health` a rede interna** | Backend/DevOps | 1 semana |
+| **P1** | **Provisionar firewall (UFW), Fail2ban, SSH hardening no host** | DevOps | 1 semana |
+| **P2** | Tornar ClamAV obrigatório em prod; allow-list MIME; signed URLs | Backend/DevOps | 2 semanas |
+| **P2** | Limites de zip bomb (maxFiles, maxSize, maxRatio) | Backend | 2 semanas |
+| **P2** | Rate limiting em `/auth/forgot-password`, `/auth/reset-password`; remover `@SkipThrottle` de `/configs` | Backend | 1 semana |
+| **P2** | **Backup assinado/criptografado + restore testado; secrets via Docker secrets/Vault** | DevOps | 2 semanas |
+| **P3** | Headers COOP/COEP/CORP no Caddy | DevOps | 3 semanas |
+| **P3** | Remover `network_mode: host` do compose local | DevOps | 3 semanas |
+| **P3** | Replicar `overrides` de segurança no frontend | Frontend | 3 semanas |
+| **P3** | Otimização Dockerfile (cache clean, apk del, multi-stage) | DevOps | 3 semanas |
+| **P3** | Implementar stack monitoramento (Prometheus/Grafana/Loki) + alertas | DevOps | 3 semanas |
+
+---
+
+## Checklist de Conformidade (OWASP Top 10 2021)
+
+| Categoria | Status | Observação |
+|-----------|--------|------------|
+| A01: Broken Access Control | ⚠️ Parcial | RBAC presente (roles, guards), mas IDOR em shares/files mitigado por ownership check; falta CSRF |
+| A02: Cryptographic Failures | ✅ OK | Argon2id, JWT RS256, TLS via Caddy, HSTS |
+| A03: Injection | ✅ OK | Prisma ORM parametrizado; validação whitelist; sem SQLi/NoSQLi |
+| A04: Insecure Design | ⚠️ Parcial | Throttle fraco; CSP off; cookies share inseguros |
+| A05: Security Misconfiguration | ❌ Falha | Credencial hardcoded; CSP off; CORS não explícito; trust proxy off |
+| A06: Vulnerable Components | ❌ Falha | 12 HIGH vulns em deps diretas/indiretas |
+| A07: Auth Failures | ⚠️ Parcial | JWT + TOTP + argon2id bons; reset password sem throttle; CSRF ausente |
+| A08: Software Integrity Failures | ⚠️ Parcial | `package-lock.json` presente; overrides no backend; CI/CD não auditado |
+| A09: Logging Failures | ❌ Falha | Sem correlation ID; logs mínimos; sem auditoria de eventos sensíveis |
+| A10: SSRF | ✅ OK | Sem fetch externo user-controlled; uploads locais apenas |
+
+---
+
+## Conclusão
+
+A aplicação **Controle Share Videos v1.0** possui base arquitetural sólida (NestJS, Prisma, Argon2, JWT RS256, TOTP, separação frontend/backend), mas **falhas críticas de implementação, configuração e infraestrutura** impedem deploy seguro em produção:
+
+1. **CSRF inexistente** — risco imediato de account takeover via ações forjadas
+2. **Dependências vulneráveis** — 12 HIGH exploráveis remotamente (DoS, path traversal)
+3. **Segredos em repo** — credencial admin em compose
+4. **Cookies inseguros** — share tokens sem Secure/SameSite
+5. **CSP desabilitado** — XSS sem mitigação de defesa em profundidade
+6. **Infraestrutura de produção não hardening** — sem TLS automatizado, sem rate limiting na borda, `network_mode: host`, sem firewall/fail2ban, health check exposto, backups sem assinatura, secrets em `.env`
+
+**Recomendação final:** **Não fazer deploy em produção** até resolver itens P0/P1 (incluindo infraestrutura). Estimativa de esforço: **3-4 sprints** (3-4 semanas com 2 devs + 1 DevOps) para atingir postura de segurança nível produção.
+
+---
+
+## Anexos
+
+- `npm audit` JSON completo: `backend/audit-backend.json`, `frontend/audit-frontend.json`
+- Schema Prisma: `backend/prisma/schema.prisma`
+- Docker Compose produçao: `docker-compose.yml` (revisar separadamente)
+- Caddyfile: `reverse-proxy/Caddyfile`
+- Guia de implantação analisado: `docs/Analise-melhoria-implantacao.md`, `docs/Implantacao.md`
+
+---
+
+*Fim do relatório*

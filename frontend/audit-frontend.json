@@ -1,0 +1,133 @@
+﻿{
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "@serwist/next": {
+      "name": "@serwist/next",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "next"
+      ],
+      "effects": [],
+      "range": "*",
+      "nodes": [
+        "node_modules/@serwist/next"
+      ],
+      "fixAvailable": false
+    },
+    "brace-expansion": {
+      "name": "brace-expansion",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1124334,
+          "name": "brace-expansion",
+          "dependency": "brace-expansion",
+          "title": "brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash",
+          "url": "https://github.com/advisories/GHSA-mh99-v99m-4gvg",
+          "severity": "high",
+          "cwe": [
+            "CWE-400",
+            "CWE-770"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": "<=5.0.7"
+        }
+      ],
+      "effects": [],
+      "range": "<=5.0.7",
+      "nodes": [
+        "node_modules/brace-expansion"
+      ],
+      "fixAvailable": true
+    },
+    "cookies-next": {
+      "name": "cookies-next",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "next"
+      ],
+      "effects": [],
+      "range": ">=5.0.0",
+      "nodes": [
+        "node_modules/cookies-next"
+      ],
+      "fixAvailable": {
+        "name": "cookies-next",
+        "version": "4.3.0",
+        "isSemVerMajor": true
+      }
+    },
+    "next": {
+      "name": "next",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "postcss"
+      ],
+      "effects": [
+        "@serwist/next",
+        "cookies-next"
+      ],
+      "range": ">=9.3.4-canary.0",
+      "nodes": [
+        "node_modules/next"
+      ],
+      "fixAvailable": false
+    },
+    "postcss": {
+      "name": "postcss",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1124288,
+          "name": "postcss",
+          "dependency": "postcss",
+          "title": "PostCSS: Path Traversal in Previous Source Map Auto-Loading (sourceMappingURL) leads to Arbitrary .map File Disclosure",
+          "url": "https://github.com/advisories/GHSA-r28c-9q8g-f849",
+          "severity": "high",
+          "cwe": [
+            "CWE-22"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"
+          },
+          "range": "<=8.5.17"
+        }
+      ],
+      "effects": [
+        "next"
+      ],
+      "range": "<=8.5.17",
+      "nodes": [
+        "node_modules/postcss"
+      ],
+      "fixAvailable": false
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 5,
+      "critical": 0,
+      "total": 5
+    },
+    "dependencies": {
+      "prod": 292,
+      "dev": 352,
+      "optional": 65,
+      "peer": 0,
+      "peerOptional": 0,
+      "total": 681
+    }
+  }
+}

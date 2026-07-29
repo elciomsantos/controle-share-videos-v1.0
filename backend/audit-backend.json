@@ -1,0 +1,238 @@
+﻿{
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "@prisma/dev": {
+      "name": "@prisma/dev",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        "valibot"
+      ],
+      "effects": [
+        "prisma"
+      ],
+      "range": "<=0.0.0-dev.202607271405 || 0.1.0 - 0.24.16",
+      "nodes": [
+        "node_modules/@prisma/dev"
+      ],
+      "fixAvailable": true
+    },
+    "archiver": {
+      "name": "archiver",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "archiver-utils",
+        "readdir-glob",
+        "zip-stream"
+      ],
+      "effects": [],
+      "range": "0.20.0 - 7.0.1",
+      "nodes": [
+        "node_modules/archiver"
+      ],
+      "fixAvailable": {
+        "name": "archiver",
+        "version": "8.0.0",
+        "isSemVerMajor": true
+      }
+    },
+    "archiver-utils": {
+      "name": "archiver-utils",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "glob"
+      ],
+      "effects": [
+        "archiver",
+        "zip-stream"
+      ],
+      "range": ">=0.2.0",
+      "nodes": [
+        "node_modules/archiver-utils"
+      ],
+      "fixAvailable": {
+        "name": "archiver",
+        "version": "8.0.0",
+        "isSemVerMajor": true
+      }
+    },
+    "brace-expansion": {
+      "name": "brace-expansion",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1124334,
+          "name": "brace-expansion",
+          "dependency": "brace-expansion",
+          "title": "brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash",
+          "url": "https://github.com/advisories/GHSA-mh99-v99m-4gvg",
+          "severity": "high",
+          "cwe": [
+            "CWE-400",
+            "CWE-770"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": "<=5.0.7"
+        }
+      ],
+      "effects": [
+        "minimatch"
+      ],
+      "range": "<=5.0.7",
+      "nodes": [
+        "node_modules/brace-expansion",
+        "node_modules/rimraf/node_modules/minimatch/node_modules/brace-expansion"
+      ],
+      "fixAvailable": {
+        "name": "archiver",
+        "version": "8.0.0",
+        "isSemVerMajor": true
+      }
+    },
+    "glob": {
+      "name": "glob",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "minimatch"
+      ],
+      "effects": [
+        "archiver-utils"
+      ],
+      "range": "4.3.0 - 10.5.0",
+      "nodes": [
+        "node_modules/glob"
+      ],
+      "fixAvailable": {
+        "name": "archiver",
+        "version": "8.0.0",
+        "isSemVerMajor": true
+      }
+    },
+    "minimatch": {
+      "name": "minimatch",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "brace-expansion"
+      ],
+      "effects": [
+        "glob",
+        "readdir-glob"
+      ],
+      "range": "2.0.0 - 10.0.2",
+      "nodes": [
+        "node_modules/minimatch",
+        "node_modules/readdir-glob/node_modules/minimatch"
+      ],
+      "fixAvailable": {
+        "name": "archiver",
+        "version": "8.0.0",
+        "isSemVerMajor": true
+      }
+    },
+    "prisma": {
+      "name": "prisma",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "@prisma/dev"
+      ],
+      "effects": [],
+      "range": "6.20.0-dev.1 - 7.9.0 || 7.10.0-dev.1 - 7.10.0-dev.37",
+      "nodes": [
+        "node_modules/prisma"
+      ],
+      "fixAvailable": true
+    },
+    "readdir-glob": {
+      "name": "readdir-glob",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "minimatch"
+      ],
+      "effects": [
+        "archiver"
+      ],
+      "range": "<=2.0.3",
+      "nodes": [
+        "node_modules/readdir-glob"
+      ],
+      "fixAvailable": {
+        "name": "archiver",
+        "version": "8.0.0",
+        "isSemVerMajor": true
+      }
+    },
+    "valibot": {
+      "name": "valibot",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1124298,
+          "name": "valibot",
+          "dependency": "valibot",
+          "title": "Valibot: record() issue paths can make flatten() throw for inherited Object property names",
+          "url": "https://github.com/advisories/GHSA-5qjj-4xww-7phc",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-755"
+          ],
+          "cvss": {
+            "score": 0,
+            "vectorString": null
+          },
+          "range": "<=1.4.1"
+        }
+      ],
+      "effects": [
+        "@prisma/dev"
+      ],
+      "range": "<=1.4.1",
+      "nodes": [
+        "node_modules/valibot"
+      ],
+      "fixAvailable": true
+    },
+    "zip-stream": {
+      "name": "zip-stream",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "archiver-utils"
+      ],
+      "effects": [],
+      "range": "0.8.0 - 6.0.1",
+      "nodes": [
+        "node_modules/zip-stream"
+      ],
+      "fixAvailable": true
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 3,
+      "high": 7,
+      "critical": 0,
+      "total": 10
+    },
+    "dependencies": {
+      "prod": 455,
+      "dev": 332,
+      "optional": 57,
+      "peer": 3,
+      "peerOptional": 0,
+      "total": 845
+    }
+  }
+}
