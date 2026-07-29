@@ -70,7 +70,7 @@ backend/server.log
 
 # opencode config (dev tool)
 .opencode/
-opencode.json
+!opencode.json
 opencode.jsonc
 
 

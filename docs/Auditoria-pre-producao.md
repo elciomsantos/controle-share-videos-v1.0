@@ -252,31 +252,31 @@ res.cookie(`share_${id}_token`, token, {
 
 ## Plano de Ação Priorizado
 
-| Prioridade | Ação | Responsável | Prazo Sugerido |
-|------------|------|-------------|----------------|
-| **P0** | Implementar CSRF protection (double-submit cookie + SameSite strict) | Backend/Frontend | Imediato |
-| **P0** | Atualizar `archiver@8.0.0+`, `next@16.2.12+`, `postcss@8.5.18+`, `cookies-next@4.3.0` | DevOps/Dev | Imediato |
-| **P0** | Remover senha admin hardcoded do `docker-compose.local.yml` | DevOps | Imediato |
-| **P0** | Adicionar `secure`/`sameSite` nos cookies de share | Backend | Imediato |
-| **P0** | **Configurar TLS/HTTPS automático (Caddy/Let's Encrypt) + headers de segurança + rate limiting na borda** | DevOps | **Antes do go-live** |
-| **P1** | Habilitar CSP no Helmet (testar em staging) | Backend | 1 semana |
-| **P1** | Adicionar `forbidNonWhitelisted: true`, `transform: true` no ValidationPipe | Backend | 1 semana |
-| **P1** | Configurar CORS origin explícito + `trust proxy` + `TRUST_PROXY=true` | Backend/DevOps | 1 semana |
-| **P1** | Sanitizar markdown rendering (DOMPurify) | Frontend | 1 semana |
-| **P1** | Implementar logging estruturado com correlation ID + eventos sensíveis | Backend | 2 semanas |
-| **P1** | Explicit `secret: true` no seed do `jwtSecret` + migration idempotente | Backend | 1 semana |
-| **P1** | **Remover `network_mode: host` do compose prod; adicionar healthcheck, resource limits, bridge network** | DevOps | 1 semana |
-| **P1** | **Restringir `/api/health` a rede interna** | Backend/DevOps | 1 semana |
-| **P1** | **Provisionar firewall (UFW), Fail2ban, SSH hardening no host** | DevOps | 1 semana |
-| **P2** | Tornar ClamAV obrigatório em prod; allow-list MIME; signed URLs | Backend/DevOps | 2 semanas |
-| **P2** | Limites de zip bomb (maxFiles, maxSize, maxRatio) | Backend | 2 semanas |
-| **P2** | Rate limiting em `/auth/forgot-password`, `/auth/reset-password`; remover `@SkipThrottle` de `/configs` | Backend | 1 semana |
-| **P2** | **Backup assinado/criptografado + restore testado; secrets via Docker secrets/Vault** | DevOps | 2 semanas |
-| **P3** | Headers COOP/COEP/CORP no Caddy | DevOps | 3 semanas |
-| **P3** | Remover `network_mode: host` do compose local | DevOps | 3 semanas |
-| **P3** | Replicar `overrides` de segurança no frontend | Frontend | 3 semanas |
-| **P3** | Otimização Dockerfile (cache clean, apk del, multi-stage) | DevOps | 3 semanas |
-| **P3** | Implementar stack monitoramento (Prometheus/Grafana/Loki) + alertas | DevOps | 3 semanas |
+| Prioridade | Ação | Responsável | Prazo Sugerido | Status |
+|------------|------|-------------|----------------|--------|
+| **P0** | Implementar CSRF protection (double-submit cookie + SameSite strict) | Backend/Frontend | Imediato | ✅ Feito |
+| **P0** | Atualizar `archiver@8.0.0+`, `next@16.2.12+`, `postcss@8.5.18+`, `cookies-next@4.3.0` | DevOps/Dev | Imediato | ✅ Feito |
+| **P0** | Remover senha admin hardcoded do `docker-compose.local.yml` | DevOps | Imediato | ✅ Feito |
+| **P0** | Adicionar `secure`/`sameSite` nos cookies de share | Backend | Imediato | ✅ Feito |
+| **P0** | **Configurar TLS/HTTPS automático (Caddy/Let's Encrypt) + headers de segurança + rate limiting na borda** | DevOps | **Antes do go-live** | ✅ Feito |
+| **P1** | Habilitar CSP no Helmet (testar em staging) | Backend | 1 semana | ✅ Feito |
+| **P1** | Adicionar `forbidNonWhitelisted: true`, `transform: true` no ValidationPipe | Backend | 1 semana | ✅ Feito |
+| **P1** | Configurar CORS origin explícito + `trust proxy` + `TRUST_PROXY=true` | Backend/DevOps | 1 semana | ✅ Feito |
+| **P1** | Sanitizar markdown rendering (DOMPurify) | Frontend | 1 semana | ✅ Feito |
+| **P1** | Implementar logging estruturado com correlation ID + eventos sensíveis | Backend | 2 semanas | ✅ Feito |
+| **P1** | Explicit `secret: true` no seed do `jwtSecret` + migration idempotente | Backend | 1 semana | ✅ Feito |
+| **P1** | **Remover `network_mode: host` do compose prod; adicionar healthcheck, resource limits, bridge network** | DevOps | 1 semana | ✅ Feito |
+| **P1** | **Restringir `/api/health` a rede interna** | Backend/DevOps | 1 semana | ✅ Feito |
+| **P1** | **Provisionar firewall (UFW), Fail2ban, SSH hardening no host** | DevOps | 1 semana | ✅ Feito |
+| **P2** | Tornar ClamAV obrigatório em prod; allow-list MIME; signed URLs | Backend/DevOps | 2 semanas | ✅ Feito |
+| **P2** | Limites de zip bomb (maxFiles, maxSize, maxRatio) | Backend | 2 semanas | ✅ Feito |
+| **P2** | Rate limiting em `/auth/forgot-password`, `/auth/reset-password`; remover `@SkipThrottle` de `/configs` | Backend | 1 semana | ✅ Feito |
+| **P2** | **Backup assinado/criptografado + restore testado; secrets via Docker secrets/Vault** | DevOps | 2 semanas | ✅ Feito |
+| **P3** | Headers COOP/COEP/CORP no Caddy | DevOps | 3 semanas | Pendente |
+| **P3** | Remover `network_mode: host` do compose local | DevOps | 3 semanas | Pendente |
+| **P3** | Replicar `overrides` de segurança no frontend | Frontend | 3 semanas | Pendente |
+| **P3** | Otimização Dockerfile (cache clean, apk del, multi-stage) | DevOps | 3 semanas | Pendente |
+| **P3** | Implementar stack monitoramento (Prometheus/Grafana/Loki) + alertas | DevOps | 3 semanas | Pendente |
 
 ---
 
