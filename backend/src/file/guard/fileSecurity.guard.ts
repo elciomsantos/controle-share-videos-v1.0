@@ -80,9 +80,12 @@ export class FileSecurityGuard extends ShareSecurityGuard {
       }
 
       if (share.security?.password)
-        throw new ForbiddenException(this._i18n.t("file.passwordProtected"));
+        throw new ForbiddenException({
+          message: this._i18n.t("file.passwordProtected"),
+          error: "share_password_required",
+        });
 
-      if (share.security?.maxViews && share.security.maxViews < share.views) {
+      if (share.security?.maxViews && share.security.maxViews <= share.views) {
         void this._downloadLogService.record({
           shareId,
           fileName: share.name ?? shareId,
@@ -92,10 +95,10 @@ export class FileSecurityGuard extends ShareSecurityGuard {
           reason: "maxViewsExceeded",
           event: "view",
         });
-        throw new ForbiddenException(
-          this._i18n.t("share.maxViewsExceeded"),
-          "share_max_views_exceeded",
-        );
+        throw new ForbiddenException({
+          message: this._i18n.t("share.maxViewsExceeded"),
+          error: "share_max_views_exceeded",
+        });
       }
 
       await this._shareService.increaseViewCount(share, {

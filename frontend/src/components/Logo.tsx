@@ -1,7 +1,7 @@
 import { useMantineColorScheme } from "@mantine/core";
 import { useEffect, useState } from "react";
 
-const defaultLogoSrc = "/img/tela-downloads.png";
+const defaultLogoSrc = "/img/tela-fundo.png";
 const darkLogoSrc = "/img/logo-dark.png";
 
 const Logo = ({ height, width }: { height: number; width: number }) => {

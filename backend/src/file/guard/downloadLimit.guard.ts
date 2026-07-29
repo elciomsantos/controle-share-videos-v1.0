@@ -54,10 +54,10 @@ export class DownloadLimitGuard {
         event: "download",
       });
 
-      throw new ForbiddenException(
-        this.i18n.t("share.maxDownloadsExceeded"),
-        "share_max_downloads_exceeded",
-      );
+      throw new ForbiddenException({
+        message: this.i18n.t("share.maxDownloadsExceeded"),
+        error: "share_max_downloads_exceeded",
+      });
     }
 
     return true;

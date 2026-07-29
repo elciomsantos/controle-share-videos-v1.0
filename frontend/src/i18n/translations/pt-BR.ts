@@ -538,7 +538,7 @@ export default {
   "common.button.cancel": "Cancelar",
   "common.button.confirm": "Confirmar",
   "common.button.disable": "Desativar",
-  "common.button.share": "Compartilhamento",
+  "common.button.share": "Carregar",
   "common.button.generate": "Gerar",
   "common.button.done": "Concluído",
   "common.text.link": "Vincular",

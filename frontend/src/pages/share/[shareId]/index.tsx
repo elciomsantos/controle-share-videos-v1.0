@@ -157,16 +157,8 @@ const Share = ({ shareId }: { shareId: string }) => {
   };
 
   useEffect(() => {
-    // Auto-authenticate via ?pwd= query parameter
-    const pwd = router.query.pwd as string | undefined;
-    if (pwd && typeof window !== "undefined") {
-      // Clean up the URL to remove ?pwd=
-      const url = new URL(window.location.href);
-      url.searchParams.delete("pwd");
-      window.history.replaceState({}, "", url.toString());
-    }
     getFiles();
-  }, [router.query.pwd]);
+  }, []);
 
   return (
     <Container size="md" py="xl">

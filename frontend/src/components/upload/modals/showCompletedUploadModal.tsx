@@ -56,7 +56,7 @@ const Body = ({
   };
 
   const baseUrl = `${appUrl !== defaultAppUrl ? appUrl : window.location.origin}/share/${share.id}`;
-  const link = generatedPassword ? `${baseUrl}?pwd=${generatedPassword}` : baseUrl;
+  const link = baseUrl;
 
   const handleCopyAll = async () => {
     const text = [

@@ -74,14 +74,14 @@ export class ShareSecurityGuard extends JwtGuard {
     }
 
     // Check view limit before auto-auth
-    if (share.security?.maxViews && share.security.maxViews < share.views) {
+    if (share.security?.maxViews && share.security.maxViews <= share.views) {
       const ip = getRequestIp(request);
       const userAgent = getRequestUserAgent(request);
       void this.shareService.recordViewExceeded(shareId, ip, userAgent);
-      throw new ForbiddenException(
-        this.i18n.t("share.maxViewsExceeded"),
-        "share_max_views_exceeded",
-      );
+      throw new ForbiddenException({
+        message: this.i18n.t("share.maxViewsExceeded"),
+        error: "share_max_views_exceeded",
+      });
     }
 
     // Auto-authenticate via ?pwd= query parameter
@@ -102,17 +102,17 @@ export class ShareSecurityGuard extends JwtGuard {
     }
 
     if (share.security?.password && !shareToken)
-      throw new ForbiddenException(
-        this.i18n.t("file.passwordProtected"),
-        "share_password_required",
-      );
+      throw new ForbiddenException({
+        message: this.i18n.t("file.passwordProtected"),
+        error: "share_password_required",
+      });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (!(await this.shareService.verifyShareToken(share as any, shareToken)))
-      throw new ForbiddenException(
-        this.i18n.t("share.tokenRequired"),
-        "share_token_required",
-      );
+      throw new ForbiddenException({
+        message: this.i18n.t("share.tokenRequired"),
+        error: "share_token_required",
+      });
 
     return true;
   }

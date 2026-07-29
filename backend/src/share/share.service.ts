@@ -449,7 +449,7 @@ export class ShareService {
   ) {
     await this.prisma.share.update({
       where: { id: share.id },
-      data: { views: share.views + 1 },
+      data: { views: { increment: 1 } },
     });
     if (context) {
       void this.downloadLogService.record({
@@ -496,10 +496,10 @@ export class ShareService {
 
     if (share.security?.password) {
       if (!password) {
-        throw new ForbiddenException(
-          this.i18n.t("file.passwordProtected"),
-          "share_password_required",
-        );
+        throw new ForbiddenException({
+          message: this.i18n.t("file.passwordProtected"),
+          error: "share_password_required",
+        });
       }
 
       const isPasswordValid = await argon.verify(
@@ -518,10 +518,10 @@ export class ShareService {
             event: "view",
           });
         }
-        throw new ForbiddenException(
-          this.i18n.t("share.wrongPassword"),
-          "wrong_password",
-        );
+        throw new ForbiddenException({
+          message: this.i18n.t("share.wrongPassword"),
+          error: "wrong_password",
+        });
       }
     }
 
@@ -537,10 +537,10 @@ export class ShareService {
           event: "view",
         });
       }
-      throw new ForbiddenException(
-        this.i18n.t("share.maxViewsExceeded"),
-        "share_max_views_exceeded",
-      );
+      throw new ForbiddenException({
+        message: this.i18n.t("share.maxViewsExceeded"),
+        error: "share_max_views_exceeded",
+      });
     }
 
     const token = await this.generateShareToken({ ...share, security: share.security ?? undefined });

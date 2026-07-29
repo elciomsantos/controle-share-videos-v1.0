@@ -409,7 +409,7 @@ const CreateUploadModalBody = ({
               form,
             )}
           </Text>
-          <Accordion>
+          <Accordion multiple defaultValue={["security"]}>
             <Accordion.Item value="description" style={{ borderBottom: "none" }}>
               <Accordion.Control>
                 <FormattedMessage id="upload.modal.accordion.name-and-description.title" />
