@@ -3,6 +3,10 @@
 
   "lsp": true,
 
+  "experimental": {
+    "mcp_timeout": 60000
+  },
+
   "mcp": {
     "filesystem": {
       "type": "local",
@@ -11,7 +15,7 @@
         "npx",
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "/home/corvo/projetos"
+        "/home/corvo/projects"
       ]
     },
 
@@ -44,7 +48,7 @@
         "@modelcontextprotocol/server-github"
       ],
       "environment": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_TOKEN}"
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "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"
       }
     },
 
@@ -57,7 +61,7 @@
     "openrouter": { 
       "type": "remote",
       "url": "https://mcp.openrouter.ai/mcp", 
-      "apiKey": "{env:OPENROUTER_API_KEY}",
+      "headers": { "Authorization": "Bearer {env:OPENROUTER_API_KEY}" },
       "enabled": true }
   }
 }
