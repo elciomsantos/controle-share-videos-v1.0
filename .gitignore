@@ -67,3 +67,8 @@ backend/server.log
 .opencode/
 opencode.json
 opencode.jsonc
+
+
+# Mas COMMITAR subagentes e skills:
+!.config/opencode/subagents/
+!.config/opencode/skills/

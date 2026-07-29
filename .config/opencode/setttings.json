@@ -1,0 +1,12 @@
+{
+  "project_name": "controle-share-videos",
+  "default_model": "google/gemma-2-9b-it",
+  "language": "pt-BR",
+  "wsl2_optimized": true,
+  "subagents_auto_load": true,
+  "skills_auto_load": true,
+  "paths": {
+    "subagents": ".config/opencode/subagents",
+    "skills": ".config/opencode/skills"
+  }
+}

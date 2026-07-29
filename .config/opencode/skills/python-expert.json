@@ -1,0 +1,21 @@
+{
+  "name": "Python Expert",
+  "type": "skill",
+  "description": "Conhecimentos avançados em Python",
+  "knowledge": [
+    "Type hints e mypy",
+    "Async/await patterns",
+    "Decorators avançados",
+    "Context managers",
+    "FastAPI e Flask",
+    "SQLAlchemy ORM",
+    "Pytest avançado"
+  ],
+  "rules": [
+    "Sempre usar type hints",
+    "Seguir PEP 8 estritamente",
+    "Documentar funções com docstrings",
+    "Usar pathlib para paths (WSL2 compatível)",
+    "Preferir async/await quando possível"
+  ]
+}
