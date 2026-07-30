@@ -14,7 +14,6 @@ import * as crypto from "crypto";
 import * as fs from "fs";
 import dayjs from "dayjs";
 import { I18nService } from "nestjs-i18n";
-import { ClamScanService } from "../clamscan/clamscan.service";
 import { ConfigService } from "../config/config.service";
 import { DownloadLogService } from "../download-log/download-log.service";
 import { EmailService } from "../email/email.service";
@@ -42,7 +41,6 @@ export class ShareService {
     private emailService: EmailService,
     private config: ConfigService,
     private jwtService: JwtService,
-    private clamScanService: ClamScanService,
     private systemService: SystemService,
     private downloadLogService: DownloadLogService,
     private readonly i18n: I18nService,
@@ -245,8 +243,10 @@ export class ShareService {
       );
     }
 
-    // Check if any file is malicious with ClamAV
-    void this.clamScanService.checkAndRemove(share.id);
+    // ClamAV scan removed per formal decision docs/Padronizacao-07-clamav.md
+    // (uploads are owner-only media/videos, air-gapped system incompatible
+    // with freshclam). Mitigations: file-type magic-bytes validation + share
+    // per-file size limit (share.maxFileSize) on upload path.
 
     const updatedShare = await this.prisma.share.update({
       where: { id },

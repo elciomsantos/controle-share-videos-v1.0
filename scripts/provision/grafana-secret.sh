@@ -39,8 +39,8 @@ fi
 if [[ $# -ge 1 ]]; then
   PASSWORD="$1"
 else
-  # cryptographically strong: 32 bytes base64url
-  PASSWORD="$(openssl rand -base64 32 | tr -d '\n')"
+  # cryptographically strong: 32 bytes base64url (RFC 4648 §5)
+  PASSWORD="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=' | tr -d '\n')"
 fi
 
 # Write atomically: write to temp then rename so concurrent readers never see

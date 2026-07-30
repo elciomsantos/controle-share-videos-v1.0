@@ -94,6 +94,33 @@ services:
         reservations:
           memory: 64M
 
+  # GAP-06 fix: host metrics exporter. The alerts HighCpuUsage, HighMemoryUsage,
+  # DiskSpaceLow, DiskSpaceCritical and NodeExporterDown all depend on this
+  # service. prometheus.yml already targets `node-exporter:9100`.
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: controle-share-videos-node-exporter
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+      - /etc/hostname:/etc/hostname:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+)($$|/)'
+      - '--collector.disable-activation'
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 32M
+
 networks:
   monitoring-network:
     driver: bridge

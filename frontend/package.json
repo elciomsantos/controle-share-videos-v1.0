@@ -13,7 +13,14 @@
     "postcss": "8.5.18",
     "sharp": "^0.35.3",
     "next": "^16.2.12",
-    "brace-expansion": "^2.0.2"
+    "brace-expansion": "^2.0.2",
+    "axios": "^1.17.1",
+    "path-to-regexp": "^8.4.0",
+    "js-yaml": "^4.2.0",
+    "uuid": "^11.1.1",
+    "glob": "^11.0.0",
+    "minimatch": "^10.0.3",
+    "handlebars": "^4.7.9"
   },
   "dependencies": {
     "@mantine/core": "^9.4.2",

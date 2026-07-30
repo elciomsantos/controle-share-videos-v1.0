@@ -19,10 +19,16 @@ RUN npm run build
 # Stage 3: Backend dependencies
 # =============================================================================
 FROM node:24-alpine AS backend-dependencies
-RUN apk add --no-cache python3
+# python3 + make + g++ are required for node-gyp (better-sqlite3, argon2 native
+# addons). Installed as a virtual package so they can be purged after `npm ci`
+# finishes, keeping the layer lean (P3 INFRA-LOW-01).
 WORKDIR /opt/app
 COPY backend/package.json backend/package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci --prefer-offline
+RUN --mount=type=cache,target=/root/.npm \
+    apk add --no-cache --virtual .build-deps python3 make g++ \
+    && npm ci --prefer-offline \
+    && apk del --no-cache --purge .build-deps \
+    && npm cache clean --force
 
 # =============================================================================
 # Stage 4: Build backend
@@ -70,10 +76,13 @@ FROM node:24-alpine AS runner
 ENV NODE_ENV=docker
 
 # Install runtime dependencies: curl (healthcheck), caddy (reverse proxy), su-exec (user switching)
+# P3 INFRA-LOW-01: clear the npm cache before removing the npm binary so any
+# residual cache in /root/.npm is dropped from the final image.
 RUN apk update --no-cache && \
     apk upgrade --no-cache && \
     apk add --no-cache curl caddy su-exec openssl && \
-    rm -rf /var/cache/apk/* /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
+    npm cache clean --force && \
+    rm -rf /var/cache/apk/* /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /root/.npm
 
 # Create non-root user and group
 RUN addgroup -g 1000 -S controle-group && \
