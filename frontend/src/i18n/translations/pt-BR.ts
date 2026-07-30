@@ -259,6 +259,7 @@ export default {
   "upload.dropzone.description": "Arraste arquivos aqui para começar o compartilhamento ou use Ctrl+V para anexar conteúdo da área de transferência. Aceitamos arquivos de até {maxSize} no total.",
   "upload.dropzone.notify.file-too-big": "Seus arquivos excedem o tamanho máximo do compartilhamento {maxSize}.",
   "upload.dropzone.notify.video-only": "Apenas arquivos de vídeo são permitidos.",
+  "upload.button.folder.append": "Adicionar mais",
   // FileList.tsx
   "upload.filelist.name": "Nome",
   "upload.filelist.size": "Tamanho",

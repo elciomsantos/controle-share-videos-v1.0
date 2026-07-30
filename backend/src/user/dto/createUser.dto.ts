@@ -4,6 +4,15 @@ import { UserDTO } from "./user.dto";
 
 export class CreateUserDTO extends UserDTO {
   @Allow()
+  id!: string;
+
+  @Allow()
+  hasPassword!: boolean;
+
+  @Allow()
+  totpVerified!: boolean;
+
+  @Allow()
   isAdmin!: boolean;
 
   @Allow()

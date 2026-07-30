@@ -1,9 +1,10 @@
-import { Button, PasswordInput, Stack, Text, Title } from "@mantine/core";
+import { Alert, Button, PasswordInput, Stack, Text, Title } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useRouter } from "next/router";
 import { useIntl } from "react-intl";
 import * as yup from "yup";
 import Head from "next/head";
+import { TbAlertCircle } from "react-icons/tb";
 import useTranslate from "../../hooks/useTranslate.hook";
 import authService from "../../services/auth.service";
 import toast from "../../utils/toast.util";
@@ -50,7 +51,13 @@ const ChangePassword = () => {
     try {
       await authService.updatePassword(values.currentPassword, values.newPassword);
       toast.success(t("account.changePassword.success"));
-      router.push("/");
+      const next =
+        typeof router.query.next === "string" &&
+        router.query.next.startsWith("/") &&
+        !router.query.next.startsWith("//")
+          ? router.query.next
+          : "/";
+      router.push(next);
     } catch (err: any) {
       toast.axiosError(err);
     }
@@ -66,9 +73,14 @@ const ChangePassword = () => {
           {t("account.changePassword.title")}
         </Title>
         {isRestricted && (
-          <Text c="red" ta="center" size="sm" fw={500}>
+          <Alert
+            icon={<TbAlertCircle size={18} />}
+            color="orange"
+            variant="filled"
+            title={t("account.changePassword.restricted")}
+          >
             {t("account.changePassword.restricted")}
-          </Text>
+          </Alert>
         )}
         <form onSubmit={handleSubmit}>
           <Stack gap="md">

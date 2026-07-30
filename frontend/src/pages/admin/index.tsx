@@ -32,7 +32,7 @@ const Admin = () => {
       title: t("admin.button.users"),
       icon: TbUsers,
       route: "/admin/users",
-      roles: ["admin"],
+      roles: ["admin", "auditor"],
     },
     {
       title: t("admin.button.shares"),
@@ -50,7 +50,7 @@ const Admin = () => {
       title: t("admin.button.config"),
       icon: TbSettings,
       route: "/admin/config/general",
-      roles: ["admin"],
+      roles: ["admin", "auditor"],
     },
   ];
 

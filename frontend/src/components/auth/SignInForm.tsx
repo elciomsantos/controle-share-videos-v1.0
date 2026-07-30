@@ -90,8 +90,15 @@ const SignInForm = ({ redirectPath }: { redirectPath: string }) => {
           }?redirect=${encodeURIComponent(redirectPath)}`,
         );
       } else {
-        await refreshUser();
-        router.replace(safeRedirectPath(redirectPath));
+        const user = await refreshUser();
+        if (user?.passwordMustChange) {
+          const next = safeRedirectPath(redirectPath);
+          router.replace(
+            `/account/change-password?restricted=true&next=${encodeURIComponent(next)}`,
+          );
+        } else {
+          router.replace(safeRedirectPath(redirectPath));
+        }
       }
     } catch (e: any) {
       const status = e.response?.status;

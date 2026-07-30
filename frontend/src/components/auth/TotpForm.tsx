@@ -57,8 +57,15 @@ function TotpForm({ redirectPath }: { redirectPath: string }) {
         form.values.code,
         router.query.loginToken as string,
       );
-      await refreshUser();
-      await router.replace(safeRedirectPath(redirectPath));
+      const user = await refreshUser();
+      if (user?.passwordMustChange) {
+        const next = safeRedirectPath(redirectPath);
+        await router.replace(
+          `/account/change-password?restricted=true&next=${encodeURIComponent(next)}`,
+        );
+      } else {
+        await router.replace(safeRedirectPath(redirectPath));
+      }
     } catch (e) {
       toast.axiosError(e);
       form.setFieldError("code", "error");

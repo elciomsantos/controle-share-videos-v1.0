@@ -49,9 +49,31 @@ const Upload = ({
     enabled: isUploading,
   });
 
+  useEffect(() => {
+    if (user?.passwordMustChange && !isUploading) {
+      notifications.show({
+        id: "password-must-change",
+        color: "orange",
+        title: t("account.changePassword.title"),
+        message: t("account.changePassword.restricted"),
+        autoClose: false,
+        withCloseButton: true,
+        onClick: () =>
+          router.push(
+            `/account/change-password?restricted=true&next=${encodeURIComponent(
+              router.asPath,
+            )}`,
+          ),
+      });
+    }
+  }, [user?.passwordMustChange, isUploading, router, t]);
+
   const chunkSize = useRef(parseInt(config.get("share.chunkSize")));
 
   maxShareSize ??= parseInt(config.get("share.maxSize"));
+  if (user?.shareSizeLimit) {
+    maxShareSize = Math.min(maxShareSize, parseInt(user.shareSizeLimit));
+  }
 
   const currentFilesSize = useMemo(() => {
     return files.reduce((acc, file) => acc + file.size, 0);

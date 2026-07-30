@@ -44,12 +44,17 @@ export class UserService {
     let hash: string;
     let temporaryPassword: string | undefined;
 
+    const passwordLength = this.config.get("share.generatedPasswordLength");
+
     if (dto.generatePassword || !dto.password) {
-      temporaryPassword = this.generateSecurePassword(12);
+      temporaryPassword = this.generateSecurePassword(passwordLength);
       hash = await argon.hash(temporaryPassword, ARGON2_OPTIONS);
     } else {
       hash = await argon.hash(dto.password, ARGON2_OPTIONS);
     }
+
+    const role = dto.role ?? "operador";
+    const isAdmin = role === "admin";
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -58,7 +63,8 @@ export class UserService {
             username: dto.username,
             email: dto.email,
             password: hash,
-            role: dto.role ?? "operador",
+            role,
+            isAdmin,
             isActivated: dto.isActivated ?? true,
             shareSizeLimit: dto.shareSizeLimit,
             passwordMustChange: true,
@@ -107,6 +113,8 @@ export class UserService {
         }
       }
 
+      const isAdmin = user.role ? user.role === "admin" : user.isAdmin;
+
       this.logger.log(`User updated: ${id}`);
       return await this.prisma.user.update({
         where: { id },
@@ -115,7 +123,7 @@ export class UserService {
           email: user.email,
           role: user.role,
           isActivated: user.isActivated,
-          isAdmin: user.isAdmin,
+          isAdmin,
           shareSizeLimit: user.shareSizeLimit,
           password: hash,
         },

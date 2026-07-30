@@ -14,10 +14,6 @@ import { ConfigService } from "../../config/config.service";
 import { JwtGuard } from "../../auth/guard/jwt.guard";
 import { Prisma, User } from "../../../prisma/generated/prisma/client";
 import { isEpochZero } from "../../utils/date.util";
-import {
-  getRequestIp,
-  getRequestUserAgent,
-} from "../../utils/request.util";
 
 @Injectable()
 export class ShareSecurityGuard extends JwtGuard {
@@ -71,17 +67,6 @@ export class ShareSecurityGuard extends JwtGuard {
       !isEpochZero(share.expiration)
     ) {
       throw new NotFoundException(this.i18n.t("share.notFound"));
-    }
-
-    // Check view limit before auto-auth
-    if (share.security?.maxViews && share.security.maxViews <= share.views) {
-      const ip = getRequestIp(request);
-      const userAgent = getRequestUserAgent(request);
-      void this.shareService.recordViewExceeded(shareId, ip, userAgent);
-      throw new ForbiddenException({
-        message: this.i18n.t("share.maxViewsExceeded"),
-        error: "share_max_views_exceeded",
-      });
     }
 
     // Auto-authenticate via ?pwd= query parameter

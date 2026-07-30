@@ -11,7 +11,7 @@ export class SystemController {
   constructor(private systemService: SystemService) {}
 
   @Get("info")
-  @Roles("admin")
+  @Roles("admin", "auditor")
   async getSystemInfo(): Promise<SystemInfoDTO | null> {
     return await this.systemService.getSystemInfo();
   }

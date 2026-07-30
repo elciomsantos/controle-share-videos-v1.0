@@ -10,6 +10,8 @@ RUN --mount=type=cache,target=/root/.npm npm ci --prefer-offline
 # Stage 2: Build frontend (Next.js standalone)
 # =============================================================================
 FROM node:24-alpine AS frontend-builder
+ARG API_URL
+ENV API_URL=${API_URL:-http://localhost:3000}
 WORKDIR /opt/app
 COPY ./frontend .
 COPY --from=frontend-dependencies /opt/app/node_modules ./node_modules

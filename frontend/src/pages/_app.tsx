@@ -323,9 +323,6 @@ function App({ Component, pageProps }: AppProps) {
 }
 
 App.getInitialProps = async ({ ctx }: { ctx: GetServerSidePropsContext }) => {
-  if (ctx.req && ctx.resolvedUrl && ctx.resolvedUrl.includes("/admin/users")) {
-    throw new Error("FORCE_ERROR for admin/users");
-  }
   const colorSchemeCookie = await getCookie("mantine-color-scheme", ctx);
   let pageProps: {
     user?: CurrentUser;

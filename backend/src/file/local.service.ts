@@ -121,7 +121,11 @@ export class LocalFileService {
 
     const shareSizeSum = fileSizeSum + diskFileSize + buffer.byteLength;
 
-    const limit = parseInt(this.config.get("share.maxSize"));
+    const globalLimit = parseInt(this.config.get("share.maxSize"));
+    const userLimit = share.creator?.shareSizeLimit
+      ? parseInt(share.creator.shareSizeLimit)
+      : undefined;
+    const limit = userLimit !== undefined ? Math.min(globalLimit, userLimit) : globalLimit;
 
     if (shareSizeSum > limit) {
       throw new HttpException(

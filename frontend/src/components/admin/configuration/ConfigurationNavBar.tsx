@@ -52,7 +52,7 @@ const ConfigurationNavBar = ({
     <Box
       component="nav"
       p="md"
-      hidden={!isMobileNavBarOpened}
+      display={{ base: isMobileNavBarOpened ? 'block' : 'none', sm: 'block' }}
       w={{ sm: 200, lg: 300 }}
       style={{
         "@media (max-width: 767px)": {

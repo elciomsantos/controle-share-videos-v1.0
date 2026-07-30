@@ -25,7 +25,7 @@ async function fetchConfig(apiUrl: string): Promise<any> {
   }
 }
 
-export async function proxy(request: NextRequest) {
+export default async function middleware(request: NextRequest) {
   const routes = {
     unauthenticated: new Routes(["/auth/*", "/"]),
     public: new Routes([
@@ -49,7 +49,7 @@ export async function proxy(request: NextRequest) {
   };
 
   const route = request.nextUrl.pathname;
-    let user: { role: string; isAdmin: boolean } | null = null;
+  let user: { role: string; isAdmin: boolean } | null = null;
   const accessToken = request.cookies.get("access_token")?.value;
 
   try {
@@ -92,7 +92,6 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // prettier-ignore
   const rules = [
     {
       condition: routes.disabled.contains(route),
@@ -111,7 +110,7 @@ export async function proxy(request: NextRequest) {
       path: "/upload",
     },
     {
-      condition: routes.admin.contains(route) && user?.role !== "admin" && user?.isAdmin !== true,
+      condition: routes.admin.contains(route) && user?.role !== "admin" && user?.role !== "auditor" && user?.isAdmin !== true,
       path: "/upload",
     },
     {

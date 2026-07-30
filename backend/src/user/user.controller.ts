@@ -76,14 +76,14 @@ export class UserController {
   // Global user operations (admin only)
   @Get()
   @UseGuards(JwtGuard, RolesGuard)
-  @Roles("admin")
+  @Roles("admin", "auditor")
   async list() {
     return new UserDTO().fromList(await this.userService.list() as unknown as Partial<UserDTO>[]);
   }
 
   @Get("check-availability")
   @UseGuards(JwtGuard, RolesGuard)
-  @Roles("admin")
+  @Roles("admin", "auditor")
   async checkAvailability(
     @Query("username") username?: string,
     @Query("email") email?: string,
@@ -93,7 +93,7 @@ export class UserController {
 
   @Post()
   @UseGuards(JwtGuard, RolesGuard)
-  @Roles("admin")
+  @Roles("admin", "auditor")
   async create(@Body() user: CreateUserDTO) {
     const result = await this.userService.create(user);
     if (result.temporaryPassword) {
@@ -104,14 +104,14 @@ export class UserController {
 
   @Patch(":id")
   @UseGuards(JwtGuard, RolesGuard)
-  @Roles("admin")
+  @Roles("admin", "auditor")
   async update(@Param("id") id: string, @Body() user: UpdateUserDto) {
     return new UserDTO().from(await this.userService.update(id, user) as unknown as Partial<UserDTO>);
   }
 
   @Delete(":id")
   @UseGuards(JwtGuard, RolesGuard)
-  @Roles("admin")
+  @Roles("admin", "auditor")
   async delete(@Param("id") id: string) {
     return new UserDTO().from(await this.userService.delete(id) as unknown as Partial<UserDTO>);
   }
