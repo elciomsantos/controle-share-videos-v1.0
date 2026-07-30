@@ -12,7 +12,7 @@ import {
   StreamableFile,
   UseGuards,
 } from "@nestjs/common";
-import { SkipThrottle } from "@nestjs/throttler";
+import { Throttle } from "@nestjs/throttler";
 import contentDisposition from "content-disposition";
 import { Request, Response } from "express";
 import { DownloadLogService } from "../download-log/download-log.service";
@@ -47,7 +47,9 @@ export class FileController {
   ) {}
 
   @Post()
-  @SkipThrottle()
+  // GAP-03: chunked uploads must be throttled — vector for DoS/abuse.
+  // 30 req/min per IP (chunked uploads case several requests per file).
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @UseGuards(IdValidation, JwtGuard, StrictShareOwnerGuard)
   async create(
     @Query()
@@ -177,7 +179,8 @@ export class FileController {
   }
 
   @Delete(":fileId")
-  @SkipThrottle()
+  // GAP-03: file deletion must also be throttled to prevent abusive cleanup loops.
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @UseGuards(StrictShareOwnerGuard)
   async remove(
     @Param("fileId") fileId: string,

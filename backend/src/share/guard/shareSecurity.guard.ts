@@ -93,6 +93,10 @@ export class ShareSecurityGuard extends JwtGuard {
           res.cookie(`share_${shareId}_token`, token, {
             path: "/",
             httpOnly: true,
+            sameSite: "lax",
+            secure: this.configService.get("general.secureCookies"),
+            // Session cookie: expires when browser closes. Keep parity with
+            // share.controller.ts for short-lived auto-auth via ?pwd= link.
           });
           return true;
         } catch {

@@ -157,8 +157,14 @@ model DownloadLog {
 
   event String @default("download")
 
+  // GAP-02: correlation id propagated from X-Request-Id header so audit rows
+  // can be joined back to application logs. Nullable for rows created before
+  // the column existed (migration backfills NULL) and for background jobs.
+  requestId String?
+
   @@index([shareId])
   @@index([userId])
   @@index([createdAt])
   @@index([event])
+  @@index([requestId])
 }

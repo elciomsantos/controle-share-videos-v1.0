@@ -2,8 +2,10 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from "@nestjs/common";
+import { RequestContextLogger } from "../common/request-context/request-context";
 import { JwtService, JwtSignOptions } from "@nestjs/jwt";
 import { Prisma, Share, User, ShareSecurity } from "../../prisma/generated/prisma/client";
 import archiver from "archiver";
@@ -31,6 +33,8 @@ import { UpdateShareDTO } from "./dto/updateShare.dto";
 
 @Injectable()
 export class ShareService {
+  private readonly logger = new RequestContextLogger(ShareService.name);
+
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
@@ -111,8 +115,16 @@ export class ShareService {
 
   async createZip(shareId: string) {
     const path = `${SHARE_DIRECTORY}/${shareId}`;
-    const MAX_FILES = 10000;
-    const MAX_TOTAL_SIZE = 10 * 1024 * 1024 * 1024; // 10 GB
+
+    // GAP-04: zip-bomb protection — limits are now admin-configurable via
+    // share.zipMaxFiles / share.zipMaxTotalSize / share.zipMaxRatio.
+    const MAX_FILES = this.config.get("share.zipMaxFiles") ?? 10000;
+    const MAX_TOTAL_SIZE = this.config.get("share.zipMaxTotalSize") ?? 10 * 1024 * 1024 * 1024;
+    // Maximum allowed compression ratio (output / input). 103:1 is the classic
+    // zip-bomb threshold (zlib's theoretical deflate worst-case is ~1037:1 for
+    // highly compressible streams); 103 catches naive 42.zip-style bombs while
+    // leaving plenty of headroom for genuinely redundant content.
+    const MAX_RATIO = this.config.get("share.zipMaxRatio") ?? 103;
 
     const files = await this.prisma.file.findMany({ where: { shareId } });
 
@@ -134,6 +146,38 @@ export class ShareService {
     });
     const writeStream = fs.createWriteStream(`${path}/archive.zip`);
 
+    // Abort the stream if the consumed output exceeds totalSize * MAX_RATIO,
+    // which would indicate a zip-bomb attempt (small input -> huge output).
+    let emittedBytes = 0;
+    const bombLimit = Math.max(
+      totalSize * MAX_RATIO,
+      // Guard against totalSize=0 edge case (empty share slipped through):
+      MAX_RATIO,
+    );
+    const bombGuard = new Promise<void>((resolve, reject) => {
+      writeStream.on("close", () => resolve());
+      writeStream.on("error", (err: NodeJS.ErrnoException) =>
+        reject(
+          new InternalServerErrorException({
+            message: "Failed to write zip archive",
+            error: err.message,
+          }),
+        ),
+      );
+      archive.on("data", (chunk: Buffer) => {
+        emittedBytes += chunk.length;
+        if (emittedBytes > bombLimit) {
+          reject(
+            new BadRequestException(
+              `Zip compression ratio exceeded the configured limit of ${MAX_RATIO}:1 (potential zip bomb)`,
+            ),
+          );
+          archive.abort();
+          writeStream.destroy();
+        }
+      });
+    });
+
     for (const file of files) {
       archive.append(fs.createReadStream(`${path}/${file.id}`), {
         name: file.name,
@@ -142,6 +186,7 @@ export class ShareService {
 
     archive.pipe(writeStream);
     await archive.finalize();
+    await bombGuard;
   }
 
   async complete(id: string) {
@@ -167,10 +212,26 @@ export class ShareService {
       );
 
     // Asynchronously create a zip of all files
+    // GAP-04: surface unhandled rejections instead of silently dropping them,
+    // and mark the share as broken so /api/shares/:id/zip returns 500 not 404.
     if (share.files.length > 1)
-      this.createZip(id).then(() =>
-        this.prisma.share.update({ where: { id }, data: { isZipReady: true } }),
-      );
+      this.createZip(id)
+        .then(() =>
+          this.prisma.share.update({ where: { id }, data: { isZipReady: true } }),
+        )
+        .catch((err: unknown) => {
+          const message = err instanceof Error ? err.message : String(err);
+          this.logger.error(
+            `Failed to create zip for share ${id}: ${message}`,
+            err instanceof Error ? err.stack : undefined,
+          );
+          // Leave isZipReady=false; consumers fall back to streaming or
+          // surface an explicit error instead of a hung download.
+          return this.prisma.share.update({
+            where: { id },
+            data: { isZipReady: false },
+          });
+        });
 
     // Send email for each recipient
     for (const recipient of share.recipients) {

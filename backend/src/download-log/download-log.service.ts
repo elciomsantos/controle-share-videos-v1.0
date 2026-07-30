@@ -1,8 +1,9 @@
 import {
   BadRequestException,
   Injectable,
-  Logger,
 } from "@nestjs/common";
+import { RequestContextLogger } from "../common/request-context/request-context";
+import { getRequestContext } from "../common/request-context/request-context";
 import { Prisma } from "../../prisma/generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -20,11 +21,13 @@ export interface DownloadLogEntry {
   success: boolean;
   reason?: string;
   event?: DownloadLogEvent;
+  /** Optional override correlation id; falls back to in-flight request id. */
+  requestId?: string;
 }
 
 @Injectable()
 export class DownloadLogService {
-  private readonly logger = new Logger(DownloadLogService.name);
+  private readonly logger = new RequestContextLogger(DownloadLogService.name);
 
   constructor(private prisma: PrismaService) {}
 
@@ -43,6 +46,10 @@ export class DownloadLogService {
           success: entry.success,
           reason: entry.reason ?? null,
           event: entry.event ?? "download",
+          // GAP-02: prefer an explicit requestId when provided, otherwise
+          // pull the correlation id from the active request context.
+          requestId:
+            entry.requestId ?? getRequestContext()?.requestId ?? null,
         },
       });
     } catch (err: unknown) {

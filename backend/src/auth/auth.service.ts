@@ -2,9 +2,9 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
-  Logger,
   UnauthorizedException,
 } from "@nestjs/common";
+import { RequestContextLogger } from "../common/request-context/request-context";
 import { DuplicatedFieldException } from "../common/duplicated-field.exception";
 import { JwtService } from "@nestjs/jwt";
 import { Prisma, User } from "../../prisma/generated/prisma/client";
@@ -28,7 +28,7 @@ export class AuthService {
     private emailService: EmailService,
     private readonly i18n: I18nService,
   ) {}
-  private readonly logger = new Logger(AuthService.name);
+  private readonly logger = new RequestContextLogger(AuthService.name);
 
   async signUp(
     dto: AuthRegisterDTO,

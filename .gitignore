@@ -34,6 +34,10 @@ yarn-error.log*
 !.env.local.example
 !/backend/prisma/.env
 
+# GOP-06 provisioning secrets — host-side bind-mounted files for Docker
+# compose (grafana, future). Never commit.
+/scripts/secrets/
+
 # vercel
 .vercel
 

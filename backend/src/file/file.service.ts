@@ -1,4 +1,5 @@
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
+import { RequestContextLogger } from "../common/request-context/request-context";
 import { CACHE_MANAGER } from "@nestjs/cache-manager";
 import { Cache } from "cache-manager";
 import { LocalFileService } from "./local.service";
@@ -19,7 +20,7 @@ export class FileService {
     private emailService: EmailService,
     @Inject(CACHE_MANAGER) private cache: Cache,
   ) {}
-  private readonly logger = new Logger(FileService.name);
+  private readonly logger = new RequestContextLogger(FileService.name);
 
   async create(
     data: string,

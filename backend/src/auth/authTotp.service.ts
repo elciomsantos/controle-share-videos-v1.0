@@ -2,9 +2,10 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
-  Logger,
   UnauthorizedException,
 } from "@nestjs/common";
+import { RequestContextLogger } from "../common/request-context/request-context";
+import { getRequestContext } from "../common/request-context/request-context";
 import { User } from "../../prisma/generated/prisma/client";
 import {
   generateSecret,
@@ -32,7 +33,12 @@ export class AuthTotpService {
     private authService: AuthService,
     private readonly i18n: I18nService,
   ) {}
-  private readonly logger = new Logger(AuthTotpService.name);
+  private readonly logger = new RequestContextLogger(AuthTotpService.name);
+
+  /** Helper: best-effort client IP from the request context. */
+  private clientIp(): string {
+    return getRequestContext()?.ip ?? "unknown";
+  }
 
   async signInTotp(dto: AuthSignInTotpDTO) {
     const token = await this.prisma.loginToken.findFirst({
@@ -65,6 +71,9 @@ export class AuthTotpService {
       guardrails: legacyGuardrails,
     });
     if (!verified.valid) {
+      this.logger.debug(
+        `TOTP sign-in failure for user ${token.user.email} from IP ${this.clientIp()} (invalid code)`,
+      );
       throw new BadRequestException(this.i18n.t("auth.invalidCode"));
     }
 
@@ -80,7 +89,7 @@ export class AuthTotpService {
       refreshTokenId,
     );
 
-    this.logger.log(`TOTP sign-in success for user ${token.user.email}`);
+    this.logger.log(`TOTP sign-in success for user ${token.user.email} from IP ${this.clientIp()}`);
     return { accessToken, refreshToken };
   }
 
@@ -120,7 +129,7 @@ export class AuthTotpService {
       join: true,
     }).svg();
 
-    this.logger.log(`TOTP enabled for user ${user.email}`);
+    this.logger.log(`TOTP enabled for user ${user.email} from IP ${this.clientIp()}`);
     return {
       totpAuthUrl: otpURL,
       totpSecret: secret,
@@ -158,7 +167,7 @@ export class AuthTotpService {
       },
     });
 
-    this.logger.log(`TOTP verified for user ${user.email}`);
+    this.logger.log(`TOTP verified for user ${user.email} from IP ${this.clientIp()}`);
     return true;
   }
 
@@ -193,7 +202,7 @@ export class AuthTotpService {
       },
     });
 
-    this.logger.log(`TOTP disabled for user ${user.email}`);
+    this.logger.log(`TOTP disabled for user ${user.email} from IP ${this.clientIp()}`);
     return true;
   }
 }

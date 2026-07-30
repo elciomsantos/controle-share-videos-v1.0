@@ -9,6 +9,8 @@ services:
       - "9090:9090"
     volumes:
       - ./scripts/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      # GAP-06: alerting rules loaded via prometheus.yml `rule_files`.
+      - ./scripts/monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -33,6 +35,11 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/grafana_admin_password
       - GF_INSTALL_PLUGINS=
       - GF_AUTH_ANONYMOUS_ENABLED=false
+    secrets:
+      - source: grafana_admin_password
+        # Bind-mounted by scripts/provision/grafana-secret.sh as a plain file
+        # so plain `docker compose` (without Swarm) can also consume it.
+        target: /run/secrets/grafana_admin_password
     volumes:
       - ./scripts/monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./scripts/monitoring/grafana-datasources:/etc/grafana/provisioning/datasources:ro
@@ -96,3 +103,11 @@ volumes:
   prometheus-data:
   grafana-data:
   loki-data:
+
+secrets:
+  # GAP-06: created by scripts/provision/grafana-secret.sh. The script writes
+  # a plain text file to `scripts/secrets/grafana_admin_password` (gitignored)
+  # and binds it into the container — works with plain `docker compose` and
+  # Docker Swarm alike.
+  grafana_admin_password:
+    file: ./scripts/secrets/grafana_admin_password

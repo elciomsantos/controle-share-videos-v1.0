@@ -1,5 +1,5 @@
 {
-  "$schema": "https://anthropic.ai/config.json",
+  "$schema": "https://opencode.ai/config.json",
 
   "lsp": true,
 
@@ -15,7 +15,7 @@
         "npx",
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "/home/corvo/projects"
+        "/home/suricato/projects"
       ]
     },
 
@@ -23,9 +23,12 @@
       "type": "local",
       "enabled": true,
       "command": [
-        "npx",
-        "-y",
-        "@modelcontextprotocol/server-fetch"
+        "uvx",
+        "--from",
+        "mcp-server-fetch",
+        "--with",
+        "mcp<2",
+        "mcp-server-fetch"
       ]
     },
 
@@ -57,6 +60,37 @@
       "enabled": true,
       "url": "https://mcp.context7.com/mcp"
     },
+
+    "git": { 
+      "type": "local", 
+      "command": [
+        "uvx",
+        "--from",
+        "mcp-server-git",
+        "--with",
+        "mcp<2",
+        "mcp-server-git"
+      ]
+  },
+
+    "sequential-thinking": {
+       "type": "local", 
+       "enabled": true, 
+       "command": [
+         "npx", 
+         "-y", 
+         "@modelcontextprotocol/server-sequential-thinking" 
+         ] 
+      },
+
+    "playwright": {
+       "type": "local",
+        "enabled": true,
+        "command": [ 
+          "npx", 
+          "@playwright/mcp@latest" 
+          ] 
+        },
 
     "openrouter": { 
       "type": "remote",

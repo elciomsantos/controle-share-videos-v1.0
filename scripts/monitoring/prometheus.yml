@@ -2,6 +2,12 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
+# GAP-06: load alerting rules from alerts.yml. The Alertmanager target list
+# stays empty until an alertmanager service is provisioned; rules still fire
+# and surface in the Prometheus UI.
+rule_files:
+  - alerts.yml
+
 scrape_configs:
   - job_name: 'caddy'
     static_configs:

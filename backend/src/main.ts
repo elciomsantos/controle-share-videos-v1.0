@@ -11,6 +11,7 @@ import * as fs from "fs";
 import helmet from "helmet";
 import { I18nValidationExceptionFilter, I18nValidationPipe, I18nService } from "nestjs-i18n";
 import { AppModule } from "./app.module";
+import { runInRequestContext } from "./common/request-context/request-context";
 import { ConfigService } from "./config/config.service";
 import {
   DATA_DIRECTORY,
@@ -87,13 +88,18 @@ async function bootstrap() {
 
   // Correlation ID middleware (MED-04): attach a request id to every request
   // and surface it via the X-Request-Id response header for traceability.
+  // GAP-02: also bind a request context to AsyncLocalStorage so any
+  // downstream call can include the correlation id (and eventually user id)
+  // in its log output via RequestContextLogger without threading it manually.
   app.use((req: Request, res: Response, next: NextFunction) => {
     const incomingId =
       (req.headers["x-request-id"] as string | undefined) ??
       crypto.randomUUID();
     req.headers["x-request-id"] = incomingId;
     res.setHeader("X-Request-Id", incomingId);
-    next();
+
+    const ip = req.ip ?? req.socket?.remoteAddress ?? undefined;
+    runInRequestContext({ requestId: incomingId, ip }, () => next());
   });
 
   // CSRF protection via double-submit cookie (CRIT-01).

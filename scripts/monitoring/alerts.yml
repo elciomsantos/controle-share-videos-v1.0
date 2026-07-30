@@ -1,0 +1,114 @@
+# GAP-06: Prometheus alerting rules grouped under a single file for simplicity.
+# Loaded by prometheus.yml `rule_files`. Alertmanager is wired up via the
+# `alerting` block in prometheus.yml; until an Alertmanager target exists
+# these rules emit alerts visible in the Prometheus UI only.
+
+groups:
+  - name: controle-share-videos-availability
+    interval: 30s
+    rules:
+      - alert: BackendDown
+        expr: up{job="backend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: backend
+        annotations:
+          summary: "Backend is down"
+          description: "NestJS app backend has been unreachable by Prometheus for {{ $value }}s (instance {{ $labels.instance }})."
+
+      - alert: CaddyDown
+        expr: up{job="caddy"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: caddy
+        annotations:
+          summary: "Caddy reverse-proxy is down"
+          description: "Caddy has been unreachable by Prometheus for {{ $value }}s (instance {{ $labels.instance }})."
+
+      - alert: NodeExporterDown
+        expr: up{job="node"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: node-exporter
+        annotations:
+          summary: "node-exporter down"
+          description: "node-exporter has been unreachable for {{ $value }}s — check host agent."
+
+  - name: controle-share-videos-resources
+    interval: 30s
+    rules:
+      - alert: HighCpuUsage
+        expr: 100 - (avg(rate(node_cpu_seconds_total{job="node",mode="idle"}[5m])) * 100) > 90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "Host CPU > 90% for 10 minutes. Current: {{ $value }}%."
+
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Host memory > 90% for 10 minutes. Current: {{ $value }}%."
+
+      - alert: DiskSpaceLow
+        expr: 100 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"} * 100) > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk space low"
+          description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is above 90% full."
+
+      - alert: DiskSpaceCritical
+        expr: 100 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"} * 100) > 95
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Disk space critical"
+          description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is above 95% full."
+
+  - name: controle-share-videos-application
+    interval: 30s
+    rules:
+      - alert: High5xxRate
+        # Caddy exposes per-status error counters when the metrics endpoint is
+        # enabled. Alert when sustained 5xx rate exceeds 1 req/sec for 5 min.
+        expr: sum(rate(caddy_http_request_errors_total[5m])) by (status) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: caddy
+        annotations:
+          summary: "Elevated HTTP 5xx rate"
+          description: "Caddy is serving status {{ $labels.status }} at {{ $value }} req/s for 5 minutes."
+
+      - alert: HighLatencyP99
+        expr: histogram_quantile(0.99, sum(rate(caddy_http_request_duration_seconds_bucket[5m])) by (le)) > 2
+        for: 10m
+        labels:
+          severity: warning
+          service: caddy
+        annotations:
+          summary: "High p99 latency"
+          description: "Caddy p99 latency is above 2s for 10 minutes. Current: {{ $value }}s."
+
+      - alert: SqliteIntegrityFailure
+        # Exported by the verify-db textfile exporter (scripts/monitoring/).
+        # 0 means OK, >0 means PRAGMA integrity_check raised a problem.
+        expr: sqlite_integrity_check_failed > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: sqlite
+        annotations:
+          summary: "SQLite integrity check failed"
+          description: "verify-db reported a failing PRAGMA integrity_check on the share database. Restore from backup immediately."

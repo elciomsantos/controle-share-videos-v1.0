@@ -100,9 +100,32 @@ export const configVariables = {
       defaultValue: "1000000000",
       secret: false,
     },
+    // GAP-01: per-file size limit (limitando ataques via polylots / uploads
+    // individuais anormalmente grandes mesmo quando o total do share permite).
+    maxFileSize: {
+      type: "filesize",
+      defaultValue: "0",
+      secret: false,
+    },
     zipCompressionLevel: {
       type: "number",
       defaultValue: "9",
+    },
+    // GAP-04: zip-bomb protection limits, configurable by admins.
+    zipMaxFiles: {
+      type: "number",
+      defaultValue: "10000",
+      secret: false,
+    },
+    zipMaxTotalSize: {
+      type: "filesize",
+      defaultValue: "10000000000",
+      secret: false,
+    },
+    zipMaxRatio: {
+      type: "number",
+      defaultValue: "103",
+      secret: false,
     },
     chunkSize: {
       type: "filesize",

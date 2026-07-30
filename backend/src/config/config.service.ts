@@ -237,6 +237,39 @@ export class ConfigService extends EventEmitter {
           "Zip compression level must be between 0 and 9",
         ),
       },
+      {
+        key: "share.zipMaxFiles",
+        condition: (value: number) => value >= 1 && value <= 100000,
+        message: this.t(
+          "config.zipMaxFilesValidation",
+          "Zip max files must be between 1 and 100000",
+        ),
+      },
+      {
+        key: "share.zipMaxTotalSize",
+        condition: (value: number) => value >= 1,
+        message: this.t(
+          "config.zipMaxTotalSizeValidation",
+          "Zip max total size must be a positive number of bytes",
+        ),
+      },
+      {
+        key: "share.zipMaxRatio",
+        condition: (value: number) => value >= 1,
+        message: this.t(
+          "config.zipMaxRatioValidation",
+          "Zip max ratio must be at least 1",
+        ),
+      },
+      {
+        // 0 = disabled (fall back to share.maxSize), so allow it.
+        key: "share.maxFileSize",
+        condition: (value: number) => value >= 0,
+        message: this.t(
+          "config.maxFileSizeValidation",
+          "Max file size must be a positive number of bytes (0 = disabled)",
+        ),
+      },
       // TODO add validation for timespan type
     ];
 

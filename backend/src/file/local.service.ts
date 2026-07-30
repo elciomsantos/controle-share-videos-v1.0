@@ -9,6 +9,7 @@ import {
 import * as crypto from "crypto";
 import { createReadStream } from "fs";
 import * as fs from "fs/promises";
+import { fileTypeFromBuffer } from "file-type";
 import mime from "mime-types";
 import { I18nService } from "nestjs-i18n";
 import { ConfigService } from "../config/config.service";
@@ -37,7 +38,10 @@ export class LocalFileService {
       throw new BadRequestException(this.i18n.t("file.invalidIdFormat"));
     }
 
-    // MIME-type allow-list for uploads (MED-06)
+    // MIME-type allow-list for uploads (MED-06).
+    // GAP-01: in addition to the extension allowlist, magic bytes are
+    // validated on the final chunk (see create() below) so a .mp4 file whose
+    // bytes are actually an EXE is rejected regardless of the extension.
     const ALLOWED_EXTENSIONS = new Set([
       // Documents
       ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
@@ -52,10 +56,12 @@ export class LocalFileService {
       ".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz",
       // Text
       ".txt", ".md", ".json", ".xml", ".yaml", ".yml", ".log",
-      // Code
+      // Code (允许; treated as text — not extracted/interpreted server-side)
       ".js", ".ts", ".py", ".java", ".c", ".cpp", ".h", ".hpp", ".rb", ".php",
       ".go", ".rs", ".sh", ".bat", ".ps1",
-      // Other
+      // Other installable media types — magic-byte validation guards against
+      // mislabeled executables (.exe/.elf would fail the declared-extension
+      // match below and be rejected).
       ".iso", ".dmg", ".apk", ".msi",
     ]);
     const ext = file.name.substring(file.name.lastIndexOf(".")).toLowerCase();
@@ -124,6 +130,16 @@ export class LocalFileService {
       );
     }
 
+    // GAP-01: per-file size limit, when configured (> 0 applies). Defends
+    // against a single huge upload consuming the entire share budget.
+    const maxFileSize = parseInt(this.config.get("share.maxFileSize"));
+    if (maxFileSize > 0 && diskFileSize + buffer.byteLength > maxFileSize) {
+      throw new HttpException(
+        `File exceeds per-file size limit of ${maxFileSize} bytes`,
+        HttpStatus.PAYLOAD_TOO_LARGE,
+      );
+    }
+
     await fs.appendFile(
       `${SHARE_DIRECTORY}/${shareId}/${file.id}.tmp-chunk`,
       buffer,
@@ -138,6 +154,40 @@ export class LocalFileService {
       const fileSize = (
         await fs.stat(`${SHARE_DIRECTORY}/${shareId}/${file.id}`)
       ).size;
+
+      // GAP-01: validate real magic bytes against the declared extension to
+      // prevent polyglots / mislabeled payloads (e.g. .mp4 with EXE bytes).
+      // Sanity-sampled first 64 KiB for performance; file-type only needs a
+      // few kilobytes of header in practice. Skip when file-type cannot
+      // determine a type (very small / unknown formats) to avoid blocking
+      // legitimate uploads — the extension allowlist already filters by ext.
+      try {
+        const sampleFd = await fs.open(
+          `${SHARE_DIRECTORY}/${shareId}/${file.id}`,
+          "r",
+        );
+        const sample = Buffer.alloc(Math.min(65536, fileSize));
+        await sampleFd.read(sample, 0, sample.byteLength, 0);
+        await sampleFd.close();
+        const detected = await fileTypeFromBuffer(sample);
+        if (detected) {
+          if (!this.extensionMatchesType(ext, detected.ext)) {
+            // Roll back the rename so the malicious file isn't kept on disk.
+            await fs
+              .unlink(`${SHARE_DIRECTORY}/${shareId}/${file.id}`)
+              .catch(() => undefined);
+            throw new BadRequestException(
+              `File content does not match its extension "${ext}" (detected ${detected.ext}). Upload rejected.`,
+            );
+          }
+        }
+      } catch (e) {
+        // Validation failures are re-thrown for the client; unexpected errors
+        // are swallowed so the upload still completes (fail-open on detection
+        // errors) — the extension allowlist remains the primary safeguard.
+        if (e instanceof BadRequestException) throw e;
+      }
+
       await this.prisma.file.create({
         data: {
           id: file.id,
@@ -149,6 +199,67 @@ export class LocalFileService {
     }
 
     return file;
+  }
+
+  /**
+   * Map declared file extension to expected file-type extension family.
+   * Returns true when they're plausibly the same kind of content.
+   */
+  private extensionMatchesType(declaredExt: string, detectedExt: string): boolean {
+    const normalized = declaredExt.replace(/^\./, "").toLowerCase();
+    const detected = detectedExt.toLowerCase();
+
+    // Equivalent families (declared → acceptable detected extensions).
+    const families: Record<string, string[]> = {
+      jpg: ["jpg", "jpeg"],
+      jpeg: ["jpg", "jpeg"],
+      tif: ["tif", "tiff"],
+      tiff: ["tif", "tiff"],
+      m4v: ["mp4", "m4v"],
+      mp4: ["mp4", "m4v", "mov"],
+      mov: ["mov", "mp4"],
+      mpeg: ["mpg", "mpeg"],
+      mpg: ["mpg", "mpeg"],
+      htaccess: [],
+      txt: [],
+      md: [],
+      json: ["json"],
+      xml: ["xml"],
+      yml: ["yml", "yaml"],
+      yaml: ["yml", "yaml"],
+      log: [],
+      iso: [],
+      iso9660: ["iso"],
+    };
+
+    if (normalized === detected) return true;
+    const family = families[normalized] ?? [];
+    if (family.includes(detected)) return true;
+    // Conservative: when the detected type is in the allowlist above (image,
+    // video, audio, archive, office) we accept extension vs detected mismatch
+    // only within a known safe set, to avoid .jpg actually being .exe.
+    // If the detected extension is one known to be "active" (executable,
+    // document-with-macros) treat as mismatch unless already accounted for.
+    const activeTypes = new Set([
+      "exe",
+      "elf",
+      "msi",
+      "apk",
+      "dex",
+      "jar",
+      "class",
+      "macho",
+      "deb",
+      "rpm",
+      "jar",
+      "pdf", // PDF can carry JS — only accept when declared.
+    ]);
+    if (activeTypes.has(detected) && family.indexOf(detected) === -1) {
+      return false;
+    }
+    // Otherwise accept (e.g. mp3 with mp4 bytes / zip with 7z) — leniency
+    // keeps backwards compat for unusual but non-malicious uploads.
+    return true;
   }
 
   async get(shareId: string, fileId: string) {

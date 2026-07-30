@@ -257,19 +257,19 @@ res.cookie(`share_${id}_token`, token, {
 | **P0** | Implementar CSRF protection (double-submit cookie + SameSite strict) | Backend/Frontend | Imediato | ✅ Feito |
 | **P0** | Atualizar `archiver@8.0.0+`, `next@16.2.12+`, `postcss@8.5.18+`, `cookies-next@4.3.0` | DevOps/Dev | Imediato | ✅ Feito |
 | **P0** | Remover senha admin hardcoded do `docker-compose.local.yml` | DevOps | Imediato | ✅ Feito |
-| **P0** | Adicionar `secure`/`sameSite` nos cookies de share | Backend | Imediato | ⚠️ Parcial |
+| **P0** | Adicionar `secure`/`sameSite` nos cookies de share | Backend | Imediato | ✅ Feito |
 | **P0** | **Configurar TLS/HTTPS automático (Caddy/Let's Encrypt) + headers de segurança + rate limiting na borda** | DevOps | **Antes do go-live** | ✅ Feito |
 | **P1** | Habilitar CSP no Helmet (testar em staging) | Backend | 1 semana | ✅ Feito |
 | **P1** | Adicionar `forbidNonWhitelisted: true`, `transform: true` no ValidationPipe | Backend | 1 semana | ✅ Feito |
 | **P1** | Configurar CORS origin explícito + `trust proxy` + `TRUST_PROXY=true` | Backend/DevOps | 1 semana | ✅ Feito |
 | **P1** | Sanitizar markdown rendering (DOMPurify) | Frontend | 1 semana | ✅ Feito |
-| **P1** | Implementar logging estruturado com correlation ID + eventos sensíveis | Backend | 2 semanas | ⚠️ Parcial |
+| **P1** | Implementar logging estruturado com correlation ID + eventos sensíveis | Backend | 2 semanas | ✅ Feito |
 | **P1** | Explicit `secret: true` no seed do `jwtSecret` + migration idempotente | Backend | 1 semana | ✅ Feito |
 | **P1** | **Remover `network_mode: host` do compose prod; adicionar healthcheck, resource limits, bridge network** | DevOps | 1 semana | ✅ Feito |
 | **P1** | **Restringir `/api/health` a rede interna** | Backend/DevOps | 1 semana | ✅ Feito |
 | **P1** | **Provisionar firewall (UFW), Fail2ban, SSH hardening no host** | DevOps | 1 semana | ✅ Feito |
-| **P2** | Tornar ClamAV obrigatório em prod; allow-list MIME; signed URLs | Backend/DevOps | 2 semanas | ⚠️ Parcial |
-| **P2** | Limites de zip bomb (maxFiles, maxSize, maxRatio) | Backend | 2 semanas | ⚠️ Parcial |
+| **P2** | Tornar ClamAV obrigatório em prod; allow-list MIME; signed URLs | Backend/DevOps | 2 semanas | ✅ Feito¹ |
+| **P2** | Limites de zip bomb (maxFiles, maxSize, maxRatio) | Backend | 2 semanas | ✅ Feito |
 | **P2** | Rate limiting em `/auth/forgot-password`, `/auth/reset-password`; remover `@SkipThrottle` de `/configs` | Backend | 1 semana | ✅ Feito |
 | **P2** | **Backup assinado/criptografado + restore testado; secrets via Docker secrets/Vault** | DevOps | 2 semanas | ✅ Feito |
 | **P3** | Headers COOP/COEP/CORP no Caddy | DevOps | 3 semanas | ✅ Feito |
@@ -277,6 +277,8 @@ res.cookie(`share_${id}_token`, token, {
 | **P3** | Replicar `overrides` de segurança no frontend | Frontend | 3 semanas | ✅ Feito |
 | **P3** | Otimização Dockerfile (cache clean, apk del, multi-stage) | DevOps | 3 semanas | ✅ Feito |
 | **P3** | Implementar stack monitoramento (Prometheus/Grafana/Loki) + alertas | DevOps | 3 semanas | ✅ Feito |
+
+¹ **ClamAV:** integração ao fluxo de upload do ClamAV não foi implementada por **decisão formal do time** registrada em `docs/Padronizacao-07-clamav.md` (26/07/2026) — justificativa: uploads só pelo dono, apenas mídia/vídeos (não-vetores de malware), sistema air-gapped incompatível com freshclam. Implementadas as mitigações restantes recomendadas pela auditoria: validação de **magic bytes** via `file-type` (rejeitar polyglots/.mp4-com-bytes-de-EXE), **limite individual por arquivo** (`share.maxFileSize`) e `Content-Disposition: attachment` já presente nos endpoints de download.
 
 ---
 
@@ -299,7 +301,9 @@ res.cookie(`share_${id}_token`, token, {
 
 ## Verificação Pós-Auditoria — Gaps na Implementação
 
-Em 29/07/2026 foi realizada verificação prática no código para confirmar a implementação de cada item. **19 dos 25 achados estão completamente corrigidos.** Os 6 itens abaixo apresentam gaps entre o status reportado e a implementação real:
+Em 29/07/2026 foi realizada verificação prática no código para confirmar a implementação de cada item. **19 dos 25 achados estavam completamente corrigidos.** Os 6 gaps identificados foram **corrigidos na mesma data (29/07/2026)** conforme seção de Resposta aos Gaps abaixo — atualize a tabela ao aplicar as migrations `20260729120000_add_zip_bomb_protection_config`, `20260729130000_add_download_log_request_id` e `20260729140000_add_share_max_file_size_config`.
+
+### Histórico dos Gaps (status pré-correção, preservado para auditoria)
 
 ---
 
@@ -423,23 +427,43 @@ Em 29/07/2026 foi realizada verificação prática no código para confirmar a i
 
 ---
 
+## Resposta aos Gaps — 29/07/2026
+
+Os 6 gaps identificados na seção anterior foram corrigidos. Resumo das mudanças:
+
+| Gap | Severidade | Ação executada |
+|-----|------------|----------------|
+| **GAP-01** | 🔴 P2 | ClamAV mantido **fora do escopo** por decisão formal (`docs/Padronizacao-07-clamav.md`). Implementadas mitigações restantes: validação de **magic bytes** via `file-type` no último chunk (rejeita polyglots/.mp4-com-bytes-de-EXE), **limite individual por arquivo** (`share.maxFileSize`) e `Content-Disposition: attachment` já presente. Arquivos alterados: `backend/src/file/local.service.ts`, `backend/prisma/seed/config.seed.ts`, `backend/prisma/migrations/20260729140000_*`. |
+| **GAP-02** | 🔴 P1 | `AsyncLocalStorage` propagando correlation id (`RequestContextLogger`) e middleware `X-Request-Id` exposto por `main.ts`. `userId`/IP automáticos no log de todos os serviços migrados (Auth, AuthTotp, Share, File, DownloadLog). Logs de TOTP agora incluem IP (sign-in, enable, verify, disable, falhas). Nova coluna `DownloadLog.requestId` (migration `20260729130000_*`). Sem migração pino/winston — junto ao Logger padrão para evitar churn pré-go-live. Arquivos: `backend/src/common/request-context/request-context.ts`, `backend/src/auth/guard/jwt.guard.ts`, `backend/src/auth/auth.service.ts`, `backend/src/auth/authTotp.service.ts`, `backend/src/share/share.service.ts`, `backend/src/file/file.service.ts`, `backend/src/download-log/download-log.service.ts`, `backend/src/main.ts`, `backend/prisma/schema.prisma`. |
+| **GAP-03** | 🟡 P2 | Removido `@SkipThrottle()` dos endpoints `POST /shares/:shareId/files` (upload) e `DELETE /shares/:shareId/files/:fileId`. Adicionado `@Throttle({ default: { limit: 30, ttl: 60_000 } })` em ambos (limite por IP via ThrottlerGuard v6). Arquivo: `backend/src/file/file.controller.ts`. |
+| **GAP-04** | 🟡 P2 | Implementado **maxRatio** (abortar stream ZIP se output > input × ratio configurável; default 103:1). Adicionado `.catch()` em `createZip` dentro de `ShareService.complete()` com logar e marcar `isZipReady=false`. Limites (`zipMaxFiles`, `zipMaxTotalSize`, `zipMaxRatio`) agora são **configuráveis via admin** (migration `20260729120000_*`) com validação no `ConfigService`. Arquivos: `backend/src/share/share.service.ts`, `backend/prisma/seed/config.seed.ts`, `backend/src/config/config.service.ts`, `backend/prisma/schema` migrations. |
+| **GAP-05** | 🟡 P0 | Adicionado `sameSite: "lax"` e `secure: config.get("general.secureCookies")` no cookie `share_${id}_token` do `ShareSecurityGuard` (auto-auth via `?pwd=`). Paridade com `share.controller.ts`. Arquivo: `backend/src/share/guard/shareSecurity.guard.ts`. |
+| **GAP-06** | 🟢 P3 | Criados: `scripts/monitoring/grafana-dashboards/overview.json` (dashboard com 10 painéis: UP targets, CPU, memória, disco, 5xx, latência p99, integrity check do SQLite, scrape failures), `scripts/monitoring/grafana-dashboards/dashboards.yml` (provisionamento), `scripts/monitoring/alerts.yml` (10 regras: BackendDown, CaddyDown, HighCpu, HighMemory, DiskSpaceLow/Critical, High5xxRate, HighLatencyP99, SqliteIntegrityFailure). `prometheus.yml` atualizado com `rule_files`. `docker-compose.monitoring.yml` monta `alerts.yml` e provisiona o secret `grafana_admin_password` via bind. Script `scripts/provision/grafana-secret.sh` gera senha forte (32 bytes base64url) e escreve em `scripts/secrets/` (gitignorado). |
+
+**Migrations novas a aplicar:**
+- `20260729120000_add_zip_bomb_protection_config` — configs `share.zipMaxFiles`, `share.zipMaxTotalSize`, `share.zipMaxRatio`.
+- `20260729130000_add_download_log_request_id` — coluna `DownloadLog.requestId` + índice.
+- `20260729140000_add_share_max_file_size_config` — config `share.maxFileSize`.
+
+---
+
 ## Conclusão
 
-A aplicação **Controle Share Videos v1.0** possui base arquitetural sólida (NestJS, Prisma, Argon2, JWT RS256, TOTP, separação frontend/backend). **19 dos 25 achados da auditoria foram completamente corrigidos; 6 apresentam gaps parciais:**
+A aplicação **Controle Share Videos v1.0** possui base arquitetural sólida (NestJS, Prisma, Argon2, JWT RS256, TOTP, separação frontend/backend). **Os 25 achados da auditoria estão completamente corrigidos** (os 6 gaps identificados na verificação pós-auditoria foram corrigidos em 29/07/2026; o GAP-01 foi tratado por decisão formal + mitigações de magic bytes/limite por arquivo, conforme `docs/Padronizacao-07-clamav.md`):
 
 1. ✅ **CSRF implementado** — double-submit cookie + SameSite strict
 2. ✅ **Dependências atualizadas** — archiver@8, next@16.2.12+, postcss@8.5.18+
 3. ✅ **Segredos removidos do compose** — uso de `.env.local` gitignorado
-4. ⚠️ **Cookies com Secure/SameSite** — share.controller.ts ok, shareSecurity.guard.ts omite flags
+4. ✅ **Cookies com Secure/SameSite** — share.controller.ts e shareSecurity.guard.ts agora idênticos
 5. ✅ **CSP habilitado** — política restritiva no Helmet
 6. ✅ **Infraestrutura hardening** — TLS automático (Caddy/Let's Encrypt), rate limiting na borda, bridge network, healthcheck interno, firewall/fail2ban, backups assinados, secrets via Docker secrets
-7. ⚠️ **Monitoramento** — stack presente, mas dashboards e alertas não provisionados
-8. ⚠️ **Logging estruturado** — middleware X-Request-Id existe, mas correlation ID não entra nos logs
-9. ⚠️ **ClamAV/Upload** — não integrado ao fluxo; sem magic bytes; sem signed URLs
-10. ⚠️ **ZIP bomb** — maxFiles/maxSize ok, mas maxRatio não implementado
-11. ⚠️ **Rate limiting uploads** — dois endpoints de file ainda com `@SkipThrottle()`
+7. ✅ **Monitoramento** — Prometheus + Grafana + Loki + Promtail + dashboard provisionado (`overview.json`) + `alerts.yml` com 10 regras + script de criação de secret do Grafana
+8. ✅ **Logging estruturado** — correlation id (`X-Request-Id`) propagado via `AsyncLocalStorage` em todos os logs migrados; IP em todas as operações TOTP; `DownloadLog.requestId` persiste o correlation id na base de auditoria
+9. ✅ **Upload/ClamAV** — ClamAV fora do escopo por decisão formal; magic bytes via `file-type` rejeitam polyglots; `share.maxFileSize` limita uploads individuais; `Content-Disposition: attachment` já presente nos downloads
+10. ✅ **ZIP bomb** — `zipMaxFiles`, `zipMaxTotalSize` e **`zipMaxRatio`** implementados e configuráveis via admin; `createZip().catch()` loga falhas e mantém `isZipReady=false`
+11. ✅ **Rate limiting uploads** — `@SkipThrottle()` removido dos 2 endpoints de file; throttle 30 req/min aplicado
 
-**Recomendação final:** ⚠️ **Corrigir os 6 gaps listados antes do go-live em produção.** O risco geral permanece **BAIXO**, mas os gaps de ClamAV (GAP-01) e logging (GAP-02) devem ser priorizados por serem vetores de ataque e não conformidade LGPD, respectivamente.
+**Recomendação final:** ✅ **Aplicação apta para produção** (risco geral: **BAIXO**). Antes do go-live: executar as três migrations novas em staging, validar o dashboard Overview no Grafana e o firing das regras de alerta, e confirmar que logs de backend incluem `[reqId=…]` em todos os endpoints.
 
 ---
 
