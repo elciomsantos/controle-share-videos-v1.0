@@ -76,7 +76,7 @@ api.interceptors.response.use(
 
     if (
       error.response?.status === 403 &&
-      error.response?.data?.message === "auth.passwordMustChange"
+      (error.response?.data as { message?: string } | undefined)?.message === "auth.passwordMustChange"
     ) {
       if (typeof window !== "undefined") {
         const next = window.location.pathname;

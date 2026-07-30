@@ -3,8 +3,8 @@
 
 echo "Creating user and group..."
 
-PUID=${PUID:-1000}
-PGID=${PGID:-1000}
+PUID=${PUID:-1002}
+PGID=${PGID:-1002}
 
 # Check if the group with PGID exists; if not, create it
 if ! getent group controle-group > /dev/null 2>&1; then

@@ -58,8 +58,8 @@ COPY --from=frontend-builder /opt/app/public/img /tmp/img
 FROM node:24-alpine AS backend-runner
 ENV NODE_ENV=production
 # Non-root user
-RUN addgroup -g 1000 -S appgroup && \
-    adduser -u 1000 -S appuser -G appgroup
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -u 1001 -S appuser -G appgroup
 WORKDIR /opt/app/backend
 COPY --from=backend-builder --chown=appuser:appgroup /opt/app/node_modules ./node_modules
 COPY --from=backend-builder --chown=appuser:appgroup /opt/app/dist ./dist
@@ -85,8 +85,8 @@ RUN apk update --no-cache && \
     rm -rf /var/cache/apk/* /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /root/.npm
 
 # Create non-root user and group
-RUN addgroup -g 1000 -S controle-group && \
-    adduser -u 1000 -S controle-user -G controle-group
+RUN addgroup -g 1002 -S controle-group && \
+    adduser -u 1002 -S controle-user -G controle-group
 
 WORKDIR /opt/app
 
