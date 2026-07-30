@@ -441,7 +441,7 @@ export class ShareService {
         ? body.security.maxDownloads
         : currentSecurity?.maxDownloads;
 
-    if (!nextPassword && !nextMaxViews && !nextMaxDownloads) {
+    if (nextPassword == null && nextMaxViews == null && nextMaxDownloads == null) {
       if (currentSecurity) {
         await this.prisma.shareSecurity.delete({ where: { shareId } });
       }

@@ -515,13 +515,18 @@ Foi realizada verificação **no código** (não no relatório) de todas as corr
 
 ---
 
-## Anexos
+### ❌ BUGS nos Limites de Visualização e Download
 
-- `npm audit` JSON completo: `backend/audit-backend.json`, `frontend/audit-frontend.json`
-- Schema Prisma: `backend/prisma/schema.prisma`
-- Docker Compose produçao: `docker-compose.yml` (revisar separadamente)
-- Caddyfile: `reverse-proxy/Caddyfile`
-- Guia de implantação analisado: `docs/Analise-melhoria-implantacao.md`, `docs/Implantacao.md`
+| # | Severidade | Arquivo | Linha | Problema | Correção |
+|---|------------|---------|-------|----------|----------|
+| BUG-01 | 🟡 Média | `backend/src/file/guard/downloadLimit.guard.ts` | 42 | **Off-by-one**: `share.downloads > share.security.maxDownloads` permite `maxDownloads+1` downloads. Ex: maxDownloads=5 → 6º download é permitido (`>` em vez de `>=`) | Trocar `>` por `>=` |
+| BUG-02 | 🟡 Média | `frontend/src/components/share/showShareInformationsModal.tsx` | 300-301 | **Null ao editar**: `values.maxViews \|\| null` envia `null` quando campo vazio, e o backend interpreta como "remover limite". Ex: share com maxViews=5, dono abre edição e salva sem alterar → `maxViews: null` → limite removido | Usar `values.maxViews ?? undefined` para não enviar o campo quando não alterado |
+| BUG-03 | 🟡 Média | `backend/src/share/share.service.ts` | 444 | **Falsy check deleta segurança**: `if (!nextPassword && !nextMaxViews && !nextMaxDownloads)` — `!0` é `true`, então `maxViews: 0` ou `maxDownloads: 0` faz o registro `ShareSecurity` ser deletado (0 significa "ilimitado", não "sem limite") | Verificar explicitamente `=== null \|\| === undefined` em vez de `!value` |
+| BUG-04 | 🟢 Baixa | `backend/src/share/share.controller.ts` | 72-78 | **View count incrementado para criador/admin**: `increaseViewCount` é chamado mesmo quando o guard retorna cedo para o criador (`share.creatorId === user.id`). Criador consome slots de visualização destinados a visitantes | Pular `increaseViewCount` se o usuário for criador ou admin |
+| BUG-05 | 🔴 Crítico | `backend/src/file/guard/fileSecurity.guard.ts` | 104 | **View count incrementado por requisição de arquivo sem token**: Quando não há token, `FileSecurityGuard` incrementa `views` a cada arquivo acessado (inline view). Carregar página com 5 arquivos = 5 `views` + 1 da página. Com `maxViews=5`, o 6º acesso é bloqueado — mesmo na primeira visita se houver 5+ arquivos | `increaseViewCount` no `FileSecurityGuard` deveria registrar "view" de forma agregada ou apenas na página principal |
+| BUG-06 | 🟡 Média | `backend/src/share/guard/shareSecurity.guard.ts` | 77 | **View limit check usa `<=` inconsistente com downloads**: `share.security.maxViews <= share.views` bloqueia quando `views === maxViews`. Já downloads usa `>` (que também está errado, ver BUG-01). Embora o comportamento de views esteja correto (maxViews=5 permite 5 views), a inconsistência entre os dois operadores dificulta manutenção e sugere erro de compreensão | Documentar a semântica ou alinhar ambos os operadores |
+
+**Nota:** BUG-04 e BUG-05 combinados explicam o relato "mesmo na primeira tentativa já mostrou limite excedido": se o criador visita o share (BUG-04, 1 view) e os arquivos são carregados sem token (BUG-05, N views por N arquivos), o contador de views pode exceder `maxViews` antes de qualquer visitante externo acessar.
 
 ---
 

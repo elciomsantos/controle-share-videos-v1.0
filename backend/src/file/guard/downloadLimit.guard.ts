@@ -39,7 +39,7 @@ export class DownloadLimitGuard {
     if (
       share.security?.maxDownloads != null &&
       share.security.maxDownloads > 0 &&
-      share.downloads > share.security.maxDownloads
+      share.downloads >= share.security.maxDownloads
     ) {
       const user = (request as AuthenticatedRequest).user;
       void this.downloadLogService.record({

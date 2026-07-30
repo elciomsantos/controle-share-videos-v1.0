@@ -101,10 +101,6 @@ export class FileSecurityGuard extends ShareSecurityGuard {
         });
       }
 
-      await this._shareService.increaseViewCount(share, {
-        ip: getRequestIp(request),
-        userAgent: getRequestUserAgent(request),
-      });
       return true;
     } else {
       return super.canActivate(context);

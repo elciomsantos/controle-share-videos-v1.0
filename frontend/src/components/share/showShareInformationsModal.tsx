@@ -297,8 +297,8 @@ const EditShareBody = ({
       security: {
         password: values.password || undefined,
         removePassword: values.removePassword,
-        maxViews: values.maxViews || null,
-        maxDownloads: values.maxDownloads || null,
+        maxViews: values.maxViews ?? undefined,
+        maxDownloads: values.maxDownloads ?? undefined,
       },
     };
 

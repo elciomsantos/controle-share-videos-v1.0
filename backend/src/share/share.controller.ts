@@ -69,13 +69,16 @@ export class ShareController {
   @UseGuards(IdValidation, ShareSecurityGuard)
   async get(@Param("id") id: string, @Req() req: Request) {
     const share = await this.shareService.get(id);
-    void this.shareService.increaseViewCount(
-      share as Share,
-      {
-        ip: getRequestIp(req),
-        userAgent: getRequestUserAgent(req),
-      },
-    );
+    const user = req.user as User | undefined;
+    if (!user || (share.creatorId !== user.id && !user.isAdmin)) {
+      void this.shareService.increaseViewCount(
+        share as Share,
+        {
+          ip: getRequestIp(req),
+          userAgent: getRequestUserAgent(req),
+        },
+      );
+    }
     return new ShareDTO().from(share);
   }
 
