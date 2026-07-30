@@ -116,8 +116,8 @@ volumes:
 
 secrets:
   jwt_secret:
-    external: true
+    file: ./secrets/jwt_secret.txt
   admin_password:
-    external: true
+    file: ./secrets/admin_password.txt
   smtp_password:
-    external: true
+    file: ./secrets/smtp_password.txt
