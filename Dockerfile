@@ -96,6 +96,10 @@ WORKDIR /opt/app
 COPY --from=frontend-runner --chown=controle-user:controle-group /opt/app/frontend ./frontend
 COPY --from=frontend-runner --chown=controle-user:controle-group /tmp/img ./frontend/public/img
 
+# Keep a copy of the default images in the image so the entrypoint can restore
+# them into the frontend-images volume (which shadows /opt/app/frontend/public/img)
+COPY --from=frontend-runner --chown=controle-user:controle-group /tmp/img /tmp/img
+
 # Copy backend
 COPY --from=backend-runner --chown=controle-user:controle-group /opt/app/backend ./backend
 

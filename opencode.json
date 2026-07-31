@@ -1,21 +1,19 @@
 {
   "$schema": "https://opencode.ai/config.json",
-
   "lsp": true,
-
   "experimental": {
     "mcp_timeout": 60000
   },
-
+  
   "mcp": {
     "filesystem": {
       "type": "local",
       "enabled": true,
       "command": [
-        "npx",
+        "/home/corvo/.nvm/versions/node/v24.18.0/bin/npx",
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "/home/suricato/projects"
+        "/home/corvo/projects"
       ]
     },
 
@@ -26,8 +24,6 @@
         "uvx",
         "--from",
         "mcp-server-fetch",
-        "--with",
-        "mcp<2",
         "mcp-server-fetch"
       ]
     },
@@ -51,7 +47,7 @@
         "@modelcontextprotocol/server-github"
       ],
       "environment": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "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"
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "{env:GITHUB_PERSONAL_ACCESS_TOKEN}"
       }
     },
 
@@ -61,41 +57,43 @@
       "url": "https://mcp.context7.com/mcp"
     },
 
-    "git": { 
-      "type": "local", 
+    "openrouter": {
+      "type": "remote",
+      "enabled": true,
+      "url": "https://mcp.openrouter.ai/mcp",
+      "headers": {
+        "Authorization": "Bearer {env:OPENROUTER_API_KEY}"
+      }
+    },
+
+    "git": {
+      "type": "local",
+      "enabled": true,
       "command": [
         "uvx",
         "--from",
         "mcp-server-git",
-        "--with",
-        "mcp<2",
         "mcp-server-git"
       ]
-  },
+    },
 
     "sequential-thinking": {
-       "type": "local", 
-       "enabled": true, 
-       "command": [
-         "npx", 
-         "-y", 
-         "@modelcontextprotocol/server-sequential-thinking" 
-         ] 
-      },
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
+    },
 
     "playwright": {
-       "type": "local",
-        "enabled": true,
-        "command": [ 
-          "npx", 
-          "@playwright/mcp@latest" 
-          ] 
-        },
-
-    "openrouter": { 
-      "type": "remote",
-      "url": "https://mcp.openrouter.ai/mcp", 
-      "headers": { "Authorization": "Bearer {env:OPENROUTER_API_KEY}" },
-      "enabled": true }
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "npx",
+        "@playwright/mcp@latest"
+      ]
+    }
   }
 }

@@ -22,6 +22,7 @@ import authService from "../../services/auth.service";
 import Logo from "../Logo";
 import ActionAvatar from "./ActionAvatar";
 import NavbarShareMenu from "./NavbarShareMenu";
+import isAdminOrAuditor from "../../utils/userRole.util";
 
 const HEADER_HEIGHT = 60;
 
@@ -56,7 +57,9 @@ const Header = () => {
       link: "/upload",
       label: t("navbar.upload"),
     },
-    ...(user?.isAdmin ? [{ link: "/admin", label: t("navbar.avatar.admin") }] : []),
+    ...(isAdminOrAuditor(user)
+      ? [{ link: "/admin", label: t("navbar.avatar.admin") }]
+      : []),
     {
       component: <NavbarShareMenu />,
     },
@@ -118,7 +121,7 @@ const Header = () => {
       link: "/account",
       label: t("navbar.avatar.account"),
     },
-    ...(user?.isAdmin
+    ...(isAdminOrAuditor(user)
       ? [
           {
             link: "/admin",

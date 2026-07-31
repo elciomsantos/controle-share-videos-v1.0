@@ -34,6 +34,7 @@ import useTranslate from "../../hooks/useTranslate.hook";
 import shareService from "../../services/share.service";
 import { MyShare } from "../../types/share.type";
 import toast from "../../utils/toast.util";
+import isAdminOrAuditor from "../../utils/userRole.util";
 
 const MyShares = () => {
   const modals = useModals();
@@ -147,7 +148,7 @@ const MyShares = () => {
                               parseInt(config.get("share.maxSize")),
                               config.get("general.appUrl"),
                               config.get("general.appUrl", true),
-                              user?.isAdmin
+                              isAdminOrAuditor(user)
                                 ? { value: 0, unit: "days" }
                                 : config.get("share.maxExpiration"),
                               (updatedShare) =>

@@ -63,7 +63,7 @@ export default function Home() {
             height: "100%",
             opacity: 0.7,
             backgroundImage: `url(/img/logo.png)`,
-            backgroundSize: "300%",
+            backgroundSize: "120%",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
             backgroundColor: "white",

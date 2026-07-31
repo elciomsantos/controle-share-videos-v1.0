@@ -31,6 +31,9 @@ export class CreateUserDTO extends UserDTO {
   @IsOptional()
   generatePassword!: boolean;
 
+  @Allow()
+  passwordMustChange!: boolean;
+
   from(partial: Partial<CreateUserDTO>) {
     return plainToClass(CreateUserDTO, partial, {
       excludeExtraneousValues: true,

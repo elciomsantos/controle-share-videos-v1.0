@@ -19,6 +19,7 @@ import shareService from "../../../services/share.service";
 import { MyShare, Share as ShareType } from "../../../types/share.type";
 import toast from "../../../utils/toast.util";
 import { byteToHumanSizeString } from "../../../utils/fileSize.util";
+import isAdminOrAuditor from "../../../utils/userRole.util";
 import { getQueryString } from "../../../utils/router.util";
 import { HoverTip } from "../../../components/core/HoverTip";
 
@@ -39,7 +40,7 @@ const Share = ({ shareId }: { shareId: string }) => {
   const isOwner = !!user && !!share && share.creator?.id === user.id;
 
   const isOwnerOrAdmin =
-    !!user && !!share && (share.creator?.id === user.id || user.isAdmin);
+    !!user && !!share && (share.creator?.id === user.id || isAdminOrAuditor(user));
   const recipientId = getQueryString(router.query.recipient);
 
   const handleEditClick = async () => {
@@ -53,7 +54,7 @@ const Share = ({ shareId }: { shareId: string }) => {
         parseInt(config.get("share.maxSize")),
         config.get("general.appUrl"),
         config.get("general.appUrl", true),
-        user?.isAdmin
+        isAdminOrAuditor(user)
           ? { value: 0, unit: "days" }
           : config.get("share.maxExpiration"),
         (updatedShare: MyShare) => {

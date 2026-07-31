@@ -21,6 +21,7 @@ import { CreateShare, Share } from "../../types/share.type";
 import toast from "../../utils/toast.util";
 import { useRouter } from "next/router";
 import { getNormalizedFileName, filterDuplicateFiles } from "../../utils/file.util";
+import isAdminOrAuditor from "../../utils/userRole.util";
 
 const promiseLimit = pLimit(3);
 const UPLOAD_ERROR_TOAST_ID = "upload-error-toast";
@@ -177,7 +178,7 @@ const Upload = ({
           "share.allowUnauthenticatedShares",
         ),
         enableEmailRecepients: config.get("email.enableShareEmailRecipients"),
-        maxExpiration: user?.isAdmin
+        maxExpiration: isAdminOrAuditor(user)
           ? { value: 0, unit: "days" }
           : config.get("share.maxExpiration"),
         defaultExpiration: config.get("share.defaultExpiration"),
@@ -291,7 +292,7 @@ const Upload = ({
     <div
       style={{
         minHeight: "100vh",
-        backgroundImage: "linear-gradient(rgba(255,255,255,0.15), rgba(255,255,255,0.15)), url('/img/tela-downloads.png')",
+        backgroundImage: "linear-gradient(rgba(255,255,255,0.15), rgba(255,255,255,0.15)), url('/img/tela-fundo.png')",
         backgroundSize: "40% auto",
         backgroundRepeat: "no-repeat",
         backgroundPosition: "center",
