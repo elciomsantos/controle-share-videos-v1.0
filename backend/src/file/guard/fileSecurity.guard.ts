@@ -39,6 +39,31 @@ export class FileSecurityGuard extends ShareSecurityGuard {
     return isBase64;
   }
 
+  private async enforceMaxViews(
+    request: Request,
+    shareId: string,
+    share: Prisma.ShareGetPayload<{ include: { security: true } }> | null,
+  ) {
+    if (share) {
+      await this._shareService.reloadShareViews(share);
+    }
+    if (share?.security?.maxViews && share.security.maxViews <= share.views) {
+      void this._downloadLogService.record({
+        shareId,
+        fileName: share.name ?? shareId,
+        ip: getRequestIp(request),
+        userAgent: getRequestUserAgent(request),
+        success: false,
+        reason: "maxViewsExceeded",
+        event: "view",
+      });
+      throw new ForbiddenException({
+        message: this._i18n.t("share.maxViewsExceeded"),
+        error: "share_max_views_exceeded",
+      });
+    }
+  }
+
   async canActivate(context: ExecutionContext) {
     const request: Request = context.switchToHttp().getRequest();
 
@@ -85,25 +110,13 @@ export class FileSecurityGuard extends ShareSecurityGuard {
           error: "share_password_required",
         });
 
-      if (share.security?.maxViews && share.security.maxViews <= share.views) {
-        void this._downloadLogService.record({
-          shareId,
-          fileName: share.name ?? shareId,
-          ip: getRequestIp(request),
-          userAgent: getRequestUserAgent(request),
-          success: false,
-          reason: "maxViewsExceeded",
-          event: "view",
-        });
-        throw new ForbiddenException({
-          message: this._i18n.t("share.maxViewsExceeded"),
-          error: "share_max_views_exceeded",
-        });
-      }
-
+      await this.enforceMaxViews(request, shareId, share);
       return true;
     } else {
-      return super.canActivate(context);
+      const result = await super.canActivate(context);
+
+      await this.enforceMaxViews(request, shareId, share);
+      return result;
     }
   }
 }

@@ -540,6 +540,18 @@ export class ShareService {
     }
   }
 
+  async reloadShareViews(
+    share: Share & { security?: { maxViews: number | null } | null },
+  ) {
+    const fresh = await this.prisma.share.findUnique({
+      where: { id: share.id },
+      select: { views: true },
+    });
+    if (fresh) {
+      share.views = fresh.views;
+    }
+  }
+
   async recordViewExceeded(
     shareId: string,
     ip?: string,
