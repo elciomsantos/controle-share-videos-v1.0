@@ -38,9 +38,14 @@ services:
       - BACKEND_PORT=8080
       - DATABASE_URL=file:/opt/app/backend/data/controle-videos.db
       - CADDY_DISABLED=false
+      # Admin bootstrap from Docker secrets (file-based env so seed reads them)
+      - ADMIN_EMAIL_FILE=/run/secrets/admin_email
+      - ADMIN_USERNAME_FILE=/run/secrets/admin_username
+      - ADMIN_PASSWORD_FILE=/run/secrets/admin_password
     # Secrets injected at runtime (INFRA-MED-04)
     secrets:
-      - jwt_secret
+      - admin_email
+      - admin_username
       - admin_password
       - smtp_password
       - acme_email
@@ -149,7 +154,13 @@ volumes:
 secrets:
   # These should be created externally via: echo "value" | docker secret create name -
   # Or via Docker Swarm / Portainer / etc.
-  jwt_secret:
+  #
+  # Note: the JWT secret is NOT a Docker secret. It is generated at first boot
+  # by backend/prisma/seed/config.seed.ts (internal.jwtSecret, locked) and
+  # stored in the database, so no jwt_secret secret is required.
+  admin_email:
+    external: true
+  admin_username:
     external: true
   admin_password:
     external: true

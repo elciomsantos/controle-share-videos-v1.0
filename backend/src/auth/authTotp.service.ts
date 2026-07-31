@@ -10,7 +10,6 @@ import { User } from "../../prisma/generated/prisma/client";
 import {
   generateSecret,
   generateURI,
-  generate,
   verify,
   createGuardrails,
 } from "otplib";
@@ -151,12 +150,13 @@ export class AuthTotpService {
       throw new BadRequestException(this.i18n.t("auth.totpNotInProgress"));
     }
 
-    const expected = await generate({
+    const verified = await verify({
+      token: code,
       secret: totpResult.totpSecret,
       guardrails: legacyGuardrails,
     });
 
-    if (code !== expected) {
+    if (!verified.valid) {
       throw new BadRequestException(this.i18n.t("auth.invalidCode"));
     }
 
@@ -184,12 +184,13 @@ export class AuthTotpService {
       throw new BadRequestException(this.i18n.t("auth.totpNotEnabled"));
     }
 
-    const expected = await generate({
+    const verified = await verify({
+      token: code,
       secret: disableResult.totpSecret,
       guardrails: legacyGuardrails,
     });
 
-    if (code !== expected) {
+    if (!verified.valid) {
       throw new BadRequestException(this.i18n.t("auth.invalidCode"));
     }
 

@@ -110,6 +110,15 @@ export default async function middleware(request: NextRequest) {
       path: "/upload",
     },
     {
+      condition:
+        user &&
+        (route.startsWith("/admin/users") ||
+          route.startsWith("/admin/config")) &&
+        user?.role !== "admin" &&
+        user?.isAdmin !== true,
+      path: "/upload",
+    },
+    {
       condition: routes.admin.contains(route) && user?.role !== "admin" && user?.role !== "auditor" && user?.isAdmin !== true,
       path: "/upload",
     },

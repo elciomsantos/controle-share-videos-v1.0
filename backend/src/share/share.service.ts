@@ -1,11 +1,14 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
 } from "@nestjs/common";
 import { RequestContextLogger } from "../common/request-context/request-context";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import { Cache } from "cache-manager";
 import { JwtService, JwtSignOptions } from "@nestjs/jwt";
 import { Prisma, Share, User, ShareSecurity } from "../../prisma/generated/prisma/client";
 import archiver from "archiver";
@@ -34,6 +37,11 @@ import { UpdateShareDTO } from "./dto/updateShare.dto";
 export class ShareService {
   private readonly logger = new RequestContextLogger(ShareService.name);
 
+  /**
+   * Window during which repeated views from the same share+IP+UA are deduplicated.
+   */
+  private static readonly VIEW_DEDUP_WINDOW_MS = 60 * 60 * 1000;
+
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
@@ -43,6 +51,7 @@ export class ShareService {
     private jwtService: JwtService,
     private systemService: SystemService,
     private downloadLogService: DownloadLogService,
+    @Inject(CACHE_MANAGER) private cache: Cache,
     private readonly i18n: I18nService,
   ) {}
 
@@ -524,6 +533,19 @@ export class ShareService {
     share: Share,
     context?: { ip?: string; userAgent?: string | null },
   ) {
+    // Deduplicate views per share+source within a short window so repeated hits
+    // from the same IP/UA (or bots) don't inflate view counts or flood the
+    // audit log.
+    const ip = context?.ip ?? "unknown";
+    const uaKey = crypto
+      .createHash("sha256")
+      .update(context?.userAgent ?? "")
+      .digest("hex")
+      .slice(0, 16);
+    const dedupKey = `share-view:${share.id}:${ip}:${uaKey}`;
+    if (await this.cache.get<true>(dedupKey)) return;
+    await this.cache.set(dedupKey, true, ShareService.VIEW_DEDUP_WINDOW_MS);
+
     await this.prisma.share.update({
       where: { id: share.id },
       data: { views: { increment: 1 } },
@@ -532,7 +554,7 @@ export class ShareService {
       void this.downloadLogService.record({
         shareId: share.id,
         fileName: share.name ?? share.id,
-        ip: context.ip ?? "unknown",
+        ip,
         userAgent: context.userAgent ?? null,
         success: true,
         event: "view",

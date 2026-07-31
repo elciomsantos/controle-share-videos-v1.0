@@ -24,7 +24,9 @@ export const configVariables = {
     },
     secureCookies: {
       type: "boolean",
-      defaultValue: "false",
+      // Cookies only get the Secure attribute when served over HTTPS. Default
+      // to true in production (behind Caddy/TLS), false in dev (plain HTTP).
+      defaultValue: process.env.NODE_ENV === "production" ? "true" : "false",
     },
     showHomePage: {
       type: "boolean",
@@ -154,7 +156,10 @@ export const configVariables = {
     },
     downloadLogRetentionDays: {
       type: "number",
-      defaultValue: "0",
+      // Non-zero default so the audit log is pruned automatically (0 = keep
+      // forever). Existing installs keep their current value; this only affects
+      // fresh deployments.
+      defaultValue: "90",
       secret: false,
     },
     generatedPasswordLength: {

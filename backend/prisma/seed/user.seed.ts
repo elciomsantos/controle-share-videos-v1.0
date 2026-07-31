@@ -1,5 +1,6 @@
 import { PrismaClient } from "../generated/prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import * as fs from "fs";
 import * as argon2 from "argon2";
 
 // Same options as src/constants.ts ARGON2_OPTIONS
@@ -10,10 +11,25 @@ const ARGON2_OPTIONS = {
   parallelism: 2,
 } as const;
 
+// Reads a Docker secret from the `<NAME>_FILE` env var (Docker secrets mount as
+// files under /run/secrets), falling back to the plain `<NAME>` env var.
+function readSecretEnv(name: string): string | undefined {
+  const filePath = process.env[`${name}_FILE`];
+  if (filePath) {
+    try {
+      const value = fs.readFileSync(filePath, "utf8").trim();
+      if (value) return value;
+    } catch (e) {
+      console.warn(`Failed to read ${name}_FILE at ${filePath}:`, e);
+    }
+  }
+  return process.env[name];
+}
+
 async function seedAdminUser() {
-  const email = process.env.ADMIN_EMAIL;
-  const username = process.env.ADMIN_USERNAME;
-  const password = process.env.ADMIN_PASSWORD;
+  const email = readSecretEnv("ADMIN_EMAIL");
+  const username = readSecretEnv("ADMIN_USERNAME");
+  const password = readSecretEnv("ADMIN_PASSWORD");
 
   if (!email || !username || !password) {
     console.log(

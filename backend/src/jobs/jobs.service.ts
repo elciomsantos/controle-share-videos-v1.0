@@ -141,6 +141,29 @@ export class JobsService {
     }
   }
 
+  @Cron("0 2 * * *")
+  async deleteExpiredDownloadLogs() {
+    const retentionDays = this.configServer.get(
+      "share.downloadLogRetentionDays",
+    );
+
+    if (retentionDays <= 0) {
+      return;
+    }
+
+    const thresholdDate = dayjs().subtract(retentionDays, "day").toDate();
+
+    const { count } = await this.prisma.downloadLog.deleteMany({
+      where: { createdAt: { lt: thresholdDate } },
+    });
+
+    if (count > 0) {
+      this.logger.log(
+        `Deleted ${count} download log entries older than ${retentionDays} days`,
+      );
+    }
+  }
+
   @Cron("0 * * * *")
   async deleteUnactivatedUsers() {
     const cutoff = dayjs().subtract(24, "hours").toDate();

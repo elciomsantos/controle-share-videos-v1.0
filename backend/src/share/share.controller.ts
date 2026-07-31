@@ -65,6 +65,12 @@ export class ShareController {
   }
 
   @Get(":id")
+  @Throttle({
+    default: {
+      limit: 30,
+      ttl: 60_000,
+    },
+  })
   @Public()
   @UseGuards(IdValidation, ShareSecurityGuard)
   async get(@Param("id") id: string, @Req() req: Request) {
@@ -89,6 +95,12 @@ export class ShareController {
   }
 
   @Get(":id/metaData")
+  @Throttle({
+    default: {
+      limit: 30,
+      ttl: 60_000,
+    },
+  })
   @Public()
   @UseGuards(IdValidation, ShareSecurityGuard)
   async getMetaData(@Param("id") id: string) {

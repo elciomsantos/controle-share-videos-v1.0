@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { Prisma } from "../../prisma/generated/prisma/client";
+import * as crypto from "crypto";
 import argon from "argon2";
 import { I18nService } from "nestjs-i18n";
 import { ARGON2_OPTIONS } from "../constants";
@@ -33,11 +34,10 @@ export class UserService {
 
   private generateSecurePassword(length = 12): string {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-    let password = "";
-    for (let i = 0; i < length; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return password;
+    const bytes = crypto.randomBytes(length);
+    return Array.from(bytes)
+      .map((b) => chars[b % chars.length])
+      .join("");
   }
 
   async create(dto: CreateUserDTO) {

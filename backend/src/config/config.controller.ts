@@ -45,7 +45,7 @@ export class ConfigController {
   }
 
   @Get("admin/:category")
-  @Roles("admin", "auditor")
+  @Roles("admin")
   async getByCategory(@Param("category") category: string) {
     return new AdminConfigDTO().fromList(
       await this.configService.getByCategory(category),
@@ -53,7 +53,7 @@ export class ConfigController {
   }
 
   @Patch("admin")
-  @Roles("admin", "auditor")
+  @Roles("admin")
   async updateMany(@Body() data: UpdateConfigDTO[]) {
     return new AdminConfigDTO().fromList(
       (await this.configService.updateMany(data)) as Partial<AdminConfigDTO>[],
@@ -61,13 +61,13 @@ export class ConfigController {
   }
 
   @Post("admin/testEmail")
-  @Roles("admin", "auditor")
+  @Roles("admin")
   async testEmail(@Body() { email }: TestEmailDTO) {
     await this.emailService.sendTestMail(email);
   }
 
   @Post("admin/testRedis")
-  @Roles("admin", "auditor")
+  @Roles("admin")
   async testRedis() {
     const redisUrl = this.configService.get("cache.redis-url");
     const enabled = this.configService.get("cache.redis-enabled");
@@ -145,7 +145,7 @@ export class ConfigController {
 
   @Post("admin/logo")
   @UseInterceptors(FileInterceptor("file"))
-  @Roles("admin", "auditor")
+  @Roles("admin")
   async uploadLogo(
     @UploadedFile(
       new ParseFilePipe({
@@ -159,7 +159,7 @@ export class ConfigController {
 
   @Post("admin/logoDark")
   @UseInterceptors(FileInterceptor("file"))
-  @Roles("admin", "auditor")
+  @Roles("admin")
   async uploadDarkLogo(
     @UploadedFile(
       new ParseFilePipe({
