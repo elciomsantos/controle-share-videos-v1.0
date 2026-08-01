@@ -1,393 +1,250 @@
-Pré‑requisitos
-IP público fixo (você já tem).
+# Configuração de Domínio Grátis (No-IP) com IP Fixo
 
-Portas 80 e 443 do seu roteador redirecionadas para o IP local do servidor onde o Docker está rodando.
+## Controle Share Videos v1.0
 
-Container runner com Caddy já funcionando internamente (portas 8080 e 3333).
+Este guia detalha como configurar um hostname No-IP gratuito apontando
+para seu IP público fixo, de modo que o Caddy provisione certificados
+TLS Let's Encrypt automaticamente e a aplicação gere links corretos.
 
-Uma conta gratuita no No-IP (crie se ainda não tiver).
+---
 
-1. Criar o hostname no No‑IP
-Faça login no site do No‑IP.
+## 1. Pré-requisitos
 
-Vá em “Dynamic DNS” → “No-IP Hostnames”.
+| Item | Obrigatório? | Detalhes |
+|------|--------------|----------|
+| IP público **fixo** | Sim | Seu provedor deve entregar IP estático (não DHCP/CGNAT). |
+| Port forwarding 80/443 | Sim | Roteador encaminha TCP 80 e 443 para o IP **local** do servidor Ubuntu (ex: `192.168.1.50`). |
+| Conta No-IP | Sim | Gratuita em <https://www.noip.com/sign-up>. |
+| Docker secrets | Sim | `domain` e `acme_email` já criados (ver `Implantacao.md` seção 7). |
+| `general.appUrl` no banco | Sim | Deve ser definido **após** o certificado emitido (seção 5). |
 
-Clique em “Create Hostname”.
+> **Não use DUC (Dynamic Update Client)** — seu IP é fixo. O No-IP só serve
+> para dar um hostname `*.ddns.net` ao IP estático.
 
-Preencha:
+---
 
-Hostname: escolha um nome (ex: meusistema).
+## 2. Criar o hostname no No-IP
 
-Domain: selecione um domínio gratuito (ex: ddns.net, hopto.org, zapto.org). Exemplo final: meusistema.ddns.net.
+1. Acesse <https://my.noip.com/> e faça login.
+2. Menu lateral: **Dynamic DNS** → **No-IP Hostnames**.
+3. Clique **Create Hostname**.
+4. Preencha:
+   - **Hostname**: escolha um nome curto (ex: `meusistema`)
+   - **Domain**: selecione um domínio gratuito (ex: `ddns.net`, `hopto.org`, `zapto.org`)
+     - Resultado: `meusistema.ddns.net`
+   - **Record Type**: `A (IPv4 Address)`
+   - **IPv4 Address**: o painel detecta seu IP público automaticamente.
+     Como seu IP é fixo, apenas confirme o valor sugerido.
+5. Clique **Create Hostname**.
 
-Record Type: A (IPv4 Address).
+> **Confirmação mensal obrigatória**: a conta gratuita exige clicar no link
+> de confirmação que o No-IP envia por e-mail a cada 30 dias. Se não
+> confirmar, o hostname é removido. Configure lembrete no calendário ou
+> use o plano pago (baixo custo) para evitar.
 
-IPv4 Address: o sistema já detecta seu IP público automaticamente; como seu IP é fixo, pode deixar o valor sugerido.
+---
 
-Clique em “Create Hostname”.
+## 3. Port Forwarding no Roteador
 
-Pronto, agora meusistema.ddns.net aponta para seu IP público.
+No painel do roteador (geralmente `192.168.1.1` ou `192.168.0.1`):
 
-Nota sobre a conta gratuita: O No‑IP exige que você confirme o hostname a cada 30 dias (eles enviam um e‑mail com um link; é só clicar). Se não confirmar, o hostname é removido. Para evitar isso, você pode usar o plano pago (barato) ou simplesmente confirmar mensalmente.
+| Porta Externa | IP Interno (Ubuntu) | Porta Interna | Protocolo |
+|---------------|---------------------|---------------|-----------|
+| 80            | `192.168.x.y`       | 80            | TCP       |
+| 443           | `192.168.x.y`       | 443           | TCP       |
 
-2. Liberar as portas no roteador (port forwarding)
-No painel do seu roteador, crie duas regras:
+- `192.168.x.y` = IP **fixo** da interface de rede do servidor Ubuntu na LAN.
+- Reserve esse IP no DHCP do roteador (MAC binding) ou configure IP estático no Ubuntu.
 
-Porta externa	IP interno	Porta interna	Protocolo
-80	IP do servidor	80	TCP
-443	IP do servidor	443	TCP
-O IP interno é aquele da máquina onde o container runner está executando (ex: 192.168.1.100).
+Teste externo (de fora da LAN):
+```bash
+# Deve responder na porta 80 (HTTP)
+curl -I http://meusistema.ddns.net
+# HTTP/1.1 308 Permanent Redirect  → Location: https://meusistema.ddns.net/
 
-3. Ajustar o Caddyfile (dentro do container runner)
-Edite o arquivo Caddyfile que está sendo copiado para o container. Substitua o conteúdo atual por:
+# Deve responder na porta 443 (HTTPS) após Caddy provisionar
+curl -I https://meusistema.ddns.net
+# HTTP/2 200  (ou 302 para /auth/signIn se não logado)
+```
 
-caddy
-meusistema.ddns.net {
-    # Headers básicos de segurança
-    header {
-        X-Content-Type-Options nosniff
-        X-Frame-Options DENY
-        X-XSS-Protection "1; mode=block"
-        Referrer-Policy strict-origin-when-cross-origin
-        -Server
-    }
+---
 
-    # Proxy reverso para a API NestJS
-    handle /api/* {
-        reverse_proxy localhost:8080 {
-            header_up Host {host}
-            header_up X-Real-IP {remote_host}
-        }
-    }
+## 4. Configurar Docker secrets `domain` e `acme_email`
 
-    # Frontend Next.js (rota padrão)
-    handle {
-        reverse_proxy localhost:3333 {
-            header_up Host {host}
-            header_up X-Real-IP {remote_host}
-        }
-    }
+Se já não criou (ver `Implantacao.md` seção 7):
 
-    # Log de acessos (opcional, mas útil)
-    log {
-        output stdout
-    }
+```bash
+# Domain = hostname No-IP exato
+echo "meusistema.ddns.net" | docker secret create domain -
+
+# E-mail para Let's Encrypt (expiração, avisos de segurança)
+echo "seu-email@empresa.local" | docker secret create acme_email -
+```
+
+Verificar:
+```bash
+docker secret inspect domain acme_email
+# Deve mostrar os valores corretos
+```
+
+---
+
+## 5. Caddy provisiona Let's Encrypt automaticamente
+
+O arquivo `reverse-proxy/Caddyfile.prod` já está preparado:
+
+```caddyfile
+{
+    admin off
+    auto_https disable_redirects
 }
-O que mudou?
 
-Trocamos :80 por meusistema.ddns.net.
-
-Com um nome de domínio real, o Caddy automaticamente tentará obter um certificado SSL via Let’s Encrypt e redirecionará HTTP → HTTPS.
-
-Não é necessário declarar tls ou qualquer outro bloco; a mágica acontece sozinha.
-
-Se, por algum motivo, você quiser forçar HTTP por enquanto (não recomendado), substitua a primeira linha por http://meusistema.ddns.net. Mas o ideal é usar HTTPS, pois gera confiança nos links compartilhados.
-
-4. Atualizar o docker-compose.yml
-Você precisa expor também a porta 443 e definir a variável de ambiente com a URL pública, para que os links gerados pelo NestJS usem o hostname.
-
-Edite seu docker-compose.yml:
-
-yaml
-version: '3.8'
-
-services:
-  runner:
-    build: .
-    container_name: runner
-    ports:
-      - "80:80"
-      - "443:443"           # ← adicionar esta linha
-    volumes:
-      - runner-data:/backend/data
-    environment:
-      - PUBLIC_URL=https://meusistema.ddns.net   # ← variável para o NestJS
-    restart: unless-stopped
-
-volumes:
-  runner-data:
-    driver: local
-Explicação:
-
-A porta 443 agora está mapeada, permitindo o tráfego HTTPS.
-
-A variável PUBLIC_URL será lida pelo seu backend para montar os links dos compartilhamentos (ex: https://meusistema.ddns.net/share/xyz). Ajuste o código do NestJS se necessário, algo como:
-
-typescript
-const shareLink = `${process.env.PUBLIC_URL}/share/${token}`;
-5. Reconstruir e iniciar o container
-Pare o container atual, reconstrua a imagem (se o Caddyfile estiver dentro da build) e suba novamente:
-
-bash
-docker-compose down
-docker-compose build --no-cache   # garante que a cópia do novo Caddyfile seja usada
-docker-compose up -d
-Verifique os logs para ver o Caddy provisionando o certificado:
-
-bash
-docker logs -f runner
-Você deverá ver mensagens como:
-
-text
-[INFO] [meusistema.ddns.net] acme: Obtaining certificate...
-[INFO] [meusistema.ddns.net] serving with TLS
-Se a porta 80 e 443 estiverem corretamente abertas e o DNS propagado (normalmente instantâneo), o certificado será emitido em poucos segundos.
-
-6. Testar
-Acesse de qualquer navegador (inclusive externo) https://meusistema.ddns.net.
-
-Deve aparecer o frontend Next.js, com o cadeado verde de conexão segura.
-
-Teste a API: https://meusistema.ddns.net/api/... (algum endpoint público).
-
-Verifique se os links gerados pelo sistema agora usam o hostname.
-
-Extras e boas práticas
-Manutenção do No‑IP
-Fique atento ao e‑mail de confirmação a cada 30 dias. Se perder o prazo, o hostname some e os links param de funcionar. Você pode optar por um plano pago (cerca de US$ 2/mês) para eliminar essa exigência e ter mais domínios.
-
-Como seu IP é fixo, não é necessário instalar o cliente de atualização dinâmica (DUC) do No‑IP. Porém, se houver a mínima chance de o IP mudar, instale o DUC no servidor ou use um script simples de atualização.
-
-Streaming de vídeos
-Lembre-se de que, com o Caddy servindo como proxy, o streaming de arquivos grandes ainda passará pelo NestJS, a menos que você sirva os arquivos diretamente pelo Caddy (file_server). Avalie se o desempenho está adequado.
-
-Segurança adicional
-O Caddy já aplica boas práticas de TLS (HTTP/2, ciphers modernos). Mas você pode adicionar mais cabeçalhos de segurança se necessário.
-
-Como o tráfego agora é criptografado, o compartilhamento de links fica muito mais seguro.
-
-Resumo visual do fluxo final
-text
-Internet (usuário externo)
-     │
-     ▼
-https://meusistema.ddns.net
-     │
-     │ (portas 80/443 do roteador)
-     ▼
-Servidor local (IP fixo privado)
-     │
-     │ docker (portas 80/443 mapeadas)
-     ▼
-Container runner (Caddy)
-     ├── /api/*  → NestJS :8080
-     └── /*      → Next.js :3333
-Com essa configuração, seus links ficarão assim:
-
-text
-https://meusistema.ddns.net/share/a1b2c3d4
-
-
-
-Pré‑requisitos
-IP público fixo (você já tem).
-
-Portas 80 e 443 do seu roteador redirecionadas para o IP local do servidor onde o Docker está rodando.
-
-Container runner com Caddy já funcionando internamente (portas 8080 e 3333).
-
-Uma conta gratuita no No-IP (crie se ainda não tiver).
-
-1. Criar o hostname no No‑IP
-Faça login no site do No‑IP.
-
-Vá em “Dynamic DNS” → “No-IP Hostnames”.
-
-Clique em “Create Hostname”.
-
-Preencha:
-
-Hostname: escolha um nome (ex: meusistema).
-
-Domain: selecione um domínio gratuito (ex: ddns.net, hopto.org, zapto.org). Exemplo final: meusistema.ddns.net.
-
-Record Type: A (IPv4 Address).
-
-IPv4 Address: o sistema já detecta seu IP público automaticamente; como seu IP é fixo, pode deixar o valor sugerido.
-
-Clique em “Create Hostname”.
-
-Pronto, agora meusistema.ddns.net aponta para seu IP público.
-
-Nota sobre a conta gratuita: O No‑IP exige que você confirme o hostname a cada 30 dias (eles enviam um e‑mail com um link; é só clicar). Se não confirmar, o hostname é removido. Para evitar isso, você pode usar o plano pago (barato) ou simplesmente confirmar mensalmente.
-
-2. Liberar as portas no roteador (port forwarding)
-No painel do seu roteador, crie duas regras:
-
-Porta externa	IP interno	Porta interna	Protocolo
-80	IP do servidor	80	TCP
-443	IP do servidor	443	TCP
-O IP interno é aquele da máquina onde o container runner está executando (ex: 192.168.1.100).
-
-3. Ajustar o Caddyfile (dentro do container runner)
-Edite o arquivo Caddyfile que está sendo copiado para o container. Substitua o conteúdo atual por:
-
-caddy
-meusistema.ddns.net {
-    # Headers básicos de segurança
-    header {
-        X-Content-Type-Options nosniff
-        X-Frame-Options DENY
-        X-XSS-Protection "1; mode=block"
-        Referrer-Policy strict-origin-when-cross-origin
-        -Server
-    }
-
-    # Proxy reverso para a API NestJS
-    handle /api/* {
-        reverse_proxy localhost:8080 {
-            header_up Host {host}
-            header_up X-Real-IP {remote_host}
-        }
-    }
-
-    # Frontend Next.js (rota padrão)
-    handle {
-        reverse_proxy localhost:3333 {
-            header_up Host {host}
-            header_up X-Real-IP {remote_host}
-        }
-    }
-
-    # Log de acessos (opcional, mas útil)
-    log {
-        output stdout
-    }
+# HTTP → HTTPS redirect
+http:// {
+    redir https://{host}{uri} permanent
 }
-O que mudou?
 
-Trocamos :80 por meusistema.ddns.net.
+# Produção: HTTPS com TLS automático via Let's Encrypt
+https://{$DOMAIN} {
+    tls {$ACME_EMAIL} {
+        protocols tls1.2 tls1.3
+        ciphers TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 ...
+    }
+    # Security headers, rate limit, reverse_proxy backend:8080 / frontend:3333
+    # ... (resto do arquivo inalterado)
+}
+```
 
-Com um nome de domínio real, o Caddy automaticamente tentará obter um certificado SSL via Let’s Encrypt e redirecionará HTTP → HTTPS.
+**Como funciona**:
+1. Caddy lê `{$DOMAIN}` do secret `domain` (montado em `/run/secrets/domain`)
+2. Caddy lê `{$ACME_EMAIL}` do secret `acme_email`
+3. Ao iniciar, Caddy contacta Let's Encrypt via ACME HTTP-01 (porta 80)
+4. Se domínio resolve para o IP e porta 80 chega ao container, certificado é emitido em segundos
+5. Caddy renova automaticamente 30 dias antes da expiração
 
-Não é necessário declarar tls ou qualquer outro bloco; a mágica acontece sozinha.
+> **Requisito**: porta 80 **deve** estar acessível publicamente durante a emissão/renovação.
+> O `http://` block redireciona para HTTPS, mas responde ao challenge ACME.
 
-Se, por algum motivo, você quiser forçar HTTP por enquanto (não recomendado), substitua a primeira linha por http://meusistema.ddns.net. Mas o ideal é usar HTTPS, pois gera confiança nos links compartilhados.
+---
 
-4. Atualizar o docker-compose.yml
-Você precisa expor também a porta 443 e definir a variável de ambiente com a URL pública, para que os links gerados pelo NestJS usem o hostname.
+## 6. Definir `general.appUrl` no banco (passo crítico)
 
-Edite seu docker-compose.yml:
+**Depois** que o certificado foi emitido e `https://meusistema.ddns.net` responde:
 
-yaml
-version: '3.8'
+### Opção A — UI Admin (recomendado)
+1. Acesse `https://meusistema.ddns.net`
+2. Login com admin (credenciais dos secrets `admin_username`/`admin_password`)
+3. Menu **Admin** → **Configurações** → **Geral**
+4. Campo **URL da Aplicação**: `https://meusistema.ddns.net` (sem barra final)
+5. **Salvar**
 
-services:
-  runner:
-    build: .
-    container_name: runner
-    ports:
-      - "80:80"
-      - "443:443"           # ← adicionar esta linha
-    volumes:
-      - runner-data:/backend/data
-    environment:
-      - PUBLIC_URL=https://meusistema.ddns.net   # ← variável para o NestJS
-    restart: unless-stopped
+### Opção B — SQL direto (antes do primeiro acesso)
+```bash
+sqlite3 /srv/controle-share-videos/data/controle-videos.db \
+  "UPDATE \"Config\" SET \"value\"='https://meusistema.ddns.net', \"updatedAt\"=CURRENT_TIMESTAMP \
+   WHERE \"name\"='appUrl' AND \"category\"='general';"
+```
 
-volumes:
-  runner-data:
-    driver: local
-Explicação:
+### Por que é crítico?
+- E-mails de convite, reset de senha, notificação de download usam `${appUrl}/s/{shareId}` (`email.service.ts:116`)
+- Frontend gera links de compartilhamento com `${appUrl}/share/{id}` (`showCompletedUploadModal.tsx:58`)
+- Se `appUrl` ficar no default `http://localhost:3000`, links quebram fora do container
+- O frontend tem fallback para `window.location.origin` **apenas enquanto** `appUrl` igual ao default. Assim que você define o real, todos os links passam a usá-lo.
 
-A porta 443 agora está mapeada, permitindo o tráfego HTTPS.
+---
 
-A variável PUBLIC_URL será lida pelo seu backend para montar os links dos compartilhamentos (ex: https://meusistema.ddns.net/share/xyz). Ajuste o código do NestJS se necessário, algo como:
+## 7. Reconstruir o container Caddy (se necessário)
 
-typescript
-const shareLink = `${process.env.PUBLIC_URL}/share/${token}`;
-5. Reconstruir e iniciar o container
-Pare o container atual, reconstrua a imagem (se o Caddyfile estiver dentro da build) e suba novamente:
+Se você criou os secrets **após** o primeiro `up -d`, ou alterou o `domain`:
 
-bash
-docker-compose down
-docker-compose build --no-cache   # garante que a cópia do novo Caddyfile seja usada
-docker-compose up -d
-Verifique os logs para ver o Caddy provisionando o certificado:
+```bash
+cd /opt/controle-share-videos-v1.0
+docker compose -f docker-compose.prod.yml up -d --force-recreate caddy
+# ou reiniciar tudo:
+docker compose -f docker-compose.prod.yml restart caddy
+```
 
-bash
-docker logs -f runner
-Você deverá ver mensagens como:
+Verificar logs:
+```bash
+docker compose -f docker-compose.prod.yml logs -f caddy
+# Procurar por:
+# [INFO] [meusistema.ddns.net] acme: Obtaining certificate...
+# [INFO] [meusistema.ddns.net] acme: Certificate obtained successfully
+# [INFO] [meusistema.ddns.net] serving with TLS
+```
 
-text
-[INFO] [meusistema.ddns.net] acme: Obtaining certificate...
-[INFO] [meusistema.ddns.net] serving with TLS
-Se a porta 80 e 443 estiverem corretamente abertas e o DNS propagado (normalmente instantâneo), o certificado será emitido em poucos segundos.
+---
 
-6. Testar
-Acesse de qualquer navegador (inclusive externo) https://meusistema.ddns.net.
+## 8. Testar
 
-Deve aparecer o frontend Next.js, com o cadeado verde de conexão segura.
+| Teste | Comando / Ação | Esperado |
+|-------|----------------|----------|
+| HTTPS responde | `curl -I https://meusistema.ddns.net` | `HTTP/2 200` ou `302` |
+| Certificado válido | `openssl s_client -connect meusistema.ddns.net:443 -servername meusistema.ddns.net </dev/null` | `Verify return code: 0 (ok)` |
+| Redirect HTTP→HTTPS | `curl -I http://meusistema.ddns.net` | `308 Permanent Redirect` → `Location: https://...` |
+| Frontend carrega | Navegador → `https://meusistema.ddns.net` | Página de login, cadeado verde |
+| API health | `curl https://meusistema.ddns.net/api/health` | `{"status":"ok"}` |
+| Links de share | Criar share no UI → copiar link | Link começa com `https://meusistema.ddns.net/s/...` |
 
-Teste a API: https://meusistema.ddns.net/api/... (algum endpoint público).
+---
 
-Verifique se os links gerados pelo sistema agora usam o hostname.
+## 9. Manutenção do No-IP (confirmação 30 dias)
 
-Extras e boas práticas
-Manutenção do No‑IP
-Fique atento ao e‑mail de confirmação a cada 30 dias. Se perder o prazo, o hostname some e os links param de funcionar. Você pode optar por um plano pago (cerca de US$ 2/mês) para eliminar essa exigência e ter mais domínios.
+### O que acontece
+- Conta gratuita: a cada ~30 dias, No-IP envia e-mail para o endereço cadastrado
+- Assunto típico: *"Confirm your hostname meusistema.ddns.net"*
+- Você **deve clicar no link** dentro de 7 dias
+- Se não clicar: hostname é desativado → DNS para de resolver → Caddy não renova certificado → site cai
 
-Como seu IP é fixo, não é necessário instalar o cliente de atualização dinâmica (DUC) do No‑IP. Porém, se houver a mínima chance de o IP mudar, instale o DUC no servidor ou use um script simples de atualização.
+### Mitigações
+1. **Lembrete no calendário** (recorrente mensal)
+2. **E-mail dedicado/monitorado** para alertas (ex: `alertas@empresa.local` com forward para equipe)
+3. **Plano pago No-IP** (≈ $30/ano) — remove a confirmação manual + permite domínios próprios
+4. **Script de monitoramento** (opcional) — verifica se `dig meusistema.ddns.net` resolve para seu IP
 
-Streaming de vídeos
-Lembre-se de que, com o Caddy servindo como proxy, o streaming de arquivos grandes ainda passará pelo NestJS, a menos que você sirva os arquivos diretamente pelo Caddy (file_server). Avalie se o desempenho está adequado.
+### Renovação do certificado Let's Encrypt
+- Caddy renova **automaticamente** ~30 dias antes da expiração (90 dias de validade)
+- Requisito: porta 80 acessível + DNS resolvendo
+- Se hostname No-IP expirar → DNS falha → renovação falha → certificado expira → site inacessível
+- **Portanto**: manter o hostname No-IP ativo é pré-requisito para TLS contínuo.
 
-Segurança adicional
-O Caddy já aplica boas práticas de TLS (HTTP/2, ciphers modernos). Mas você pode adicionar mais cabeçalhos de segurança se necessário.
+---
 
-Como o tráfego agora é criptografado, o compartilhamento de links fica muito mais seguro.
+## Solução de problemas
 
-Resumo visual do fluxo final
-text
-Internet (usuário externo)
-     │
-     ▼
-https://meusistema.ddns.net
-     │
-     │ (portas 80/443 do roteador)
-     ▼
-Servidor local (IP fixo privado)
-     │
-     │ docker (portas 80/443 mapeadas)
-     ▼
-Container runner (Caddy)
-     ├── /api/*  → NestJS :8080
-     └── /*      → Next.js :3333
-Com essa configuração, seus links ficarão assim:
+| Sintoma | Causa provável | Ação |
+|---------|----------------|------|
+| `curl https://...` → `certificate verify failed` | Certificado não emitido ainda | Verificar logs Caddy: `docker logs caddy` |
+| Logs: `acme: error presenting token: could not start HTTP server for challenge` | Porta 80 bloqueada / não chega no container | Verificar UFW (`ufw status`), port forwarding roteador, `docker ps` porta 80 mapeada |
+| `dig meusistema.ddns.net` → `NXDOMAIN` ou IP errado | Hostname No-IP expirado / não confirmado | Logar no No-IP, confirmar hostname, aguardar propagação DNS (TTL 60s) |
+| `general.appUrl` definido mas links ainda usam `localhost` | YAML `config.yaml` sobrescreve o banco | Remover `general.appUrl` de `/opt/.../backend/config.yaml` se existir |
+| Site abre mas assets (CSS/JS) dão 404 | `appUrl` com path errado ou barra final | `appUrl` deve ser `https://host` **sem** path nem barra final |
+| Renovação falha silenciosamente | Porta 80 fechada no momento da renovação | `ufw allow 80/tcp` permanente; monitorar logs Caddy semanalmente |
 
-text
-https://meusistema.ddns.net/share/a1b2c3d4
+---
 
+## Referências rápidas
 
-                    REDE INTERNA
-                         │
-              ┌──────────┴──────────┐
-              │                     │
-              ▼                     ▼
-         Windows PC              Docker
-              │                     │
-            SMB                  aplicação
-              │                     │
-              └──────────┬──────────┘
-                         ▼
-             /srv/controle-share-videos/
-                     data/uploads/
-                        shares/
-                         │
-                         ▼
-                       vídeos
+```bash
+# Ver secrets ativos
+docker secret ls
 
+# Ver valor de um secret (requer root no host)
+docker secret inspect domain --format '{{.Spec.Data}}' | base64 -d
 
-                       Ubuntu Server
-Docker Engine oficial
-Caddy
-IP fixo, domínio gratis
-SQLite
-vídeos já existentes no servidor
-vídeos em data/uploads/shares
-acesso aos vídeos pelo sistema web
-compartilhamento de uploads/shares pela rede interna via Samba
-sem ClamAV
-persistência de data
-sem expor SMB para a Internet
-Docker com runner único, conforme o Dockerfile 
+# Forçar revalidação Caddy (recria container)
+docker compose -f docker-compose.prod.yml up -d --force-recreate caddy
+
+# Testar challenge ACME manualmente (porta 80 aberta?)
+curl -v http://meusistema.ddns.net/.well-known/acme-challenge/test
+
+# Ver certificado atual
+openssl x509 -in <(openssl s_client -connect meusistema.ddns.net:443 -servername meusistema.ddns.net </dev/null 2>/dev/null) -text -noout | grep -A2 "Validity"
+```
+
+---
+
+**Fim — Configuração de Domínio No-IP**
+
+> Mantido em `docs/Implantacao/conf-dominio.md` — versionado com o código.
+> Atualize este doc se mudar de provedor DDNS ou adotar domínio próprio.

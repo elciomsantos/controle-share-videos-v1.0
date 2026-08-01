@@ -11,7 +11,8 @@ services:
       - ./scripts/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       # GAP-06: alerting rules loaded via prometheus.yml `rule_files`.
       - ./scripts/monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
-      - prometheus-data:/prometheus
+      # Bind mount to RAID6 so TSDB survives container/host restarts.
+      - /srv/controle-share-videos/monitoring/prometheus:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -43,7 +44,8 @@ services:
     volumes:
       - ./scripts/monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./scripts/monitoring/grafana-datasources:/etc/grafana/provisioning/datasources:ro
-      - grafana-data:/var/lib/grafana
+      # Bind mount to RAID6 so dashboards/sessions survive restarts.
+      - /srv/controle-share-videos/monitoring/grafana:/var/lib/grafana
     depends_on:
       - prometheus
     deploy:
@@ -63,7 +65,8 @@ services:
       - "3100:3100"
     volumes:
       - ./scripts/monitoring/loki.yml:/etc/loki/loki.yml:ro
-      - loki-data:/loki
+      # Bind mount to RAID6 so log chunks survive restarts.
+      - /srv/controle-share-videos/monitoring/loki:/loki
     command:
       - '-config.file=/etc/loki/loki.yml'
     deploy:
@@ -126,10 +129,13 @@ networks:
     driver: bridge
     name: controle-share-videos-monitoring
 
-volumes:
-  prometheus-data:
-  grafana-data:
-  loki-data:
+# All persistent data lives on the RAID6 disk via bind mounts:
+#   /srv/controle-share-videos/monitoring/prometheus
+#   /srv/controle-share-videos/monitoring/grafana
+#   /srv/controle-share-videos/monitoring/loki
+# Create them (chown 65532:65532 for the grafana/prometheus users) before
+# `docker compose -f docker-compose.monitoring.yml up -d`. See
+# docs/Implantacao/Implantacao.md (section 21).
 
 secrets:
   # GAP-06: created by scripts/provision/grafana-secret.sh. The script writes

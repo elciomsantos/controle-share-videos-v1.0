@@ -1,6 +1,5 @@
 import {
   Alert,
-  AppShell,
   Box,
   Button,
   Container,
@@ -8,18 +7,16 @@ import {
   Stack,
   Text,
   Title,
-  useComputedColorScheme,
 } from "@mantine/core";
-import { useMediaQuery } from "@mantine/hooks";
 
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
+import { useMediaQuery } from "@mantine/hooks";
 import { TbInfoCircle } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
 import Meta from "../../../components/Meta";
 import AdminConfigInput from "../../../components/admin/configuration/AdminConfigInput";
-import ConfigurationHeader from "../../../components/admin/configuration/ConfigurationHeader";
-import ConfigurationNavBar from "../../../components/admin/configuration/ConfigurationNavBar";
+import ConfigurationTopNav from "../../../components/admin/configuration/ConfigurationTopNav";
 import LogoConfigInput from "../../../components/admin/configuration/LogoConfigInput";
 import TestEmailButton from "../../../components/admin/configuration/TestEmailButton";
 import TestRedisButton from "../../../components/admin/configuration/TestRedisButton";
@@ -41,12 +38,10 @@ const categories = [
   "Cache",
 ];
 
-export default function AppShellDemo() {
-  const colorScheme = useComputedColorScheme("light");
+export default function ConfigPage() {
   const router = useRouter();
   const t = useTranslate();
 
-  const [isMobileNavBarOpened, setIsMobileNavBarOpened] = useState(false);
   const isMobile = useMediaQuery("(max-width: 560px)");
   const config = useConfig();
 
@@ -57,6 +52,10 @@ export default function AppShellDemo() {
   ) {
     categoryId = router.query.category as string;
   }
+
+  const handleCategoryChange = (newCategory: string) => {
+    router.push(`/admin/config/${newCategory.toLowerCase()}`);
+  };
 
   const [configVariables, setConfigVariables] = useState<AdminConfig[]>();
   const [updatedConfigVariables, setUpdatedConfigVariables] = useState<
@@ -160,36 +159,12 @@ export default function AppShellDemo() {
   return (
     <>
       <Meta title={t("admin.config.title")} />
-      <AppShell
-        styles={{
-          main: {
-            background:
-              colorScheme === "dark"
-                ? "var(--mantine-color-dark-8)"
-                : "var(--mantine-color-gray-0)",
-          },
-        }}
-        navbar={{
-          width: { sm: 200, lg: 300 },
-          breakpoint: "sm",
-          collapsed: { mobile: !isMobileNavBarOpened },
-        }}
-        header={{ height: 60 }}
-      >
-        <ConfigurationNavBar
-          categoryId={categoryId}
-          isMobileNavBarOpened={isMobileNavBarOpened}
-          setIsMobileNavBarOpened={setIsMobileNavBarOpened}
-        />
-        <ConfigurationHeader
-          isMobileNavBarOpened={isMobileNavBarOpened}
-          setIsMobileNavBarOpened={setIsMobileNavBarOpened}
-        />
-        <Container size="lg">
-          {!configVariables ? (
-            <CenterLoader />
-          ) : (
-            <>
+      <ConfigurationTopNav categoryId={categoryId} onCategoryChange={handleCategoryChange} />
+      <Container size="lg" p="md">
+        {!configVariables ? (
+          <CenterLoader />
+        ) : (
+          <>
               {/*
                * Keep custom CSS at the bottom in Appearance settings for better UX.
                */}
@@ -373,7 +348,6 @@ export default function AppShellDemo() {
             </>
           )}
         </Container>
-      </AppShell>
     </>
   );
 }

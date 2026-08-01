@@ -1,1677 +1,734 @@
-markdown
-# Guia de Implantação em Produção - Expandido
+# Guia de Implantação em Produção
 
 ## Controle Share Videos v1.0
 
 Este documento descreve a configuração recomendada para executar o
 sistema **Controle Share Videos v1.0** em produção utilizando:
 
-- Ubuntu Linux como sistema operacional do host;
-- Docker CLI compatível com Podman;
-- Um container único com:
-  - Frontend Next.js;
-  - Backend NestJS;
-  - Caddy como reverse proxy interno;
-- SQLite3 para usuários, compartilhamentos, tokens, configurações e
-  logs;
-- Um segundo disco dedicado aos dados persistentes, principalmente
-  vídeos e uploads;
-- CAddy  como reverse proxy externo com suporte a HTTPS e
-  rate limiting.
+- Ubuntu Server 22.04/24.04 LTS como sistema operacional do host
+- Docker Engine + Docker Compose v2
+- 3 containers Docker isolados em rede bridge: `backend` (NestJS :8080),
+  `frontend` (Next.js standalone :3333), `caddy` (Caddy 2.9 :80/443)
+- SQLite3 via Prisma para usuários, compartilhamentos, tokens, configs e logs
+- Segundo disco (RAID6 14 TB) em `/srv/controle-share-videos` para dados persistentes
+- Domínio grátis No-IP (`seusistema.ddns.net`) com IP fixo — sem DUC
+- Reverse proxy externo **Caddy** (não Nginx) com TLS automático Let's Encrypt
+- Samba autenticado (usuário `uploader`) para upload de vídeos via LAN
 
 ---
 
-# 1. Arquitetura final
-
-A arquitetura recomendada é:
+## 1. Visão geral & arquitetura
 
 ```text
-┌─────────────────────────────────────────────────────────────────────┐
-│ DISCO 1 - SISTEMA                                                   │
-│                                                                     │
-│ Ubuntu-Server Linux                                                        │
-│ ├── Docker/Podman                                                   │
-│ ├── Caddy (reverse proxy externo)                                   │
-│ ├── Projeto controle-share-videos-v1.0                             │
-│ └── Container da aplicação                                          │
-│     ├── Next.js                                                     │
-│     ├── NestJS                                                      │
-│     └── Caddy (reverse proxy interno)                              │
-└─────────────────────────────────────────────────────────────────────┘
-                                 │
-                                 │ volumes persistentes
-                                 ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│ DISCO 2 - DADOS                                                     │
-│                                                                     │
-│ /opt/app/backend/data
-                                      │
-                                      ▼
-                            /srv/controle-share-videos/data
-                                      │
-                         ┌────────────┼─────────────┐
-                         │            │             │
-                         ▼            ▼             ▼
-                       SQLite      images        uploads
-                                                    │
-                                                    ▼
-                                                  shares                                                   │
-
-
-/srv/controle-share-videos/data/
-├── controle-videos.db
-├── images/
-└── uploads/
-    ├── _temp/
-    └── shares/
-└─────────────────────────────────────────────────────────────────────┘
-
-
 Internet/LAN
-     │
-     ▼
- IP FIXO :80
-     │
-     ▼
-┌──────────────────────────────┐
-│ Caddy                        │
-│                              │
-│ /api/* → NestJS :8080        │
-│ /*     → Next.js :3333       │
-└──────────────┬───────────────┘
-               │
-               ▼
-       /opt/app/backend/data
-               │
-       bind mount no host
-               │
-               ▼
-/srv/controle-share-videos/data
-               │
-               ├── controle-videos.db
-               ├── images/
-               └── uploads/
-                    ├── _temp/
-                    └── shares/
+      │
+      ▼
+┌──────────────────────────────────────────────┐
+│ ROTEADOR — port forwarding 80/443 → 192.168.x.y │
+└──────────────────────────────────────────────┘
+      │
+      ▼
+┌──────────────────────────────────────────────┐
+│ DISCO 1 (SSD/HD) — SISTEMA                    │
+│ Ubuntu Server + Docker Engine                  │
+│ /opt/controle-share-videos-v1.0/  ← git clone │
+│                                                 │
+│ docker-compose.prod.yml                        │
+│   ├─ backend  (NestJS :8080)                   │
+│   ├─ frontend (Next.js :3333)                  │
+│   └─ caddy    (Caddy 2.9 :80/443)              │
+│       │ TLS + headers + rate limit             │
+│       ▼                                        │
+│   rede app-network (bridge, internal: false)   │
+└──────────────────────────────────────────────┘
+      │ bind mounts (não volumes nomeados)
+      ▼
+┌──────────────────────────────────────────────┐
+│ DISCO 2 (RAID6 14 TB) — /srv/                 │
+│ /srv/controle-share-videos/                    │
+│   ├─ data/                                     │
+│   │   ├─ controle-videos.db        ← SQLite    │
+│   │   ├─ images/                 ← frontend    │
+│   │   └─ uploads/                                           │
+│   │       ├─ _temp/              ← limpeza diária cron      │
+│   │       └─ shares/             ← Samba [videos] + container │
+│   ├─ backups/                                  │
+│   │   ├─ sqlite/                               │
+│   │   ├─ uploads/                              │
+│   │   └─ images/                               │
+│   └─ monitoring/ (opcional)                    │
+│       ├─ prometheus/                           │
+│       ├─ grafana/                              │
+│       └─ loki/                                 │
+└──────────────────────────────────────────────┘
+```
 
-Windows
-   │
-   │ SMB
-   ▼
-Ubuntu Server
-   │
-   ▼
-/srv/controle-share-videos/data/uploads/shares/
-   │
-   ├── Docker
-   │    └── /opt/app/backend/data/uploads/shares/
-   │
-   └── Samba
+**Princípio fundamental**: código e containers são descartáveis; dados
+(`/srv/controle-share-videos/data/`) sobrevivem a rebuilds, updates,
+rollbacks e recriação total dos containers.
 
+---
 
+## 2. Layout dos diretórios
 
-
-                    REDE INTERNA
-                         │
-              ┌──────────┴──────────┐
-              │                     │
-              ▼                     ▼
-         Windows PC              Docker
-              │                     │
-            SMB                  aplicação
-              │                     │
-              └──────────┬──────────┘
-                         ▼
-             /srv/controle-share-videos/
-                     data/uploads/
-                        shares/
-                         │
-                         ▼
-                       vídeos
-
-
-
-
-Fluxo das conexões:
-
-text
-Cliente
-   │ HTTPS
-   ▼
-Nginx (porta 80/443)
-   │ TLS termination, rate limiting, security headers
-   ▼
-Container (porta 3000)
-   │
-   ├── Caddy (reverse proxy interno)
-   │   │
-   │   ├── Frontend Next.js
-   │   └── Backend NestJS (porta 8090)
-   │
-   └── SQLite (via Prisma)
-A regra principal é:
-
-O sistema e o código ficam no disco do Ubuntu. Os dados persistentes
-ficam no segundo disco.
-
-2. Estrutura real do projeto
-A estrutura atual do projeto é:
-
-text
-controle-share-videos-v1.0/
+```
+/opt/controle-share-videos-v1.0/           ← código (git clone)
 ├── Dockerfile
-├── LICENSE
-├── README.md
-├── SECURITY.md
-├── .env.production
-├── backend/
-│   ├── check-users.ts
-│   ├── data/
-│   ├── data-teste-clean/
-│   ├── dist/
-│   ├── eslint.config.mjs
-│   ├── nest-cli.json
-│   ├── node_modules/
-│   ├── package-lock.json
-│   ├── package.json
-│   ├── prisma/
-│   ├── prisma.config.ts
-│   ├── server.log
-│   ├── src/
-│   ├── test/
-│   ├── tsconfig.build.json
-│   ├── tsconfig.json
-│   └── tsconfig.seed.json
-├── config.example.yaml
+├── docker-compose.prod.yml
+├── reverse-proxy/
+│   └── Caddyfile.prod
+├── scripts/
+│   ├── backup.sh
+│   ├── verify-db.sh
+│   ├── maintenance/
+│   │   └── cleanup-temp.sh
+│   ├── provision/
+│   │   ├── hardening.sh
+│   │   ├── samba.sh
+│   │   └── grafana-secret.sh
+│   └── docker/
+│       ├── create-user.sh
+│       └── entrypoint.sh
+└── ...
+
+/srv/controle-share-videos/                ← RAID6 (dados)
 ├── data/
 │   ├── controle-videos.db
 │   ├── images/
 │   └── uploads/
-├── docker-compose.dev.yml
-├── docker-compose.local.yml
-├── docker-compose.yml
-├── docker-compose.prod.yml
-├── docker-compose.monitoring.yml
-├── docker-compose.logging.yml
-├── docs/
-├── eslint.config.mjs
-├── frontend/
-│   ├── next.config.js
-│   ├── package.json
-│   ├── public/
-│   ├── src/
-│   └── ...
-├── monitoring/
-│   ├── prometheus.yml
-│   └── promtail.yml
-├── nginx/
-│   └── sites-available/
-│       └── controle-share-videos
-├── opencode.json
-├── package-lock.json
-├── package.json
-├── reverse-proxy/
-│   ├── Caddyfile
-│   ├── Caddyfile.trust-proxy
-│   └── Caddyfile.prod
-└── scripts/
-    ├── backup.sh
-    ├── health-check.sh
-    ├── verify-db.sh
-    ├── nginx-setup-ssl.sh
-    └── docker/
-        ├── create-user.sh
-        └── entrypoint.sh
-3. Banco de dados SQLite
-O sistema utiliza SQLite através do Prisma.
-
-O banco real atualmente é:
-
-text
-data/controle-videos.db
-O arquivo possui aproximadamente 172 KB e é o banco válido do sistema.
-
-Existe também:
-
-text
-data/controle-videos.db?connection_limit=1
-Esse arquivo possui tamanho zero e não deve ser utilizado como banco de
-produção.
-
-3.1 Configuração do Prisma
-O arquivo:
-
-text
-backend/prisma.config.ts
-utiliza:
-
-typescript
-datasource: {
-  url: process.env.DATABASE_URL || "file:./data/controle-videos.db",
-}
-Em produção, a variável deve apontar explicitamente para:
-
-text
-file:/opt/app/backend/data/controle-videos.db
-4. Modelo de dados
-O banco SQLite contém, entre outros, os seguintes modelos:
-
-User
-Responsável pelos usuários do sistema:
-
-username;
-
-email;
-
-senha;
-
-administrador;
-
-role;
-
-limite de compartilhamento;
-
-alteração obrigatória de senha;
-
-autenticação TOTP;
-
-tokens de ativação;
-
-tokens de recuperação de senha.
-
-Share
-Representa um compartilhamento:
-
-nome;
-
-descrição;
-
-expiração;
-
-visualizações;
-
-downloads;
-
-bloqueio de upload;
-
-criador;
-
-arquivos;
-
-destinatários;
-
-segurança.
-
-File
-Representa os arquivos vinculados aos compartilhamentos:
-
-nome;
-
-tamanho;
-
-compartilhamento associado.
-
-DownloadLog
-Registra:
-
-compartilhamento;
-
-arquivo;
-
-usuário;
-
-nome de usuário;
-
-IP;
-
-User-Agent;
-
-sucesso ou falha;
-
-motivo;
-
-evento;
-
-data.
-
-5. Estrutura do segundo disco
-O segundo disco deve ser montado no Ubuntu como:
-
-text
-/data
-A estrutura final recomendada:
-
-text
-/data/
-├── controle-videos.db
-├── images/
-├── uploads/
+│       ├── _temp/
+│       └── shares/
 ├── backups/
 │   ├── sqlite/
 │   ├── uploads/
 │   └── images/
-├── prometheus/
-├── grafana/
-└── loki/
-Finalidade
-Diretório	Finalidade
-/data/controle-videos.db	Banco SQLite
-/data/images/	Imagens públicas e recursos de imagem
-/data/uploads/	Arquivos e vídeos enviados pelos usuários
-/data/backups/	Backups do sistema
-/data/prometheus/	Métricas do Prometheus
-/data/grafana/	Dashboards do Grafana
-/data/loki/	Logs centralizados
-6. Preparação do Ubuntu
-6.1 Verificar discos
-bash
-lsblk
-Exemplo:
+└── monitoring/ (opcional)
+    ├── prometheus/
+    ├── grafana/
+    └── loki/
 
-text
-sda
-├─sda1  /
-└─...
+/etc/samba/smb.conf                        ← share [videos]
+```
 
-sdb
-└─sdb1
-Descobrir o UUID:
+---
 
-bash
+## 3. Pré-requisitos
+
+| Item | Especificação |
+|------|---------------|
+| SO Host | Ubuntu Server 22.04/24.04 LTS (64-bit) |
+| Docker | Docker Engine 25+ + Compose v2 (`docker compose`) |
+| Disco 2 | RAID6 montado, 14 TB, ext4/xfs |
+| IP | IP fixo público no roteador (não DHCP) |
+| Domínio | Conta No-IP (grátis) + hostname `seusistema.ddns.net` |
+| Portas roteador | 80, 443 → IP local do servidor |
+| Usuário host | `uploader` (UID 1102) para Samba |
+| Usuário container | `controle-user` (UID/GID 1002) |
+| GPG | Chave pública para criptografia de backup (`GPG_RECIPIENT`) |
+| Git | Repositório clonado em `/opt/controle-share-videos-v1.0` |
+
+---
+
+## 4. Preparação do Ubuntu (discos, fstab, RAID6)
+
+```bash
+# 1) Identificar o disco do RAID6
+lsblk -f
 sudo blkid
-Criar o ponto de montagem:
+# Anotar UUID, ex: 1234-5678-ABCD-EF00
 
-bash
-sudo mkdir -p /data
-Editar:
+# 2) Criar ponto de montagem
+sudo mkdir -p /srv/controle-share-videos
 
-bash
-sudo nano /etc/fstab
-Adicionar:
+# 3) /etc/fstab por UUID com nofail (não travar boot se RAID ausente)
+echo "UUID=1234-5678-ABCD-EF00  /srv/controle-share-videos  ext4  defaults,nofail  0  2" \
+  | sudo tee -a /etc/fstab
 
-text
-UUID=SEU-UUID /data ext4 defaults,nofail 0 2
-Testar:
-
-bash
+# 4) Montar e validar
 sudo mount -a
-Confirmar:
+df -h /srv/controle-share-videos
+# Deve mostrar o RAID6 14 TB montado em /srv/controle-share-videos
+```
 
-bash
-df -h
-O resultado deve mostrar o segundo disco montado em:
+---
 
-text
-/data
-6.2 Instalar dependências do sistema
-bash
-sudo apt update
-sudo apt install -y nginx certbot python3-certbot-nginx \
-  ufw fail2ban sqlite3 curl rsync
-7. Criar os diretórios persistentes
-bash
-sudo mkdir -p /data/images
-sudo mkdir -p /data/uploads
-sudo mkdir -p /data/backups/{sqlite,uploads,images}
-sudo mkdir -p /data/prometheus
-sudo mkdir -p /data/grafana
-sudo mkdir -p /data/loki
-Copiar o banco atual:
+## 5. Instalação do Docker + perfis de segurança
 
-bash
-sudo cp data/controle-videos.db /data/controle-videos.db
-Copiar imagens:
+```bash
+# Docker Engine + Compose v2
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER
+newgrp docker   # ou logout/login
 
-bash
-sudo cp -a data/images/. /data/images/
-Copiar uploads:
-
-bash
-sudo cp -a data/uploads/. /data/uploads/
-8. Usuário interno do container
-O arquivo:
-
-text
-scripts/docker/create-user.sh
-cria o usuário utilizado pela aplicação.
-
-A lógica principal é:
-
-sh
-PUID=${PUID:-1000}
-PGID=${PGID:-1000}
-O script:
-
-cria o grupo;
-
-cria o usuário;
-
-altera a propriedade dos diretórios;
-
-executa a aplicação como usuário não-root.
-
-O proprietário atual dos dados é:
-
-text
-100999:100999
-Isso indica que o container foi executado anteriormente com:
-
-text
-PUID=100999
-PGID=100999
-A configuração deve ser mantida de forma explícita em produção para
-evitar problemas de permissão.
-
-9. Dockerfile
-O Dockerfile utiliza cinco estágios.
-
-Stage 1 - Dependências do frontend
-text
-node:24-alpine
-Instala as dependências do Next.js usando:
-
-bash
-npm ci
-Stage 2 - Build do frontend
-Executa:
-
-bash
-npm run build
-O Next.js é gerado em modo standalone.
-
-Stage 3 - Dependências do backend
-Instala Python 3 e executa:
-
-bash
-npm ci
-Stage 4 - Build do backend
-Instala OpenSSL e executa:
-
-bash
-npx prisma generate
-npm run build
-npm prune --production
-Stage 5 - Imagem final
-A imagem final utiliza:
-
-text
-node:24-alpine
-Também instala:
-
-curl;
-
-Caddy;
-
-su-exec;
-
-OpenSSL.
-
-A imagem final não mantém npm e npx.
-
-O container expõe:
-
-text
-3000
-O healthcheck verifica:
-
-text
-/api/health
-10. Fluxo interno da aplicação
-A arquitetura interna é:
-
-text
-Cliente
-   │
-   ▼
-Caddy (porta 3000)
-   │
-   ▼
-Frontend Next.js
-   │
-   ▼
-Backend NestJS (porta 8090)
-   │
-   ▼
-Prisma
-   │
-   ▼
-SQLite
-O backend utiliza:
-
-text
-BACKEND_PORT=8090
-A API local é:
-
-text
-http://localhost:8090
-11. Docker Compose de produção
-O arquivo recomendado para produção:
-
-yaml
-# docker-compose.prod.yml
-services:
-  controle-share-videos-v1:
-    container_name: controle-share-videos-v1.0
-
-    build:
-      context: .
-      dockerfile: Dockerfile
-
-    restart: unless-stopped
-
-    network_mode: host
-
-    environment:
-      NODE_ENV: docker
-      TRUST_PROXY: "true"  # Habilitado com Nginx
-      BACKEND_PORT: 8090
-      API_URL: http://localhost:8090
-      DATABASE_URL: file:/opt/app/backend/data/controle-videos.db
-      PUID: 100999
-      PGID: 100999
-
-    volumes:
-      - /data:/opt/app/backend/data:rw,z
-      - /data/images:/opt/app/frontend/public/img:rw,z
-
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
-
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-        reservations:
-          memory: 512M
-
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "50m"
-        max-file: "5"
-11.1 Docker Compose para monitoramento
-yaml
-# docker-compose.monitoring.yml
-services:
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-      - /data/prometheus:/prometheus
-    ports:
-      - "9090:9090"
-    restart: unless-stopped
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
-      - '--web.enable-lifecycle'
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: grafana
-    volumes:
-      - /data/grafana:/var/lib/grafana
-    ports:
-      - "3001:3000"
-    restart: unless-stopped
-    depends_on:
-      - prometheus
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
-11.2 Docker Compose para logs
-yaml
-# docker-compose.logging.yml
-services:
-  loki:
-    image: grafana/loki:latest
-    container_name: loki
-    volumes:
-      - /data/loki:/loki
-    ports:
-      - "3100:3100"
-    restart: unless-stopped
-    command: -config.file=/etc/loki/local-config.yaml
-
-  promtail:
-    image: grafana/promtail:latest
-    container_name: promtail
-    volumes:
-      - /var/log:/var/log:ro
-      - ./monitoring/promtail.yml:/etc/promtail/promtail.yml
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-    restart: unless-stopped
-    depends_on:
-      - loki
-    command: -config.file=/etc/promtail/promtail.yml
-Mapeamento dos volumes
-Banco SQLite
-Host:
-
-text
-/data/controle-videos.db
-Container:
-
-text
-/opt/app/backend/data/controle-videos.db
-Uploads
-Host:
-
-text
-/data/uploads
-Container:
-
-text
-/opt/app/backend/data/uploads
-Imagens
-Host:
-
-text
-/data/images
-Container:
-
-text
-/opt/app/frontend/public/img
-12. Por que usar bind mounts?
-Os dados não devem depender do ciclo de vida do container.
-
-Com:
-
-yaml
-- /data:/opt/app/backend/data:rw,z
-a aplicação pode ser recriada:
-
-bash
-docker compose down
-docker compose up -d
-sem apagar:
-
-usuários;
-
-configurações;
-
-tokens;
-
-compartilhamentos;
-
-logs;
-
-uploads;
-
-vídeos.
-
-Os dados continuam no segundo disco.
-
-13. Configuração de permissões
-O container utiliza o usuário definido por:
-
-text
-PUID=100999
-PGID=100999
-Verificar permissões:
-
-bash
-ls -lah /data
-Verificar UID e GID:
-
-bash
-stat -c '%u:%g %n' /data/controle-videos.db
-A saída esperada:
-
-text
-100999:100999 /data/controle-videos.db
-Se necessário:
-
-bash
-sudo chown -R 100999:100999 /data
-⚠️ Essa alteração deve ser feita somente se o UID/GID utilizado pelo
-container realmente for 100999:100999.
-
-14. Configuração do Nginx
-O Nginx será instalado no Ubuntu host e funcionará como reverse proxy.
-
-14.1 Instalação
-bash
-sudo apt update
-sudo apt install nginx
-Verificar:
-
-bash
-sudo systemctl status nginx
-14.2 Configuração com HTTPS
-Criar:
-
-bash
-sudo nano /etc/nginx/sites-available/controle-share-videos
-Configuração completa:
-
-nginx
-# /etc/nginx/sites-available/controle-share-videos
-
-# Redirecionamento HTTP para HTTPS
-server {
-    listen 80;
-    server_name seu-dominio.com;
-    return 301 https://$server_name$request_uri;
-}
-
-# Servidor HTTPS
-server {
-    listen 443 ssl http2;
-    server_name seu-dominio.com;
-
-    # Certificados SSL (Let's Encrypt)
-    ssl_certificate /etc/letsencrypt/live/seu-dominio.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/seu-dominio.com/privkey.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-    ssl_prefer_server_ciphers on;
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 10m;
-
-    # Headers de segurança
-    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Content-Security-Policy "default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;" always;
-
-    client_max_body_size 10G;
-    client_body_timeout 600s;
-    client_header_timeout 600s;
-
-    # Rate limiting
-    limit_req_zone $binary_remote_addr zone=login_limit:10m rate=5r/m;
-    limit_req_zone $binary_remote_addr zone=api_limit:10m rate=30r/s;
-    limit_req_zone $binary_remote_addr zone=general_limit:10m rate=100r/m;
-
-    # Logs
-    access_log /var/log/nginx/controle-share-videos_access.log;
-    error_log /var/log/nginx/controle-share-videos_error.log;
-
-    # Health check
-    location /health {
-        access_log off;
-        proxy_pass http://127.0.0.1:3000/api/health;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # API endpoints com rate limit específico
-    location /api/ {
-        limit_req zone=api_limit burst=50 nodelay;
-        limit_req_status 429;
-
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # Timeouts para uploads grandes
-        proxy_read_timeout 600s;
-        proxy_send_timeout 600s;
-        proxy_connect_timeout 600s;
-
-        # Buffer para uploads grandes
-        proxy_buffer_size 128k;
-        proxy_buffers 4 256k;
-        proxy_busy_buffers_size 256k;
-    }
-
-    # Login com rate limit específico
-    location /api/auth/login {
-        limit_req zone=login_limit burst=3 nodelay;
-        limit_req_status 429;
-
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # Aplicação
-    location / {
-        limit_req zone=general_limit burst=20;
-
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-
-        proxy_read_timeout 300s;
-        proxy_send_timeout 300s;
-        proxy_connect_timeout 300s;
-
-        # Cache de conteúdo estático
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    # Arquivos estáticos com cache
-    location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot)$ {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_cache_valid 200 302 60m;
-        proxy_cache_valid 404 1m;
-        expires 30d;
-        add_header Cache-Control "public, immutable";
-    }
-}
-Ativar o site:
-
-bash
-sudo ln -s /etc/nginx/sites-available/controle-share-videos \
-  /etc/nginx/sites-enabled/controle-share-videos
-Testar configuração:
-
-bash
-sudo nginx -t
-Recarregar:
-
-bash
-sudo systemctl reload nginx
-14.3 Configurar HTTPS com Let's Encrypt
-Script automatizado:
-
-bash
-# scripts/nginx-setup-ssl.sh
-#!/bin/bash
-
-DOMAIN=$1
-EMAIL=$2
-
-if [ -z "$DOMAIN" ] || [ -z "$EMAIL" ]; then
-    echo "Uso: $0 <dominio> <email>"
-    exit 1
-fi
-
-echo "Instalando Certbot..."
-sudo apt update
-sudo apt install -y certbot python3-certbot-nginx
-
-echo "Obtendo certificado SSL para $DOMAIN..."
-sudo certbot --nginx -d $DOMAIN -d www.$DOMAIN \
-  --non-interactive --agree-tos -m $EMAIL \
-  --redirect
-
-echo "Configurando renovação automática..."
-sudo systemctl enable certbot.timer
-sudo systemctl start certbot.timer
-
-echo "SSL configurado com sucesso!"
-echo "Teste de renovação: sudo certbot renew --dry-run"
-Executar:
-
-bash
-chmod +x scripts/nginx-setup-ssl.sh
-sudo ./scripts/nginx-setup-ssl.sh seu-dominio.com seu-email@dominio.com
-14.4 Configurar Firewall
-bash
-sudo ufw allow 22/tcp
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw enable
-sudo ufw status
-14.5 Configurar Fail2ban
-bash
-sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
-sudo nano /etc/fail2ban/jail.local
-Adicionar:
-
-text
-[nginx-http-auth]
-enabled = true
-port = http,https
-filter = nginx-http-auth
-logpath = /var/log/nginx/error.log
-maxretry = 5
-bantime = 3600
-Reiniciar:
-
-bash
-sudo systemctl restart fail2ban
-Fluxo das conexões
-text
-Cliente
-   │ HTTPS (porta 443)
-   ▼
-Nginx
-   │ TLS termination
-   │ Rate limiting
-   │ Security headers
-   ▼
-127.0.0.1:3000
-   │
-   ▼
-Container
-   │
-   ├── Caddy (reverse proxy interno)
-   │   │
-   │   ├── Frontend Next.js (porta 3000)
-   │   └── Backend NestJS (porta 8090)
-   │
-   └── SQLite (via Prisma)
-O Nginx deve ser o único componente exposto diretamente à rede externa.
-
-15. Remover arquivo SQLite vazio incorreto
-O arquivo:
-
-text
-data/controle-videos.db?connection_limit=1
-está vazio.
-
-Depois de confirmar que não é utilizado:
-
-bash
-rm 'data/controle-videos.db?connection_limit=1'
-O banco válido é:
-
-text
-data/controle-videos.db
-16. Build da imagem
-Na raiz do projeto:
-
-bash
-cd ~/projects/controle-share-videos-v1.0
-Construir sem cache:
-
-bash
-docker compose -f docker-compose.prod.yml build --no-cache
-Como o ambiente atual utiliza Docker CLI emulado pelo Podman, também
-pode ser necessário:
-
-bash
-podman compose -f docker-compose.prod.yml build --no-cache
-17. Inicialização do sistema
-Subir o container:
-
-bash
-docker compose -f docker-compose.prod.yml up -d
-Subir monitoramento (opcional):
-
-bash
-docker compose -f docker-compose.monitoring.yml up -d
-docker compose -f docker-compose.logging.yml up -d
-Verificar:
-
-bash
-docker compose -f docker-compose.prod.yml ps
-docker ps
-Ver logs:
-
-bash
-docker compose -f docker-compose.prod.yml logs -f
-Ver logs somente do serviço:
-
-bash
-docker compose -f docker-compose.prod.yml logs -f controle-share-videos-v1
-18. Verificação do container
-Listar containers:
-
-bash
-docker ps
-Ver detalhes:
-
-bash
-docker inspect controle-share-videos-v1.0
-Verificar healthcheck:
-
-bash
-docker inspect --format='{{json .State.Health}}' controle-share-videos-v1.0
-19. Acessar o container
-Como o container é baseado em Alpine:
-
-bash
-docker exec -it controle-share-videos-v1.0 sh
-Verificar estrutura:
-
-bash
-ls -lah /opt/app
-Ver backend:
-
-bash
-ls -lah /opt/app/backend
-Ver dados:
-
-bash
-ls -lah /opt/app/backend/data
-Ver frontend:
-
-bash
-ls -lah /opt/app/frontend
-20. Verificar o SQLite
-O SQLite pode ser acessado dentro do container se o binário estiver
-disponível:
-
-bash
-docker exec -it controle-share-videos-v1.0 sqlite3 \
-  /opt/app/backend/data/controle-videos.db
-Caso o SQLite não esteja instalado na imagem final, o banco pode ser
-analisado diretamente no host:
-
-bash
-sqlite3 /data/controle-videos.db
-Comandos úteis:
-
-sql
-.tables
-.schema
-.quit
-21. Backup do SQLite
-21.1 Backup simples
-Criar backup simples:
-
-bash
-sqlite3 /data/controle-videos.db \
-  ".backup '/data/backups/sqlite/controle-videos-$(date +%Y-%m-%d-%H%M).db'"
-Exemplo de resultado:
-
-text
-/data/backups/sqlite/controle-videos-2026-07-26-1200.db
-21.2 Backup completo automatizado
-Criar script de backup:
-
-bash
-# scripts/backup.sh
-#!/bin/bash
-
-BACKUP_DIR="/data/backups"
-RETENTION_DAYS=30
-TIMESTAMP=$(date +%Y-%m-%d-%H%M)
-DATE=$(date +%Y-%m-%d)
-
-echo "=== Iniciando backup em $TIMESTAMP ==="
-
-# Criar diretórios se não existirem
-mkdir -p $BACKUP_DIR/sqlite
-mkdir -p $BACKUP_DIR/uploads/$DATE
-mkdir -p $BACKUP_DIR/images/$DATE
-
-# Backup do SQLite
-echo "🔹 Backup do banco SQLite..."
-sqlite3 /data/controle-videos.db ".backup '$BACKUP_DIR/sqlite/controle-videos-$TIMESTAMP.db'"
-gzip $BACKUP_DIR/sqlite/controle-videos-$TIMESTAMP.db
-
-# Backup dos uploads
-echo "🔹 Backup dos uploads..."
-rsync -a /data/uploads/ "$BACKUP_DIR/uploads/$DATE/"
-
-# Backup das imagens
-echo "🔹 Backup das imagens..."
-rsync -a /data/images/ "$BACKUP_DIR/images/$DATE/"
-
-# Verificar integridade do backup
-echo "🔹 Verificando integridade do backup..."
-if sqlite3 "$BACKUP_DIR/sqlite/controle-videos-$TIMESTAMP.db.gz" ".tables" > /dev/null 2>&1; then
-    echo "✅ Backup do banco verificado com sucesso"
-else
-    echo "❌ Erro na verificação do backup do banco"
-fi
-
-# Remover backups antigos
-echo "🔹 Removendo backups com mais de $RETENTION_DAYS dias..."
-find $BACKUP_DIR/sqlite -name "controle-videos-*.db.gz" -mtime +$RETENTION_DAYS -delete
-find $BACKUP_DIR/uploads -type d -mtime +$RETENTION_DAYS -exec rm -rf {} \; 2>/dev/null
-find $BACKUP_DIR/images -type d -mtime +$RETENTION_DAYS -exec rm -rf {} \; 2>/dev/null
-
-# Estatísticas
-echo ""
-echo "=== Estatísticas do Backup ==="
-DU_SQLITE=$(du -sh $BACKUP_DIR/sqlite 2>/dev/null | cut -f1)
-DU_UPLOADS=$(du -sh $BACKUP_DIR/uploads 2>/dev/null | cut -f1)
-DU_IMAGES=$(du -sh $BACKUP_DIR/images 2>/dev/null | cut -f1)
-
-echo "Tamanho total SQLite: $DU_SQLITE"
-echo "Tamanho total Uploads: $DU_UPLOADS"
-echo "Tamanho total Imagens: $DU_IMAGES"
-
-echo "✅ Backup concluído com sucesso em $TIMESTAMP"
-Tornar executável:
-
-bash
-chmod +x scripts/backup.sh
-21.3 Configurar cron para backup automático
-bash
-sudo crontab -e
-Adicionar:
-
-bash
-# Backup diário às 2h
-0 2 * * * /opt/controle-share-videos-v1.0/scripts/backup.sh >> /var/log/backup.log 2>&1
-
-# Backup semanal completo aos domingos às 3h
-0 3 * * 0 /opt/controle-share-videos-v1.0/scripts/backup.sh >> /var/log/backup-weekly.log 2>&1
-21.4 Backup externo (recomendado)
-bash
-# scripts/backup-remote.sh
-#!/bin/bash
-
-# Exemplo com rsync para servidor remoto
-REMOTE_USER="user"
-REMOTE_HOST="backup-server.com"
-REMOTE_PATH="/backups/controle-share-videos"
-
-rsync -avz --delete /data/backups/ $REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH/
-22. Health Check e Monitoramento
-22.1 Script de health check
-bash
-# scripts/health-check.sh
-#!/bin/bash
-
-URL="http://localhost:3000/api/health"
-RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" $URL)
-TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
-
-echo "[$TIMESTAMP] Health Check:"
-
-if [ $RESPONSE -eq 200 ]; then
-    echo "✅ Sistema saudável (HTTP $RESPONSE)"
-    exit 0
-else
-    echo "❌ Sistema não respondeu (HTTP $RESPONSE)"
-    
-    # Tentar reiniciar automaticamente
-    if [ $RESPONSE -eq 0 ] || [ $RESPONSE -ge 500 ]; then
-        echo "🔄 Tentando reiniciar o container..."
-        docker compose -f /opt/controle-share-videos-v1.0/docker-compose.prod.yml restart
-        sleep 10
-        # Verificar novamente
-        RETRY=$(curl -s -o /dev/null -w "%{http_code}" $URL)
-        if [ $RETRY -eq 200 ]; then
-            echo "✅ Container reiniciado com sucesso"
-        else
-            echo "❌ Falha na reinicialização do container"
-        fi
-    fi
-    exit 1
-fi
-22.2 Verificação de integridade do banco
-bash
-# scripts/verify-db.sh
-#!/bin/bash
-
-DB_PATH="/data/controle-videos.db"
-BACKUP_DIR="/data/backups/sqlite"
-
-echo "=== Verificação do Banco de Dados ==="
-
-# Verificar se o banco existe
-if [ ! -f "$DB_PATH" ]; then
-    echo "❌ Banco de dados não encontrado em $DB_PATH"
-    echo "Tentando restaurar do backup mais recente..."
-    
-    LATEST_BACKUP=$(ls -t $BACKUP_DIR/controle-videos-*.db.gz 2>/dev/null | head -1)
-    if [ -f "$LATEST_BACKUP" ]; then
-        echo "🔄 Restaurando de $LATEST_BACKUP..."
-        gunzip -c $LATEST_BACKUP > $DB_PATH
-        chown 100999:100999 $DB_PATH
-        echo "✅ Banco restaurado com sucesso"
-    else
-        echo "❌ Nenhum backup encontrado"
-        exit 1
-    fi
-fi
-
-# Verificar integridade
-echo "🔍 Verificando integridade do banco..."
-INTEGRITY=$(sqlite3 $DB_PATH "PRAGMA integrity_check;")
-
-if [ "$INTEGRITY" = "ok" ]; then
-    echo "✅ Banco íntegro"
-    
-    # Mostrar estatísticas
-    echo ""
-    echo "📊 Estatísticas do banco:"
-    sqlite3 $DB_PATH <<EOF
-.mode column
-.headers on
-SELECT 'Usuários' as "Entidade", COUNT(*) as "Total" FROM User;
-SELECT 'Compartilhamentos' as "Entidade", COUNT(*) as "Total" FROM Share;
-SELECT 'Arquivos' as "Entidade", COUNT(*) as "Total" FROM File;
-SELECT 'Downloads' as "Entidade", COUNT(*) as "Total" FROM DownloadLog;
-EOF
-    
-    # Verificar tamanho
-    SIZE=$(du -h $DB_PATH | cut -f1)
-    echo ""
-    echo "📁 Tamanho do banco: $SIZE"
-    
-else
-    echo "❌ Banco corrompido!"
-    echo "🔄 Restaurando do backup mais recente..."
-    
-    LATEST_BACKUP=$(ls -t $BACKUP_DIR/controle-videos-*.db.gz 2>/dev/null | head -1)
-    if [ -f "$LATEST_BACKUP" ]; then
-        gunzip -c $LATEST_BACKUP > $DB_PATH
-        chown 100999:100999 $DB_PATH
-        echo "✅ Banco restaurado do backup $LATEST_BACKUP"
-    else
-        echo "❌ Nenhum backup encontrado para restauração"
-        exit 1
-    fi
-fi
-23. Monitoramento com Prometheus e Grafana
-23.1 Configuração do Prometheus
-yaml
-# monitoring/prometheus.yml
-global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
-
-scrape_configs:
-  - job_name: 'node'
-    static_configs:
-      - targets: ['localhost:9100']
-
-  - job_name: 'docker'
-    static_configs:
-      - targets: ['localhost:9323']
-
-  - job_name: 'application'
-    metrics_path: '/api/metrics'
-    static_configs:
-      - targets: ['localhost:3000']
-
-alerting:
-  alertmanagers:
-    - static_configs:
-        - targets: ['localhost:9093']
-
-rule_files:
-  - 'alerts.yml'
-23.2 Alertas
-yaml
-# monitoring/alerts.yml
-groups:
-  - name: application_alerts
-    rules:
-      - alert: ApplicationDown
-        expr: up{job="application"} == 0
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Aplicação Controle Share Videos está inacessível"
-          description: "A aplicação está com status DOWN por mais de 1 minuto"
-          
-      - alert: HighErrorRate
-        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Alta taxa de erros HTTP 5xx"
-          description: "Taxa de erros superior a 10% nos últimos 5 minutos"
-          
-      - alert: DatabaseSize
-        expr: node_file_size{path="/data/controle-videos.db"} > 1073741824
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Banco de dados SQLite grande"
-          description: "O banco de dados excedeu 1GB"
-24. Atualização do sistema
-Antes da atualização:
-
-bash
-docker compose -f docker-compose.prod.yml down
-Atualizar o código:
-
-bash
-git pull
-Reconstruir:
-
-bash
-docker compose -f docker-compose.prod.yml build
-Subir novamente:
-
-bash
-docker compose -f docker-compose.prod.yml up -d
-Verificar:
-
-bash
-docker compose -f docker-compose.prod.yml ps
-Ver logs:
-
-bash
-docker compose -f docker-compose.prod.yml logs -f
-Os dados do segundo disco não devem ser removidos durante esse processo.
-
-25. Procedimento de recuperação
-Se o container for removido:
-
-bash
-docker compose -f docker-compose.prod.yml down
-Os dados permanecem em:
-
-text
-/data
-Para reconstruir:
-
-bash
-docker compose -f docker-compose.prod.yml build --no-cache
-docker compose -f docker-compose.prod.yml up -d
-O sistema deve reutilizar:
-
-text
-/data/controle-videos.db
-/data/images/
-/data/uploads/
-26. Checklist de produção
-Nginx
-□ Nginx instalado no Ubuntu
-□ domínio ou hostname definido
-□ reverse proxy configurado
-□ portas 80 e 443 configuradas
-□ HTTPS configurado com Let's Encrypt
-□ Headers de segurança habilitados
-□ Rate limiting configurado
-□ acesso direto às portas internas bloqueado
-□ Firewall configurado
-Sistema operacional
-□ Ubuntu instalado
-□ Segundo disco identificado
-□ Segundo disco montado em /data
-□ /etc/fstab configurado
-□ df -h validado
-□ Fail2ban configurado
-Projeto
-□ Código atualizado
-□ Dockerfile validado
-□ docker-compose.prod.yml configurado
-□ .env.production configurado
-□ .gitignore revisado
-□ arquivos de desenvolvimento não utilizados em produção
-Banco
-□ controle-videos.db identificado
-□ arquivo SQLite vazio incorreto removido
-□ banco copiado para /data/controle-videos.db
-□ DATABASE_URL configurado corretamente
-□ Permissões do banco validadas
-Dados
-□ /data/images criado
-□ /data/uploads criado
-□ /data/backups criado
-□ permissões validadas (PUID/PGID 100999)
-Container
-□ imagem construída
-□ container iniciado
-□ healthcheck funcionando
-□ logs sem erros críticos
-□ API respondendo
-□ frontend acessível
-□ Limites de recursos configurados
-Backup
-□ backup do SQLite configurado
-□ backup dos uploads configurado
-□ backup das imagens configurado
-□ backup externo configurado
-□ Script de backup testado
-□ Cron configurado
-□ Verificação de integridade configurada
-Monitoramento
-□ Logs centralizados (Loki)
-□ Métricas (Prometheus)
-□ Dashboards (Grafana)
-□ Alertas configurados
-□ Health check externo configurado
-Segurança
-□ Firewall UFW configurado
-□ Fail2ban configurado
-□ HTTPS habilitado
-□ Headers de segurança habilitados
-□ Rate limiting ativo
-□ Secrets/JWT gerados
-27. Comandos principais
-Build
-bash
-docker compose -f docker-compose.prod.yml build --no-cache
-Subir
-bash
-docker compose -f docker-compose.prod.yml up -d
-Parar
-bash
-docker compose -f docker-compose.prod.yml down
-Reiniciar
-bash
-docker compose -f docker-compose.prod.yml restart
-Status
-bash
-docker compose -f docker-compose.prod.yml ps
-Logs
-bash
-docker compose -f docker-compose.prod.yml logs -f
-Container
-bash
-docker exec -it controle-share-videos-v1.0 sh
-Volumes e dados
-bash
-ls -lah /data
-Banco
-bash
-sqlite3 /data/controle-videos.db
-Nginx
-bash
-sudo nginx -t
-sudo systemctl reload nginx
-sudo systemctl status nginx
-SSL
-bash
-sudo certbot renew --dry-run
-sudo certbot certificates
-Backup
-bash
-sudo /opt/controle-share-videos-v1.0/scripts/backup.sh
-Health Check
-bash
-/opt/controle-share-videos-v1.0/scripts/health-check.sh
-Verificar DB
-bash
-/opt/controle-share-videos-v1.0/scripts/verify-db.sh
-Monitoramento
-bash
-# Logs
-docker compose -f docker-compose.logging.yml logs -f
-
-# Métricas
-docker compose -f docker-compose.monitoring.yml logs -f
-28. Estado final esperado
-A instalação final deve ficar semelhante a:
-
-text
-DISCO 1
-└── Ubuntu
-    ├── Nginx (portas 80/443)
-    ├── Docker/Podman
-    └── Projeto
-        └── controle-share-videos-v1.0
-            ├── Dockerfile
-            ├── docker-compose.prod.yml
-            ├── docker-compose.monitoring.yml
-            ├── docker-compose.logging.yml
-            ├── backend
-            ├── frontend
-            ├── reverse-proxy
-            └── scripts
-
-DISCO 2
-└── /data
-    ├── controle-videos.db
-    ├── images
-    ├── uploads
-    └── backups
-        ├── sqlite
-        ├── uploads
-        └── images
-    ├── prometheus
-    ├── grafana
-    └── loki
-Dentro do container:
-
-text
-/opt/app
-├── frontend
-│   ├── .next
-│   └── public
-│       └── img
-│
-├── backend
-│   ├── dist
-│   ├── prisma
-│   └── data
-│       ├── controle-videos.db
-│       └── uploads
-│
-├── reverse-proxy
-└── scripts
-    └── docker
-29. Solução de problemas comuns
-29.1 Problemas de permissão
-bash
-# Verificar proprietário
-ls -lah /data
-
-# Corrigir permissões
-sudo chown -R 100999:100999 /data
-29.2 Nginx não inicia
-bash
-sudo nginx -t
-sudo journalctl -u nginx
-29.3 Container não inicia
-bash
-docker logs controle-share-videos-v1.0
-docker compose -f docker-compose.prod.yml logs
-29.4 Banco corrompido
-bash
 # Verificar
-sqlite3 /data/controle-videos.db "PRAGMA integrity_check;"
+docker compose version
+# Docker Compose version v2.x.x
 
-# Tentar recuperar
-sqlite3 /data/controle-videos.db ".dump" > /tmp/dump.sql
-sqlite3 /data/controle-videos.db.new < /tmp/dump.sql
-mv /data/controle-videos.db /data/controle-videos.db.corrupt
-mv /data/controle-videos.db.new /data/controle-videos.db
-chown 100999:100999 /data/controle-videos.db
-29.5 Problemas de SSL
-bash
-sudo certbot renew --dry-run
-sudo certbot certificates
-sudo systemctl status certbot.timer
-29.6 Performance do SQLite
-bash
-# Otimizar banco
-sqlite3 /data/controle-videos.db "PRAGMA optimize;"
-sqlite3 /data/controle-videos.db "VACUUM;"
+# Hardening do host (UFW, fail2ban, SSH)
+sudo bash /opt/controle-share-videos-v1.0/scripts/provision/hardening.sh
+```
 
-# Verificar tamanho
-du -h /data/controle-videos.db
+O `hardening.sh`:
+- UFW: `deny incoming`, `allow 22/80/443`, `limit 22`, `deny 445` + `allow from RFC1918 to 445`
+- fail2ban: jails `sshd` (3 tentativas/24h), `caddy` (20/1h), `samba` (5/1h)
+- SSH: root login não, password auth não, key-only, timeouts
 
-# Verificar índices
-sqlite3 /data/controle-videos.db "SELECT name FROM sqlite_master WHERE type='index';"
-30. Otimizações adicionais
-30.1 Cache do Nginx
-nginx
-# Adicionar ao local / do Nginx
-proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=app_cache:10m max_size=1g inactive=60m use_temp_path=off;
+---
 
-location / {
-    proxy_cache app_cache;
-    proxy_cache_valid 200 302 60m;
-    proxy_cache_valid 404 1m;
-    proxy_cache_key "$scheme$request_method$host$request_uri";
-    proxy_cache_use_stale error timeout updating http_500 http_502 http_503 http_504;
-    proxy_cache_lock on;
-    
-    # ... resto da configuração
-}
-30.2 Compressão gzip
-nginx
-# Adicionar ao nginx.conf
-gzip on;
-gzip_vary on;
-gzip_min_length 1024;
-gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
-gzip_comp_level 6;
-gzip_disable "msie6";
-30.3 Otimização do SQLite
-sql
--- Configurações recomendadas
-PRAGMA journal_mode=WAL;
-PRAGMA synchronous=NORMAL;
-PRAGMA cache_size=-2000000;
-PRAGMA temp_store=MEMORY;
-30.4 Conexões persistentes
-nginx
-# Adicionar ao Nginx
-keepalive_timeout 65;
-keepalive_requests 100;
-Conclusão
-A arquitetura recomendada mantém o código e o ambiente de execução no
-disco do Ubuntu e separa os dados persistentes no segundo disco.
+## 6. Clone do projeto em /opt
 
-O ponto mais importante é manter:
+```bash
+cd /opt
+sudo git clone https://github.com/seu-usuario/controle-share-videos-v1.0.git
+sudo chown -R $USER:$USER controle-share-videos-v1.0
+cd controle-share-videos-v1.0
 
-text
-/data/controle-videos.db
-/data/images/
-/data/uploads/
-fora do ciclo de vida do container.
+# Em produção, travar numa tag de release (não main direto):
+git fetch --tags
+git checkout v1.2.3    # substitua pela tag desejada
+```
 
-Assim, a aplicação pode ser:
+> **Recomendação**: use tags Git para releases (`v1.2.3`, `v1.2.4`...). O branch `main` recebe desenvolvimento contínuo.
 
-reconstruída;
+---
 
-atualizada;
+## 7. Criação dos Docker secrets
 
-removida;
+Todos os secrets são **externos** (criados no host, não no compose). O compose declara `external: true`.
 
-recriada;
+```bash
+# 1) Admin bootstrap (lidos pelo seed no primeiro boot)
+echo "admin@empresa.local" | docker secret create admin_email -
+echo "admin"               | docker secret create admin_username -
+openssl rand -base64 32   | docker secret create admin_password -
 
-sem perder os usuários, o banco SQLite, os vídeos, os uploads e as
-imagens.
+# 2) SMTP (opcional — se não usar e-mail, crie secret vazio)
+echo "smtp-password-real"  | docker secret create smtp_password -
+# ou: echo "" | docker secret create smtp_password -
 
-O arquivo create-user.sh garante que a aplicação execute como usuário
-não-root e controle corretamente as permissões através de PUID e
-PGID.
+# 3) Let's Encrypt / Caddy
+echo "seu-email@empresa.local" | docker secret create acme_email -
+echo "seusistema.ddns.net"     | docker secret create domain -
+```
 
+Verificar:
+```bash
+docker secret ls
+# Deve listar: admin_email, admin_username, admin_password, smtp_password, acme_email, domain
+```
 
+> **Nota**: o `internal.jwtSecret` **não** é Docker secret — é gerado pelo seed (`crypto.randomBytes(256)`), armazenado na tabela `Config` com `locked=true`, e nunca sai do banco.
 
-O monitoramento com Prometheus e Grafana permite:
+---
 
-✅ Métricas de performance
+## 8. Configuração do domínio No-IP
 
-✅ Alertas proativos
+Ver seção dedicada: **`docs/Implantacao/conf-dominio.md`**
 
-✅ Dashboards visuais
+Resumo rápido:
+1. Criar hostname `seusistema.ddns.net` no painel No-IP (A record → IP fixo)
+2. Port forwarding 80/443 no roteador → IP local do servidor
+3. Secrets `domain=seusistema.ddns.net` e `acme_email=seu@email` criados
+4. Caddy provisiona TLS automaticamente via `Caddyfile.prod`
+5. **Passo crítico**: definir `general.appUrl = https://seusistema.ddns.net` no banco (via UI Admin ou SQL)
+6. Confirmar hostname No-IP a cada 30 dias (e-mail automático)
 
-✅ Identificação rápida de problemas
+---
 
-Os backups automatizados garantem:
+## 9. Criação dos diretórios no RAID6 + cópia dos dados existentes
 
-✅ Recuperação de desastres
+```bash
+# Estrutura base
+sudo mkdir -p /srv/controle-share-videos/data/{images,uploads/_temp,uploads/shares}
+sudo mkdir -p /srv/controle-share-videos/backups/{sqlite,uploads,images}
+sudo mkdir -p /srv/controle-share-videos/monitoring/{prometheus,grafana,loki}
 
-✅ Integridade dos dados
+# Permissões base (container user = 1002:1002)
+sudo chown -R 1002:1002 /srv/controle-share-videos/data
+sudo chown -R 1002:1002 /srv/controle-share-videos/backups
+sudo chown -R 1002:1002 /srv/controle-share-videos/monitoring
 
-✅ Retenção configurável
+# setgid em uploads/shares para que arquivos criados via Samba
+# herdem GID 1002 (container lê/escreve)
+sudo chmod 2775 /srv/controle-share-videos/data/uploads/shares
+sudo find /srv/controle-share-videos/data/uploads/shares -type d -exec chmod 2775 {} +
 
-Esta configuração é adequada para produção em ambientes de pequeno a
-médio porte, com capacidade de escalar conforme necessário.
+# Copiar dados atuais do repo (se houver) para o RAID6
+sudo cp -a /opt/controle-share-videos-v1.0/data/controle-videos.db \
+      /srv/controle-share-videos/data/
+sudo cp -a /opt/controle-share-videos-v1.0/data/images/. \
+      /srv/controle-share-videos/data/images/
+sudo cp -a /opt/controle-share-videos-v1.0/data/uploads/. \
+      /srv/controle-share-videos/data/uploads/
+
+# Verificar
+ls -la /srv/controle-share-videos/data/
+# controle-videos.db  images/  uploads/
+# Tudo owner 1002:1002
+```
+
+---
+
+## 10. Ajuste do `general.appUrl` no banco
+
+O `general.appUrl` controla os links gerados nos e-mails e no frontend
+(compartilhamentos, reset de senha, convites). **Deve ser a URL pública HTTPS.**
+
+### Opção A — Via UI Admin (recomendado)
+1. Acessar `https://seusistema.ddns.net` → login admin
+2. Menu Admin → Configurações → Geral
+3. Editar `URL da Aplicação` → `https://seusistema.ddns.net` (sem barra final)
+4. Salvar
+
+### Opção B — Via SQL direto (antes do primeiro boot)
+```bash
+sqlite3 /srv/controle-share-videos/data/controle-videos.db \
+  "UPDATE \"Config\" SET \"value\"='https://seusistema.ddns.net', \"updatedAt\"=CURRENT_TIMESTAMP \
+   WHERE \"name\"='appUrl' AND \"category\"='general';"
+```
+
+> **Atenção**: não crie `/opt/controle-share-videos-v1.0/backend/config.yaml` em produção
+> com a chave `general.appUrl`. O `ConfigService` carrega YAML a cada boot e
+> **sobrescreve o banco** se a chave existir no YAML (`config.service.ts:62-65`).
+> Use apenas UI Admin ou SQL direto na tabela `"Config"`.
+
+---
+
+## 11. Permissões 1002:1002 + chown + ACLs
+
+O container roda como usuário `controle-user` (UID 1002) / grupo `controle-group` (GID 1002),
+criados no `Dockerfile:90-91` e ajustados em runtime por `create-user.sh`.
+
+```bash
+# Garantir ownership no RAID6 (idempotente)
+sudo chown -R 1002:1002 /srv/controle-share-videos/data
+sudo chown -R 1002:1002 /srv/controle-share-videos/backups
+
+# setgid nas pastas de upload para herdar GID 1002
+sudo find /srv/controle-share-videos/data/uploads -type d -exec chmod 2775 {} +
+
+# Arquivos 664, dirs 2775
+sudo find /srv/controle-share-videos/data -type f -exec chmod 0664 {} +
+sudo find /srv/controle-share-videos/data -type d -exec chmod 2775 {} +
+
+# Verificar
+stat -c '%u:%g %n' /srv/controle-share-videos/data/controle-videos.db
+# 1002:1002 /srv/controle-share-videos/data/controle-videos.db
+```
+
+O Samba (próxima seção) usa `force group = 1002` + `create mask = 0664` +
+`directory mask = 2775` para manter consistência quando o usuário `uploader`
+(UID 1102) escreve via SMB.
+
+---
+
+## 12. Build e primeiro startup
+
+```bash
+cd /opt/controle-share-videos-v1.0
+
+# Build sem cache (primeira vez)
+docker compose -f docker-compose.prod.yml build --no-cache
+
+# Subir
+docker compose -f docker-compose.prod.yml up -d
+
+# Verificar saúde
+docker compose -f docker-compose.prod.yml ps
+# backend, frontend, caddy → Up (healthy)
+
+# Logs
+docker compose -f docker-compose.prod.yml logs -f
+```
+
+Healthchecks esperados:
+- `backend`: `curl -fs http://127.0.0.1:8080/api/health` → 200
+- `frontend`: `curl -fs http://127.0.0.1:3333` → 200
+- `caddy`: `caddy validate --config /etc/caddy/Caddyfile` → ok
+
+---
+
+## 13. Configuração do Samba autenticado
+
+Execute **após** o hardening.sh e **após** a estrutura `/srv/.../data/uploads/shares` existir com owner 1002:1002.
+
+```bash
+sudo bash /opt/controle-share-videos-v1.0/scripts/provision/samba.sh
+```
+
+O script:
+1. Instala `samba`
+2. Cria usuário host `uploader` (UID 1102, shell `/usr/sbin/nologin`)
+3. Adiciona `uploader` ao grupo GID 1002 (`controle-group-1002`)
+4. Define senha Samba (`smbpasswd -a uploader`) — interativa ou via `UPLOADER_PASSWORD`
+5. Ajusta permissões: `chown -R 1002:1002`, `chmod 2775` (dirs), `0664` (files)
+6. Escreve `/etc/samba/smb.conf` com share `[videos]`:
+   ```ini
+   [videos]
+       path = /srv/controle-share-videos/data/uploads/shares
+       valid users = uploader
+       force group = 1002
+       create mask = 0664
+       directory mask = 2775
+       veto files = /*.bat/*.exe/*.scr/*.com/*.cmd/*.vbs/*.js/*.jse/*.wsf/*.ps1*/
+       hosts allow = 192.168.0.0/16 10.0.0.0/8 172.16.0.0/12 127.0.0.1
+   ```
+7. `testparm` + `systemctl restart smbd nmbd`
+
+### Teste no Windows (LAN)
+```
+Win+R → \\seu-servidor\videos
+Usuário: uploader
+Senha: <a definida no smbpasswd>
+```
+Arquivos colados aparecem **imediatamente** em
+`/opt/app/backend/data/uploads/shares/` dentro do container.
+
+### Rotacionar senha do uploader
+```bash
+sudo smbpasswd uploader
+```
+
+---
+
+## 14. Firewall UFW (incluindo SMB LAN-only)
+
+Já configurado pelo `hardening.sh`:
+
+```bash
+sudo ufw status verbose
+# Status: active
+# Logging: on (low)
+# Default: deny (incoming), allow (outgoing), disabled (routed)
+# New profiles: skip
+
+# To                         Action      From
+# --                         ------      ----
+# 22/tcp                     ALLOW IN    Anywhere                   # SSH (limit)
+# 80/tcp                     ALLOW IN    Anywhere                   # HTTP (ACME)
+# 443/tcp                    ALLOW IN    Anywhere                   # HTTPS
+# 445/tcp                    DENY IN     Anywhere                   # SMB default deny
+# 445/tcp                    ALLOW IN    192.168.0.0/16             # SMB LAN
+# 445/tcp                    ALLOW IN    10.0.0.0/8                 # SMB LAN
+# 445/tcp                    ALLOW IN    172.16.0.0/12              # SMB LAN
+```
+
+> **Importante**: `hardening.sh` faz `ufw --force reset`. Rode-o **uma vez** no
+> provisionamento inicial. Se precisar ajustar regras depois, edite manualmente
+> ou crie script separado — não rode `hardening.sh` novamente após configurar o Samba.
+
+---
+
+## 15. Fail2ban
+
+Já configurado pelo `hardening.sh` com 3 jails:
+
+| Jail | Porta | Filtro | Log | MaxRetry | BanTime |
+|------|-------|--------|-----|----------|---------|
+| `sshd` | 22 | `sshd` | `/var/log/auth.log` | 3 | 24h |
+| `caddy` | 80,443 | `caddy` (custom) | `/var/log/caddy/access.log` | 20 | 1h |
+| `samba` | 445 | `samba` (built-in) | `/var/log/samba/log.smbd` | 5 | 1h |
+
+Verificar:
+```bash
+sudo fail2ban-client status
+sudo fail2ban-client status sshd
+sudo fail2ban-client status caddy
+sudo fail2ban-client status samba
+```
+
+---
+
+## 16. Hardening do host
+
+O script `scripts/provision/hardening.sh` executa:
+
+1. **UFW** — deny incoming, allow 22/80/443, limit 22, SMB LAN-only
+2. **Fail2ban** — instala, configura jails sshd/caddy/samba, habilita
+3. **SSH** — `/etc/ssh/sshd_config`:
+   - `PermitRootLogin no`
+   - `PasswordAuthentication no`
+   - `PubkeyAuthentication yes`
+   - `ChallengeResponseAuthentication no`
+   - `UsePAM no`
+   - `X11Forwarding no`
+   - `ClientAliveInterval 300`, `ClientAliveCountMax 2`
+   - `MaxAuthTries 3`, `MaxSessions 10`
+   - `systemctl reload sshd`
+
+### Pós-hardening
+```bash
+# 1) Adicionar sua chave SSH (antes de fechar a sessão atual!)
+ssh-copy-id usuario@servidor
+
+# 2) Testar login com chave em nova aba/terminal
+ssh usuario@servidor
+
+# 3) Atualizações automáticas de segurança
+sudo apt install -y unattended-upgrades
+sudo dpkg-reconfigure -plow unattended-upgrades
+# Responder "Sim" para downloads/instalação automática
+```
+
+---
+
+## 17. Backup (GPG fail-closed) + cron
+
+O script `scripts/backup.sh` já implementa a rotina completa:
+
+- **Fail-closed**: em produção (`NODE_ENV=production`), **exige** `GPG_RECIPIENT` — aborta se não definido
+- `sqlite3 .backup` → `gzip -9` → `gpg --encrypt --sign --recipient $GPG_RECIPIENT`
+- Retenção: 30 dias (`find -mtime +30 -delete`)
+- Saída em `/opt/app/backups/` (bind mount → `/srv/.../backups/sqlite/`)
+
+### Gerar chave GPG (uma vez)
+```bash
+gpg --gen-key
+# Tipo: RSA and RSA, 4096 bits, validade 2y/0, nome/email reais
+# Exportar chave pública para o host de backup se off-site
+gpg --export -a "seu@email" > pubkey.asc
+```
+
+### Configurar `GPG_RECIPIENT` no host (environment do container backend)
+Adicione no `docker-compose.prod.yml` (backend → environment):
+```yaml
+environment:
+  - GPG_RECIPIENT=seu@email
+  # ou use Docker secret + *_FILE se preferir não expor no compose
+```
+
+### Cron diário (2h da manhã)
+```bash
+sudo crontab -e
+# Backup diário 2h
+0 2 * * * /opt/controle-share-videos-v1.0/scripts/backup.sh \
+      >> /var/log/controle-share-videos-backup.log 2>&1
+```
+
+### Restaurar (manual)
+```bash
+# Descriptografar
+gpg --decrypt backup.db.gz.gpg > backup.db.gz
+
+# Descomprimir
+gunzip backup.db.gz
+
+# Restaurar no SQLite
+sqlite3 /srv/controle-share-videos/data/controle-videos.db \
+  ".restore 'backup.db'"
+```
+
+---
+
+## 18. Restauração (disaster recovery)
+
+### Cenário 1: Banco corrompido, containers ok
+```bash
+docker compose -f docker-compose.prod.yml down
+# Restaurar backup mais recente (ver seção 17)
+sqlite3 /srv/controle-share-videos/data/controle-videos.db ".restore 'backup.db'"
+docker compose -f docker-compose.prod.yml up -d
+```
+
+### Cenário 2: Host perdido — rebuild completo
+```bash
+# 1) Novo Ubuntu Server + Docker + hardening.sh
+# 2) Montar RAID6 em /srv/controle-share-videos (mesmo UUID no fstab)
+# 3) Clone do repo em /opt/controle-share-videos-v1.0 (mesma tag)
+# 4) Recriar Docker secrets (mesmos valores)
+# 5) Build + up
+docker compose -f docker-compose.prod.yml build --no-cache
+docker compose -f docker-compose.prod.yml up -d
+# Dados no RAID6 intactos → aplicação sobe com usuários, shares, vídeos
+```
+
+---
+
+## 19. Atualizações seguras (isolando dados) + rollback
+
+### Atualização padrão
+```bash
+cd /opt/controle-share-videos-v1.0
+
+# 1) Backup pré-update (obrigatório)
+/opt/controle-share-videos-v1.0/scripts/backup.sh
+
+# 2) Parar containers
+docker compose -f docker-compose.prod.yml down
+
+# 3) Atualizar código (tag de release)
+git fetch --tags
+git checkout v1.2.4    # nova tag
+
+# 4) Rebuild
+docker compose -f docker-compose.prod.yml build --no-cache
+
+# 5) Subir
+docker compose -f docker-compose.prod.yml up -d
+
+# 6) Verificar
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs -f
+```
+
+> **Por que é seguro**: dados em `/srv/controle-share-videos/data/` são **bind mounts**,
+> fora do ciclo de vida do container. `down`/`build`/`up` nunca os tocam.
+> `prisma migrate deploy` no entrypoint é idempotente — aplica só migrations novas.
+
+### Rollback (update quebrou produção)
+```bash
+docker compose -f docker-compose.prod.yml down
+git checkout v1.2.3    # tag anterior estável
+docker compose -f docker-compose.prod.yml build --no-cache
+docker compose -f docker-compose.prod.yml up -d
+```
+
+---
+
+## 20. Rotinas de manutenção
+
+### Limpeza de `_temp` (diário 3h)
+```bash
+# Já criado: scripts/maintenance/cleanup-temp.sh
+# Remove arquivos > 24h em data/uploads/_temp/
+
+sudo crontab -e
+0 3 * * * /opt/controle-share-videos-v1.0/scripts/maintenance/cleanup-temp.sh \
+      >> /var/log/controle-share-videos-cleanup.log 2>&1
+```
+
+### VACUUM SQLite (mensal, opcional)
+```bash
+# Adicionar ao crontab se o banco crescer muito
+0 4 1 * * sqlite3 /srv/controle-share-videos/data/controle-videos.db "VACUUM;" \
+      >> /var/log/controle-share-videos-vacuum.log 2>&1
+```
+
+### Verificação de integridade (semanal)
+```bash
+0 5 * * 0 /opt/controle-share-videos-v1.0/scripts/verify-db.sh \
+      >> /var/log/controle-share-videos-integrity.log 2>&1
+```
+
+---
+
+## 21. Monitoramento (opcional)
+
+Arquivo: `docker-compose.monitoring.yml` (já inclui Loki + Promtail — **não existe** `docker-compose.logging.yml` separado).
+
+```bash
+# Subir stack de monitoramento
+docker compose -f docker-compose.monitoring.yml up -d
+
+# Serviços
+# - prometheus :9090   (métricas, TSDB 30d em /srv/.../monitoring/prometheus)
+# - grafana    :3001   (dashboards, sessões em /srv/.../monitoring/grafana)
+# - loki       :3100   (logs, chunks em /srv/.../monitoring/loki)
+# - promtail          (coleta /var/log + docker containers → Loki)
+# - node-exporter     (host metrics, network_mode: host)
+```
+
+### Pré-requisitos no host (antes do `up -d`)
+```bash
+# Diretórios no RAID6 com donos corretos para os usuários dos containers
+# prometheus (UID 65534), grafana (UID 472), loki (UID 10001) — ajustar conforme imagens
+sudo mkdir -p /srv/controle-share-videos/monitoring/{prometheus,grafana,loki}
+# Exemplo genérico (ajustar UIDs se necessário):
+sudo chown -R 65534:65534 /srv/controle-share-videos/monitoring/prometheus
+sudo chown -R 472:472     /srv/controle-share-videos/monitoring/grafana
+sudo chown -R 10001:10001 /srv/controle-share-videos/monitoring/loki
+```
+
+### Senha Grafana
+```bash
+bash /opt/controle-share-videos-v1.0/scripts/provision/grafana-secret.sh
+# Imprime senha única — guarde!
+# Login: http://seu-host:3001  (admin / <senha>)
+```
+
+---
+
+## 22. Solução de problemas
+
+| Sintoma | Diagnóstico | Ação |
+|---------|-------------|------|
+| `backend` unhealthy | `curl http://127.0.0.1:8080/api/health` falha | `docker logs backend` → ver migrações/seed |
+| `caddy` não emite certificado | ACME falha | Verificar porta 80 aberta, DNS propagado, `domain` secret correto |
+| Links gerados usam `localhost` | `general.appUrl` não definido ou = default | Definir via UI Admin ou SQL (seção 10) |
+| Samba nega acesso | UFW / `hosts allow` / senha | `ufw status`, `testparm`, `smbpasswd uploader` |
+| `_temp` cresce sem parar | Cron não roda / script erro | `systemctl status cron`, logs em `/var/log/...-cleanup.log` |
+| Backup aborta "GPG_RECIPIENT required" | Falta env no backend | Adicionar `GPG_RECIPIENT` no compose ou secret |
+| `prisma migrate deploy` falha | Migration conflitante | Verificar `docker logs backend`; nunca edite migrations aplicadas |
+
+### Comandos úteis
+```bash
+# Entrar no container backend
+docker exec -it controle-share-videos-backend sh
+
+# Ver banco
+sqlite3 /srv/controle-share-videos/data/controle-videos.db ".tables"
+
+# Ver config appUrl
+sqlite3 /srv/controle-share-videos/data/controle-videos.db \
+  "SELECT * FROM \"Config\" WHERE \"name\"='appUrl';"
+
+# Verificar permissões
+ls -la /srv/controle-share-videos/data/uploads/shares/
+
+# Testar Caddyfile
+docker exec controle-share-videos-caddy caddy validate --config /etc/caddy/Caddyfile
+```
+
+---
+
+## 23. Checklist final de produção
+
+### Infraestrutura
+- [ ] Ubuntu Server 22.04/24.04 LTS instalado
+- [ ] RAID6 montado em `/srv/controle-share-videos` (fstab UUID + nofail)
+- [ ] Docker Engine + Compose v2 instalados
+- [ ] Usuário não-root no grupo `docker`
+
+### Código & Secrets
+- [ ] Repo clonado em `/opt/controle-share-videos-v1.0` (tag de release)
+- [ ] 6 Docker secrets criados: `admin_email`, `admin_username`, `admin_password`, `smtp_password`, `acme_email`, `domain`
+- [ ] `GPG_RECIPIENT` definido (env ou secret) para backup
+
+### Domínio & TLS
+- [ ] Hostname No-IP `seusistema.ddns.net` criado (A record → IP fixo)
+- [ ] Port forwarding 80/443 no roteador → IP local do servidor
+- [ ] `general.appUrl = https://seusistema.ddns.net` definido no banco
+- [ ] Caddy emitiu certificado Let's Encrypt (logs: `acme: Obtaining certificate...`)
+
+### Dados & Permissões
+- [ ] `/srv/.../data` owner 1002:1002, dirs 2775, files 0664
+- [ ] `uploads/shares` setgid (2775) para herdar GID 1002
+- [ ] Backup testado (restore funcional)
+
+### Samba
+- [ ] `hardening.sh` executado (UFW + fail2ban + SSH)
+- [ ] `samba.sh` executado (usuário `uploader`, share `[videos]`)
+- [ ] Teste Windows: `\\servidor\videos` → autentica → cola vídeo → aparece no container
+
+### Monitoramento (se usado)
+- [ ] Diretórios `/srv/.../monitoring/{prometheus,grafana,loki}` criados com owners corretos
+- [ ] `grafana-secret.sh` executado, senha guardada
+- [ ] `docker compose -f docker-compose.monitoring.yml up -d` saudável
+
+### Manutenção agendada (crontab root)
+- [ ] `0 2 * * * backup.sh` (diário 2h)
+- [ ] `0 3 * * * cleanup-temp.sh` (diário 3h)
+- [ ] `0 4 1 * * sqlite3 ... VACUUM` (mensal, opcional)
+- [ ] `0 5 * * 0 verify-db.sh` (semanal)
+
+### Documentação
+- [ ] Este guia lido e seguido
+- [ ] `conf-dominio.md` lido e seguido
+- [ ] Runbooks de restore/rollback acessíveis à equipe
+
+---
+
+**Fim do Guia de Implantação**
+
+> Mantido em `docs/Implantacao/Implantacao.md` — versionado junto com o código.
+> Atualize a tag de release neste documento a cada deploy de produção.

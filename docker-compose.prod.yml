@@ -37,7 +37,7 @@ services:
       - TRUST_PROXY=true
       - BACKEND_PORT=8080
       - DATABASE_URL=file:/opt/app/backend/data/controle-videos.db
-      - CADDY_DISABLED=false
+      - CADDY_DISABLED=true
       # Admin bootstrap from Docker secrets (file-based env so seed reads them)
       - ADMIN_EMAIL_FILE=/run/secrets/admin_email
       - ADMIN_USERNAME_FILE=/run/secrets/admin_username
@@ -50,10 +50,11 @@ services:
       - smtp_password
       - acme_email
       - domain
-    # Volumes
+    # Bind mounts to RAID6 — data lives outside the container lifecycle.
+    # Host paths are owned by UID/GID 1002:1002 (see docs/Implantacao/Implantacao.md).
     volumes:
-      - backend-data:/opt/app/backend/data:rw,z
-      - frontend-images:/opt/app/frontend/public/img:rw,z
+      - /srv/controle-share-videos/data:/opt/app/backend/data:rw,z
+      - /srv/controle-share-videos/data/images:/opt/app/frontend/public/img:rw,z
     # Entrypoint runs migrations, seed, then starts servers via Caddy
     entrypoint: ["sh", "./scripts/docker/create-user.sh"]
     command: ["sh", "./scripts/docker/entrypoint.sh"]
@@ -92,8 +93,9 @@ services:
       - HOSTNAME=0.0.0.0
     secrets:
       - domain
+    # Bind mount to RAID6 — images shared with backend (host: 1002:1002)
     volumes:
-      - frontend-images:/opt/app/frontend/public/img:rw,z
+      - /srv/controle-share-videos/data/images:/opt/app/frontend/public/img:rw,z
 
   caddy:
     container_name: controle-share-videos-caddy
@@ -141,11 +143,11 @@ networks:
     # Internal network - no external access except via Caddy
     internal: false
 
+# Bind mounts replace named volumes so persistent data lives on the RAID6
+# disk (/srv/controle-share-videos/data) rather than in
+# /var/lib/docker/volumes. Only caddy-data and caddy-config remain as
+# named volumes (let's-encrypt state, not user data).
 volumes:
-  backend-data:
-    driver: local
-  frontend-images:
-    driver: local
   caddy-data:
     driver: local
   caddy-config:

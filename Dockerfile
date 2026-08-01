@@ -111,8 +111,10 @@ COPY ./scripts/docker /opt/app/scripts/docker
 RUN mkdir -p /opt/app/backend/data /opt/app/frontend/public/img && \
     chown -R controle-user:controle-group /opt/app/backend/data /opt/app/frontend/public/img
 
-# Expose Caddy port
-EXPOSE 3000
+# Expose backend (NestJS) and frontend (Next.js standalone) ports.
+# Caddy is disabled in production (CADDY_DISABLED=true); the external
+# caddy service (caddy:2.9-alpine) handles TLS and reverse proxy.
+EXPOSE 8080 3333
 
 # Healthcheck (INFRA-HIGH-02)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \

@@ -90,6 +90,26 @@
       ]
     },
 
+    "docker": {
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "npx",
+        "-y",
+        "@docker/mcp-server"
+      ]
+    },
+
+    "terminal": {
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "npx",
+        "-y",
+        "@wonderwhy-er/terminal-mcp"
+      ]
+    },
+
     "playwright": {
       "type": "local",
       "enabled": true,

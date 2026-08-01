@@ -117,18 +117,7 @@ docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.loc
 
 docker compose -f docker-compose.yml -f docker-compose.local.yml up --build -d
 
-# Reiniciar o podman
 
-docker compose -f docker-compose.yml up --build -d
-Se ainda falhar, reseta o podman:
-podman system reset --force
-
-
-Use o caminho completo do Snap:
-
-Ou desabilite o podman-docker e use o alias do Snap:
-sudo apt remove podman-docker
-sudo snap alias docker.docker docker
 docker compose up --build -d
 
 Acesso:  http://localhost:3000

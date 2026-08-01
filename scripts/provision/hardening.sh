@@ -9,7 +9,7 @@ set -euo pipefail
 echo "=== Starting host hardening ==="
 
 # ---------------------------------------------------------------------------
-# 1. UFW firewall — allow only SSH, HTTP, HTTPS
+# 1. UFW firewall — allow only SSH, HTTP, HTTPS, SMB (LAN-only)
 # ---------------------------------------------------------------------------
 echo "[1/3] Configuring UFW firewall..."
 ufw --force reset
@@ -19,6 +19,14 @@ ufw allow 22/tcp        # SSH
 ufw allow 80/tcp        # HTTP  (Let's Encrypt ACME)
 ufw allow 443/tcp       # HTTPS
 ufw limit 22/tcp        # rate-limit SSH connections
+# SMB 445 — deny by default, allow only from private LAN ranges so the
+# Samba share [videos] is reachable from the office network but never
+# from the public IP. Re-run scripts/provision/samba.sh after this to
+# install the share itself (hardening.sh only opens the firewall).
+ufw deny 445/tcp
+ufw allow from 192.168.0.0/16 to any port 445 proto tcp
+ufw allow from 10.0.0.0/8       to any port 445 proto tcp
+ufw allow from 172.16.0.0/12    to any port 445 proto tcp
 ufw --force enable
 ufw status verbose
 
@@ -49,6 +57,17 @@ port     = http,https
 filter   = caddy
 logpath  = /var/log/caddy/access.log
 maxretry = 20
+bantime  = 3600
+
+# Samba — protect the SMB share [videos] from brute-force authentication.
+# Mirror the LAN-only ranges opened in UFW above; fail2ban still applies
+# inside those ranges. Default samba filter ships with fail2ban.
+[samba]
+enabled  = true
+port     = 445
+filter   = samba
+logpath  = /var/log/samba/log.smbd
+maxretry = 5
 bantime  = 3600
 JAIL
 
