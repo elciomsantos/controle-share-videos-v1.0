@@ -16,7 +16,7 @@ sistema **Controle Share Videos v1.0** em produção utilizando:
   logs;
 - Um segundo disco dedicado aos dados persistentes, principalmente
   vídeos e uploads;
-- Nginx como reverse proxy externo com suporte a HTTPS e
+- CAddy  como reverse proxy externo com suporte a HTTPS e
   rate limiting.
 
 ---
@@ -29,9 +29,9 @@ A arquitetura recomendada é:
 ┌─────────────────────────────────────────────────────────────────────┐
 │ DISCO 1 - SISTEMA                                                   │
 │                                                                     │
-│ Ubuntu Linux                                                        │
+│ Ubuntu-Server Linux                                                        │
 │ ├── Docker/Podman                                                   │
-│ ├── Nginx (reverse proxy externo)                                   │
+│ ├── Caddy (reverse proxy externo)                                   │
 │ ├── Projeto controle-share-videos-v1.0                             │
 │ └── Container da aplicação                                          │
 │     ├── Next.js                                                     │
@@ -44,15 +44,94 @@ A arquitetura recomendada é:
 ┌─────────────────────────────────────────────────────────────────────┐
 │ DISCO 2 - DADOS                                                     │
 │                                                                     │
-│ /data                                                               │
-│ ├── controle-videos.db                                              │
-│ ├── images/                                                         │
-│ ├── uploads/                                                        │
-│ ├── backups/                                                        │
-│ ├── prometheus/                                                     │
-│ ├── grafana/                                                        │
-│ └── loki/                                                           │
+│ /opt/app/backend/data
+                                      │
+                                      ▼
+                            /srv/controle-share-videos/data
+                                      │
+                         ┌────────────┼─────────────┐
+                         │            │             │
+                         ▼            ▼             ▼
+                       SQLite      images        uploads
+                                                    │
+                                                    ▼
+                                                  shares                                                   │
+
+
+/srv/controle-share-videos/data/
+├── controle-videos.db
+├── images/
+└── uploads/
+    ├── _temp/
+    └── shares/
 └─────────────────────────────────────────────────────────────────────┘
+
+
+Internet/LAN
+     │
+     ▼
+ IP FIXO :80
+     │
+     ▼
+┌──────────────────────────────┐
+│ Caddy                        │
+│                              │
+│ /api/* → NestJS :8080        │
+│ /*     → Next.js :3333       │
+└──────────────┬───────────────┘
+               │
+               ▼
+       /opt/app/backend/data
+               │
+       bind mount no host
+               │
+               ▼
+/srv/controle-share-videos/data
+               │
+               ├── controle-videos.db
+               ├── images/
+               └── uploads/
+                    ├── _temp/
+                    └── shares/
+
+Windows
+   │
+   │ SMB
+   ▼
+Ubuntu Server
+   │
+   ▼
+/srv/controle-share-videos/data/uploads/shares/
+   │
+   ├── Docker
+   │    └── /opt/app/backend/data/uploads/shares/
+   │
+   └── Samba
+
+
+
+
+                    REDE INTERNA
+                         │
+              ┌──────────┴──────────┐
+              │                     │
+              ▼                     ▼
+         Windows PC              Docker
+              │                     │
+            SMB                  aplicação
+              │                     │
+              └──────────┬──────────┘
+                         ▼
+             /srv/controle-share-videos/
+                     data/uploads/
+                        shares/
+                         │
+                         ▼
+                       vídeos
+
+
+
+
 Fluxo das conexões:
 
 text
@@ -1574,19 +1653,7 @@ O arquivo create-user.sh garante que a aplicação execute como usuário
 não-root e controle corretamente as permissões através de PUID e
 PGID.
 
-A adição do Nginx como reverse proxy externo oferece:
 
-✅ Terminação TLS (HTTPS)
-
-✅ Rate limiting
-
-✅ Headers de segurança
-
-✅ Cache de conteúdo estático
-
-✅ Compressão gzip
-
-✅ Balanceamento de carga (se necessário futuramente)
 
 O monitoramento com Prometheus e Grafana permite:
 
