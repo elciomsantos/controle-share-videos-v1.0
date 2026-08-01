@@ -96,7 +96,7 @@
       "command": [
         "npx",
         "-y",
-        "@docker/mcp-server"
+        "mcp-docker-server"
       ]
     },
 
@@ -107,6 +107,53 @@
         "npx",
         "-y",
         "@wonderwhy-er/terminal-mcp"
+      ]
+    },
+
+    "desktop": {
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "npx",
+        "-y",
+        "@wonderwhy-er/desktop-commander"
+      ]
+    },
+
+    "database": {
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "npx",
+        "-y",
+        "@bytebase/dbhub"
+      ],
+      "environment": {
+        "DB_HOST": "localhost",
+        "DB_PORT": "3306",
+        "DB_NAME": "BancoDeDados",
+        "DB_USER": "root",
+        "DB_PASSWORD": "{env:MYSQL_PASSWORD}"
+      }
+    },
+
+    "ssh": {
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "npx",
+        "-y",
+        "mcp-ssh-manager"
+      ]
+    },
+    
+    "figma": {
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "npx",
+        "-y",
+        "figma-console-mcp"
       ]
     },
 
