@@ -1,3 +1,15 @@
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/b5bc0c1e-5641-4106-b322-a1b0f5448b0f" width="60"/>
+
+  <h1>Sistema de controle e compartilhamento de videos</h1>
+
+  <p align="center">
+
+  **Controle Share Videos v1.0** — compartilhamento seguro de arquivos para uso interno restrito.
+
+  </p>
+</div>
+
 # Controle Share Videos
 
 Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-BR. Fork independente do Pingvin Share X v1.21.1, adaptado para upload exclusivamente pelo dono autenticado e armazenamento apenas local (servidor Ubuntu).
@@ -64,6 +76,8 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 
 O sistema estará disponível em `http://localhost:3000`.
 
+> **Implantação em produção:** ver `docs/Implantacao/Implantacao.md` (guia completo — Ubuntu Server, Docker, Caddy com TLS automático, RAID6), `docs/Implantacao/conf-dominio.md` (domínio gratuito No-IP) e `docs/Implantacao/PLANO-IMPLANTACAO.md` (plano de ajuste do modelo final).
+
 ### Setup manual (desenvolvimento)
 
 #### Backend
@@ -93,7 +107,37 @@ Pronto!
 
 No momento existem apenas testes de sistema para o backend. Para rodá-los, execute `npm run test:system` na pasta `backend`.
 
+## Docker Compose (variantes)
+
+| Arquivo | Uso |
+|---------|-----|
+| `docker-compose.yml` | Produção padrão (backend, frontend, caddy, clamav) |
+| `docker-compose.local.yml` | Sobrescreve o `.yml` para ambiente de teste local (override) |
+| `docker-compose.dev.yml` | Desenvolvimento (adiciona ClamAV) |
+| `docker-compose.prod.yml` | Produção com secrets externos e domínio (`domain`, `acme_email`, `admin_*`) |
+| `docker-compose.monitoring.yml` | Observabilidade (prometheus, grafana, loki, promtail) |
+
+### Setup de teste em desenvolvimento
+
+Recria o ambiente local do zero (apaga o banco SQLite e sobe os containers com rebuild):
+
+```bash
+docker compose -f docker-compose.local.yml down
+rm data/controle-videos.db
+docker compose -f docker-compose.local.yml up -d --build
+```
+
+Com env file específico e override local:
+
+```bash
+docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.local.yml up --build -d
+```
+
+Acesso: http://localhost:3000
+
 ## Documentação
+
+### Arquitetura e padronização
 
 - `docs/Visao-geral.md` — visão arquitetural completa
 - `docs/Padronizacao.md` — programa de padronização (11 temas), com links para documentos específicos por tema
@@ -105,19 +149,20 @@ No momento existem apenas testes de sistema para o backend. Para rodá-los, exec
 - `docs/Padronizacao-10-popups-erro.md` — popups de erro em três camadas
 - `docs/Padronizacao-11-usuario-duplicado.md` — detecção de usuário duplicado
 
+### Implantação em produção
 
+- `docs/Implantacao/Implantacao.md` — guia completo de implantação em produção (Ubuntu Server 22.04/24.04, Docker Engine + Compose v2, Caddy 2.9 com TLS Let's Encrypt, RAID6 14 TB em `/srv`, Samba para upload via LAN)
+- `docs/Implantacao/conf-dominio.md` — configuração de domínio gratuito No-IP com IP fixo (sem DUC)
+- `docs/Implantacao/PLANO-IMPLANTACAO.md` — plano de ajuste para o modelo final de implantação (rascunho)
 
-# Setup teste em desenvolvimento
+### Análises e auditorias
 
-- docker compose -f docker-compose.local.yml down
-- rm data/controle-videos.db
-- docker compose -f docker-compose.local.yml up -d --build
-
-docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.local.yml up --build -d
-
-docker compose -f docker-compose.yml -f docker-compose.local.yml up --build -d
-
-
-docker compose up --build -d
-
-Acesso:  http://localhost:3000
+- `docs/Analise-sistema.md` — análise do sistema
+- `docs/Analise-melhoria-implantacao.md` — análise de melhorias de implantação
+- `docs/Achados-pos-evolucao.md` — achados pós-evolução
+- `docs/Pre-producao.md` — checklist de pré-produção
+- `docs/Auditoria-pre-producao.md` — auditoria de pré-produção
+- `docs/analise-hard.md` — análise de segurança (hardening)
+- `docs/plano-correcoes-analise-hard.md` — plano de correções da análise de segurança
+- `docs/erro-execucao.md` — registro de erros de execução
+- `docs/EVOLUCAO.md` — histórico de evolução do projeto

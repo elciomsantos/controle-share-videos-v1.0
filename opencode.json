@@ -100,41 +100,12 @@
       ]
     },
 
-    "terminal": {
-      "type": "local",
-      "enabled": true,
-      "command": [
-        "npx",
-        "-y",
-        "@wonderwhy-er/terminal-mcp"
-      ]
-    },
-
     "desktop": {
       "type": "local",
       "enabled": true,
       "command": [
-        "npx",
-        "-y",
-        "@wonderwhy-er/desktop-commander"
+        "desktop-commander"
       ]
-    },
-
-    "database": {
-      "type": "local",
-      "enabled": true,
-      "command": [
-        "npx",
-        "-y",
-        "@bytebase/dbhub"
-      ],
-      "environment": {
-        "DB_HOST": "localhost",
-        "DB_PORT": "3306",
-        "DB_NAME": "BancoDeDados",
-        "DB_USER": "root",
-        "DB_PASSWORD": "{env:MYSQL_PASSWORD}"
-      }
     },
 
     "ssh": {
