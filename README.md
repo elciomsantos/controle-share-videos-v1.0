@@ -1,5 +1,6 @@
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/b5bc0c1e-5641-4106-b322-a1b0f5448b0f" width="60"/>
+  <img src="<img src="/frontend/public/img/images/logo-programer.png" alt="Tela Inicial" width="100">
+
 
   <h1>Sistema de controle e compartilhamento de videos</h1>
 
