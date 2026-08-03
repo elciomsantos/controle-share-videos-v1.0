@@ -1,7 +1,9 @@
 #!/bin/sh
 
-# Copy default logo to the frontend public folder if it doesn't exist
-cp -rn /tmp/img/* /opt/app/frontend/public/img 2>/dev/null || true
+# Copy default images (including the images/ subdir) to the frontend public
+# folder if they don't already exist — self-heals the images volume on fresh
+# deploys.
+cp -rn /tmp/img/. /opt/app/frontend/public/img 2>/dev/null || true
 
 if [ "$CADDY_DISABLED" != "true" ]; then
   # Start Caddy

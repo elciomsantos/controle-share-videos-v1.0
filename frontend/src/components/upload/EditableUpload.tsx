@@ -110,6 +110,7 @@ const EditableUpload = ({
                 {
                   id: fileId,
                   name: getNormalizedFileName(file),
+                  description: file.description,
                 },
                 chunkIndex,
                 chunks,

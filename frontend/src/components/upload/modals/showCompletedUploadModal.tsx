@@ -59,6 +59,7 @@ const Body = ({
   const link = baseUrl;
 
   const handleCopyAll = async () => {
+    dayjs.locale("pt-br");
     const text = [
       `Link: ${link}`,
       generatedPassword ? `Senha: ${generatedPassword}` : null,

@@ -26,16 +26,26 @@ const Footer = () => {
   return (
     <MFooter component="footer" h="auto" py={6} px="xl" style={{ zIndex: 100 }}>
       {!config.get("legal.enabled") && (
-        <Text size="xs" c="dimmed" ta="center">
-          Powered by Controle-share-videos-v1.0
-        </Text>
+        <>
+          <Text size="xs" c="dimmed" ta="center">
+            Controle Share Videos · Uso Institucional
+          </Text>
+          <Text size="xs" c="dimmed" ta="center">
+            Secretaria Municipal de Defesa Social de Londrina
+          </Text>
+        </>
       )}
       {config.get("legal.enabled") && (
         <SimpleGrid cols={isMobile ? 2 : 3} m={0}>
           {!isMobile && <div></div>}
-          <Text size="xs" c="dimmed" ta={isMobile ? "left" : "center"}>
-            Powered by Controle-share-videos-v1.0
-          </Text>
+          <div>
+            <Text size="xs" c="dimmed" ta={isMobile ? "left" : "center"}>
+              Controle Share Videos · Uso Institucional
+            </Text>
+            <Text size="xs" c="dimmed" ta={isMobile ? "left" : "center"}>
+              Secretaria Municipal de Defesa Social de Londrina
+            </Text>
+          </div>
           <div>
             <Text size="xs" c="dimmed" ta="right">
               {hasImprint && (

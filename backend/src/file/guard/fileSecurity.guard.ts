@@ -44,6 +44,14 @@ export class FileSecurityGuard extends ShareSecurityGuard {
     shareId: string,
     share: Prisma.ShareGetPayload<{ include: { security: true } }> | null,
   ) {
+    // Independent budgets: maxViews gates plays/previews only. Downloads are
+    // budgeted by maxDownloads (DownloadLimitGuard), so requests that are not
+    // explicit previews (download=false) skip the view check. Missing param
+    // means download, matching the controller default.
+    const downloadParam = (request.query.download as string | undefined) ?? "true";
+    if (downloadParam === "true") {
+      return;
+    }
     if (share) {
       await this._shareService.reloadShareViews(share);
     }

@@ -74,18 +74,35 @@ export class ShareController {
   @Public()
   @UseGuards(IdValidation, ShareSecurityGuard)
   async get(@Param("id") id: string, @Req() req: Request) {
+    // Note: view counting moved to POST /:id/view (count by play, not page
+    // load) — see recordView() below. Opening the share page alone does not
+    // consume a maxViews slot so a visitor can land on the password screen /
+    // file list without being charged; only an actual media playback
+    // triggers a view, matching the " Bloquear por play do vídeo" semantics.
+    return new ShareDTO().from(await this.shareService.get(id));
+  }
+
+  @Post(":id/view")
+  @Throttle({
+    default: {
+      // Anti-abuse: at most 30 view increments per minute per IP — plenty for
+      // play/pause/replay churn without allowing trivial count bombing.
+      limit: 30,
+      ttl: 60_000,
+    },
+  })
+  @Public()
+  @UseGuards(IdValidation, ShareSecurityGuard)
+  async recordView(@Param("id") id: string, @Req() req: Request) {
     const share = await this.shareService.get(id);
     const user = req.user as User | undefined;
     if (!user || (share.creatorId !== user.id && !user.isAdmin)) {
-      void this.shareService.increaseViewCount(
-        share as Share,
-        {
-          ip: getRequestIp(req),
-          userAgent: getRequestUserAgent(req),
-        },
-      );
+      await this.shareService.increaseViewCount(share as Share, {
+        ip: getRequestIp(req),
+        userAgent: getRequestUserAgent(req),
+      });
     }
-    return new ShareDTO().from(share);
+    return { ok: true };
   }
 
   @Get(":id/from-owner")

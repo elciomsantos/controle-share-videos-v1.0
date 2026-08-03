@@ -7,8 +7,8 @@ export default function _Document() {
       <Head>
         <ColorSchemeScript defaultColorScheme="light" />
         <link rel="manifest" href="/manifest.json" />
-        <link rel="icon" type="image/x-icon" href="/img/favicon.ico" />
-        <link rel="apple-touch-icon" href="/img/icons/icon-128x128.png" />
+        <link rel="icon" type="image/png" href="/img/brasao.png" />
+        <link rel="apple-touch-icon" href="/img/brasao.png" />
 
         <meta name="robots" content="noindex" />
         <meta name="theme-color" content="#46509e" />

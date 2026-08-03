@@ -16,8 +16,17 @@ services:
         required: false
     environment:
       - TRUST_PROXY=false
+      - NODE_ENV=docker
       - BACKEND_PORT=8080
-      - API_URL=http://localhost:3000
+      # IMPORTANT: do NOT set CADDY_DISABLED=true here. The dev/local single
+      # container relies on the bundled Caddy (reverse-proxy/Caddyfile) on
+      # :3000 as the unified entrypoint — it proxies /api/* to the NestJS
+      # backend (:8080) and everything else to the Next.js standalone (:3333).
+      # CADDY_DISABLED=true is for production (docker-compose.prod.yml) where
+      # an external caddy:2.9-alpine container handles TLS+proxy instead.
+      # API_URL: used by next.config.js rewrites() and middleware (server-side
+      # inside the container). Backend listens on :8080 internally.
+      - API_URL=http://localhost:8080
       - ADMIN_EMAIL=admin@empresa.local
       - ADMIN_USERNAME=admin
       # ADMIN_PASSWORD must be provided via .env.local (gitignored) or the host

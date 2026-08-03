@@ -28,6 +28,7 @@ export class FileService {
     file: {
       id?: string;
       name: string;
+      description?: string;
     },
     shareId: string,
   ) {

@@ -18,21 +18,20 @@ import { ConfigService } from "../config/config.service";
         const ttl = configService.get("cache.ttl");
         const max = configService.get("cache.maxItems");
 
-        const config = {
-          ttl,
-          max,
-          stores: [] as Keyv[],
-        };
+        // Always provision an in-memory store so cache.get()/set() actually
+        // work even without Redis. Previously stores was empty when Redis was
+        // disabled, making the cache a silent no-op (view dedup and download
+        // notification dedup never worked).
+        const stores: Keyv[] = [
+          new Keyv({ store: new CacheableMemory({ ttl, lruSize: 5000 }) }),
+        ];
 
         if (useRedis) {
           const redisUrl = configService.get("cache.redis-url");
-          config.stores = [
-            new Keyv({ store: new CacheableMemory({ ttl, lruSize: 5000 }) }),
-            createKeyv(redisUrl),
-          ];
+          stores.push(createKeyv(redisUrl));
         }
 
-        return config;
+        return { ttl, max, stores };
       },
     }),
   ],

@@ -35,6 +35,7 @@ import {
 } from "../../../utils/date.util";
 import { showBlockingErrorModal } from "../../core/showBlockingErrorModal";
 import toast from "../../../utils/toast.util";
+import { getNormalizedFileName } from "../../../utils/file.util";
 import { Timespan } from "../../../types/timespan.type";
 
 type ModalsContextProps = ReturnType<typeof useModals>;
@@ -148,6 +149,7 @@ const CreateUploadModalBody = ({
   const [showNotSignedInAlert, setShowNotSignedInAlert] = useState(true);
   const [emailSearch, setEmailSearch] = useState("");
   const [useManualPassword, setUseManualPassword] = useState(false);
+  const [fileDescriptions, setFileDescriptions] = useState<Record<number, string>>({});
 
   const validationSchema = yup.object().shape({
     link: yup
@@ -278,7 +280,10 @@ const CreateUploadModalBody = ({
           maxDownloads: values.maxDownloads || undefined,
         },
       },
-      files,
+      files.map((file, index) => {
+        file.description = fileDescriptions[index] || undefined;
+        return file;
+      }),
     );
   });
 
@@ -433,6 +438,40 @@ const CreateUploadModalBody = ({
                 </Stack>
               </Accordion.Panel>
             </Accordion.Item>
+            {files.length > 0 && (
+              <Accordion.Item value="file-descriptions" style={{ borderBottom: "none" }}>
+                <Accordion.Control>
+                  <FormattedMessage id="upload.modal.accordion.file-descriptions.title" />
+                </Accordion.Control>
+                <Accordion.Panel>
+                  <Stack align="stretch">
+                    {files.map((file, index) => (
+                      <Stack align="stretch" gap="xs" key={index}>
+                        <Text size="sm" style={{ fontWeight: 600 }} truncate>
+                          {getNormalizedFileName(file)}
+                        </Text>
+                        <Textarea
+                          variant="filled"
+                          autosize
+                          minRows={1}
+                          placeholder={t(
+                            "upload.modal.accordion.file-descriptions.placeholder",
+                          )}
+                          value={fileDescriptions[index] || ""}
+                          onChange={(event) => {
+                            const value = event.currentTarget.value;
+                            setFileDescriptions((prev) => ({
+                              ...prev,
+                              [index]: value,
+                            }));
+                          }}
+                        />
+                      </Stack>
+                    ))}
+                  </Stack>
+                </Accordion.Panel>
+              </Accordion.Item>
+            )}
             {options.enableEmailRecepients && (
               <Accordion.Item value="recipients" style={{ borderBottom: "none" }}>
                 <Accordion.Control>
@@ -575,6 +614,8 @@ const SimplifiedCreateUploadModalModal = ({
       .max(30, t("common.error.too-long", { length: 30 })),
   });
 
+  const [fileDescriptions, setFileDescriptions] = useState<Record<number, string>>({});
+
   const form = useForm({
     initialValues: {
       name: undefined,
@@ -636,7 +677,10 @@ const SimplifiedCreateUploadModalModal = ({
           maxViews: undefined,
         },
       },
-      files,
+      files.map((file, index) => {
+        file.description = fileDescriptions[index] || undefined;
+        return file;
+      }),
     );
   });
 
@@ -671,6 +715,36 @@ const SimplifiedCreateUploadModalModal = ({
               {...form.getInputProps("description")}
             />
           </Stack>
+          {files.length > 0 && (
+            <Stack align="stretch" gap="xs">
+              <Text size="sm" style={{ fontWeight: 600 }}>
+                <FormattedMessage id="upload.modal.accordion.file-descriptions.title" />
+              </Text>
+              {files.map((file, index) => (
+                <Stack align="stretch" gap="xs" key={index}>
+                  <Text size="sm" style={{ fontWeight: 600 }} truncate>
+                    {getNormalizedFileName(file)}
+                  </Text>
+                  <Textarea
+                    variant="filled"
+                    autosize
+                    minRows={1}
+                    placeholder={t(
+                      "upload.modal.accordion.file-descriptions.placeholder",
+                    )}
+                    value={fileDescriptions[index] || ""}
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
+                      setFileDescriptions((prev) => ({
+                        ...prev,
+                        [index]: value,
+                      }));
+                    }}
+                  />
+                </Stack>
+              ))}
+            </Stack>
+          )}
           <Button type="submit" data-autofocus>
             <FormattedMessage id="common.button.share" />
           </Button>

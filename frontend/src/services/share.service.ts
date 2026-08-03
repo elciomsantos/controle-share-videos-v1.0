@@ -167,6 +167,7 @@ const uploadFile = async (
   file: {
     id?: string;
     name: string;
+    description?: string;
   },
   chunkIndex: number,
   totalChunks: number,
@@ -178,6 +179,7 @@ const uploadFile = async (
       params: {
         id: file.id,
         name: file.name,
+        description: file.description,
         chunkIndex,
         totalChunks,
       },

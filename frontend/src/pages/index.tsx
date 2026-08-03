@@ -1,31 +1,36 @@
 import {
+  Badge,
+  Box,
   Button,
   Container,
   Group,
-  List,
+  Paper,
+  SimpleGrid,
   Text,
   ThemeIcon,
   Title,
   useComputedColorScheme,
   useMantineTheme,
 } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import { TbCheck } from "react-icons/tb";
+import { TbInfinity, TbServer, TbShieldLock } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
 import Logo from "../components/Logo";
 import Meta from "../components/Meta";
-import useUser from "../hooks/user.hook";
 import useConfig from "../hooks/config.hook";
+import useUser from "../hooks/user.hook";
 
 export default function Home() {
   const theme = useMantineTheme();
   const colorScheme = useComputedColorScheme("light");
   const { refreshUser } = useUser();
-  const router = useRouter();
   const config = useConfig();
-  const [signupEnabled, setSignupEnabled] = useState(false);
+  const router = useRouter();
+  const [signupEnabled, setSignupEnabled] = useState(true);
+  const isMobile = useMediaQuery("(max-width: 575px)");
 
   // If user is already authenticated, redirect to the upload page
   useEffect(() => {
@@ -35,125 +40,83 @@ export default function Home() {
       }
     });
 
-    // If registration is disabled, get started button should redirect to the sign in page
+    // If registration is disabled, the "start" button should redirect to the sign-in page
     try {
       const allowRegistration = config.get("share.allowRegistration");
       setSignupEnabled(allowRegistration !== false);
     } catch (error) {
-      setSignupEnabled(false);
+      setSignupEnabled(true);
     }
   }, [config]);
 
-  const getButtonHref = () => {
-    return signupEnabled ? "/auth/signUp" : "/auth/signIn";
-  };
-
   const isDark = colorScheme === "dark";
+  const primary = theme.colors[theme.primaryColor];
+  const surfaceColor = isDark ? theme.colors.dark[6] : theme.white;
+  const borderColor = isDark ? theme.colors.dark[4] : theme.colors.gray[2];
+
+  const getButtonHref = () => (signupEnabled ? "/auth/signUp" : "/auth/signIn");
+
+  const heroBackground = isDark
+    ? `radial-gradient(800px 420px at 85% -10%, ${primary[8]}40, transparent 60%), ${theme.colors.dark[7]}`
+    : `radial-gradient(800px 420px at 85% -10%, ${primary[1]}, transparent 60%), ${theme.colors.gray[0]}`;
+
+  const features = [
+    { icon: TbServer, name: "home.bullet.a.name", desc: "home.bullet.a.description" },
+    { icon: TbShieldLock, name: "home.bullet.b.name", desc: "home.bullet.b.description" },
+    { icon: TbInfinity, name: "home.bullet.c.name", desc: "home.bullet.c.description" },
+  ];
 
   return (
     <>
       <Meta title="Home" />
-      <div style={{ position: "relative" }}>
-        <div
+      <Container size="lg" py={48}>
+        <Paper
+          radius="lg"
+          p={{ base: "xl", md: 56 }}
           style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "50%",
-            height: "100%",
-            opacity: 0.7,
-            backgroundImage: `url(/img/logo.png)`,
-            backgroundSize: "120%",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-            backgroundColor: "white",
-            pointerEvents: "none",
-            zIndex: 0,
+            background: heroBackground,
+            border: `1px solid ${borderColor}`,
           }}
-        />
-        <Container>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              paddingTop: `calc(${theme.spacing.md} * 4)`,
-              paddingBottom: `calc(${theme.spacing.md} * 4)`,
-            }}
+        >
+          <SimpleGrid
+            cols={{ base: 1, md: 2 }}
+            spacing={{ base: 40, md: 56 }}
+            style={{ alignItems: "center" }}
           >
-            <div
-              style={{
-                maxWidth: 480,
-                marginRight: `calc(${theme.spacing.md} * 3)`,
-              }}
-            >
+            <Box>
+              <Badge
+                variant="light"
+                size="lg"
+                radius="xl"
+                tt="none"
+                leftSection={<TbShieldLock size={14} />}
+              >
+                {config.get("general.appName")}
+              </Badge>
               <Title
+                order={1}
                 style={{
                   color: isDark ? theme.white : theme.black,
-                  fontSize: 44,
-                  lineHeight: 1.2,
+                  fontSize: isMobile ? 30 : 42,
+                  lineHeight: 1.15,
                   fontWeight: 900,
+                  marginTop: theme.spacing.md,
                 }}
               >
-                <FormattedMessage
-                  id="home.title"
-                  values={{
-                    h: (chunks) => (
-                      <span
-                        style={{
-                          position: "relative",
-                          backgroundColor:
-                            "light-dark(" + theme.colors[theme.primaryColor][0] + ", rgba(" + theme.colors[theme.primaryColor][6] + ", 0.55))",
-                          borderRadius: theme.radius.sm,
-                          padding: "4px 12px",
-                        }}
-                      >
-                        {chunks}
-                      </span>
-                    ),
-                  }}
-                />
+                <FormattedMessage id="home.title" />
               </Title>
-              <Text color="dimmed" mt="md">
+              <Text c="dimmed" mt="md" size="lg" style={{ maxWidth: 480 }}>
                 <FormattedMessage id="home.description" />
               </Text>
-
-              <List
-                mt={30}
-                spacing="sm"
-                size="sm"
-                icon={
-                  <ThemeIcon size={20} radius="xl">
-                    <TbCheck size={12} />
-                  </ThemeIcon>
-                }
+              <Text
+                mt="md"
+                size="md"
+                fw={600}
+                style={{ color: isDark ? primary[3] : primary[7] }}
               >
-                <List.Item>
-                  <div>
-                    <b>
-                      <FormattedMessage id="home.bullet.a.name" />
-                    </b>{" "}
-                    - <FormattedMessage id="home.bullet.a.description" />
-                  </div>
-                </List.Item>
-                <List.Item>
-                  <div>
-                    <b>
-                      <FormattedMessage id="home.bullet.b.name" />
-                    </b>{" "}
-                    - <FormattedMessage id="home.bullet.b.description" />
-                  </div>
-                </List.Item>
-                <List.Item>
-                  <div>
-                    <b>
-                      <FormattedMessage id="home.bullet.c.name" />
-                    </b>{" "}
-                    - <FormattedMessage id="home.bullet.c.description" />
-                  </div>
-                </List.Item>
-              </List>
-
-              <Group mt={30}>
+                <FormattedMessage id="home.subtitle" />
+              </Text>
+              <Group mt={32}>
                 <Button
                   component={Link}
                   href={getButtonHref()}
@@ -163,13 +126,55 @@ export default function Home() {
                   <FormattedMessage id="home.button.start" />
                 </Button>
               </Group>
-            </div>
-            <Group align="center">
-              <Logo width={200} height={200} />
-            </Group>
-          </div>
-        </Container>
-      </div>
+            </Box>
+
+            <Box
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <Paper
+                radius="lg"
+                p={{ base: 32, md: 48 }}
+                shadow="md"
+                style={{
+                  backgroundColor: surfaceColor,
+                  border: `1px solid ${borderColor}`,
+                }}
+              >
+                <Logo height={140} width={140} />
+              </Paper>
+            </Box>
+          </SimpleGrid>
+        </Paper>
+
+        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg" mt={24}>
+          {features.map((feature) => {
+            const Icon = feature.icon;
+            return (
+              <Paper
+                key={feature.name}
+                p="lg"
+                radius="md"
+                withBorder
+                style={{ backgroundColor: surfaceColor }}
+              >
+                <ThemeIcon size={44} radius="md" variant="light">
+                  <Icon size={24} />
+                </ThemeIcon>
+                <Text mt="sm" fw={600} size="md">
+                  <FormattedMessage id={feature.name} />
+                </Text>
+                <Text mt={4} size="sm" c="dimmed" style={{ lineHeight: 1.5 }}>
+                  <FormattedMessage id={feature.desc} />
+                </Text>
+              </Paper>
+            );
+          })}
+        </SimpleGrid>
+      </Container>
     </>
   );
 }

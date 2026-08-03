@@ -12,6 +12,8 @@ dayjs.extend(relativeTime as any);
 dayjs.extend(customParseFormat as any);
 dayjs.extend(localizedFormat as any);
 
+dayjs.locale("pt-br");
+
 export { dayjs };
 export type { DurationUnitType };
 
