@@ -29,7 +29,7 @@ export class LocalFileService {
   async create(
     data: string,
     chunk: { index: number; total: number },
-    file: { id?: string; name: string },
+    file: { id?: string; name: string; description?: string },
     shareId: string,
   ) {
     if (!file.id) {
@@ -197,6 +197,7 @@ export class LocalFileService {
           id: file.id,
           name: file.name,
           size: fileSize.toString(),
+          description: file.description || null,
           share: { connect: { id: shareId } },
         },
       });

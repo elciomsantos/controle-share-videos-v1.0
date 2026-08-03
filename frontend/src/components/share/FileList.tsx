@@ -64,12 +64,14 @@ const FileList = ({
   const sortFiles = () => {
     if (files && sort.property) {
       const sortedFiles = files.sort((a: any, b: any) => {
+        const aValue = a[sort.property!] || "";
+        const bValue = b[sort.property!] || "";
         if (sort.direction === "asc") {
-          return b[sort.property!].localeCompare(a[sort.property!], undefined, {
+          return bValue.localeCompare(aValue, undefined, {
             numeric: true,
           });
         } else {
-          return a[sort.property!].localeCompare(b[sort.property!], undefined, {
+          return aValue.localeCompare(bValue, undefined, {
             numeric: true,
           });
         }
@@ -124,6 +126,12 @@ const FileList = ({
                 <TableSortIcon sort={sort} setSort={setSort} property="size" />
               </Group>
             </th>
+            <th>
+              <Group gap="xs">
+                <FormattedMessage id="share.table.description" />
+                <TableSortIcon sort={sort} setSort={setSort} property="description" />
+              </Group>
+            </th>
             <th></th>
           </tr>
         </thead>
@@ -134,6 +142,7 @@ const FileList = ({
                 <tr key={file.name}>
                   <td>{renderFileName(file.name)}</td>
                   <td>{byteToHumanSizeString(parseInt(file.size))}</td>
+                  <td>{file.description || "-"}</td>
                   <td>
                     <Group justify="flex-end" wrap="nowrap">
                       {shareService.isShareTextFile(file.name) && (
@@ -245,6 +254,9 @@ const skeletonRows = [...Array(5)].map((c, i) => (
   <tr key={i}>
     <td>
       <Skeleton height={30} width={30} />
+    </td>
+    <td>
+      <Skeleton height={14} />
     </td>
     <td>
       <Skeleton height={14} />

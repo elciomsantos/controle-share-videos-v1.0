@@ -1,14 +1,11 @@
 import {
   BadRequestException,
   ForbiddenException,
-  Inject,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
 } from "@nestjs/common";
 import { RequestContextLogger } from "../common/request-context/request-context";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { Cache } from "cache-manager";
 import { JwtService, JwtSignOptions } from "@nestjs/jwt";
 import { Prisma, Share, User, ShareSecurity } from "../../prisma/generated/prisma/client";
 import archiver from "archiver";
@@ -37,11 +34,6 @@ import { UpdateShareDTO } from "./dto/updateShare.dto";
 export class ShareService {
   private readonly logger = new RequestContextLogger(ShareService.name);
 
-  /**
-   * Window during which repeated views from the same share+IP+UA are deduplicated.
-   */
-  private static readonly VIEW_DEDUP_WINDOW_MS = 60 * 60 * 1000;
-
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
@@ -51,7 +43,6 @@ export class ShareService {
     private jwtService: JwtService,
     private systemService: SystemService,
     private downloadLogService: DownloadLogService,
-    @Inject(CACHE_MANAGER) private cache: Cache,
     private readonly i18n: I18nService,
   ) {}
 
@@ -530,26 +521,52 @@ export class ShareService {
   }
 
   async increaseViewCount(
-    share: Share,
+    share: Share & { security?: { maxViews?: number | null } | null },
     context?: { ip?: string; userAgent?: string | null },
   ) {
-    // Deduplicate views per share+source within a short window so repeated hits
-    // from the same IP/UA (or bots) don't inflate view counts or flood the
-    // audit log.
+    // Cada play conta e bloqueia: não há janela de deduplicação — toda nova
+    // visualização incrementa a contagem (respeitando maxViews) e registra o
+    // log, para que re-assistir não seja gratuito nem o vídeo toque do cache.
     const ip = context?.ip ?? "unknown";
-    const uaKey = crypto
-      .createHash("sha256")
-      .update(context?.userAgent ?? "")
-      .digest("hex")
-      .slice(0, 16);
-    const dedupKey = `share-view:${share.id}:${ip}:${uaKey}`;
-    if (await this.cache.get<true>(dedupKey)) return;
-    await this.cache.set(dedupKey, true, ShareService.VIEW_DEDUP_WINDOW_MS);
+    const maxViews = share.security?.maxViews;
 
-    await this.prisma.share.update({
-      where: { id: share.id },
-      data: { views: { increment: 1 } },
-    });
+    // Atomically increment views while respecting the limit, so the check and
+    // increment can't race. Once views reaches maxViews a *new* visitor is
+    // blocked (this also covers visitors holding an already-issued token, the
+    // path that previously bypassed the getShareToken limit check).
+    let incremented: boolean;
+    if (maxViews && maxViews > 0) {
+      const result = await this.prisma.share.updateMany({
+        where: { id: share.id, views: { lt: maxViews } },
+        data: { views: { increment: 1 } },
+      });
+      incremented = result.count > 0;
+    } else {
+      await this.prisma.share.update({
+        where: { id: share.id },
+        data: { views: { increment: 1 } },
+      });
+      incremented = true;
+    }
+
+    if (!incremented) {
+      if (context) {
+        void this.downloadLogService.record({
+          shareId: share.id,
+          fileName: share.name ?? share.id,
+          ip,
+          userAgent: context.userAgent ?? null,
+          success: false,
+          reason: "maxViewsExceeded",
+          event: "view",
+        });
+      }
+      throw new ForbiddenException({
+        message: this.i18n.t("share.maxViewsExceeded"),
+        error: "share_max_views_exceeded",
+      });
+    }
+
     if (context) {
       void this.downloadLogService.record({
         shareId: share.id,

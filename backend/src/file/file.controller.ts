@@ -58,17 +58,18 @@ export class FileController {
       name: string;
       chunkIndex: string;
       totalChunks: string;
+      description?: string;
     },
     @Body() body: string,
     @Param("shareId") shareId: string,
   ) {
-    const { id, name, chunkIndex, totalChunks } = query;
+    const { id, name, chunkIndex, totalChunks, description } = query;
 
     // Data can be empty if the file is empty
     return await this.fileService.create(
       body,
       { index: parseInt(chunkIndex), total: parseInt(totalChunks) },
-      { id, name },
+      { id, name, description },
       shareId,
     );
   }
@@ -145,6 +146,7 @@ export class FileController {
         mime?.lookup?.(file.metaData.name) || "application/octet-stream",
       "Content-Length": file.metaData.size,
       "Content-Security-Policy": "sandbox",
+      "Cache-Control": "no-store",
       "Content-Disposition": contentDisposition(
         file.metaData.name,
         isDownload ? undefined : { type: "inline" },

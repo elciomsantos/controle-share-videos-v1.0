@@ -3,7 +3,7 @@
 
 general:
   #Name of the application
-  appName: Controle-share-videos-v1.0
+  appName: Guarda Municipal de Londrina
   #On which URL Controle-share-videos-v1.0 is available
   appUrl: http://localhost:3000
   #Whether to set the secure flag on cookies. If enabled, the site will not function when accessed over HTTP.

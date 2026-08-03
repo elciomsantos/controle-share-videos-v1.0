@@ -14,7 +14,7 @@ export const configVariables = {
   general: {
     appName: {
       type: "string",
-      defaultValue: "Controle Share Videos",
+      defaultValue: "Guarda Municipal de Londrina",
       secret: false,
     },
     appUrl: {
@@ -185,7 +185,7 @@ export const configVariables = {
     },
     "redis-url": {
       type: "string",
-      defaultValue: "redis://pingvin-redis:6379",
+      defaultValue: "redis://controle-share-videos-redis:6379",
       secret: true,
     },
     ttl: {

@@ -19,7 +19,6 @@ import useConfig from "../../hooks/config.hook";
 import useUser from "../../hooks/user.hook";
 import useTranslate from "../../hooks/useTranslate.hook";
 import authService from "../../services/auth.service";
-import Logo from "../Logo";
 import ActionAvatar from "./ActionAvatar";
 import NavbarShareMenu from "./NavbarShareMenu";
 import isAdminOrAuditor from "../../utils/userRole.util";
@@ -275,7 +274,13 @@ const Header = () => {
         >
           <Link href="/" passHref>
             <Group>
-              <Logo height={35} width={35} />
+              <img
+                src="/img/brasao.png"
+                alt="logo"
+                height={38}
+                width={38}
+                style={{ objectFit: "contain" }}
+              />
               <Text fw={600}>{config.get("general.appName")}</Text>
             </Group>
           </Link>

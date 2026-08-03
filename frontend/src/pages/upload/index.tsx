@@ -1,10 +1,8 @@
-import { Button, Group } from "@mantine/core";
 import { useModals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import { AxiosError } from "axios";
 import pLimit from "p-limit";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FormattedMessage } from "react-intl";
 import Meta from "../../components/Meta";
 import Dropzone from "../../components/upload/Dropzone";
 import FileList from "../../components/upload/FileList";
@@ -134,6 +132,7 @@ const Upload = ({
                 {
                   id: fileId,
                   name: getNormalizedFileName(file),
+                  description: file.description,
                 },
                 chunkIndex,
                 chunks,
@@ -301,15 +300,6 @@ const Upload = ({
       }}
     >
       <Meta title={t("upload.title")} />
-      <Group justify="flex-end" mb={20}>
-        <Button
-          loading={isUploading}
-          disabled={files.length <= 0}
-          onClick={() => showCreateUploadModalCallback(files)}
-        >
-          <FormattedMessage id="common.button.share" />
-        </Button>
-      </Group>
       <Dropzone
         maxShareSize={maxShareSize}
         currentFilesSize={currentFilesSize}
@@ -317,7 +307,12 @@ const Upload = ({
         isUploading={isUploading}
       />
       {files.length > 0 && (
-        <FileList<FileUpload> files={files} setFiles={setFiles} />
+        <FileList<FileUpload>
+          files={files}
+          setFiles={setFiles}
+          onShare={() => showCreateUploadModalCallback(files)}
+          isUploading={isUploading}
+        />
       )}
     </div>
   );

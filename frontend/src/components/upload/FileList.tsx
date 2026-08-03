@@ -1,4 +1,4 @@
-import { ActionIcon, Table, Group } from "@mantine/core";
+import { ActionIcon, Table, Group, Button, Box } from "@mantine/core";
 import { useModals } from "@mantine/modals";
 import { TbTrash, TbEdit } from "react-icons/tb";
 import { GrUndo } from "react-icons/gr";
@@ -117,9 +117,13 @@ const FileListRow = ({
 const FileList = <T extends FileListItem = FileListItem>({
   files,
   setFiles,
+  onShare,
+  isUploading,
 }: {
   files: T[];
   setFiles: (files: T[]) => void;
+  onShare?: () => void;
+  isUploading?: boolean;
 }) => {
   const modals = useModals();
   const remove = (index: number) => {
@@ -164,20 +168,33 @@ const FileList = <T extends FileListItem = FileListItem>({
   ));
 
   return (
-    <Table>
-      <thead>
-        <tr>
-          <th>
-            <FormattedMessage id="upload.filelist.name" />
-          </th>
-          <th>
-            <FormattedMessage id="upload.filelist.size" />
-          </th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>{rows}</tbody>
-    </Table>
+    <Box style={{ display: "block", overflowX: "auto" }}>
+      <Table>
+        <thead>
+          <tr>
+            <th>
+              <FormattedMessage id="upload.filelist.name" />
+            </th>
+            <th>
+              <FormattedMessage id="upload.filelist.size" />
+            </th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>{rows}</tbody>
+      </Table>
+      {onShare && (
+        <Group justify="flex-end" mt={20}>
+          <Button
+            loading={isUploading}
+            disabled={files.length <= 0}
+            onClick={onShare}
+          >
+            <FormattedMessage id="common.button.share" />
+          </Button>
+        </Group>
+      )}
+    </Box>
   );
 };
 

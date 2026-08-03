@@ -1,4 +1,5 @@
 import {
+  Box,
   Button,
   Center,
   Stack,
@@ -21,22 +22,79 @@ const FilePreviewContext = React.createContext<{
   shareId: string;
   fileId: string;
   mimeType: string;
+  fileDescription: string;
   setIsNotSupported: Dispatch<SetStateAction<boolean>>;
 }>({
   shareId: "",
   fileId: "",
   mimeType: "",
+  fileDescription: "",
   setIsNotSupported: () => {},
 });
 
 /**
- * Probe the file endpoint with a HEAD request before mounting a native
- * media element (<video>/<img>/<audio>). If the backend rejects with an
- * HTTP error we get the structured error code (e.g. share_max_views_exceeded)
- * and can show the proper popup instead of the opaque "onError" fallback
- * that masks the real cause as "Visualização não suportada".
+ * Show the "max views exceeded" modal once per preview session when the limit
+ * is reached (triggered either by POST /view returning 403 or by a stream
+ * request returning 403). This avoids stacking multiple modals when the player
+ * tries to retry.
+ */
+const useViewLimitModal = (): ((error: string | undefined) => void) => {
+  const modals = useModals();
+  const t = useTranslate();
+  const shownRef = React.useRef(false);
+  return (error: string | undefined) => {
+    if (shownRef.current) return;
+    if (error !== "share_max_views_exceeded") return;
+    shownRef.current = true;
+    showErrorModal(
+      modals,
+      t("share.error.visitor-limit-exceeded.title"),
+      t("share.error.visitor-limit-exceeded.description"),
+      "stay",
+      "/img/images/fechado-down.png",
+    );
+  };
+};
+
+/**
+ * Notify the backend that a media playback has started. Returns true if the
+ * play is allowed (under the view limit), false if the limit was reached.
  *
- * Returns true if the media element can be safely rendered.
+ * Semantics: maxViews now counts *plays* rather than page loads — see
+ * backend `POST /api/shares/:id/view`. The frontend calls this on the
+ * <video>/<audio> `onPlay` event; on 403 (share_max_views_exceeded) the
+ * caller pauses the player and shows the limit-exceeded modal.
+ */
+const useRecordPlayView = (
+  shareId: string,
+  onError: (error: string | undefined) => void,
+): ((allowCallback: () => void) => Promise<void>) => {
+  return React.useCallback(
+    async (allowCallback: () => void) => {
+      try {
+        await api.post(`/shares/${shareId}/view`);
+        allowCallback();
+      } catch (e) {
+        const err = e as { response?: { data?: { error?: string } } };
+        const error = err?.response?.data?.error;
+        onError(error);
+      }
+    },
+    [shareId, onError],
+  );
+};
+
+/**
+ * Probe the file endpoint with a HEAD-style GET request before mounting a
+ * native media element (<video>/<img>/<audio>). If the backend rejects with
+ * an HTTP error we get the structured error code (e.g.
+ * share_max_views_exceeded) and can show the proper popup instead of the
+ * opaque "onError" fallback that masks the real cause as "Visualização não
+ * suportada".
+ *
+ * Returns true if the media element can be safely rendered (stream not yet
+ * blocked); the per-play view accounting happens on `onPlay` via
+ * useRecordPlayView.
  */
 const useFileProbe = (
   shareId: string,
@@ -92,10 +150,12 @@ const FilePreview = ({
   shareId,
   fileId,
   mimeType,
+  description,
 }: {
   shareId: string;
   fileId: string;
   mimeType: string;
+  description?: string;
 }) => {
   const [isNotSupported, setIsNotSupported] = useState(false);
   if (isNotSupported) return <UnSupportedFile />;
@@ -103,7 +163,13 @@ const FilePreview = ({
   return (
     <Stack>
       <FilePreviewContext.Provider
-        value={{ shareId, fileId, mimeType, setIsNotSupported }}
+        value={{
+          shareId,
+          fileId,
+          mimeType,
+          fileDescription: description ?? "",
+          setIsNotSupported,
+        }}
       >
         <FileDecider />
       </FilePreviewContext.Provider>
@@ -144,14 +210,37 @@ const AudioPreview = () => {
   const { shareId, fileId, setIsNotSupported } =
     React.useContext(FilePreviewContext);
   const allowed = useFileProbe(shareId, fileId, setIsNotSupported);
+  const showError = useViewLimitModal();
+  const recordView = useRecordPlayView(shareId, showError);
+  const audioRef = React.useRef<HTMLAudioElement>(null);
+  const recordingRef = React.useRef(false);
   if (!allowed) return null;
   return (
     <Center style={{ minHeight: 200 }}>
       <Stack align="center" gap={10} style={{ width: "100%" }}>
-        <audio controls style={{ width: "100%" }}>
+        <audio
+          ref={audioRef}
+          controls
+          style={{ width: "100%" }}
+          onPlay={async () => {
+            // Pause immediately; resume only after backend allows. The
+            // recordingRef guard prevents the programmatic play() (resume)
+            // from re-entering this handler and looping POST /view requests.
+            const a = audioRef.current;
+            if (!a || recordingRef.current) return;
+            recordingRef.current = true;
+            a.pause();
+            await recordView(() => {
+              a.play().catch(() => setIsNotSupported(true));
+            });
+            window.setTimeout(() => {
+              recordingRef.current = false;
+            }, 2000);
+          }}
+          onError={() => setIsNotSupported(true)}
+        >
           <source
             src={`/api/shares/${shareId}/files/${fileId}?download=false`}
-            onError={() => setIsNotSupported(true)}
           />
         </audio>
       </Stack>
@@ -160,17 +249,71 @@ const AudioPreview = () => {
 };
 
 const VideoPreview = () => {
-  const { shareId, fileId, setIsNotSupported } =
+  const { shareId, fileId, fileDescription, setIsNotSupported } =
     React.useContext(FilePreviewContext);
   const allowed = useFileProbe(shareId, fileId, setIsNotSupported);
+  const showError = useViewLimitModal();
+  const recordView = useRecordPlayView(shareId, showError);
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+  const recordingRef = React.useRef(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const t = useTranslate();
   if (!allowed) return null;
   return (
-    <video width="100%" controls>
-      <source
-        src={`/api/shares/${shareId}/files/${fileId}?download=false`}
+    <Box pos="relative">
+      <video
+        ref={videoRef}
+        width="100%"
+        controls
+        onPlay={async () => {
+          // Pause immediately while we POST /view; resume on success.
+          // On 403 (limit exceeded) we leave the video paused and the modal
+          // shows the limit-exceeded message.
+          const v = videoRef.current;
+          if (!v || recordingRef.current) return;
+          recordingRef.current = true;
+          v.pause();
+          await recordView(() => {
+            v.play().catch(() => setIsNotSupported(true));
+          });
+          // Allow future plays to be recorded again. The onPlay re-triggered
+          // by the resume above fires within this window and is safely
+          // ignored by the guard.
+          window.setTimeout(() => {
+            recordingRef.current = false;
+          }, 2000);
+        }}
+        onPlaying={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
         onError={() => setIsNotSupported(true)}
-      />
-    </video>
+      >
+        <source
+          src={`/api/shares/${shareId}/files/${fileId}?download=false`}
+        />
+      </video>
+      {isPlaying && (
+        <Text
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            zIndex: 5,
+            pointerEvents: "none",
+            backgroundColor: "rgba(0, 0, 0, 0.6)",
+            color: "#fff",
+            padding: "4px 12px",
+            borderRadius: 4,
+            fontSize: 12,
+            maxWidth: "90%",
+            textAlign: "center",
+          }}
+        >
+          {t("share.video.protection-notice")}
+          {fileDescription ? ` ${fileDescription}` : ""}
+        </Text>
+      )}
+    </Box>
   );
 };
 

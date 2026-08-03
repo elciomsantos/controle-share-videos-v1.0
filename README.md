@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="/frontend/public/img/images/logo-programer.png" alt="Logo" width="100">
+  <img src="/frontend/public/img/images/logo-programer.png" alt="Logo" width="300">
 
 
   <h1>Sistema de controle e compartilhamento de videos</h1>

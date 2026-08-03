@@ -102,8 +102,9 @@ model File {
   id        String   @id @default(uuid())
   createdAt DateTime @default(now())
 
-  name String
-  size String
+  name        String
+  size        String
+  description String?
 
   shareId String
   share   Share  @relation(fields: [shareId], references: [id], onDelete: Cascade)

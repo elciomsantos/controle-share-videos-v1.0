@@ -4,8 +4,8 @@ export function getDefaultConfig(): Config[] {
   return [
     {
       key: "general.appName",
-      value: "Controle Share Videos",
-      defaultValue: "Controle Share Videos",
+      value: "Guarda Municipal de Londrina",
+      defaultValue: "Guarda Municipal de Londrina",
       type: "string",
     },
     {
