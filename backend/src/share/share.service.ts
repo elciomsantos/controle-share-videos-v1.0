@@ -8,7 +8,7 @@ import {
 import { RequestContextLogger } from "../common/request-context/request-context";
 import { JwtService, JwtSignOptions } from "@nestjs/jwt";
 import { Prisma, Share, User, ShareSecurity } from "../../prisma/generated/prisma/client";
-import archiver from "archiver";
+import { createZipStream } from "../common/zip";
 import argon from "argon2";
 import * as crypto from "crypto";
 import * as fs from "fs";
@@ -139,7 +139,7 @@ export class ShareService {
       );
     }
 
-    const archive = archiver("zip", {
+    const archive = await createZipStream({
       zlib: { level: this.config.get("share.zipCompressionLevel") },
     });
     const writeStream = fs.createWriteStream(`${path}/archive.zip`);
@@ -337,15 +337,43 @@ export class ShareService {
     return share;
   }
 
-  async remove(shareId: string, isDeleterAdmin = false) {
+  async remove(
+    shareId: string,
+    isDeleterAdmin = false,
+    actor?: { userId?: string; username?: string; ip: string; userAgent?: string | null },
+  ) {
     const share = await this.prisma.share.findUnique({
       where: { id: shareId },
+      select: {
+        id: true,
+        creatorId: true,
+        files: { select: { id: true, name: true, size: true } },
+      },
     });
 
     if (!share) throw new NotFoundException(this.i18n.t("share.notFound"));
 
     if (!share.creatorId && !isDeleterAdmin)
       throw new ForbiddenException(this.i18n.t("share.anonymousNoDelete"));
+
+    // Record a delete entry per file so the audit log shows exactly which
+    // files were removed when the whole share is deleted.
+    if (actor) {
+      for (const file of share.files ?? []) {
+        void this.downloadLogService.record({
+          shareId,
+          fileId: file.id,
+          fileName: file.name,
+          fileSize: file.size,
+          userId: actor.userId,
+          username: actor.username,
+          ip: actor.ip,
+          userAgent: actor.userAgent ?? null,
+          success: true,
+          event: "delete",
+        });
+      }
+    }
 
     await this.fileService.deleteAllFiles(shareId);
     await this.prisma.share.delete({ where: { id: shareId } });

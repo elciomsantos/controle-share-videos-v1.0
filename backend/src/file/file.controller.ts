@@ -26,6 +26,7 @@ import { DownloadLimitGuard } from "./guard/downloadLimit.guard";
 import { FileSecurityGuard } from "./guard/fileSecurity.guard";
 import mime from "mime-types";
 import { getRequestIp, getRequestUserAgent } from "../utils/request.util";
+import { GetUser } from "../auth/decorator/getUser.decorator";
 
 const VALID_ID_REGEX = /^[a-zA-Z0-9-]*={0,2}$/;
 
@@ -62,16 +63,44 @@ export class FileController {
     },
     @Body() body: string,
     @Param("shareId") shareId: string,
+    @Req() req: Request,
+    @GetUser() user: User,
   ) {
     const { id, name, chunkIndex, totalChunks, description } = query;
 
-    // Data can be empty if the file is empty
-    return await this.fileService.create(
+    const result = await this.fileService.create(
       body,
       { index: parseInt(chunkIndex), total: parseInt(totalChunks) },
       { id, name, description },
       shareId,
     );
+
+    // GAP: record the upload as soon as the final chunk lands (the DB row is
+    // created on the last chunk) so the audit log shows who uploaded what.
+    if (parseInt(chunkIndex) === parseInt(totalChunks) - 1) {
+      let fileSize: string | null = null;
+      try {
+        const meta = await this.fileService.getFileMetaData(shareId, id);
+        fileSize = meta?.size ?? null;
+      } catch {
+        // File metadata may be momentarily unavailable; still log the event.
+        fileSize = null;
+      }
+      void this.downloadLogService.record({
+        shareId,
+        fileId: id,
+        fileName: name,
+        fileSize,
+        userId: user?.id,
+        username: user?.username,
+        ip: getRequestIp(req),
+        userAgent: getRequestUserAgent(req),
+        success: true,
+        event: "upload",
+      });
+    }
+
+    return result;
   }
 
   @Get("zip")
@@ -141,6 +170,45 @@ export class FileController {
 
     const file = await this.fileService.get(shareId, fileId);
 
+    // When the uploaded file lived in a folder (name carries a "dir/name"
+    // path), serve the download wrapped in a zip that preserves that folder
+    // structure. Browsers strip directory info from Content-Disposition, so
+    // only a zip keeps the original layout.
+    const hasFolderPath = file.metaData.name.includes("/");
+    if (isDownload && hasFolderPath) {
+      const zipStream = await this.fileService.getFileZip(shareId, fileId);
+      const zipBaseName =
+        file.metaData.name.split("/").pop() || file.metaData.name;
+      res.set({
+        "Content-Type": "application/zip",
+        "Content-Security-Policy": "sandbox",
+        "Cache-Control": "no-store",
+        "Content-Disposition": contentDisposition(`${zipBaseName}.zip`),
+      });
+
+      const user = (req as AuthenticatedRequest).user;
+      void this.downloadLogService.record({
+        shareId,
+        fileId,
+        fileName: file.metaData.name,
+        fileSize: file.metaData.size,
+        userId: user?.id,
+        username: user?.username,
+        ip: getRequestIp(req),
+        userAgent: getRequestUserAgent(req),
+        success: true,
+        event: "download",
+      });
+      void this.downloadLimitGuard.incrementDownloadCount(shareId);
+      void this.fileService.notifyRecipientDownload(
+        shareId,
+        file.metaData.name,
+        getValidRecipientId(recipientId),
+      );
+
+      return new StreamableFile(zipStream);
+    }
+
     const headers = {
       "Content-Type":
         mime?.lookup?.(file.metaData.name) || "application/octet-stream",
@@ -187,7 +255,33 @@ export class FileController {
   async remove(
     @Param("fileId") fileId: string,
     @Param("shareId") shareId: string,
+    @Req() req: Request,
+    @GetUser() user: User,
   ) {
+    let fileName: string | null = null;
+    let fileSize: string | null = null;
+    try {
+      const meta = await this.fileService.getFileMetaData(shareId, fileId);
+      fileName = meta?.name ?? null;
+      fileSize = meta?.size ?? null;
+    } catch {
+      fileName = null;
+      fileSize = null;
+    }
+
     await this.fileService.remove(shareId, fileId);
+
+    void this.downloadLogService.record({
+      shareId,
+      fileId,
+      fileName: fileName ?? fileId,
+      fileSize,
+      userId: user?.id,
+      username: user?.username,
+      ip: getRequestIp(req),
+      userAgent: getRequestUserAgent(req),
+      success: true,
+      event: "delete",
+    });
   }
 }

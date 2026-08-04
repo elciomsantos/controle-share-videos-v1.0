@@ -14,12 +14,16 @@ import mime from "mime-types";
 import { I18nService } from "nestjs-i18n";
 import { ConfigService } from "../config/config.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { RequestContextLogger } from "../common/request-context/request-context";
 import { validate as isValidUUID } from "uuid";
 import { SHARE_DIRECTORY } from "../constants";
 import { Readable } from "stream";
+import { createZipStream } from "../common/zip";
 
 @Injectable()
 export class LocalFileService {
+  private readonly logger = new RequestContextLogger(LocalFileService.name);
+
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
@@ -287,6 +291,17 @@ export class LocalFileService {
     };
   }
 
+  async getFileMetaData(shareId: string, fileId: string) {
+    const fileMetaData = await this.prisma.file.findUnique({
+      where: { id: fileId },
+    });
+
+    if (!fileMetaData)
+      throw new NotFoundException(this.i18n.t("file.notFound"));
+
+    return fileMetaData;
+  }
+
   async remove(shareId: string, fileId: string) {
     const fileMetaData = await this.prisma.file.findUnique({
       where: { id: fileId },
@@ -320,6 +335,70 @@ export class LocalFileService {
       zipStream.on("open", () => {
         resolve(zipStream);
       });
+    });
+  }
+
+  /**
+   * Streams a single file wrapped in a zip that preserves its uploaded
+   * relative folder path (e.g. "videos/trailer.mp4"), so a download keeps the
+   * same folder structure it was uploaded with. Falls back to a plain zip
+   * entry using only the file name when no folder was given.
+   */
+  async getFileZip(shareId: string, fileId: string): Promise<Readable> {
+    const fileMetaData = await this.prisma.file.findUnique({
+      where: { id: fileId },
+    });
+
+    if (!fileMetaData)
+      throw new NotFoundException(this.i18n.t("file.notFound"));
+
+    const entryName = fileMetaData.name || fileId;
+
+    return new Promise(async (resolve, reject) => {
+      let archive;
+      try {
+        archive = await createZipStream({
+          zlib: { level: this.config.get("share.zipCompressionLevel") },
+        });
+      } catch (err) {
+        reject(err);
+        return;
+      }
+
+      let settled = false;
+      archive.on("error", (err: unknown) => {
+        if (settled) return;
+        settled = true;
+        reject(
+          new InternalServerErrorException(
+            err instanceof Error ? err.message : "Failed to create zip",
+          ),
+        );
+      });
+
+      archive.on("warning", (err: unknown) => {
+        this.logger.warn(`zip warning: ${String(err)}`);
+      });
+
+      archive.append(
+        createReadStream(`${SHARE_DIRECTORY}/${shareId}/${fileId}`),
+        { name: entryName },
+      );
+
+      // Resolve immediately after finalize: the Nest StreamableFile will pipe
+      // and consume the archive, which in turn emits its "end" event. Waiting
+      // for "end" here would deadlock, since the stream is not read until the
+      // promise resolves.
+      try {
+        void archive.finalize();
+      } catch (err) {
+        if (!settled) {
+          settled = true;
+          reject(err);
+        }
+        return;
+      }
+      resolve(archive);
     });
   }
 }

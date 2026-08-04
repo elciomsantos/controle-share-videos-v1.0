@@ -1,4 +1,4 @@
-export type DownloadLogEvent = "download" | "view";
+export type DownloadLogEvent = "download" | "view" | "upload" | "delete";
 
 export interface DownloadLog {
   id: string;

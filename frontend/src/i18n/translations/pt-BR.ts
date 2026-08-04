@@ -236,6 +236,8 @@ export default {
   "admin.downloadLogs.columns.reason": "Motivo",
   "admin.downloadLogs.events.download": "Download",
   "admin.downloadLogs.events.view": "Visualização",
+  "admin.downloadLogs.events.upload": "Upload",
+  "admin.downloadLogs.events.delete": "Exclusão",
   "admin.downloadLogs.status.success": "Sucesso",
   "admin.downloadLogs.status.failure": "Falha",
   "admin.downloadLogs.empty": "Nenhum log encontrado.",

@@ -63,6 +63,7 @@ const showCreateUploadModal = (
   if (options.simplified) {
     return modals.openModal({
       title: t("upload.modal.title"),
+      centered: true,
       children: (
         <SimplifiedCreateUploadModalModal
           options={options}
@@ -73,16 +74,17 @@ const showCreateUploadModal = (
     });
   }
 
-  return modals.openModal({
-    title: t("upload.modal.title"),
-    children: (
-      <CreateUploadModalBody
-        options={options}
-        files={files}
-        uploadCallback={uploadCallback}
-      />
-    ),
-  });
+return modals.openModal({
+      title: t("upload.modal.title"),
+      centered: true,
+      children: (
+        <CreateUploadModalBody
+          options={options}
+          files={files}
+          uploadCallback={uploadCallback}
+        />
+      ),
+    });
 };
 
 const generateShareId = (length: number = 16) => {
@@ -423,9 +425,7 @@ const CreateUploadModalBody = ({
                 <Stack align="stretch">
                   <TextInput
                     variant="filled"
-                    placeholder={t(
-                      "upload.modal.accordion.name-and-description.name.placeholder",
-                    )}
+placeholder="Numero processo SEI"
                     {...form.getInputProps("name")}
                   />
                   <Textarea
@@ -455,7 +455,7 @@ const CreateUploadModalBody = ({
                           autosize
                           minRows={1}
                           placeholder={t(
-                            "upload.modal.accordion.file-descriptions.placeholder",
+                            "Descrição do local e data do ocorrido",
                           )}
                           value={fileDescriptions[index] || ""}
                           onChange={(event) => {
@@ -730,7 +730,7 @@ const SimplifiedCreateUploadModalModal = ({
                     autosize
                     minRows={1}
                     placeholder={t(
-                      "upload.modal.accordion.file-descriptions.placeholder",
+                      "Numero processo SEI ou B.O",
                     )}
                     value={fileDescriptions[index] || ""}
                     onChange={(event) => {

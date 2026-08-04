@@ -167,9 +167,18 @@ export class ShareController {
 
   @Delete(":id")
   @UseGuards(IdValidation, ShareOwnerGuard)
-  async remove(@Param("id") id: string, @GetUser() user: User) {
+  async remove(
+    @Param("id") id: string,
+    @GetUser() user: User,
+    @Req() req: Request,
+  ) {
     const isDeleterAdmin = user?.isAdmin === true || user?.role === "admin";
-    await this.shareService.remove(id, isDeleterAdmin);
+    await this.shareService.remove(id, isDeleterAdmin, {
+      userId: user?.id,
+      username: user?.username,
+      ip: getRequestIp(req),
+      userAgent: getRequestUserAgent(req),
+    });
   }
 
   @Post(":id/expire")

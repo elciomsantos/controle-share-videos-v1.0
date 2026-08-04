@@ -57,6 +57,10 @@ export class FileService {
     return this.localFileService.get(shareId, fileId);
   }
 
+  async getFileMetaData(shareId: string, fileId: string) {
+    return this.localFileService.getFileMetaData(shareId, fileId);
+  }
+
   async remove(shareId: string, fileId: string) {
     return this.localFileService.remove(shareId, fileId);
   }
@@ -67,6 +71,10 @@ export class FileService {
 
   async getZip(shareId: string): Promise<Readable> {
     return await this.localFileService.getZip(shareId);
+  }
+
+  async getFileZip(shareId: string, fileId: string): Promise<Readable> {
+    return this.localFileService.getFileZip(shareId, fileId);
   }
 
   async notifyRecipientDownload(

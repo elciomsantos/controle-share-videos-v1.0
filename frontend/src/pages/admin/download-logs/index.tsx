@@ -148,6 +148,14 @@ const DownloadLogs = () => {
                   value: "view",
                   label: t("admin.downloadLogs.events.view"),
                 },
+                {
+                  value: "upload",
+                  label: t("admin.downloadLogs.events.upload"),
+                },
+                {
+                  value: "delete",
+                  label: t("admin.downloadLogs.events.delete"),
+                },
               ]}
             />
           </Grid.Col>
