@@ -408,13 +408,7 @@ const CreateUploadModalBody = ({
             size="xs"
             style={{ color: "var(--mantine-color-gray-6)" }}
           >
-            {getExpirationPreview(
-              {
-                neverExpires: t("upload.modal.completed.never-expires"),
-                expiresOn: t("upload.modal.completed.expires-on"),
-              },
-              form,
-            )}
+            {getExpirationPreview(t, form)}
           </Text>
           <Accordion multiple defaultValue={["security"]}>
             <Accordion.Item value="description" style={{ borderBottom: "none" }}>
@@ -425,7 +419,7 @@ const CreateUploadModalBody = ({
                 <Stack align="stretch">
                   <TextInput
                     variant="filled"
-placeholder="Numero processo SEI"
+                        placeholder="Descrição do compartilhamento"
                     {...form.getInputProps("name")}
                   />
                   <Textarea
@@ -455,7 +449,7 @@ placeholder="Numero processo SEI"
                           autosize
                           minRows={1}
                           placeholder={t(
-                            "Descrição do local e data do ocorrido",
+                            "upload.modal.accordion.file-descriptions.sei-placeholder",
                           )}
                           value={fileDescriptions[index] || ""}
                           onChange={(event) => {
@@ -730,7 +724,7 @@ const SimplifiedCreateUploadModalModal = ({
                     autosize
                     minRows={1}
                     placeholder={t(
-                      "Numero processo SEI ou B.O",
+                      "upload.modal.accordion.file-descriptions.sei-placeholder",
                     )}
                     value={fileDescriptions[index] || ""}
                     onChange={(event) => {

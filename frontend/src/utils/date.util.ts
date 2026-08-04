@@ -6,6 +6,7 @@ import localizedFormat from "dayjs/plugin/localizedFormat";
 import "dayjs/locale/pt-br";
 import type { DurationUnitType } from "dayjs/plugin/duration";
 import { Timespan } from "../types/timespan.type";
+import useTranslate from "../hooks/useTranslate.hook";
 
 dayjs.extend(duration as any);
 dayjs.extend(relativeTime as any);
@@ -17,11 +18,10 @@ dayjs.locale("pt-br");
 export { dayjs };
 export type { DurationUnitType };
 
+type TranslateFn = ReturnType<typeof useTranslate>;
+
 export const getExpirationPreview = (
-  messages: {
-    neverExpires: string;
-    expiresOn: string;
-  },
+  t: TranslateFn,
   form: {
     values: {
       never_expires?: boolean;
@@ -33,7 +33,7 @@ export const getExpirationPreview = (
   const value = form.values.never_expires
     ? "never"
     : form.values.expiration_num + form.values.expiration_unit;
-  if (value === "never") return messages.neverExpires;
+  if (value === "never") return t("upload.modal.completed.never-expires");
 
   const expirationDate = dayjs()
     .add(
@@ -42,10 +42,9 @@ export const getExpirationPreview = (
     )
     .toDate();
 
-  return messages.expiresOn.replace(
-    "{expiration}",
-    dayjs(expirationDate).format("LLL"),
-  );
+  return t("upload.modal.completed.expires-on", {
+    expiration: dayjs(expirationDate).format("LLL"),
+  });
 };
 
 export const timespanToString = (timespan: Timespan) => {

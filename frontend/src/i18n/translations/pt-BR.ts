@@ -294,6 +294,7 @@ export default {
   "upload.modal.accordion.name-and-description.description.placeholder": "Nota para os destinatários deste compartilhamento",
   "upload.modal.accordion.file-descriptions.title": "Descrições dos arquivos",
   "upload.modal.accordion.file-descriptions.placeholder": "Descrição deste arquivo",
+  "upload.modal.accordion.file-descriptions.sei-placeholder": "Número processo SEI ou B.O",
   "upload.modal.accordion.email.title": "Destinatários de e-mail",
   "upload.modal.accordion.email.placeholder": "Insira os destinatários do e-mail",
   "upload.modal.accordion.email.invalid-email": "Endereço de e-mail inválido",
