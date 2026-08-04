@@ -95,11 +95,13 @@ const Body = ({
   const formattedMaxShareSize = byteToHumanSizeString(resolvedMaxShareSize);
   const shareSizeProgress = shareSizeRatio * 100;
 
-  const formattedCreatedAt = dayjs(currentShare.createdAt).format("LLL");
+  const formattedCreatedAt = dayjs(currentShare.createdAt)
+    .locale("pt-br")
+    .format("LLL");
   const formattedExpiration =
     dayjs(currentShare.expiration).unix() === 0
       ? "Never"
-      : dayjs(currentShare.expiration).format("LLL");
+      : dayjs(currentShare.expiration).locale("pt-br").format("LLL");
 
   if (isEditing) {
     return (

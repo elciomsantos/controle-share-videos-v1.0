@@ -245,7 +245,9 @@ function App({ Component, pageProps }: AppProps) {
   }, [adminDefaultColorScheme, user]);
 
   const language = useRef(pageProps.language);
-  dayjs.locale(language.current.toLowerCase());
+  // Always drive dayjs from the resolved (supported) locale so it never falls
+  // back to the browser/request locale, which would render dates in English.
+  dayjs.locale(i18nUtil.getLocaleByCode(language.current).code.toLowerCase());
 
   const isExcludedRoute = excludeDefaultLayoutRoutes.some((pattern) => {
     const regex = new RegExp("^" + pattern.replace(/\[.*?\]/g, "[^/]+") + "$");

@@ -100,7 +100,7 @@ const ManageShareTable = ({
                   <td>
                     {dayjs(share.expiration).unix() === 0
                       ? "Never"
-                      : dayjs(share.expiration).format("LLL")}
+                      : dayjs(share.expiration).locale("pt-br").format("LLL")}
                   </td>
                   {fileRetentionEnabled ? (
                     <td>
@@ -108,6 +108,7 @@ const ManageShareTable = ({
                       fileRetentionPeriod.value === -1
                         ? "Never"
                         : dayjs(share.expiration)
+                            .locale("pt-br")
                             .add(
                               fileRetentionPeriod.value,
                               fileRetentionPeriod.unit,

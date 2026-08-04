@@ -167,3 +167,5 @@ Acesso: http://localhost:3000
 - `docs/plano-correcoes-analise-hard.md` — plano de correções da análise de segurança
 - `docs/erro-execucao.md` — registro de erros de execução
 - `docs/EVOLUCAO.md` — histórico de evolução do projeto
+
+Rebuild do container (docker compose -f docker-compose.local.yml up -d --build) 

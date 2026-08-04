@@ -7,7 +7,11 @@ import { getRequestContext } from "../common/request-context/request-context";
 import { Prisma } from "../../prisma/generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 
-export type DownloadLogEvent = "download" | "view";
+export type DownloadLogEvent =
+  | "download"
+  | "view"
+  | "upload"
+  | "delete";
 
 export interface DownloadLogEntry {
   shareId: string;

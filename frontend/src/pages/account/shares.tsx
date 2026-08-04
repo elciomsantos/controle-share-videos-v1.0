@@ -124,7 +124,7 @@ const MyShares = () => {
                     {dayjs(share.expiration).unix() === 0 ? (
                       <FormattedMessage id="account.shares.table.expiry-never" />
                     ) : (
-                      dayjs(share.expiration).format("LLL")
+                      dayjs(share.expiration).locale("pt-br").format("LLL")
                     )}
                   </td>
                   <td>

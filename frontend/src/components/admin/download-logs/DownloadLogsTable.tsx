@@ -25,6 +25,12 @@ const DownloadLogsTable = ({
     if (event === "view") {
       return <Badge color="victoria">{t("admin.downloadLogs.events.view")}</Badge>;
     }
+    if (event === "upload") {
+      return <Badge color="green">{t("admin.downloadLogs.events.upload")}</Badge>;
+    }
+    if (event === "delete") {
+      return <Badge color="red">{t("admin.downloadLogs.events.delete")}</Badge>;
+    }
     return <Badge color="blue">{t("admin.downloadLogs.events.download")}</Badge>;
   };
 
@@ -79,7 +85,11 @@ const DownloadLogsTable = ({
               ? emptyRow
               : logs.map((log) => (
                   <tr key={log.id}>
-                    <td>{dayjs(log.createdAt).format("LLL")}</td>
+                    <td>
+                      {dayjs(log.createdAt)
+                        .locale("pt-br")
+                        .format("LLL")}
+                    </td>
                     <td>{log.shareId}</td>
                     <td>{log.fileName || "-"}</td>
                     <td>{formatFileSize(log.fileSize)}</td>
