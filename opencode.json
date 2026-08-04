@@ -96,7 +96,7 @@
       "command": [
         "npx",
         "-y",
-        "mcp-docker-server"
+        "mcp-server-docker"
       ]
     },
 
