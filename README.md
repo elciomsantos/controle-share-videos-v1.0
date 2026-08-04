@@ -1,6 +1,5 @@
 <div align="center">
-  <img src="/frontend/public/img/images/logo-programer.png" alt="Logo" width="300">
-
+  <img src="/frontend/public/img/logo-dark.png" alt="Logo" width="300">
 
   <h1>Sistema de controle e compartilhamento de videos</h1>
 
@@ -15,7 +14,7 @@
 
 Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-BR. Fork independente do Pingvin Share X v1.21.1, adaptado para upload exclusivamente pelo dono autenticado e armazenamento apenas local (servidor Ubuntu).
 
-> **Documentação:** ver `docs/Visao-geral.md` (visão arquitetural) e `docs/Padronizacao.md` (programa de padronização — 11 temas).
+> **Documentação:** ver `docs/Visao-geral.md` (visão arquitetural), `docs/PLANO-IMPLANTACAO.md` (plano de implantação) e `docs/auditoria-final.md` (auditoria completa).
 
 ## Funcionalidades
 
@@ -35,7 +34,7 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 - Upload apenas pelo dono autenticado (sem reverse shares — removido intencionalmente)
 - Armazenamento **exclusivamente local** no servidor (sem buckets S3 — removido)
 - Upload chunked multipart com progresso e retomada
-- Integração opcional com **ClamAV** para varredura antivírus (Decidido — `docs/Padronizacao-07-clamav.md`)
+- Integração opcional com **ClamAV** para varredura antivírus
 
 ### Auditoria
 
@@ -49,9 +48,9 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 - Apenas `admin` cria usuários via `POST /api/users` escolhendo o papel
 - Senha temporária forte (12 chars) exibida uma única vez no modal, ou enviada por e-mail se SMTP habilitado
 - **Troca obrigatória de senha no primeiro login** (`passwordMustChange` + Guard)
-- Detecção de usuário duplicado com inline field error + debounce pre-validation (admin/signup) — `docs/Padronizacao-11-usuario-duplicado.md`
+- Detecção de usuário duplicado com inline field error + debounce pre-validation (admin/signup)
 
-### UX de erro (Tema 10 — `docs/Padronizacao-10-popups-erro.md`)
+### UX de erro
 
 - **Inline field error** — credenciais inválidas no login, link em uso na criação do share
 - **Modal bloqueante** — conta não ativada (com botão "Reenviar verificação"), rate-limit 429 com countdown lendo header `Retry-After`, falha de servidor/rede, `completeShare` 500 (Tentar novamente / Descartar), erro de rede em `isShareIdAvailable`
@@ -70,57 +69,35 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 
 ## Setup
 
-### Instalação com Docker (recomendado)
+### Requisitos
 
-1. Baixe o arquivo `docker-compose.yml`
-2. Execute `docker compose up -d`
+- **Docker Engine + Docker Compose v2** (recomendado) — ou
+- **Node.js ≥ 24** + npm (setup manual) + **OpenSSL** (para gerar senhas)
 
-O sistema estará disponível em `http://localhost:3000`.
+### Docker (recomendado)
 
-> **Implantação em produção:** ver `docs/Implantacao/Implantacao.md` (guia completo — Ubuntu Server, Docker, Caddy com TLS automático, RAID6), `docs/Implantacao/conf-dominio.md` (domínio gratuito No-IP) e `docs/Implantacao/PLANO-IMPLANTACAO.md` (plano de ajuste do modelo final).
+#### Ambiente local de teste
 
-### Setup manual (desenvolvimento)
+1. Crie o arquivo `.env.local` a partir do exemplo e gere a senha do admin:
 
-#### Backend
+   ```bash
+   cp .env.local.example .env.local
+   openssl rand -base64 32   # copie a saída para ADMIN_PASSWORD no .env.local
+   ```
 
-1. Entre na pasta `backend`
-2. Instale as dependências com `npm install`
-3. Aplique o schema ao banco com `npx prisma db push`
-4. Popule o banco com `npx prisma db seed`
-5. Inicie o backend com `npm run dev`
+2. Suba o container único (backend + frontend + Caddy integrado):
 
-#### Frontend
+   ```bash
+   docker compose -f docker-compose.local.yml up -d --build
+   ```
 
-1. Inicie o backend primeiro
-2. Entre na pasta `frontend`
-3. Instale as dependências com `npm install` (use `--legacy-peer-deps` em instalação limpa — ver `docs/Padronizacao.md` §8.3)
-4. Inicie o frontend com `npm run dev`
+3. Acesse **http://localhost:3000** (entrada unificada pelo Caddy).
 
-Pronto!
+   Portas expostas: `8090` (backend/api), `3333` (frontend Next.js) e `3000` (Caddy).
 
-#### Lint e build
+   Login inicial: `admin` / `admin@empresa.local` / senha definida em `ADMIN_PASSWORD`.
 
-- `npm run lint` (em cada workspace: `backend` e `frontend`)
-- `npm run build` (em cada workspace)
-- Observação: o Prisma Client precisa ser regenerado após mudanças no `schema.prisma` (`npx prisma generate` no `backend`)
-
-#### Testes
-
-No momento existem apenas testes de sistema para o backend. Para rodá-los, execute `npm run test:system` na pasta `backend`.
-
-## Docker Compose (variantes)
-
-| Arquivo | Uso |
-|---------|-----|
-| `docker-compose.yml` | Produção padrão (backend, frontend, caddy, clamav) |
-| `docker-compose.local.yml` | Sobrescreve o `.yml` para ambiente de teste local (override) |
-| `docker-compose.dev.yml` | Desenvolvimento (adiciona ClamAV) |
-| `docker-compose.prod.yml` | Produção com secrets externos e domínio (`domain`, `acme_email`, `admin_*`) |
-| `docker-compose.monitoring.yml` | Observabilidade (prometheus, grafana, loki, promtail) |
-
-### Setup de teste em desenvolvimento
-
-Recria o ambiente local do zero (apaga o banco SQLite e sobe os containers com rebuild):
+Recriar o ambiente do zero (apaga o banco SQLite):
 
 ```bash
 docker compose -f docker-compose.local.yml down
@@ -128,44 +105,85 @@ rm data/controle-videos.db
 docker compose -f docker-compose.local.yml up -d --build
 ```
 
-Com env file específico e override local:
+#### Produção
+
+O `docker-compose.yml` (padrão) sobe os serviços `backend`, `frontend`, `caddy` e `clamav`:
 
 ```bash
-docker compose --env-file .env.local -f docker-compose.yml -f docker-compose.local.yml up --build -d
+docker compose up -d --build
 ```
 
-Acesso: http://localhost:3000
+Requer as variáveis `DOMAIN` e `ACME_EMAIL` (env) e os arquivos de secret em `./secrets/` (`jwt_secret.txt`, `admin_password.txt`, `smtp_password.txt`).
+
+Para produção com Docker Swarm/secrets externos e dados em RAID6 (`/srv`):
+
+```bash
+docker compose -f docker-compose.prod.yml up -d
+```
+
+> Guia completo em `docs/PLANO-IMPLANTACAO.md` e `docs/conf-dominio.md`.
+
+### Setup manual (desenvolvimento)
+
+#### Backend (porta `8080`)
+
+1. Entre na pasta `backend`
+2. Instale as dependências com `npm install`
+3. Aplique o schema ao banco com `npx prisma db push`
+4. Popule o banco com `npx prisma db seed`
+5. Inicie o backend com `npm run dev`
+
+#### Frontend (porta `3000`)
+
+1. Inicie o backend primeiro
+2. Entre na pasta `frontend`
+3. Instale as dependências com `npm install` (use `--legacy-peer-deps` em instalação limpa)
+4. Inicie o frontend com `npm run dev`
+
+Pronto! Acesse **http://localhost:3000** (o frontend faz proxy de `/api/*` para `http://localhost:8080`).
+
+#### Configuração via `config.yaml` (opcional)
+
+Copie `config.example.yaml` para `config.yaml` na raiz do repositório e ajuste os valores. Se o arquivo existir, ele sobrescreve as configurações do banco; caso contrário, o sistema usa a configuração da UI. O bloco `initUser` cria o primeiro usuário admin no boot.
+
+#### Lint e build
+
+- `npm run lint` (na raiz roda em `backend` e `frontend`)
+- `npm run build` (em cada workspace: `backend` e `frontend`)
+- Observação: o Prisma Client precisa ser regenerado após mudanças no `schema.prisma` (`npx prisma generate` no `backend`)
+
+#### Testes
+
+Existem apenas testes de sistema para o backend (coleção Newman). Para rodá-los:
+
+```bash
+npm run test:system   # na pasta backend
+```
+
+Recria o banco (`prisma migrate reset -f`), inicia o servidor na porta `8080` e executa a coleção em `backend/test/newman-system-tests.json`.
+
+## Docker Compose (variantes)
+
+| Arquivo | Uso |
+|---------|-----|
+| `docker-compose.yml` | Produção padrão (backend, frontend, caddy, clamav; secrets em arquivos `./secrets/*.txt`) |
+| `docker-compose.local.yml` | Ambiente de teste local — container único (backend + frontend + Caddy) com `.env.local` |
+| `docker-compose.dev.yml` | Desenvolvimento — adiciona o serviço ClamAV (porta `3310`) |
+| `docker-compose.prod.yml` | Produção com secrets externos (Docker Swarm), TLS via Caddy 2.9 e dados em RAID6 (`/srv/controle-share-videos`) |
+| `docker-compose.monitoring.yml` | Observabilidade (prometheus, grafana, loki, promtail) |
 
 ## Documentação
 
-### Arquitetura e padronização
+### Arquitetura e implantação
 
 - `docs/Visao-geral.md` — visão arquitetural completa
-- `docs/Padronizacao.md` — programa de padronização (11 temas), com links para documentos específicos por tema
-- `docs/Padronizacao-02-link-seguro.md` — link seguro com geração automática de senha
-- `docs/Padronizacao-03-auditoria-logs.md` — auditoria e logs de vídeo
-- `docs/Padronizacao-04-usuarios-permissoes.md` — gestão de usuários e RBAC
-- `docs/Padronizacao-05-limite-tamanho.md` — limite de tamanho via painel admin
-- `docs/Padronizacao-07-clamav.md` — integração ClamAV (Decidido, código pendente)
-- `docs/Padronizacao-10-popups-erro.md` — popups de erro em três camadas
-- `docs/Padronizacao-11-usuario-duplicado.md` — detecção de usuário duplicado
+- `docs/PLANO-IMPLANTACAO.md` — plano de implantação (modelo final de produção)
+- `docs/conf-dominio.md` — configuração de domínio gratuito No-IP com IP fixo
 
-### Implantação em produção
+### Auditoria e análise
 
-- `docs/Implantacao/Implantacao.md` — guia completo de implantação em produção (Ubuntu Server 22.04/24.04, Docker Engine + Compose v2, Caddy 2.9 com TLS Let's Encrypt, RAID6 14 TB em `/srv`, Samba para upload via LAN)
-- `docs/Implantacao/conf-dominio.md` — configuração de domínio gratuito No-IP com IP fixo (sem DUC)
-- `docs/Implantacao/PLANO-IMPLANTACAO.md` — plano de ajuste para o modelo final de implantação (rascunho)
-
-### Análises e auditorias
-
-- `docs/Analise-sistema.md` — análise do sistema
-- `docs/Analise-melhoria-implantacao.md` — análise de melhorias de implantação
-- `docs/Achados-pos-evolucao.md` — achados pós-evolução
-- `docs/Pre-producao.md` — checklist de pré-produção
-- `docs/Auditoria-pre-producao.md` — auditoria de pré-produção
-- `docs/analise-hard.md` — análise de segurança (hardening)
-- `docs/plano-correcoes-analise-hard.md` — plano de correções da análise de segurança
-- `docs/erro-execucao.md` — registro de erros de execução
-- `docs/EVOLUCAO.md` — histórico de evolução do projeto
-
-Rebuild do container (docker compose -f docker-compose.local.yml up -d --build) 
+- `docs/auditoria-final.md` — resumo executivo da auditoria
+- `docs/auditoria/Especificacao-final.md` — especificação da auditoria (14 fases)
+- `docs/auditoria/FASE-0-DESCOBERTA.md` … `docs/auditoria/FASE-12-REFATORACAO.md` — relatórios por fase
+- `docs/auditoria/relatorios/AUDIT_REPORT.md` — relatório final consolidado
+- `docs/auditoria/relatorios/` — demais relatórios: `SECURITY_REPORT`, `PERFORMANCE_REPORT`, `DEPENDENCY_AUDIT`, `TECH_DEBT`, `TEST_PLAN`, `ARCHITECTURE_REVIEW`, `REFACTORING_PLAN`, `ROADMAP`, `CHANGELOG_SUGERIDO`
