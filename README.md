@@ -34,7 +34,6 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 - Upload apenas pelo dono autenticado (sem reverse shares — removido intencionalmente)
 - Armazenamento **exclusivamente local** no servidor (sem buckets S3 — removido)
 - Upload chunked multipart com progresso e retomada
-- Integração opcional com **ClamAV** para varredura antivírus
 
 ### Auditoria
 
@@ -107,7 +106,7 @@ docker compose -f docker-compose.local.yml up -d --build
 
 #### Produção
 
-O `docker-compose.yml` (padrão) sobe os serviços `backend`, `frontend`, `caddy` e `clamav`:
+O `docker-compose.yml` (padrão) sobe os serviços `backend`, `frontend` e `caddy`:
 
 ```bash
 docker compose up -d --build
@@ -166,9 +165,8 @@ Recria o banco (`prisma migrate reset -f`), inicia o servidor na porta `8080` e 
 
 | Arquivo | Uso |
 |---------|-----|
-| `docker-compose.yml` | Produção padrão (backend, frontend, caddy, clamav; secrets em arquivos `./secrets/*.txt`) |
+| `docker-compose.yml` | Produção padrão (backend, frontend, caddy; secrets em arquivos `./secrets/*.txt`) |
 | `docker-compose.local.yml` | Ambiente de teste local — container único (backend + frontend + Caddy) com `.env.local` |
-| `docker-compose.dev.yml` | Desenvolvimento — adiciona o serviço ClamAV (porta `3310`) |
 | `docker-compose.prod.yml` | Produção com secrets externos (Docker Swarm), TLS via Caddy 2.9 e dados em RAID6 (`/srv/controle-share-videos`) |
 | `docker-compose.monitoring.yml` | Observabilidade (prometheus, grafana, loki, promtail) |
 

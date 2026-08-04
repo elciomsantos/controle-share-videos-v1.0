@@ -17,6 +17,7 @@
 ## 2. Stack Tecnológica
 
 ### Backend (`backend/`)
+
 | Categoria | Tecnologia | Versão |
 |---|---|---|
 | Runtime | Node.js | 24 (via `node:24-alpine`) |
@@ -37,6 +38,7 @@
 | Segurança HTTP | helmet | ^8.3.0 |
 
 ### Frontend (`frontend/`)
+
 | Categoria | Tecnologia | Versão |
 |---|---|---|
 | Framework | Next.js | ^16.2.12 (webpack build) |
@@ -52,6 +54,7 @@
 | Sanitização | dompurify | ^3.2.0 |
 
 ### Infra/DevOps
+
 | Categoria | Tecnologia |
 |---|---|
 | Container | Docker (multi-stage, 7 estágios) — `Dockerfile` único |
@@ -112,6 +115,7 @@ controle-share-videos-v1.0/
 ```
 
 **Métricas iniciais de tamanho**
+
 - Backend: **90** arquivos `.ts` em `src/` ≈ **6 421 LOC**
 - Frontend: **109** arquivos `.ts`/`.tsx` em `src/`
 - Prisma: **1** schema, múltiplas migrations (4 recentes em 2026-07/08)
@@ -119,10 +123,12 @@ controle-share-videos-v1.0/
 ## 4. Arquitetura
 
 ### Padrão
+
 - Backend: **NestJS modular** (módulos de feature) com controllers/services/DTOs, guards via `APP_GUARD` (Throttler → JWT → Roles → PasswordMustChange), Prisma como camada de persistência, AsyncLocalStorage para correlation ID.
 - Frontend: **Next.js Pages Router** (`pages/`) com componentes de feature, hooks customizados, services centralizando chamadas axios, middleware Next para auth.
 
 ### Fluxo de Requisição (Backend)
+
 1. Express raw body (octet-stream, chunked)
 2. Cookie parser
 3. `trust proxy` (configurável)
@@ -136,6 +142,7 @@ controle-share-videos-v1.0/
 11. APP_GUARDs: Throttler → Jwt → Roles → PasswordMustChange
 
 ### Persistência
+
 - **SQLite** único arquivo (`data/controle-videos.db`) via Prisma 7 com adapter `better-sqlite3`.
 - 12 modelos: `User`, `RefreshToken`, `LoginToken`, `ResetPasswordToken`, `Share`, `ShareRecipient`, `File`, `ShareSecurity`, `Config`, `DownloadLog`.
 - Migrations versionadas (`prisma/migrations/`), `migration_lock.toml` presente.
@@ -143,11 +150,14 @@ controle-share-videos-v1.0/
 - **Observado na Fase 0:** campos `size: String` em `File` (não BigInt/Decimal) — sinal de alerta para Fase 4.
 
 ### Configuração Persistente
+
 - Categoria única `Config` no banco: general, appearance, share, cache, email, smtp, legal.
 - Algumas flags são `obscured` e `secret` (e.g., SMTP credentials, JWT secret).,omitempty.
 
 ### Segurança (primeira impressão — será aprofundada na Fase 5)
+
 - CSRF cookie double-submit (`csrf_token` httpOnly sameSite=strict) em `main.ts:109`.
+
 - Helmet CSP rigorosa (apenas `styleSrc` permite `'unsafe-inline'`).
 - HSTS com `preload + includeSubDomains` (2 anos).
 - `Permissions-Policy` desabilita geolocation/camera/microphone.
@@ -158,14 +168,18 @@ controle-share-videos-v1.0/
 - **Upload só pelo dono autenticado** — reduz superfície de ataque.
 
 ### Observabilidade
+
 - Correlation ID propagado via `X-Request-Id` e `AsyncLocalStorage` (MED-04 + GAP-02).
+
 - Download logs auditados com `shareId, fileId, fileName, fileSize, userId, username, ip, userAgent, success, reason, event, requestId`.
 - Prometheus + Grafana + Loki + Promtail (stack opcional via `docker-compose.monitoring.yml`).
 
 ## 5. DevOps
 
 ### Docker
+
 - `Dockerfile` **único, multi-stage (7 estágios)** combinando frontend+backend+caddy na imagem final.
+
 - Usuário não-root `controle-user:controle-group` (uid 1002).
 - Frontend standalone Next.js (`output: 'standalone'` implícito).
 - Backend runner copia apenas `dist`, `prisma`, `node_modules` production.
@@ -173,6 +187,7 @@ controle-share-videos-v1.0/
 - `npm` binary removido da imagem final (redução de superfície).
 
 ### Compose — 5 variantes
+
 | Arquivo | Propósito |
 |---|---|
 | `docker-compose.yml` | Base de produção |
@@ -182,6 +197,7 @@ controle-share-videos-v1.0/
 | `docker-compose.monitoring.yml` | Observabilidade stack |
 
 ## 6. Documentação Existente (relevante p/ auditoria)
+
 - `README.md` — visão produto + setup
 - `docs/Visao-geral.md` — arquitetural
 - `docs/Padronizacao.md` + 11 temas específicos
@@ -194,12 +210,14 @@ controle-share-videos-v1.0/
 > **Atenção:** Há auditorias prévias (`docs/auditoria-final.md`, `docs/Auditoria-pre-producao.md`). A auditoria atual **deve** referenciar essas análises e verificar se findings antigos foram endereçados ou persistem — isso alimenta diretamente a Fase 12 (Refatoração) e o `TECH_DEBT.md`.
 
 ## 7. Testes
+
 - Apenas **testes de sistema** no backend (`backend/test/newman-system-tests.json`, via Newman/Postman), acionados por `npm run test:system`.
 - Script: `prisma migrate reset` + start + `wait-on` + newman run.
 - **Sem** testes unitários ou de integração visíveis no backend; **sem** testes no frontend.
 - Falta flagrada como dívida técnica — entra na Fase 10.
 
 ## 8. Pontos de Atenção Iniciais (sinais para próximas fases)
+
 Estas são **hipóteses iniciais**, a serem confirmadas/refutadas nas fases específicas:
 
 - **Arquitetura**: Monolito Next.js + NestJS bem modularizado; aparentemente baixo acoplamento entre features. Verificar Fase 1.
@@ -213,12 +231,14 @@ Estas são **hipóteses iniciais**, a serem confirmadas/refutadas nas fases espe
 - **Docs**: Rica visão produto, mas README_limit. Verificar consistência entre `docs/Padronizacao-NN` e o código real (Fase 11).
 
 ## 9. Entregáveis da Fase 0 (conforme especificação)
+
 - [x] Linguagens, frameworks e bibliotecas identificados
 - [x] Arquitetura e padrões analisados (NestJS modular + Next Pages Router)
 - [x] Estrutura de diretórios e módulos examinada
 - [x] Banco de dados (SQLite via Prisma 7) e ferramentas DevOps mapeadas
 
 ## 10. Critérios de Risco × Impacto × Esforço (premissa para próximas fases)
+
 Será aplicada a tabela:
 
 | Risco | Impacto | Esforço |
@@ -230,6 +250,7 @@ Será aplicada a tabela:
 | — | Manutenibilidade / Legibilidade | Muito Alto — > 1 dia / refatoração arquitetural |
 
 ## 11. Notas de Execução
+
 - Refatorações (Fase 12) serão **apenas propostas**, não aplicadas.
 - Formato de recomendação será completo (9 campos) conforme especificação.
 - Artefatos finais serão gravados em `docs/auditoria/relatorios/`.

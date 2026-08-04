@@ -243,10 +243,9 @@ export class ShareService {
       );
     }
 
-    // ClamAV scan removed per formal decision docs/Padronizacao-07-clamav.md
-    // (uploads are owner-only media/videos, air-gapped system incompatible
-    // with freshclam). Mitigations: file-type magic-bytes validation + share
-    // per-file size limit (share.maxFileSize) on upload path.
+    // ClamAV scan removed: uploads are owner-only media/videos by known
+    // authenticated operators. Mitigations: file-type magic-bytes validation
+    // + share per-file size limit (share.maxFileSize) on upload path.
 
     const updatedShare = await this.prisma.share.update({
       where: { id },

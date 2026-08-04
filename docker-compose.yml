@@ -80,23 +80,6 @@ services:
       - backend
       - frontend
 
-  # ClamAV for mandatory malware scanning in production (MED-06)
-  clamav:
-    container_name: controle-share-videos-clamav
-    image: clamav/clamav:latest
-    restart: unless-stopped
-    networks:
-      - app-network
-    volumes:
-      - clamav-db:/var/lib/clamav
-    # Resource limits for ClamAV
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-        reservations:
-          memory: 512M
-
 networks:
   app-network:
     driver: bridge
@@ -111,8 +94,6 @@ volumes:
     name: controle-share-videos-caddy-data
   caddy-config:
     name: controle-share-videos-caddy-config
-  clamav-db:
-    name: controle-share-videos-clamav-db
 
 secrets:
   jwt_secret:
