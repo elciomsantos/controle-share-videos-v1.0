@@ -176,7 +176,7 @@ Permissões:
 * **CORS** configurável via `CORS_ORIGIN` (credentials: true)
 * **Cookie-parser** (HttpOnly, Secure, SameSite=lax)
 * **ValidationPipe** global com `class-validator` + `nestjs-i18n` (mensagens PT-BR)
-* **ClamAV** via `clamscan@2.4.0` (host/port via env `CLAMAV_HOST`/`CLAMAV_PORT`) — **fora de escopo**, daemon não provisionado em produção (ver `docs/Padronizacao-07-clamav.md` §0); mantido como hook inerte
+* **ClamAV** via `clamscan` — **removido** (decisão: uploads exclusivamente por operadores autenticados e conhecidos); módulo, dependência e daemon excluídos do código e dos compose
 * **Nodemailer** emails transacionais (SMTP configurável, templates PT-BR)
 * **Sharp** processamento de imagens (thumbnails, validação)
 * **Archiver** criação de ZIPs para download em lote
@@ -225,7 +225,7 @@ Permissões:
 ## Ferramentas / Ecossistema
 
 * **Docker** multi-stage build (5 stages: frontend-deps, frontend-build, backend-deps, backend-build, runner)
-* **Docker Compose** (produção: `docker-compose.yml`; dev local: `docker-compose.local.yml`; dev com ClamAV: `docker-compose.dev.yml` — **não provisionado em produção**, ver `docs/Padronizacao-07-clamav.md`)
+* **Docker Compose** (produção: `docker-compose.yml`; dev local: `docker-compose.local.yml`; produção com secrets externos: `docker-compose.prod.yml`)
 * **Supervisor** (não usado — Caddy + Node processos diretos no entrypoint)
 * **Cron** (via `@nestjs/schedule` no processo Node, não system cron)
 * **Composer** (N/A — Node.js usa npm)
@@ -381,7 +381,7 @@ Essa separação facilita manutenção, testes, evolução independente e deploy
 * **OpenSSL** (certificados, geração de segredos JWT)
 * **NTP** sincronizado (chrony/systemd-timesyncd) — crítico para JWT/TOTP/expiração
 * **Firewall** (ufw/iptables/nftables) — apenas portas 80/443 (Caddy) + 22 (SSH admin) expostas
-* **ClamAV daemon** — **removido do escopo** (`docs/Padronizacao-07-clamav.md`); `docker-compose.dev.yml` mantém serviço para experimentação local apenas
+* **ClamAV daemon** — **removido** (uploads exclusivamente por operadores autenticados e conhecidos); `docker-compose.dev.yml` excluído
 
 ## Configuração de Ambiente (Variáveis Principais)
 
@@ -394,7 +394,6 @@ Essa separação facilita manutenção, testes, evolução independente e deploy
 | `DATABASE_URL` | Connection string Prisma | `file:./data/controle-videos.db` |
 | `JWT_SECRET` | Segredo assinatura JWT (mín 32 chars) | **obrigatório** |
 | `JWT_REFRESH_SECRET` | Segredo refresh token | **obrigatório** |
-| `CLAMAV_HOST` / `CLAMAV_PORT` | Daemon ClamAV — **removido do escopo**; mantido como env var legada (sem provisionamento em produção) | `clamav` / `3310` (docker) |
 | `SMTP_*` | Configurações e-mail | (opcional) |
 | `PUID`/`PGID` | User/Group ID não-root no container | `1000`/`1000` |
 
@@ -410,7 +409,7 @@ Essa separação facilita manutenção, testes, evolução independente e deploy
 * **Zero egress não configurado** — bloquear saídas para `api.github.com`, registries Docker, update checkers, telemetria
 * Sincronização de horário via **NTP** (pool.ntp.org ou servidor interno)
 * Reverse proxy confiável (`TRUST_PROXY=true` se atrás de LB/Cloudflare)
-* Portas internas: 3000 (Caddy), 3333 (Next), 8080/8090 (NestJS), 6379 (Redis opcional); ClamAV 3310 — não provisionado em produção (fora de escopo)
+* Portas internas: 3000 (Caddy), 3333 (Next), 8080/8090 (NestJS), 6379 (Redis opcional)
 
 ---
 
@@ -481,7 +480,7 @@ O sistema opera continuamente com mecanismos de resiliência:
 * Acesso externo **deve** utilizar HTTPS (Caddy gerencia automaticamente)
 * **Sem conectividade externa obrigatória** — funciona em rede isolada (air-gapped) se SMTP e NTP forem internos (S3 e ClamAV foram removidos do escopo)
 * Upload máximo limitado por `share.maxFileSize` (config) e espaço em disco (`check-disk-space`)
-* ClamAV — **removido do escopo** (`docs/Padronizacao-07-clamav.md`); código legado mantido inerte em `backend/src/clamscan/`, daemon nunca provisionado
+* ClamAV — **removido** (uploads exclusivamente por operadores autenticados e conhecidos); módulo `backend/src/clamscan/`, dependência `clamscan` e daemon do compose excluídos
 
 ---
 
