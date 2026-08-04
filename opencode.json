@@ -10,10 +10,10 @@
       "type": "local",
       "enabled": true,
       "command": [
-        "/home/suricato/.nvm/versions/node/v24.18.0/bin/npx",
+        "/home/corvo/.nvm/versions/node/v24.18.0/bin/npx",
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "/home/suricato/projects"
+        "/home/corvo/projects"
       ]
     },
 
@@ -126,6 +126,19 @@
         "-y",
         "figma-console-mcp"
       ]
+    },
+
+    "notion": {
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "npx",
+        "-y",
+        "@notionhq/notion-mcp-server"
+      ],
+      "environment": {
+        "NOTION_API_KEY": "{env:NOTION_API_KEY}"
+      }
     },
 
     "playwright": {
