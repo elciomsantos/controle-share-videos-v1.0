@@ -1,0 +1,93 @@
+# TECH_DEBT.md — Controle Share Videos v1.0
+
+| Campo | Valor |
+|---|---|
+| Fase de origem | 7 (Qualidade) + contribuições de 1, 2, 3, 4, 11 |
+| Data | 2026-08-04 |
+| Status | ✅ Consolidação entregue (pagamento pendente — Fase 13) |
+
+## 1. Introdução
+
+Registro único da dívida técnica do projeto: tudo que não é bug de segurança/perf de linha única, mas degrada manutenibilidade, extensibilidade e velocidade de entrega. Consolidado a partir de QAL-* (Fase 7), ARQ-* (Fase 1), BKD-* (Fase 2), FRN-* (Fase 3), BDB-* (Fase 4) e DOC-* (Fase 11).
+
+## 2. Metodologia
+
+- Classificação em quadrantes **Tipo × Urgência**: (a) facilita evolução futura, (b) está ativamente atrasando trabalho.
+- Estimativa de esforço de pagamento (muito baixo → alto) e risco.
+- Prioridade de pagamento ponderada por: impacto em manutenção × frequência de toque no arquivo.
+
+## 3. Evidências
+
+- **Fontes primárias:** `FASE-1-ARQUITETURAL.md`, `FASE-2-BACKEND.md`, `FASE-3-FRONTEND.md`, `FASE-4-DATABASE.md`, `FASE-7-QUALIDADE.md`, `FASE-11-DOCUMENTACAO.md`.
+- **Critério:** cada dívida listada abaixo tem achado original com evidência de código (arquivo/linha) e documentação oficial citada na fase de origem.
+- **Métricas objetivas (Especificação-final l.198+):** complexidade ciclomática e tamanho de classe (ARQ-02: `ShareService` com 772 LOC / 27 métodos); acoplamento e coesão (god class concentra orquestração + mapeamento + acesso a dados); tamanho de função e aninhamento (guards encadeados); contagem de `any` em assinaturas (BKD-02/08, QAL-03).
+
+## 4. Inventário de Dívida Técnica
+
+### 3.1 Arquitetural (Fase 1)
+
+| ID | Dívida | Impacto | Esforço |
+|----|--------|---------|---------|
+| ARQ-02 | God class `ShareService` (772 LOC, 27 métodos) — orquestração+validação+mapeamento+a-dados | Alta | Alto |
+| ARQ-03 | Duplicação e divergência backend/frontend (ex.: `parseInt` de tamanho nos dois lados) | Alta | Médio |
+| ARQ-04 | Boilerplate repetido de guards/validação | Média | Médio |
+| ARQ-01 | Tamanho/coesão dos módulos | Média | Médio |
+
+### 3.2 Backend (Fase 2)
+
+| ID | Dívida | Impacto | Esforço |
+|----|--------|---------|---------|
+| BKD-01 | `resetPassword()` reutilizado em fluxos diferentes (sem TTL) — **vira risco de segurança** (SEC-03) | Alta | Muito baixo |
+| BKD-02 | Tipos `any` em assinaturas | Média | Baixo |
+| BKD-03 | `parseInt` de tamanho com `NaN` (duplica BDB-01) | Alta | Baixo |
+| BKD-06 | Jobs de limpeza um-a-um sem transação | Média | Médio |
+| BKD-08 | Retornos `any` em serviços | Média | Baixo |
+
+### 3.3 Frontend (Fase 3)
+
+| ID | Dívida | Impacto | Esforço |
+|----|--------|---------|---------|
+| FRN-01 | Gatilhos/efeitos frágeis | Média | Médio |
+| FRN-02 | Estado mutável fora de lugar | Média | Médio |
+| FRN-03 | `parseInt` de tamanho com `NaN` | Alta | Baixo |
+| FRN-04 | Tipos `any`/props fracamente tipadas | Média | Baixo |
+| FRN-05 | Fallback silencioso (erro engolido) | Média | Baixo |
+| FRN-12 | Mutação de props por referência | Alta | Médio |
+
+### 3.4 Banco (Fase 4)
+
+| ID | Dívida | Impacto | Esforço |
+|----|--------|---------|---------|
+| BDB-01 | `File.size`/`shareSizeLimit` como `String` | Alta | Alto |
+| BDB-05 | Sentinela `EPOCH_ZERO` ("nunca expira") espalhada em 3 arquivos | Média | Médio |
+| BDB-06 | `ShareRecipient` sem `@@unique(shareId, email)` | Baixa | Muito baixo |
+
+### 3.5 Qualidade/Processo (Fase 7, 10, 11)
+
+| ID | Dívida | Impacto | Esforço |
+|----|--------|---------|---------|
+| QAL-01 | Zero testes automatizados e sem CI | Muito alta | Alto |
+| QAL-03 | `config.get(): any` como ponto fraco central | Média | Médio |
+| QAL-04 | Anti-pattern `new Promise(async …)` (download de arquivo) | Baixa | Baixo |
+| QAL-05 | TODOs com impacto de segurança/sessão pendentes | Média | Baixo |
+| QAL-06 | Arquivos monolíticos e duplicação leve | Baixa | Médio |
+| DOC-01 | ~20 referências quebradas no README | Média | Baixo |
+
+## 5. Quadrante Urgência × Evolução
+
+- **Urgente pagar agora** (bloqueia segurança/evolução): QAL-01 (testes), BKD-01/SEC-03 (reset TTL), FRN-12 (mutação de props), BDB-01 (String→BigInt).
+- **Pagar em breve** (facilita features): ARQ-02 (split), QAL-03 (config tipada), BKD-06 (jobs), BDB-05 (nullable `expiresAt`), DOC-01 (README).
+- **Baixa prioridade** (cosmético/semântico): FRN-05, FRN-02, BDB-06, QAL-06, ARQ-04.
+
+## 6. Conclusões
+
+- A dívida está **concentrada em dois nós**: (1) o `ShareService` monolítico e (2) a ausência de testes que tornaria qualquer refatoração segura. Pagar **QAL-01/testes primeiro** reduz o risco de todos os demais pagamentos.
+- Três itens "leves" são, na verdade, **gatilhos de segurança** (BKD-01/SEC-03, BDB-01, FRN-12) — devem subir na fila apesar do baixo esforço.
+- Não há dívida de contrato público acumulada além de R01/R03 (ver `REFACTORING_PLAN.md`).
+
+## 7. Recomendações de pagamento (ordem)
+
+1. Testes + CI (QAL-01/QTS-01) — viabiliza o resto.
+2. BKD-01/SEC-03, BDB-01, FRN-12 — dívidas com risco de segurança.
+3. ARQ-02, QAL-03, BKD-06, BDB-05 — refatorações estruturais (R05/R06/R04).
+4. DOC-01, FRN-05, BDB-06, QAL-04/05/06, ARQ-04 — backlog contínuo.
