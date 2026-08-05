@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   Res,
   UseGuards,
@@ -41,6 +42,8 @@ import {
   getRequestUserAgent,
 } from "../utils/request.util";
 import { ConfigService } from "../config/config.service";
+import { PageDTO } from "../pagination/page.dto";
+import { normalizePagination } from "../pagination/pagination.util";
 @Controller("shares")
 export class ShareController {
   constructor(
@@ -52,15 +55,30 @@ export class ShareController {
   @Get("all")
   @UseGuards(JwtGuard, RolesGuard)
   @Roles("admin", "auditor")
-  async getAllShares() {
-    return new AdminShareDTO().fromList(await this.shareService.getShares());
+  async getAllShares(@Query() query: { page?: unknown; perPage?: unknown }) {
+    const { page, perPage } = normalizePagination(query);
+    const page_ = await this.shareService.getShares(page, perPage);
+    return PageDTO.of(
+      new AdminShareDTO().fromList(page_.items),
+      page_.total,
+      page_.page,
+      page_.perPage,
+    );
   }
 
   @Get()
   @UseGuards(JwtGuard)
-  async getMyShares(@GetUser() user: User) {
-    return new MyShareDTO().fromList(
-      await this.shareService.getSharesByUser(user.id),
+  async getMyShares(
+    @GetUser() user: User,
+    @Query() query: { page?: unknown; perPage?: unknown },
+  ) {
+    const { page, perPage } = normalizePagination(query);
+    const page_ = await this.shareService.getSharesByUser(user.id, page, perPage);
+    return PageDTO.of(
+      new MyShareDTO().fromList(page_.items),
+      page_.total,
+      page_.page,
+      page_.perPage,
     );
   }
 

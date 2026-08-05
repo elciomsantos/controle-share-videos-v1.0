@@ -1,5 +1,10 @@
 import mime from "mime-types";
 import { FileUploadResponse } from "../types/File.type";
+import {
+  Page,
+  PaginationParams,
+  toPaginationQuery,
+} from "../types/page.type";
 
 import {
   CreateShare,
@@ -14,8 +19,12 @@ const isValidId = (id: string) => {
   return /^[a-zA-Z0-9-]+$/.test(id);
 };
 
-const list = async (): Promise<MyShare[]> => {
-  return (await api.get(`shares/all`)).data;
+/**
+ * R03 (v1.2.0 breaking): `GET /api/shares/all` agora retorna um envelope
+ * paginado `Page<AdminShare>` em vez de um array puro.
+ */
+const list = async (params?: PaginationParams): Promise<Page<MyShare>> => {
+  return (await api.get(`shares/all`, { params: toPaginationQuery(params) })).data;
 };
 
 const create = async (share: CreateShare) => {
@@ -63,8 +72,14 @@ const expire = async (id: string) => {
   await api.post(`shares/${id}/expire`);
 };
 
-const getMyShares = async (): Promise<MyShare[]> => {
-  return (await api.get("shares")).data;
+/**
+ * R03 (v1.2.0 breaking): `GET /api/shares` agora retorna um envelope
+ * paginado `Page<MyShare>` em vez de um array puro.
+ */
+const getMyShares = async (
+  params?: PaginationParams,
+): Promise<Page<MyShare>> => {
+  return (await api.get("shares", { params: toPaginationQuery(params) })).data;
 };
 
 const getShareToken = async (id: string, password?: string) => {
