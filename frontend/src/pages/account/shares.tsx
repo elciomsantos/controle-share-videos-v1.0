@@ -46,7 +46,12 @@ const MyShares = () => {
   const [shares, setShares] = useState<MyShare[]>();
 
   useEffect(() => {
-    shareService.getMyShares().then((shares) => setShares(shares));
+    // R03: getMyShares() agora retorna Page<MyShare>. Consumimos .items
+    // (primeira página com perPage=100 preserva UX atual sem trocador).
+    shareService
+      .getMyShares({ page: 1, perPage: 100 })
+      .then((page) => setShares(page.items))
+      .catch(toast.axiosError);
   }, []);
 
   if (!shares) return <CenterLoader />;

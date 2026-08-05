@@ -107,8 +107,14 @@ describe("Auth + Share (e2e)", () => {
       data: { uploadLocked: true },
     });
     const list = await authed().get("/api/shares").expect(200);
-    expect(Array.isArray(list.body)).toBe(true);
-    expect(list.body.map((s: { id: string }) => s.id)).toContain("e2eshare1");
+    // R03: listagens agora retornam envelope paginado { items, total, page, perPage, totalPages }
+    expect(list.body.page).toBe(1);
+    expect(list.body.perPage).toBe(20);
+    expect(Array.isArray(list.body.items)).toBe(true);
+    expect(list.body.total).toBeGreaterThanOrEqual(1);
+    expect(list.body.items.map((s: { id: string }) => s.id)).toContain(
+      "e2eshare1",
+    );
 
     // 6. Fetch as owner
     await authed().get("/api/shares/e2eshare1/from-owner").expect(200);
@@ -117,7 +123,7 @@ describe("Auth + Share (e2e)", () => {
     await authed().delete("/api/shares/e2eshare1").expect(200);
 
     const afterDelete = await authed().get("/api/shares").expect(200);
-    expect(afterDelete.body.map((s: { id: string }) => s.id)).not.toContain(
+    expect(afterDelete.body.items.map((s: { id: string }) => s.id)).not.toContain(
       "e2eshare1",
     );
   });
@@ -137,5 +143,40 @@ describe("Auth + Share (e2e)", () => {
       .set("Authorization", "Bearer not-a-real-token")
       .get("/api/shares")
       .expect(401);
+  });
+
+  it("paginates GET /api/shares with query params (R03)", async () => {
+    const server = agent();
+    const token = await getCsrf(server);
+    // Sign in as the seeded admin (e2euser) so we have an authed session.
+    const signIn = await server
+      .post("/api/auth/signIn")
+      .set("x-csrf-token", token)
+      .send({ email, password })
+      .expect(200);
+    const accessToken = signIn.body.accessToken as string;
+    const authed = () =>
+      server
+        .set("Authorization", `Bearer ${accessToken}`)
+        .set("x-csrf-token", token);
+
+    const page1 = await authed()
+      .get("/api/shares?page=1&perPage=1")
+      .expect(200);
+    expect(page1.body.perPage).toBe(1);
+    expect(Array.isArray(page1.body.items)).toBe(true);
+    expect(page1.body.items.length).toBeLessThanOrEqual(1);
+    expect(page1.body.totalPages).toBeGreaterThanOrEqual(1);
+
+    const oversized = await authed()
+      .get("/api/shares?perPage=9999")
+      .expect(200);
+    // normalizePagination clamps perPage to MAX_PER_PAGE (100).
+    expect(oversized.body.perPage).toBe(100);
+
+    const badPage = await authed()
+      .get("/api/shares?page=-3")
+      .expect(200);
+    expect(badPage.body.page).toBe(1);
   });
 });

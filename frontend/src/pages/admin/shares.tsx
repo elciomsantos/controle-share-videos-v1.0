@@ -11,6 +11,9 @@ import { MyShare } from "../../types/share.type";
 import toast from "../../utils/toast.util";
 
 const Shares = () => {
+  // R03: list() agora retorna Page<MyShare>; consumimos .items.
+  // Cargo a primeira página com perPage=100 para preservar o UX atual
+  // (tabela única sem trocador de página — UI de paginação fica para follow-up).
   const [shares, setShares] = useState<MyShare[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -19,10 +22,16 @@ const Shares = () => {
 
   const getShares = () => {
     setIsLoading(true);
-    shareService.list().then((shares) => {
-      setShares(shares);
-      setIsLoading(false);
-    });
+    shareService
+      .list({ page: 1, perPage: 100 })
+      .then((page) => {
+        setShares(page.items);
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        toast.axiosError(err);
+        setIsLoading(false);
+      });
   };
 
   const deleteShare = (share: MyShare) => {

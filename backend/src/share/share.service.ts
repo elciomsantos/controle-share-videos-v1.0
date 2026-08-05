@@ -269,35 +269,57 @@ export class ShareService {
     });
   }
 
-  async getShares() {
-    const shares = await this.prisma.share.findMany({
-      orderBy: {
-        expiration: "desc",
-      },
-      include: { files: true, creator: true, security: true, recipients: true },
-    });
+  async getShares(page: number, perPage: number) {
+    const [shares, total] = await Promise.all([
+      this.prisma.share.findMany({
+        orderBy: {
+          expiration: "desc",
+        },
+        include: { files: true, creator: true, security: true, recipients: true },
+        skip: (page - 1) * perPage,
+        take: perPage,
+      }),
+      this.prisma.share.count(),
+    ]);
 
-    return shares.map((share) => this.transformShare(share));
+    return {
+      items: shares.map((share) => this.transformShare(share)),
+      total,
+      page,
+      perPage,
+    };
   }
 
-  async getSharesByUser(userId: string) {
-    const shares = await this.prisma.share.findMany({
-      where: {
-        creator: { id: userId },
-        uploadLocked: true,
-        // We want to grab any shares that are not expired or have their expiration date set to "never" (unix 0)
-        OR: [
-          { expiration: { gt: new Date() } },
-          { expiration: { equals: EPOCH_ZERO } },
-        ],
-      },
-      orderBy: {
-        expiration: "desc",
-      },
-      include: { recipients: true, files: true, security: true, creator: true },
-    });
+  async getSharesByUser(userId: string, page: number, perPage: number) {
+    const where = {
+      creator: { id: userId },
+      uploadLocked: true,
+      // We want to grab any shares that are not expired or have their expiration date set to "never" (unix 0)
+      OR: [
+        { expiration: { gt: new Date() } },
+        { expiration: { equals: EPOCH_ZERO } },
+      ],
+    };
 
-    return shares.map((share) => this.transformShare(share));
+    const [shares, total] = await Promise.all([
+      this.prisma.share.findMany({
+        where,
+        orderBy: {
+          expiration: "desc",
+        },
+        include: { recipients: true, files: true, security: true, creator: true },
+        skip: (page - 1) * perPage,
+        take: perPage,
+      }),
+      this.prisma.share.count({ where }),
+    ]);
+
+    return {
+      items: shares.map((share) => this.transformShare(share)),
+      total,
+      page,
+      perPage,
+    };
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Return type includes Prisma-relational fields with internal DTO mapping; refactor requires aligning ShareDTO typing (see #6).
