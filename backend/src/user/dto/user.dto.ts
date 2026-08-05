@@ -1,4 +1,4 @@
-import { Expose, plainToClass } from "class-transformer";
+import { Expose, plainToClass, Transform } from "class-transformer";
 import {
   IsEmail,
   IsIn,
@@ -45,6 +45,9 @@ export class UserDTO {
   @Matches(/^[0-9]+$/, {
     message: "shareSizeLimit must contain only digits",
   })
+  @Transform(({ value }) =>
+    value === null || value === undefined ? undefined : value.toString(),
+  )
   shareSizeLimit?: string;
 
   @Expose()

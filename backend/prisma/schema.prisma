@@ -18,7 +18,7 @@ model User {
   password String?
   isAdmin  Boolean @default(false)
   role     String  @default("operador")
-  shareSizeLimit String?
+  shareSizeLimit BigInt?
   passwordMustChange Boolean @default(false)
 
   shares        Share[]
@@ -103,7 +103,7 @@ model File {
   createdAt DateTime @default(now())
 
   name        String
-  size        String
+  size        BigInt
   description String?
 
   shareId String

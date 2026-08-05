@@ -175,10 +175,20 @@ export class AuthService {
   async resetPassword(token: string, newPassword: string) {
     const user = await this.prisma.user.findFirst({
       where: { resetPasswordToken: { token } },
+      include: { resetPasswordToken: true },
     });
 
     if (!user)
       throw new BadRequestException(this.i18n.t("auth.tokenInvalidOrExpired"));
+
+    // SEC-03/BKD-01: enforce the token TTL on redemption, not only on cleanup
+    // jobs — a leaked token must not be usable beyond expiresAt.
+    if (dayjs().isAfter(user.resetPasswordToken?.expiresAt)) {
+      await this.prisma.resetPasswordToken.delete({
+        where: { token },
+      });
+      throw new BadRequestException(this.i18n.t("auth.tokenInvalidOrExpired"));
+    }
 
     const newPasswordHash = await argon.hash(newPassword, ARGON2_OPTIONS);
 

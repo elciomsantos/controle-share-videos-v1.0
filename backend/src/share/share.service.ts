@@ -28,6 +28,7 @@ import {
 import { ARGON2_OPTIONS, SHARE_DIRECTORY } from "../constants";
 import { CreateShareDTO } from "./dto/createShare.dto";
 import { ShareSecurityDTO } from "./dto/shareSecurity.dto";
+import { toBytes } from "./dto/share.dto";
 import { UpdateShareDTO } from "./dto/updateShare.dto";
 
 @Injectable()
@@ -132,7 +133,7 @@ export class ShareService {
       );
     }
 
-    const totalSize = files.reduce((sum, f) => sum + parseInt(f.size), 0);
+    const totalSize = files.reduce((sum, f) => sum + toBytes(f.size), 0);
     if (totalSize > MAX_TOTAL_SIZE) {
       throw new BadRequestException(
         `Share exceeds maximum total size of ${MAX_TOTAL_SIZE} bytes`,
@@ -363,7 +364,7 @@ export class ShareService {
           shareId,
           fileId: file.id,
           fileName: file.name,
-          fileSize: file.size,
+          fileSize: file.size.toString(),
           userId: actor.userId,
           username: actor.username,
           ip: actor.ip,
@@ -501,7 +502,7 @@ export class ShareService {
     return {
       ...share,
       size:
-        share.files?.reduce((acc: number, file: { size: string }) => acc + parseInt(file.size), 0) ?? 0,
+        share.files?.reduce((acc: number, file: { size: string | bigint }) => acc + toBytes(file.size), 0) ?? 0,
       recipients: share.recipients?.map((recipient: { email: string }) => recipient.email) ?? [],
       security: {
         maxViews: share.security?.maxViews,

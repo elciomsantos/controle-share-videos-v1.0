@@ -30,14 +30,12 @@ services:
       - TRUST_PROXY=true
       - NODE_ENV=production
       - BACKEND_PORT=8080
-      - DATABASE_URL=file:/data/controle-videos.db
+      - DATABASE_URL=file:/opt/app/backend/data/controle-videos.db
       # CORS origin must be set explicitly for production (MED-02)
       - CORS_ORIGIN=https://${DOMAIN}
     # Secrets injected via Docker secrets (INFRA-MED-04)
     secrets:
-      - jwt_secret
       - admin_password
-      - smtp_password
     volumes:
       - backend-data:/opt/app/backend/data
       - frontend-images:/opt/app/frontend/public/img
@@ -96,9 +94,5 @@ volumes:
     name: controle-share-videos-caddy-config
 
 secrets:
-  jwt_secret:
-    file: ./secrets/jwt_secret.txt
   admin_password:
     file: ./secrets/admin_password.txt
-  smtp_password:
-    file: ./secrets/smtp_password.txt

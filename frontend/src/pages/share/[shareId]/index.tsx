@@ -181,7 +181,7 @@ const Share = ({ shareId }: { shareId: string }) => {
                   size: byteToHumanSizeString(
                     share?.files?.reduce(
                       (total: number, file: { size: string }) =>
-                        total + parseInt(file.size),
+                        total + Number(file.size),
                       0,
                     ) || 0,
                   ),

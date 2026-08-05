@@ -49,7 +49,7 @@ async function main() {
     data: {
       id: fileId,
       name: "test_video.mp4",
-      size: String(size),
+      size: BigInt(size),
       shareId: "testshare2",
     },
   });

@@ -81,7 +81,7 @@ export class FileController {
       let fileSize: string | null = null;
       try {
         const meta = await this.fileService.getFileMetaData(shareId, id);
-        fileSize = meta?.size ?? null;
+        fileSize = meta?.size != null ? meta.size.toString() : null;
       } catch {
         // File metadata may be momentarily unavailable; still log the event.
         fileSize = null;
@@ -263,7 +263,7 @@ export class FileController {
     try {
       const meta = await this.fileService.getFileMetaData(shareId, fileId);
       fileName = meta?.name ?? null;
-      fileSize = meta?.size ?? null;
+      fileSize = meta?.size != null ? meta.size.toString() : null;
     } catch {
       fileName = null;
       fileSize = null;

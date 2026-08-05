@@ -13,6 +13,7 @@ yarn.lock
 # build
 build/
 dist/
+/backend/coverage/
 
 # misc
 .DS_Store
