@@ -33,6 +33,10 @@ model User {
   isActivated              Boolean   @default(true)
   activationToken          String?   @unique
   activationTokenExpiresAt DateTime?
+
+  // BDB-02: caminho quente do job deleteUnactivatedUsers
+  // (isActivated=false AND createdAt<threshold)
+  @@index([isActivated, createdAt])
 }
 
 model RefreshToken {
@@ -82,12 +86,19 @@ model Share {
   removedReason String?
 
   creatorId String?
-  creator   User?   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  creator   User?  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
 
   security   ShareSecurity?
   recipients ShareRecipient[]
   files      File[]
   storageProvider String @default("LOCAL")
+
+  // BDB-02: orderBy expiration desc (getShares, getSharesByUser) e
+  // where expiration { lt / gt } (jobs.deleteExpiredShares).
+  @@index([expiration])
+  // BDB-02: getSharesByUser filtra por (creatorId, uploadLocked) e
+  // ordena por expiration; composite economiza table scan + sort.
+  @@index([creatorId, uploadLocked, expiration])
 }
 
 model ShareRecipient {
@@ -96,6 +107,9 @@ model ShareRecipient {
 
   shareId String
   share   Share  @relation(fields: [shareId], references: [id], onDelete: Cascade)
+
+  // BDB-02: join share→recipients (include em getShares/getSharesByUser)
+  @@index([shareId])
 }
 
 model File {
@@ -108,6 +122,9 @@ model File {
 
   shareId String
   share   Share  @relation(fields: [shareId], references: [id], onDelete: Cascade)
+
+  // BDB-02: join share→files (include em getShares/getSharesByUser/get)
+  @@index([shareId])
 }
 
 model ShareSecurity {
