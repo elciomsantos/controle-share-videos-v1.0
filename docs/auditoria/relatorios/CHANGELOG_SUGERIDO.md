@@ -18,18 +18,20 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 - Formato Conventional Commits; itens Breaking separados e com instrução de migração.
 - Base: achados das Fases 1–12 consolidados em `FASE-12-REFATORACAO.md`; upstream Pingvin Share X v1.21.1 (BSD-2-Clause).
 
-## 2.1 Status de Execução (2026-08-04, PR #1)
+## 2.1 Status de Execução (2026-08-04, PR #1 + novos commits no branch)
 
-**Aplicado no PR #1** (CI verde — backend e frontend):
-- ✅ **R07** — testes unit 35/35, e2e 4/4, cobertura ≥60% e CI (`ci.yml`); fix QAL-01/QTS-01.
+**Aplicado** (CI verde — backend e frontend):
+- ✅ **R07** — testes unit 44/44, e2e 5/5, cobertura 83.78% e CI (`ci.yml`); fix QAL-01/QTS-01.
 - ✅ **R02** — JwtGuard **fail-closed** (401 sem token); fix SEC-01.
 - ✅ **R08** — compose prod com estágio runtime `frontend` + Caddy; fix DOP-01/03/04/05/07.
-- ✅ **R01** — `File.size`/`shareSizeLimit` → `BigInt`; fix BDB-01 (v1.2.0 **breaking**, deploy coordenado).
+- ✅ **R01** — `File.size`/`shareSizeLimit` → `BigInt`; fix BDB-01 (breaking, deploy coordenado).
 - ✅ **DOC-02** — `SECURITY.md` preenchido (versões suportadas + canal privado de report).
+- ✅ **BDB-02** — 5 índices nos caminhos quentes (commit `98de696`) — quick-win sem breaking.
+- ✅ **R03** — Paginação nas listagens (commit `4686195`) — envelope `Page<T>`, **Breaking v1.2.0**.
 
 **Pendente (próximos épicos):**
-- v1.1.0: SEC-03 (TTL reset), SEC-04 (sanitização HTML), SEC-05 (senha em query string), BDB-02 (índices), INF-01 (override postcss), DOC-04 (license/repository).
-- v1.2.0: PERF-01/BDB-03 (paginação — R03), PERF-02..07, BDB-06 (unique composto).
+- v1.1.0: SEC-03 (TTL reset), SEC-04 (sanitização HTML), SEC-05 (senha em query string), INF-01 (override postcss), DOC-04 (license/repository).
+- v1.2.0: ~~PERF-01/BDB-03 (paginação — R03)~~ ✅, PERF-02..07, BDB-06 (unique composto).
 - v1.3.0: QAL-03 (R06), ARQ-02 (R05), BDB-05, INF-03, DOC-01/03.
 
 ## 3. Versão Sugerida — v1.1.0 (primeira entrega de correções)

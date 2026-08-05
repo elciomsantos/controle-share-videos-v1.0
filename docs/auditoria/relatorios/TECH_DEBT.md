@@ -4,7 +4,7 @@
 |---|---|
 | Fase de origem | 7 (Qualidade) + contribuições de 1, 2, 3, 4, 11 |
 | Data | 2026-08-04 |
-| Status | 🔄 Parcialmente paga — PR #1 quitou QAL-01, BDB-01, BKD-03, FRN-03, QAL-04 e DOC-02 (2026-08-04) |
+| Status | 🔄 Parcialmente paga — PR #1 quitou QAL-01, BDB-01, BKD-03, FRN-03, QAL-04 e DOC-02; BDB-02/R03 pagos em `fix/producao-v1.1.0` (2026-08-04) |
 
 ## 1. Introdução
 
@@ -73,28 +73,32 @@ Registro único da dívida técnica do projeto: tudo que não é bug de seguran�
 | QAL-06 | Arquivos monolíticos e duplicação leve | Baixa | Médio |
 | DOC-01 | ~20 referências quebradas no README | Média | Baixo |
 
-## 5. Pagamentos realizados (2026-08-04, PR #1)
+## 5. Pagamentos realizados (2026-08-04)
 
 | ID | Dívida | Status |
 |----|--------|--------|
-| QAL-01 | Zero testes automatizados e sem CI | ✅ Paga (R07) — jest/ts-jest + e2e 4/4 + unit 35/35 + cobertura ≥60% + `ci.yml` |
+| QAL-01 | Zero testes automatizados e sem CI | ✅ Paga (R07) — jest/ts-jest + e2e 5/5 + unit 44/44 + cobertura ≥60% + `ci.yml` |
 | BDB-01 | `File.size`/`shareSizeLimit` como `String` | ✅ Paga (R01) — migration BigInt + `toBytes` + `Number()` no front |
 | BKD-03 | `parseInt` de tamanho com `NaN` | ✅ Paga (R01) — centralizado em `toBytes` |
 | FRN-03 | `parseInt` de tamanho com `NaN` | ✅ Paga (R01) — soma via `Number` |
 | QAL-04 | Anti-pattern `new Promise(async …)` | ✅ Paga (R07) — `local.service.ts` refatorado |
 | DOC-02 | `SECURITY.md` vazio | ✅ Paga — versões suportadas + canal privado de report |
+| BDB-02 | Índices ausentes nos caminhos quentes | ✅ Paga (2026-08-04) — 5 @@index no schema, migration `add_hot_path_indexes` |
+| PERF-01/BDB-03 | Listagens sem paginação | ✅ Paga (R03) — envelope `Page<T>` + `take`/`skip` + `count`, frontend adaptado, Breaking v1.2.0 |
 
 ## 6. Quadrante Urgência × Evolução
 
 - **Urgente pagar agora** (bloqueia segurança/evolução): ~~QAL-01 (testes)~~✅, BKD-01/SEC-03 (reset TTL), FRN-12 (mutação de props), ~~BDB-01 (String→BigInt)~~✅.
 - **Pagar em breve** (facilita features): ARQ-02 (split), QAL-03 (config tipada), BKD-06 (jobs), BDB-05 (nullable `expiresAt`), DOC-01 (README).
+- **Pagas recentemente**: ~~BDB-02~~ (índices), ~~PERF-01/BDB-03~~ (paginação R03).
 - **Baixa prioridade** (cosmético/semântico): FRN-05, FRN-02, BDB-06, QAL-06, ARQ-04.
 
 ## 7. Conclusões
 
-- A dívida está **concentrada em dois nós**: (1) o `ShareService` monolítico e (2) a ausência de testes que tornaria qualquer refatoração segura. O nó (2) **já foi pago** (R07/QAL-01) — os demais pagamentos agora têm rede de testes para serem feitos com segurança.
+- A dívida está **concentrada em dois nós**: (1) o `ShareService` monolítico e (2) a ausência de testes que tornaria qualquer refatoração segura. O nó (2) **já foi pago** (R07) — os demais pagamentos agora têm rede de testes para serem feitos com segurança.
 - Três itens "leves" são, na verdade, **gatilhos de segurança** (BKD-01/SEC-03, FRN-12) — devem subir na fila apesar do baixo esforço.
-- Não há dívida de contrato público acumulada além de R03 (paginação — ver `REFACTORING_PLAN.md`).
+- Não há dívida de contrato público acumulada além de R03 (paginação) — **já paga com Breaking v1.2.0**.
+- BDB-02 (índices nos caminhos quentes) também foi pago como quick-win pré-R03.
 
 ## 8. Recomendações de pagamento (ordem)
 

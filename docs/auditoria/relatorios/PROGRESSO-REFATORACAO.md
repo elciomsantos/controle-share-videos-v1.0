@@ -5,6 +5,7 @@
 | Plano de referência | `REFACTORING_PLAN.md` |
 | Última atualização | 2026-08-04 |
 | Branch | `fix/producao-v1.1.0` |
+| Commits | `98de696` (BDB-02), `4686195` (R03 Breaking) |
 
 ## 1. Visão geral
 
@@ -14,8 +15,9 @@
 | R02 — JwtGuard fail-closed | ✅ Concluído | — |
 | R01 — BigInt size/shareSizeLimit | ✅ Concluído | migration + deploy coordenado |
 | R08 — Docker/Caddy | ✅ Concluído | compose prod com `target: frontend` |
-| R03 — Paginação nas listagens | ⬜ Pendente | próximo |
+| R03 — Paginação nas listagens | ✅ Concluído | Breaking v1.2.0 — envelope `Page<T>` (commit `4686195`) |
 | R04 — Jobs de limpeza em lote + transação | ⬜ Pendente | — |
+| BDB-02 — Índices nos caminhos quentes | ✅ Concluído | quick-win (commit `98de696`) |
 | R06 — Config tipada | ⬜ Pendente | — |
 | R05 — Decomposição do ShareService | ⬜ Pendente | depende da rede de testes (R07 ok) |
 
@@ -63,9 +65,10 @@ Sequência do plano: `R07 → R02 → R01 → R08 → R03 → R04 → R06 → R0
 ## 6. Próximos passos
 
 1. ~~**Validar CI no GitHub**~~ ✅ push do branch `fix/producao-v1.1.0` e CI verde (backend + frontend, PR #1).
-2. **Revisão e merge** do PR #1 em `main` (após validação do usuário).
-3. **Registrar changelog/tech-debt**: marcar R01 (breaking) e R02/R07/R08 no `CHANGELOG_SUGERIDO.md` e `TECH_DEBT.md`.
-4. **R03 — Paginação nas listagens**: mudança de shape de resposta é breaking → versionar ou manter compat, registrar no changelog.
-5. **R04 — Jobs de limpeza em lote + transação**.
-6. **R06 — Config tipada**.
-7. **R05 — Decomposição do `ShareService`** (por último; agora com rede de testes ativa).
+2. ~~**R03 — Paginação nas listagens**~~ ✅ (commit `4686195`) — envelope `Page<T>`, quebra de contrato v1.2.0.
+3. ~~**BDB-02 — Índices nos caminhos quentes**~~ ✅ (commit `98de696`) — 5 @@index, sem quebra de contratos.
+4. **Revisão e merge** do PR #1 em `main` (após validação do usuário).
+5. **Registrar changelog/tech-debt**: marcar R01 (breaking), BDB-02 e R03 no `CHANGELOG_SUGERIDO.md` e `TECH_DEBT.md`.
+6. **R04 — Jobs de limpeza em lote + transação**.
+7. **R06 — Config tipada**.
+8. **R05 — Decomposição do `ShareService`** (por último; agora com rede de testes ativa).
