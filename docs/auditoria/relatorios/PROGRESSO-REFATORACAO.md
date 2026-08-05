@@ -43,6 +43,7 @@ Sequência do plano: `R07 → R02 → R01 → R08 → R03 → R04 → R06 → R0
 
 **CI**
 - `.github/workflows/ci.yml`: jobs `backend` (lint/build/unit/coverage/e2e) e `frontend` (lint/unit/build), Node 24, cache npm por `package-lock.json`.
+- **Validado no GitHub** (PR #1, branch `fix/producao-v1.1.0`): backend e frontend `success`. Falha inicial de build (client Prisma ausente no `npm ci`, pois `prisma/generated` é gitignored) resolvida com `"postinstall": "prisma generate"` no `backend/package.json` (commit `bfef55d`).
 
 ## 3. R02 — JwtGuard fail-closed (concluído)
 - Fallback anônimo removido (`catch { return config.get(...) }` → relança `UnauthorizedException`).
@@ -61,9 +62,9 @@ Sequência do plano: `R07 → R02 → R01 → R08 → R03 → R04 → R06 → R0
 
 ## 6. Próximos passos
 
-1. **Validar CI no GitHub**: push do branch `fix/producao-v1.1.0` e confirmar os dois jobs verdes (backend e frontend).
-2. **Registrar changelog/tech-debt**: marcar R01 (breaking) e R02/R07/R08 no `CHANGELOG_SUGERIDO.md` e `TECH_DEBT.md`.
-3. **Merge** do R07 com validação do usuário.
+1. ~~**Validar CI no GitHub**~~ ✅ push do branch `fix/producao-v1.1.0` e CI verde (backend + frontend, PR #1).
+2. **Revisão e merge** do PR #1 em `main` (após validação do usuário).
+3. **Registrar changelog/tech-debt**: marcar R01 (breaking) e R02/R07/R08 no `CHANGELOG_SUGERIDO.md` e `TECH_DEBT.md`.
 4. **R03 — Paginação nas listagens**: mudança de shape de resposta é breaking → versionar ou manter compat, registrar no changelog.
 5. **R04 — Jobs de limpeza em lote + transação**.
 6. **R06 — Config tipada**.
