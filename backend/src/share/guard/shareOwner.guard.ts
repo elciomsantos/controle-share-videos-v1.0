@@ -8,7 +8,6 @@ import { Reflector } from "@nestjs/core";
 import { Prisma, User, Share, ShareSecurity } from "../../../prisma/generated/prisma/client";
 import { Request } from "express";
 import { I18nService } from "nestjs-i18n";
-import { ConfigService } from "../../config/config.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import { JwtGuard } from "../../auth/guard/jwt.guard";
 
@@ -21,12 +20,11 @@ interface ShareRequest extends Request {
 @Injectable()
 export class ShareOwnerGuard extends JwtGuard {
   constructor(
-    configService: ConfigService,
     reflector: Reflector,
     private prisma: PrismaService,
     private readonly i18n: I18nService,
   ) {
-    super(configService, reflector);
+    super(reflector);
   }
 
   isBase64(toCheck: string) {

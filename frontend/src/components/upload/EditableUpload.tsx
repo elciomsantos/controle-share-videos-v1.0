@@ -69,7 +69,7 @@ const EditableUpload = ({
     return (
       existingFiles
         .filter((file) => !file.deleted)
-        .reduce((acc, file) => acc + parseInt(file.size), 0) +
+        .reduce((acc, file) => acc + Number(file.size), 0) +
       uploadingFiles.reduce((acc, file) => acc + file.size, 0)
     );
   }, [existingFiles, uploadingFiles]);

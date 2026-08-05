@@ -66,7 +66,7 @@ export class UserService {
             role,
             isAdmin,
             isActivated: dto.isActivated ?? true,
-            shareSizeLimit: dto.shareSizeLimit,
+            shareSizeLimit: dto.shareSizeLimit ? BigInt(dto.shareSizeLimit) : null,
             passwordMustChange: true,
           },
         });
@@ -124,7 +124,7 @@ export class UserService {
           role: user.role,
           isActivated: user.isActivated,
           isAdmin,
-          shareSizeLimit: user.shareSizeLimit,
+          shareSizeLimit: user.shareSizeLimit ? BigInt(user.shareSizeLimit) : null,
           password: hash,
         },
       });

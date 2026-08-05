@@ -1,4 +1,4 @@
-import { Expose, plainToClass } from "class-transformer";
+import { Expose, plainToClass, Transform } from "class-transformer";
 import { ShareDTO } from "../../share/dto/share.dto";
 
 export class FileDTO {
@@ -9,6 +9,7 @@ export class FileDTO {
   name!: string;
 
   @Expose()
+  @Transform(({ value }) => (value === null || value === undefined ? "0" : value.toString()))
   size!: string;
 
   @Expose()

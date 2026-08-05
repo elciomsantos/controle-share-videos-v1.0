@@ -6,11 +6,13 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint src/",
+    "test": "vitest run",
+    "test:unit": "vitest run",
     "format": "prettier --end-of-line=auto --write \"src/**/*.ts*\""
   },
   "overrides": {
     "serialize-javascript": "^7.0.5",
-    "postcss": "8.5.18",
+    "postcss": "^8.5.22",
     "sharp": "^0.35.3",
     "next": "^16.2.12",
     "axios": "^1.7.7",
@@ -30,13 +32,13 @@
     "@uiw/react-md-editor": "^4.1.0",
     "axios": "^1.7.7",
     "cookies-next": "^6.1.1",
+    "dayjs": "^1.11.21",
     "dompurify": "^3.2.0",
     "file-saver": "^2.0.5",
     "jose": "^6.2.4",
     "jwt-decode": "^4.0.0",
     "markdown-to-jsx": "^9.9.0",
     "mime-types": "^2.1.35",
-    "dayjs": "^1.11.21",
     "next": "^16.2.12",
     "p-limit": "^7.3.1",
     "postcss-preset-mantine": "^1.18.0",
@@ -63,6 +65,7 @@
     "eslint-config-prettier": "^10.1.0",
     "prettier": "^3.3.3",
     "serwist": "^9.5.12",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   }
 }

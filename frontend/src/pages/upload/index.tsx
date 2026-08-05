@@ -71,7 +71,7 @@ const Upload = ({
 
   maxShareSize ??= parseInt(config.get("share.maxSize"));
   if (user?.shareSizeLimit) {
-    maxShareSize = Math.min(maxShareSize, parseInt(user.shareSizeLimit));
+    maxShareSize = Math.min(maxShareSize, Number(user.shareSizeLimit));
   }
 
   const currentFilesSize = useMemo(() => {
