@@ -4,7 +4,7 @@
 |---|---|
 | Fase de origem | 7 (Qualidade) + contribuições de 1, 2, 3, 4, 11 |
 | Data | 2026-08-04 |
-| Status | ✅ Consolidação entregue (pagamento pendente — Fase 13) |
+| Status | 🔄 Parcialmente paga — PR #1 quitou QAL-01, BDB-01, BKD-03, FRN-03, QAL-04 e DOC-02 (2026-08-04) |
 
 ## 1. Introdução
 
@@ -73,21 +73,32 @@ Registro único da dívida técnica do projeto: tudo que não é bug de seguran�
 | QAL-06 | Arquivos monolíticos e duplicação leve | Baixa | Médio |
 | DOC-01 | ~20 referências quebradas no README | Média | Baixo |
 
-## 5. Quadrante Urgência × Evolução
+## 5. Pagamentos realizados (2026-08-04, PR #1)
 
-- **Urgente pagar agora** (bloqueia segurança/evolução): QAL-01 (testes), BKD-01/SEC-03 (reset TTL), FRN-12 (mutação de props), BDB-01 (String→BigInt).
+| ID | Dívida | Status |
+|----|--------|--------|
+| QAL-01 | Zero testes automatizados e sem CI | ✅ Paga (R07) — jest/ts-jest + e2e 4/4 + unit 35/35 + cobertura ≥60% + `ci.yml` |
+| BDB-01 | `File.size`/`shareSizeLimit` como `String` | ✅ Paga (R01) — migration BigInt + `toBytes` + `Number()` no front |
+| BKD-03 | `parseInt` de tamanho com `NaN` | ✅ Paga (R01) — centralizado em `toBytes` |
+| FRN-03 | `parseInt` de tamanho com `NaN` | ✅ Paga (R01) — soma via `Number` |
+| QAL-04 | Anti-pattern `new Promise(async …)` | ✅ Paga (R07) — `local.service.ts` refatorado |
+| DOC-02 | `SECURITY.md` vazio | ✅ Paga — versões suportadas + canal privado de report |
+
+## 6. Quadrante Urgência × Evolução
+
+- **Urgente pagar agora** (bloqueia segurança/evolução): ~~QAL-01 (testes)~~✅, BKD-01/SEC-03 (reset TTL), FRN-12 (mutação de props), ~~BDB-01 (String→BigInt)~~✅.
 - **Pagar em breve** (facilita features): ARQ-02 (split), QAL-03 (config tipada), BKD-06 (jobs), BDB-05 (nullable `expiresAt`), DOC-01 (README).
 - **Baixa prioridade** (cosmético/semântico): FRN-05, FRN-02, BDB-06, QAL-06, ARQ-04.
 
-## 6. Conclusões
+## 7. Conclusões
 
-- A dívida está **concentrada em dois nós**: (1) o `ShareService` monolítico e (2) a ausência de testes que tornaria qualquer refatoração segura. Pagar **QAL-01/testes primeiro** reduz o risco de todos os demais pagamentos.
-- Três itens "leves" são, na verdade, **gatilhos de segurança** (BKD-01/SEC-03, BDB-01, FRN-12) — devem subir na fila apesar do baixo esforço.
-- Não há dívida de contrato público acumulada além de R01/R03 (ver `REFACTORING_PLAN.md`).
+- A dívida está **concentrada em dois nós**: (1) o `ShareService` monolítico e (2) a ausência de testes que tornaria qualquer refatoração segura. O nó (2) **já foi pago** (R07/QAL-01) — os demais pagamentos agora têm rede de testes para serem feitos com segurança.
+- Três itens "leves" são, na verdade, **gatilhos de segurança** (BKD-01/SEC-03, FRN-12) — devem subir na fila apesar do baixo esforço.
+- Não há dívida de contrato público acumulada além de R03 (paginação — ver `REFACTORING_PLAN.md`).
 
-## 7. Recomendações de pagamento (ordem)
+## 8. Recomendações de pagamento (ordem)
 
-1. Testes + CI (QAL-01/QTS-01) — viabiliza o resto.
-2. BKD-01/SEC-03, BDB-01, FRN-12 — dívidas com risco de segurança.
+1. ✅ ~~Testes + CI (QAL-01/QTS-01)~~ — **pago (R07)**.
+2. BKD-01/SEC-03, FRN-12 — dívidas com risco de segurança.
 3. ARQ-02, QAL-03, BKD-06, BDB-05 — refatorações estruturais (R05/R06/R04).
 4. DOC-01, FRN-05, BDB-06, QAL-04/05/06, ARQ-04 — backlog contínuo.
