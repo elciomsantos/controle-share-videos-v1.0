@@ -85,6 +85,14 @@ https://{$DOMAIN} {
     # Logging
     log {
         output stdout
-        format json
+        # SEC-05: mascara senha em query string (?pwd=...) nos access logs.
+        # Se share.includePasswordInShareLink=true, a senha trafega na URL; o
+        # filtro redige o valor mantendo o resto da URI intacta.
+        format filter {
+            request>uri query {
+                replace pwd REDACTED
+            }
+            wrap json
+        }
     }
 }

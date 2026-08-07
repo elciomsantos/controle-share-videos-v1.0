@@ -11,6 +11,18 @@
 		-Server
 	}
 
+	# Logs (SEC-05): mascara senha em query string (?pwd=...) nos access logs,
+	# caso share.includePasswordInShareLink=true. O filtro redige apenas o valor.
+	log {
+		output stdout
+		format filter {
+			request>uri query {
+				replace pwd REDACTED
+			}
+			wrap json
+		}
+	}
+
 	# Health check
 	@health path /api/health
 	handle @health {
