@@ -97,7 +97,7 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 | ~~SEC-06/07~~ | Rotação/expiração de refresh token | 5 ✅ (2026-08-07) |
 | PERF-02 | E-mails enviados sequencialmente | 6 |
 | PERF-03 | `createZip()` abre até `zipMaxFiles` streams simultâneos | 6 |
-| PERF-05 | `deleteTemporaryFiles()` I/O síncrono | 6 |
+| ~~PERF-05~~ | ~~`deleteTemporaryFiles()` I/O síncrono~~ | 6 | ✅ Resolvido 2026-08-07 — async `fs/promises` + try/catch por diretório/arquivo (commit `b1f2ea3`); +4 testes unit |
 | ~~QAL-03~~ | ~~`get(): any` e `parseInt` espalhado~~ | 7 | ✅ Resolvido 2026-08-07 — `ConfigTypeMap` + `ConfigKeys` + `GetReturn<K>` eliminam `any` no `get()`, `getNumber`/`getBoolean`/`getString`/`getTimespan` em todo o código |
 | QAL-04/05 | Disciplina de erros; TODOs com impacto de segurança | 7 |
 | INF-02/03 | Rotina de atualização; dependências | 8 |

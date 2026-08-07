@@ -54,6 +54,7 @@ export class AuthService {
             username: dto.username,
             password: hash,
             isAdmin: isAdmin ?? isFirstUser,
+            role: isAdmin ?? isFirstUser ? "admin" : "operador",
             isActivated: !needsVerification,
             activationToken: needsVerification ? crypto.randomUUID() : null,
             activationTokenExpiresAt: needsVerification
