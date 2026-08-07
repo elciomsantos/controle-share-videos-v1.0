@@ -72,11 +72,12 @@ A base de imagem e os scripts de entrada são **exemplares** (multi-stage com pu
 - **Impacto:** builds não reprodutíveis; atualizações não planejadas quebram dashboards/alerts (Grafana/Prometheus) ou mudam comportamento do scanner (INF-01 reincidente).
 - **Resolução:** `docker-compose.monitoring.yml` agora pina tags semver estáveis: `prom/prometheus:v3.13.2`, `grafana/grafana:13.1.3`, `grafana/loki:3.7.6`, `grafana/promtail:3.6.11`, `prom/node-exporter:v1.12.1`. Validado com `docker compose -f docker-compose.monitoring.yml config --quiet`. *(ClamAV removido do compose — item não se aplica mais a ele.)*
 
-### DOP-07 — `.dockerignore` não exclui secrets e env — vazamento para o daemon 🟡 Baixo
+### DOP-07 — `.dockerignore` não exclui secrets e env — vazamento para o daemon 🟡 Baixo — ✅ Resolvido (2026-08-07, commit `5e9b987`)
 
 - **Onde:** `.dockerignore` (backend/dist, backend/node_modules, backend/data, frontend/node_modules, frontend/.next, **/.git).
 - **Evidência:** não há exclusão de `secrets/`, `.env*`, `scripts/secrets/`. Embora o `Dockerfile` só `COPY` caminhos específicos (frontend/, backend/, reverse-proxy/, scripts/docker/), o **contexto de build inteiro** é enviado ao daemon — em daemon remoto/compartilhado, `secrets/` (com `jwt_secret.txt`, `admin_password.txt`) e `.env.local` (com `ADMIN_PASSWORD`) trafegam e ficam nos caches do buildkit.
 - **Impacto:** exposição de segredos na cadeia de build; facilmente evitável.
+- **Resolução:** `.dockerignore` passou a excluir `**/secrets/`, `**/.env*`, `**/.env.local`, `**/.env.*`, `**/data/`, `**/scripts/secrets/` e `**/*.log`; validado com build de contexto real.
 
 ### DOP-08 — Healthchecks `/api/health` cruzam com PERF-07 (leitura da tabela `Config`) 🟡 Baixo — ✅ Resolvido (2026-08-07)
 
@@ -116,7 +117,7 @@ A base de imagem e os scripts de entrada são **exemplares** (multi-stage com pu
 4. ~~**Deprecar o compose base ou consolidá-lo**~~ ✅ **Resolvido (2026-08-07)** (DOP-04): o base foi **consolidado** — Caddy 2.9 custom, `frontend-runner`, `DATABASE_URL` no volume; secrets mortos (`jwt_secret`, `smtp_password`, `admin_password`) removidos; admin bootstrap por env; sem mais dependência de `./secrets/*.txt`.
 5. ~~**Corrigir a resolução de domínio/ACME do Caddy**~~ ✅ **Resolvido (2026-08-07)** (DOP-05): entrypoint do Caddy expande `DOMAIN_FILE`/`ACME_EMAIL_FILE` → `DOMAIN`/`ACME_EMAIL` antes de iniciar; validado "Valid configuration" e TLS para o domínio resolvido.
 6. ~~**Pinar imagens** do monitoring (DOP-06)~~ ✅ **Resolvido (2026-08-07):** `docker-compose.monitoring.yml` pina `prom/prometheus:v3.13.2`, `grafana/grafana:13.1.3`, `grafana/loki:3.7.6`, `grafana/promtail:3.6.11`, `prom/node-exporter:v1.12.1`. *(ClamAV removido do compose; item já não se aplica a ele.)*
-7. **Ampliar `.dockerignore`:** adicionar `secrets/`, `.env*`, `scripts/secrets/`, `data/`, `*.log` (DOP-07).
+7. ~~**Ampliar `.dockerignore`:** adicionar `secrets/`, `.env*`, `scripts/secrets/`, `data/`, `*.log` (DOP-07)~~ ✅ **Resolvido (2026-08-07, commit `5e9b987`):** `.dockerignore` exclui `**/secrets/`, `**/.env*`, `**/.env.local`, `**/.env.*`, `**/data/`, `**/scripts/secrets/` e `**/*.log` do contexto de build; validado com build de contexto real.
 8. ~~**Healthcheck leve** (DOP-08)~~ ✅ **Resolvido (2026-08-07):** `/api/health` usa `$queryRaw\`SELECT 1\`` no lugar de `config.findMany()` (PERF-07).
 
 ## 9.7 Notas de Execução
