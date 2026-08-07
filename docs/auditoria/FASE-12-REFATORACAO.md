@@ -435,12 +435,11 @@ ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (t
 - ~~DOP-06~~ ✅ **Resolvido 2026-08-07:** `docker-compose.monitoring.yml` pina `prom/prometheus:v3.13.2`, `grafana/grafana:13.1.3`, `grafana/loki:3.7.6`, `grafana/promtail:3.6.11`, `prom/node-exporter:v1.12.1`. *(ClamAV removido do compose — item não se aplica mais a ele.)*
 - ~~DOP-08~~ ✅ **Resolvido 2026-08-07:** `/api/health` usa `$queryRaw\`SELECT 1\`` no lugar de `config.findMany()` (↔ PERF-07).
 - ~~DOP-07~~ ✅ **Resolvido 2026-08-07 (commit `5e9b987`):** `.dockerignore` inclui `**/secrets/`, `.env*`, `**/scripts/secrets/`, `**/data/` e `*.log`.
-- DOC-04: preencher `license`/`repository` nos 4 `package.json`.
-- ~~QTS-07~~ ✅ **Resolvido 2026-08-07:** `@nestjs/testing` deixou de ser órfão — usado pelo `test/auth-share.e2e-spec.ts` (R07).
-- BKD-05/QAL-05: revisar TODOs com impacto de segurança em `share.service.ts:246`.
-- FRN-09: adicionar `rel="noopener noreferrer"` nos `target="_blank"`.
-- FRN-06: remover `user-scalable=no` (acessibilidade).
-- INF-04: higienizar `.env.local.example` (DOC-05).
+- DOC-04: ✅ **Resolvido 2026-08-07** — `license: MIT` + `repository` adicionados nos 4 `package.json`.
+- BKD-05/QAL-05: ✅ **Resolvido 2026-08-07** — validação de `timespan` em `config.service.ts:378-392`.
+- FRN-09: ✅ **Resolvido 2026-08-07** — `rel="noopener noreferrer"` em `MarkdownRenderer.tsx:32` e `FilePreview.tsx:180`.
+- FRN-06: ✅ **Resolvido 2026-08-07** — removido `user-scalable=no` em `_app.tsx:262`.
+- INF-04: ✅ **Resolvido 2026-08-07** — `.env.local.example` expandido com `DATABASE_URL`, `Caddy`, `DATA/SHARE_DIRECTORY`, `CONFIG_FILE`, `SWAGGER`, `CORS`.
 
 ---
 
