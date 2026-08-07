@@ -375,12 +375,34 @@ export class ConfigService extends EventEmitter {
           "Max file size must be a positive number of bytes (0 = disabled)",
         ),
       },
-      // TODO add validation for timespan type
+      {
+        key: "timespan",
+        condition: (value: string) => {
+          try {
+            stringToTimespan(value);
+            return true;
+          } catch {
+            return false;
+          }
+        },
+        message: this.t(
+          "config.timespanValidation",
+          "Invalid timespan format (e.g., '7d', '24h', '30m')",
+        ),
+      },
     ];
 
     const validation = validations.find((validation) => validation.key == key);
-    if (validation && typeof value === "number" && !validation.condition(value)) {
-      throw new BadRequestException(validation.message);
+    if (validation && typeof value === "number") {
+      const cond = validation.condition as (v: number) => boolean;
+      if (!cond(value)) {
+        throw new BadRequestException(validation.message);
+      }
+    } else if (validation && typeof value === "string" && key === "timespan") {
+      const cond = validation.condition as (v: string) => boolean;
+      if (!cond(value)) {
+        throw new BadRequestException(validation.message);
+      }
     }
   }
 

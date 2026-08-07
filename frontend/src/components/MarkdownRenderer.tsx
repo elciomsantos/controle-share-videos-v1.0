@@ -30,7 +30,7 @@ const baseOverrides = (colorScheme: "light" | "dark") => ({
     a: {
       props: {
         target: "_blank",
-        rel: "noreferrer",
+        rel: "noopener noreferrer",
       },
       component: Anchor,
     },

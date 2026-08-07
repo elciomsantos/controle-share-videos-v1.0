@@ -178,6 +178,7 @@ const FilePreview = ({
         component={Link}
         onClick={() => modals.closeAll()}
         target="_blank"
+        rel="noopener noreferrer"
         href={`/api/shares/${shareId}/files/${fileId}?download=false`}
       >
         View original file

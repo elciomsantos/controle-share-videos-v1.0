@@ -1,6 +1,11 @@
 {
   "name": "controle-share-videos-backend",
   "version": "1.0.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/controle-share-videos/controle-share-videos.git"
+  },
   "scripts": {
     "build": "nest build",
     "dev": "cross-env NODE_ENV=development nest start --watch",
