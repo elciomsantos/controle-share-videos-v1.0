@@ -39,14 +39,10 @@ function generateNestJsLogLevels(): LogLevel[] {
   }
 }
 
-async function bootstrap() {
-  const logLevels = generateNestJsLogLevels();
-  Logger.log(`Showing ${logLevels.join(", ")} messages`);
-
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-    logger: logLevels,
-  });
-
+export async function configureApp(
+  app: NestExpressApplication,
+  config: ConfigService,
+) {
   app.useGlobalPipes(
     new I18nValidationPipe({
       whitelist: true,
@@ -61,10 +57,8 @@ async function bootstrap() {
   );
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
 
-  const config = app.get<ConfigService>(ConfigService);
-
   app.use((req: Request, res: Response, next: NextFunction) => {
-    const chunkSize = config.get("share.chunkSize");
+    const chunkSize = config.getNumber("share.chunkSize");
     bodyParser.raw({
       type: "application/octet-stream",
       limit: `${chunkSize}B`,
@@ -105,7 +99,7 @@ async function bootstrap() {
   // CSRF protection via double-submit cookie (CRIT-01).
   // GET /api/auth/csrf-token sets an httpOnly+sameSite cookie with a random
   // token; mutating requests must echo it back via the X-CSRF-Token header.
-  const isSecure = config.get("general.secureCookies");
+  const isSecure = config.getBoolean("general.secureCookies");
   app.use((req: Request, res: Response, next: NextFunction) => {
     // Endpoint that issues the CSRF token cookie
     if (req.method === "GET" && req.path === "/api/auth/csrf-token") {
@@ -187,6 +181,23 @@ async function bootstrap() {
   });
 
   app.setGlobalPrefix("api");
+}
+
+export async function createApp() {
+  const logLevels = generateNestJsLogLevels();
+  Logger.log(`Showing ${logLevels.join(", ")} messages`);
+
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    logger: logLevels,
+  });
+
+  await configureApp(app, app.get<ConfigService>(ConfigService));
+
+  return app;
+}
+
+async function bootstrap() {
+  const app = await createApp();
 
   const swaggerEnabled =
     process.env.NODE_ENV !== "production" &&
@@ -207,4 +218,7 @@ async function bootstrap() {
   const logger = new Logger("UnhandledAsyncError");
   process.on("unhandledRejection", (e) => logger.error(e));
 }
-bootstrap();
+
+if (require.main === module) {
+  bootstrap();
+}

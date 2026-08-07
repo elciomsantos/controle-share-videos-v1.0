@@ -2,6 +2,15 @@ import { Expose, plainToClass, Type } from "class-transformer";
 import { FileDTO } from "../../file/dto/file.dto";
 import { PublicUserDTO } from "../../user/dto/publicUser.dto";
 
+export function toBytes(
+  value: string | number | bigint | null | undefined,
+): number {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === "bigint") return Number(value);
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
 export class ShareDTO {
   @Expose()
   id!: string;

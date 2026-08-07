@@ -2,16 +2,13 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
-  InternalServerErrorException,
   NotFoundException,
 } from "@nestjs/common";
 import { RequestContextLogger } from "../common/request-context/request-context";
 import { JwtService, JwtSignOptions } from "@nestjs/jwt";
 import { Prisma, Share, User, ShareSecurity } from "../../prisma/generated/prisma/client";
-import { createZipStream } from "../common/zip";
 import argon from "argon2";
 import * as crypto from "crypto";
-import * as fs from "fs";
 import dayjs from "dayjs";
 import { I18nService } from "nestjs-i18n";
 import { ConfigService } from "../config/config.service";
@@ -19,16 +16,18 @@ import { DownloadLogService } from "../download-log/download-log.service";
 import { EmailService } from "../email/email.service";
 import { FileService } from "../file/file.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { SystemService } from "../system/system.service";
 import {
   EPOCH_ZERO,
   isEpochZero,
   parseRelativeDateToAbsolute,
 } from "../utils/date.util";
-import { ARGON2_OPTIONS, SHARE_DIRECTORY } from "../constants";
+import { ARGON2_OPTIONS } from "../constants";
 import { CreateShareDTO } from "./dto/createShare.dto";
 import { ShareSecurityDTO } from "./dto/shareSecurity.dto";
 import { UpdateShareDTO } from "./dto/updateShare.dto";
+import { ShareMapper } from "./share.mapper";
+import { ShareArchiveService } from "./share-archive.service";
+import { FileStorageService } from "./file-storage.service";
 
 @Injectable()
 export class ShareService {
@@ -41,17 +40,16 @@ export class ShareService {
     private emailService: EmailService,
     private config: ConfigService,
     private jwtService: JwtService,
-    private systemService: SystemService,
     private downloadLogService: DownloadLogService,
     private readonly i18n: I18nService,
+    private shareMapper: ShareMapper,
+    private archiveService: ShareArchiveService,
+    private storageService: FileStorageService,
   ) {}
 
   async create(share: CreateShareDTO, user?: User) {
     if (share.size) {
-      const systemInfo = await this.systemService.getSystemInfo();
-      if (systemInfo && systemInfo.total - systemInfo.used < share.size) {
-        throw new BadRequestException(this.i18n.t("share.notEnoughSpace"));
-      }
+      await this.storageService.ensureSpaceAvailable(share.size);
     }
 
     if (!(await this.isShareIdAvailable(share.id)).isAvailable)
@@ -65,10 +63,10 @@ export class ShareService {
     if (share.security?.password) {
       share.security.password = await argon.hash(share.security.password, ARGON2_OPTIONS);
     } else if (
-      this.config.get("share.autoGeneratePassword") &&
+      this.config.getBoolean("share.autoGeneratePassword") &&
       !share.security?.password
     ) {
-      const length = this.config.get("share.generatedPasswordLength");
+      const length = this.config.getNumber("share.generatedPasswordLength");
       generatedPassword = this.generateRandomPassword(length);
       share.security = {
         ...share.security,
@@ -81,9 +79,7 @@ export class ShareService {
       this.validateExpiration(expirationDate);
     }
 
-    fs.mkdirSync(`${SHARE_DIRECTORY}/${share.id}`, {
-      recursive: true,
-    });
+    this.storageService.createShareDirectory(share.id);
 
     const {
       size: _size,
@@ -109,82 +105,6 @@ export class ShareService {
     });
 
     return { ...shareTuple, generatedPassword };
-  }
-
-  async createZip(shareId: string) {
-    const path = `${SHARE_DIRECTORY}/${shareId}`;
-
-    // GAP-04: zip-bomb protection — limits are now admin-configurable via
-    // share.zipMaxFiles / share.zipMaxTotalSize / share.zipMaxRatio.
-    const MAX_FILES = this.config.get("share.zipMaxFiles") ?? 10000;
-    const MAX_TOTAL_SIZE = this.config.get("share.zipMaxTotalSize") ?? 10 * 1024 * 1024 * 1024;
-    // Maximum allowed compression ratio (output / input). 103:1 is the classic
-    // zip-bomb threshold (zlib's theoretical deflate worst-case is ~1037:1 for
-    // highly compressible streams); 103 catches naive 42.zip-style bombs while
-    // leaving plenty of headroom for genuinely redundant content.
-    const MAX_RATIO = this.config.get("share.zipMaxRatio") ?? 103;
-
-    const files = await this.prisma.file.findMany({ where: { shareId } });
-
-    if (files.length > MAX_FILES) {
-      throw new BadRequestException(
-        `Share exceeds maximum file count of ${MAX_FILES}`,
-      );
-    }
-
-    const totalSize = files.reduce((sum, f) => sum + parseInt(f.size), 0);
-    if (totalSize > MAX_TOTAL_SIZE) {
-      throw new BadRequestException(
-        `Share exceeds maximum total size of ${MAX_TOTAL_SIZE} bytes`,
-      );
-    }
-
-    const archive = await createZipStream({
-      zlib: { level: this.config.get("share.zipCompressionLevel") },
-    });
-    const writeStream = fs.createWriteStream(`${path}/archive.zip`);
-
-    // Abort the stream if the consumed output exceeds totalSize * MAX_RATIO,
-    // which would indicate a zip-bomb attempt (small input -> huge output).
-    let emittedBytes = 0;
-    const bombLimit = Math.max(
-      totalSize * MAX_RATIO,
-      // Guard against totalSize=0 edge case (empty share slipped through):
-      MAX_RATIO,
-    );
-    const bombGuard = new Promise<void>((resolve, reject) => {
-      writeStream.on("close", () => resolve());
-      writeStream.on("error", (err: NodeJS.ErrnoException) =>
-        reject(
-          new InternalServerErrorException({
-            message: "Failed to write zip archive",
-            error: err.message,
-          }),
-        ),
-      );
-      archive.on("data", (chunk: Buffer) => {
-        emittedBytes += chunk.length;
-        if (emittedBytes > bombLimit) {
-          reject(
-            new BadRequestException(
-              `Zip compression ratio exceeded the configured limit of ${MAX_RATIO}:1 (potential zip bomb)`,
-            ),
-          );
-          archive.abort();
-          writeStream.destroy();
-        }
-      });
-    });
-
-    for (const file of files) {
-      archive.append(fs.createReadStream(`${path}/${file.id}`), {
-        name: file.name,
-      });
-    }
-
-    archive.pipe(writeStream);
-    await archive.finalize();
-    await bombGuard;
   }
 
   async complete(id: string) {
@@ -213,7 +133,7 @@ export class ShareService {
     // GAP-04: surface unhandled rejections instead of silently dropping them,
     // and mark the share as broken so /api/shares/:id/zip returns 500 not 404.
     if (share.files.length > 1)
-      this.createZip(id)
+      this.archiveService.createZip(id)
         .then(() =>
           this.prisma.share.update({ where: { id }, data: { isZipReady: true } }),
         )
@@ -268,35 +188,57 @@ export class ShareService {
     });
   }
 
-  async getShares() {
-    const shares = await this.prisma.share.findMany({
-      orderBy: {
-        expiration: "desc",
-      },
-      include: { files: true, creator: true, security: true, recipients: true },
-    });
+  async getShares(page: number, perPage: number) {
+    const [shares, total] = await Promise.all([
+      this.prisma.share.findMany({
+        orderBy: {
+          expiration: "desc",
+        },
+        include: { files: true, creator: true, security: true, recipients: true },
+        skip: (page - 1) * perPage,
+        take: perPage,
+      }),
+      this.prisma.share.count(),
+    ]);
 
-    return shares.map((share) => this.transformShare(share));
+    return {
+      items: shares.map((share) => this.shareMapper.transformShare(share)),
+      total,
+      page,
+      perPage,
+    };
   }
 
-  async getSharesByUser(userId: string) {
-    const shares = await this.prisma.share.findMany({
-      where: {
-        creator: { id: userId },
-        uploadLocked: true,
-        // We want to grab any shares that are not expired or have their expiration date set to "never" (unix 0)
-        OR: [
-          { expiration: { gt: new Date() } },
-          { expiration: { equals: EPOCH_ZERO } },
-        ],
-      },
-      orderBy: {
-        expiration: "desc",
-      },
-      include: { recipients: true, files: true, security: true, creator: true },
-    });
+  async getSharesByUser(userId: string, page: number, perPage: number) {
+    const where = {
+      creator: { id: userId },
+      uploadLocked: true,
+      // We want to grab any shares that are not expired or have their expiration date set to "never" (unix 0)
+      OR: [
+        { expiration: { gt: new Date() } },
+        { expiration: { equals: EPOCH_ZERO } },
+      ],
+    };
 
-    return shares.map((share) => this.transformShare(share));
+    const [shares, total] = await Promise.all([
+      this.prisma.share.findMany({
+        where,
+        orderBy: {
+          expiration: "desc",
+        },
+        include: { recipients: true, files: true, security: true, creator: true },
+        skip: (page - 1) * perPage,
+        take: perPage,
+      }),
+      this.prisma.share.count({ where }),
+    ]);
+
+    return {
+      items: shares.map((share) => this.shareMapper.transformShare(share)),
+      total,
+      page,
+      perPage,
+    };
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Return type includes Prisma-relational fields with internal DTO mapping; refactor requires aligning ShareDTO typing (see #6).
@@ -363,7 +305,7 @@ export class ShareService {
           shareId,
           fileId: file.id,
           fileName: file.name,
-          fileSize: file.size,
+          fileSize: file.size.toString(),
           userId: actor.userId,
           username: actor.username,
           ip: actor.ip,
@@ -444,7 +386,7 @@ export class ShareService {
       include: { creator: true, files: true, recipients: true, security: true },
     });
 
-    return this.transformShare(updatedShare);
+    return this.shareMapper.transformShare(updatedShare);
   }
 
   private async updateSecurity(
@@ -496,21 +438,6 @@ export class ShareService {
     return share?.uploadLocked ?? false;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma-relational shape; callers cast to Partial<MyShareDTO> with excludeExtraneousValues. See #6.
-  private transformShare(share: any) {
-    return {
-      ...share,
-      size:
-        share.files?.reduce((acc: number, file: { size: string }) => acc + parseInt(file.size), 0) ?? 0,
-      recipients: share.recipients?.map((recipient: { email: string }) => recipient.email) ?? [],
-      security: {
-        maxViews: share.security?.maxViews,
-        maxDownloads: share.security?.maxDownloads,
-        passwordProtected: !!share.security?.password,
-      },
-    };
-  }
-
   private parseExpiration(expiration: string) {
     if (expiration === "never") return EPOCH_ZERO;
 
@@ -530,7 +457,7 @@ export class ShareService {
 
   private validateExpiration(expiration: Date) {
     const expiresNever = isEpochZero(expiration);
-    const maxExpiration = this.config.get("share.maxExpiration");
+    const maxExpiration = this.config.getTimespan("share.maxExpiration");
 
     if (
       maxExpiration.value !== 0 &&
@@ -715,7 +642,7 @@ export class ShareService {
     };
 
     const tokenOptions: JwtSignOptions = {
-      secret: this.config.get("internal.jwtSecret"),
+      secret: this.config.getString("internal.jwtSecret"),
     };
 
     if (!isEpochZero(expiration)) {
@@ -735,7 +662,7 @@ export class ShareService {
 
     try {
       const claims = this.jwtService.verify(token, {
-        secret: this.config.get("internal.jwtSecret"),
+        secret: this.config.getString("internal.jwtSecret"),
         // Ignore expiration if expiration is 0
         ignoreExpiration: isEpochZero(expiration),
       });
@@ -756,7 +683,7 @@ export class ShareService {
     if (!password) return undefined;
 
     return crypto
-      .createHmac("sha512", this.config.get("internal.jwtSecret"))
+      .createHmac("sha512", this.config.getString("internal.jwtSecret"))
       .update(password)
       .digest("hex");
   }

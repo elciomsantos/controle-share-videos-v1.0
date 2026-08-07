@@ -23,20 +23,20 @@ export class EmailService {
   private readonly logger = new Logger(EmailService.name);
 
   getTransporter() {
-    if (!this.config.get("smtp.enabled"))
+    if (!this.config.getBoolean("smtp.enabled"))
       throw new InternalServerErrorException(this.i18n.t("email.smtpDisabled"));
 
-    const username = this.config.get("smtp.username");
-    const password = this.config.get("smtp.password");
+    const username = this.config.getString("smtp.username");
+    const password = this.config.getString("smtp.password");
 
     return nodemailer.createTransport({
-      host: this.config.get("smtp.host"),
-      port: this.config.get("smtp.port"),
-      secure: this.config.get("smtp.port") == 465,
+      host: this.config.getString("smtp.host"),
+      port: this.config.getNumber("smtp.port"),
+      secure: this.config.getNumber("smtp.port") == 465,
       auth:
         username || password ? { user: username, pass: password } : undefined,
       tls: {
-        rejectUnauthorized: !this.config.get(
+        rejectUnauthorized: !this.config.getBoolean(
           "smtp.allowUnauthorizedCertificates",
         ),
       },
@@ -44,11 +44,11 @@ export class EmailService {
   }
 
   private async sendMail(email: string, subject: string, text: string) {
-      const isHtml = this.config.get("email.sendHtmlEmails");
+      const isHtml = this.config.getBoolean("email.sendHtmlEmails");
 
       await this.getTransporter()
         .sendMail({
-          from: `"${this.config.get("general.appName")}" <${this.config.get(
+          from: `"${this.config.getString("general.appName")}" <${this.config.getString(
             "smtp.email",
           )}>`,
           to: email,
@@ -70,22 +70,22 @@ export class EmailService {
     description?: string,
     expiration?: Date,
   ) {
-    if (!this.config.get("email.enableShareEmailRecipients"))
+    if (!this.config.getBoolean("email.enableShareEmailRecipients"))
       throw new InternalServerErrorException(
         this.i18n.t("email.emailServiceDisabled"),
       );
 
-    const shareUrl = `${this.config.get(
+    const shareUrl = `${this.config.getString(
       "general.appUrl",
     )}/s/${shareId}?recipient=${encodeURIComponent(recipientId)}`;
-    const lang = this.config.get("general.defaultLanguage");
+    const lang = this.config.getString("general.defaultLanguage");
     const locale = this.i18n.translate("email.locale", { lang });
 
     await this.sendMail(
       recipientEmail,
-      this.config.get("email.shareRecipientsSubject"),
+      this.config.getString("email.shareRecipientsSubject"),
       this.config
-        .get("email.shareRecipientsMessage")
+        .getString("email.shareRecipientsMessage")
         .replaceAll("\\n", "\n")
         .replaceAll(
           "{creator}",
@@ -113,13 +113,13 @@ export class EmailService {
     fileName: string,
     recipientEmail: string,
   ) {
-    const shareUrl = `${this.config.get("general.appUrl")}/s/${shareId}`;
+    const shareUrl = `${this.config.getString("general.appUrl")}/s/${shareId}`;
 
     await this.sendMail(
       creatorEmail,
-      this.config.get("email.shareDownloadNotificationSubject"),
+      this.config.getString("email.shareDownloadNotificationSubject"),
       this.config
-        .get("email.shareDownloadNotificationMessage")
+        .getString("email.shareDownloadNotificationMessage")
         .replaceAll("\\n", "\n")
         .replaceAll("{recipientEmail}", recipientEmail)
         .replaceAll("{fileName}", fileName)
@@ -128,28 +128,28 @@ export class EmailService {
   }
 
   async sendResetPasswordEmail(recipientEmail: string, token: string) {
-    const resetPasswordUrl = `${this.config.get(
+    const resetPasswordUrl = `${this.config.getString(
       "general.appUrl",
     )}/auth/resetPassword/${token}`;
 
     await this.sendMail(
       recipientEmail,
-      this.config.get("email.resetPasswordSubject"),
+      this.config.getString("email.resetPasswordSubject"),
       this.config
-        .get("email.resetPasswordMessage")
+        .getString("email.resetPasswordMessage")
         .replaceAll("\\n", "\n")
         .replaceAll("{url}", resetPasswordUrl),
     );
   }
 
   async sendInviteEmail(recipientEmail: string, password: string) {
-    const loginUrl = `${this.config.get("general.appUrl")}/auth/signIn`;
+    const loginUrl = `${this.config.getString("general.appUrl")}/auth/signIn`;
 
     await this.sendMail(
       recipientEmail,
-      this.config.get("email.inviteSubject"),
+      this.config.getString("email.inviteSubject"),
       this.config
-        .get("email.inviteMessage")
+        .getString("email.inviteMessage")
         .replaceAll("{url}", loginUrl)
         .replaceAll("{password}", password)
         .replaceAll("{email}", recipientEmail),
@@ -157,15 +157,15 @@ export class EmailService {
   }
 
   async sendVerificationEmail(recipientEmail: string, token: string) {
-    const verificationUrl = `${this.config.get(
+    const verificationUrl = `${this.config.getString(
       "general.appUrl",
     )}/auth/verify/${token}`;
 
     await this.sendMail(
       recipientEmail,
-      this.config.get("email.verificationSubject"),
+      this.config.getString("email.verificationSubject"),
       this.config
-        .get("email.verificationMessage")
+        .getString("email.verificationMessage")
         .replaceAll("\\n", "\n")
         .replaceAll("{url}", verificationUrl),
     );
@@ -176,7 +176,7 @@ export class EmailService {
     const text = this.i18n.t("email.testText");
     await this.getTransporter()
       .sendMail({
-        from: `"${this.config.get("general.appName")}" <${this.config.get(
+        from: `"${this.config.getString("general.appName")}" <${this.config.getString(
           "smtp.email",
         )}>`,
         to: recipientEmail,

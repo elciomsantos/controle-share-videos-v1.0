@@ -129,7 +129,7 @@ const ManageShareTable = ({
                             showShareInformationsModal(
                               modals,
                               share,
-                              parseInt(config.get("share.maxSize")),
+                              config.get("share.maxSize"),
                               config.get("general.appUrl"),
                               config.get("general.appUrl", true),
                               { value: 0, unit: "days" },

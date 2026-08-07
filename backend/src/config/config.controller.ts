@@ -69,8 +69,8 @@ export class ConfigController {
   @Post("admin/testRedis")
   @Roles("admin")
   async testRedis() {
-    const redisUrl = this.configService.get("cache.redis-url");
-    const enabled = this.configService.get("cache.redis-enabled");
+    const redisUrl = this.configService.getString("cache.redis-url");
+    const enabled = this.configService.getBoolean("cache.redis-enabled");
 
     if (!redisUrl) {
       throw new InternalServerErrorException(

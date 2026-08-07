@@ -96,7 +96,7 @@ export class FileSecurityGuard extends ShareSecurityGuard {
     // If there is no share token the user requests a file directly
     if (!shareToken) {
       // If admin access is enabled and user is admin, allow access
-      if (this._config.get("share.allowAdminAccessAllShares")) {
+      if (this._config.getBoolean("share.allowAdminAccessAllShares")) {
         await super.canActivate(context);
         const user = request.user as User | undefined;
         if (user?.isAdmin) {

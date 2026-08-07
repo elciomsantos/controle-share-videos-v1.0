@@ -44,7 +44,7 @@ export class UserService {
     let hash: string;
     let temporaryPassword: string | undefined;
 
-    const passwordLength = this.config.get("share.generatedPasswordLength");
+    const passwordLength = this.config.getNumber("share.generatedPasswordLength");
 
     if (dto.generatePassword || !dto.password) {
       temporaryPassword = this.generateSecurePassword(passwordLength);
@@ -66,12 +66,12 @@ export class UserService {
             role,
             isAdmin,
             isActivated: dto.isActivated ?? true,
-            shareSizeLimit: dto.shareSizeLimit,
+            shareSizeLimit: dto.shareSizeLimit ? BigInt(dto.shareSizeLimit) : null,
             passwordMustChange: true,
           },
         });
 
-        if (temporaryPassword && this.config.get("smtp.enabled")) {
+        if (temporaryPassword && this.config.getBoolean("smtp.enabled")) {
           await this.emailService.sendInviteEmail(dto.email, temporaryPassword);
         }
 
@@ -124,7 +124,7 @@ export class UserService {
           role: user.role,
           isActivated: user.isActivated,
           isAdmin,
-          shareSizeLimit: user.shareSizeLimit,
+          shareSizeLimit: user.shareSizeLimit ? BigInt(user.shareSizeLimit) : null,
           password: hash,
         },
       });

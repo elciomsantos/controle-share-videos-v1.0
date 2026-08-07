@@ -67,11 +67,11 @@ const Upload = ({
     }
   }, [user?.passwordMustChange, isUploading, router, t]);
 
-  const chunkSize = useRef(parseInt(config.get("share.chunkSize")));
+  const chunkSize = useRef(config.get("share.chunkSize"));
 
-  maxShareSize ??= parseInt(config.get("share.maxSize"));
+  maxShareSize ??= config.get("share.maxSize");
   if (user?.shareSizeLimit) {
-    maxShareSize = Math.min(maxShareSize, parseInt(user.shareSizeLimit));
+    maxShareSize = Math.min(maxShareSize, Number(user.shareSizeLimit));
   }
 
   const currentFilesSize = useMemo(() => {
@@ -184,7 +184,7 @@ const Upload = ({
         shareIdLength: config.get("share.shareIdLength"),
         simplified,
         autoGeneratePassword: config.get("share.autoGeneratePassword"),
-        generatedPasswordLength: parseInt(config.get("share.generatedPasswordLength")),
+        generatedPasswordLength: config.get("share.generatedPasswordLength"),
       },
       files,
       uploadFiles,

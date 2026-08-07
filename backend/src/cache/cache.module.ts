@@ -14,9 +14,9 @@ import { ConfigService } from "../config/config.service";
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => {
-        const useRedis = configService.get("cache.redis-enabled");
-        const ttl = configService.get("cache.ttl");
-        const max = configService.get("cache.maxItems");
+        const useRedis = configService.getBoolean("cache.redis-enabled");
+        const ttl = configService.getNumber("cache.ttl");
+        const max = configService.getNumber("cache.maxItems");
 
         // Always provision an in-memory store so cache.get()/set() actually
         // work even without Redis. Previously stores was empty when Redis was
@@ -27,7 +27,7 @@ import { ConfigService } from "../config/config.service";
         ];
 
         if (useRedis) {
-          const redisUrl = configService.get("cache.redis-url");
+          const redisUrl = configService.getString("cache.redis-url");
           stores.push(createKeyv(redisUrl));
         }
 

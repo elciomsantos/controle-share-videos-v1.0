@@ -4,7 +4,7 @@
 |---|---|
 | Fase de origem | 13 (Plano de Execução) |
 | Data | 2026-08-04 |
-| Status | ✅ Sugestão entregue (aplicar quando os fix forem mergeados) |
+| Status | 🔄 Parcialmente aplicado no PR #1 (branch `fix/producao-v1.1.0`, CI verde, aguardando merge em `main`) |
 | Base | AUDIT dos achados Fases 1–11; upstream Pingvin Share X v1.21.1 (BSD-2-Clause) |
 
 ## 1. Introdução
@@ -17,6 +17,23 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 - Cada entrada referencia o achado original (SEC-*, BDB-*, DOP-*, INF-*, PERF-*, DOC-*, QAL-*) com evidência de arquivo/linha na fase de origem.
 - Formato Conventional Commits; itens Breaking separados e com instrução de migração.
 - Base: achados das Fases 1–12 consolidados em `FASE-12-REFATORACAO.md`; upstream Pingvin Share X v1.21.1 (BSD-2-Clause).
+
+## 2.1 Status de Execução (2026-08-04, PR #1 + novos commits no branch)
+
+**Aplicado** (CI verde — backend e frontend):
+- ✅ **R07** — testes unit 44/44, e2e 5/5, cobertura 83.78% e CI (`ci.yml`); fix QAL-01/QTS-01.
+- ✅ **R02** — JwtGuard **fail-closed** (401 sem token); fix SEC-01.
+- ✅ **R08** — compose prod com estágio runtime `frontend` + Caddy; fix DOP-01/03/04/05/07.
+- ✅ **R01** — `File.size`/`shareSizeLimit` → `BigInt`; fix BDB-01 (breaking, deploy coordenado).
+- ✅ **DOC-02** — `SECURITY.md` preenchido (versões suportadas + canal privado de report).
+- ✅ **BDB-02** — 5 índices nos caminhos quentes (commit `98de696`) — quick-win sem breaking.
+- ✅ **R03** — Paginação nas listagens (commit `4686195`) — envelope `Page<T>`, **Breaking v1.2.0**.
+- ✅ **R04** — Jobs de limpeza em lote (batch `take: 50` + cursor + `deleteMany` + `try/catch` por item); fix PERF-04/BDB-04/BKD-06 — sem breaking.
+
+**Pendente (próximos épicos):**
+- v1.1.0: SEC-03 (TTL reset), SEC-04 (sanitização HTML), SEC-05 (senha em query string), INF-01 (override postcss), DOC-04 (license/repository).
+- v1.2.0: ~~PERF-01/BDB-03 (paginação — R03)~~ ✅, ~~PERF-04/BDB-04 (jobs — R04)~~ ✅, PERF-02..03,05..07, BDB-06 (unique composto).
+- v1.3.0: QAL-03 (R06), ARQ-02 (R05), BDB-05, INF-03, DOC-01/03.
 
 ## 3. Versão Sugerida — v1.1.0 (primeira entrega de correções)
 
@@ -45,7 +62,7 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 
 ### Fixed
 - Download de vídeo com suporte a **HTTP Range (206)** — seek/streaming do player — fix PERF-06.
-- Jobs de limpeza processam em lotes com isolamento de erro por share — fix PERF-04/BDB-04.
+- ~~Jobs de limpeza processam em lotes com isolamento de erro por share — fix PERF-04/BDB-04~~ ✅ **aplicado (R04)**.
 - E-mails de destinatários enviados em paralelo controlado — fix PERF-02.
 - ZIP com concorrência de streams e nível de deflate ajustados — fix PERF-03.
 - `deleteTemporaryFiles()` sem `fs` síncrono — fix PERF-05.
@@ -55,8 +72,8 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 ## 5. Versão Sugerida — v1.3.0 (manutenibilidade)
 
 ### Changed
-- `ConfigService.get()` tipado (sem `any`); getters `getNumber`/`getBoolean`/`getString` — fix QAL-03.
-- `ShareService` decomposto em `ShareMapper`/`ShareArchiveService`/`FileStorageService` (772 LOC → módulos coesos) — fix ARQ-02.
+- `ConfigService.get()` tipado (sem `any`); getters `getNumber`/`getBoolean`/`getString`/`getTimespan`; frontend com `ConfigTypeMap`/`GetReturn` e `parseInt` manual removido — fix QAL-03/BKD-08/FRN-04 (R06).
+- `ShareService` decomposto em `ShareMapper`/`ShareArchiveService`/`FileStorageService` (794 → 698 LOC; mapeamento, ZIP e cotas/estrutura física em módulos coesos) — fix ARQ-02 (R05).
 - `EPOCH_ZERO` substituído por `expiresAt DateTime?` nullable — fix BDB-05.
 - Duas libs JWT no frontend unificadas em uma — fix INF-03.
 - `SECURITY.md` preenchido (versões suportadas + canal de report) — fix DOC-02.

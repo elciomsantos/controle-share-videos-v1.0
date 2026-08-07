@@ -1,13 +1,12 @@
-import { ExecutionContext, Injectable } from "@nestjs/common";
+import { ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { AuthGuard } from "@nestjs/passport";
-import { ConfigService } from "../../config/config.service";
 import { IS_PUBLIC_KEY } from "../decorator/public.decorator";
 import { enhanceRequestContext } from "../../common/request-context/request-context";
 
 @Injectable()
 export class JwtGuard extends AuthGuard("jwt") {
-  constructor(private config: ConfigService, private reflector: Reflector) {
+  constructor(private reflector: Reflector) {
     super();
   }
 
@@ -34,7 +33,10 @@ export class JwtGuard extends AuthGuard("jwt") {
 
       return result;
     } catch {
-      return this.config.get("share.allowUnauthenticatedShares");
+      // SEC-01/R02: fail-closed. A failed or missing JWT must never fall back
+      // to anonymous access — only routes explicitly marked @Public() bypass
+      // authentication.
+      throw new UnauthorizedException();
     }
   }
 }

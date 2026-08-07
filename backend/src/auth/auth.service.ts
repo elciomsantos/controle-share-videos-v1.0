@@ -37,7 +37,7 @@ export class AuthService {
     skipVerification?: boolean,
   ) {
     const isFirstUser = (await this.prisma.user.count()) == 0;
-    const enableEmailVerification = this.config.get(
+    const enableEmailVerification = this.config.getBoolean(
       "email.enableEmailVerification",
     );
     const email = dto.email.toLowerCase().trim();
@@ -175,10 +175,20 @@ export class AuthService {
   async resetPassword(token: string, newPassword: string) {
     const user = await this.prisma.user.findFirst({
       where: { resetPasswordToken: { token } },
+      include: { resetPasswordToken: true },
     });
 
     if (!user)
       throw new BadRequestException(this.i18n.t("auth.tokenInvalidOrExpired"));
+
+    // SEC-03/BKD-01: enforce the token TTL on redemption, not only on cleanup
+    // jobs — a leaked token must not be usable beyond expiresAt.
+    if (dayjs().isAfter(user.resetPasswordToken?.expiresAt)) {
+      await this.prisma.resetPasswordToken.delete({
+        where: { token },
+      });
+      throw new BadRequestException(this.i18n.t("auth.tokenInvalidOrExpired"));
+    }
 
     const newPasswordHash = await argon.hash(newPassword, ARGON2_OPTIONS);
 
@@ -279,7 +289,7 @@ export class AuthService {
       },
       {
         expiresIn: "15min",
-        secret: this.config.get("internal.jwtSecret"),
+        secret: this.config.getString("internal.jwtSecret"),
       },
     );
   }
@@ -334,7 +344,7 @@ export class AuthService {
     tx?: Prisma.TransactionClient,
   ) {
     const prisma = tx || this.prisma;
-    const sessionDuration = this.config.get("general.sessionDuration");
+    const sessionDuration = this.config.getTimespan("general.sessionDuration");
     const { id, token } = await prisma.refreshToken.create({
       data: {
         userId,
@@ -362,7 +372,7 @@ export class AuthService {
     refreshToken?: string,
     accessToken?: string,
   ) {
-    const isSecure = this.config.get("general.secureCookies");
+    const isSecure = this.config.getBoolean("general.secureCookies");
     if (accessToken)
       response.cookie("access_token", accessToken, {
         httpOnly: true,
@@ -372,7 +382,7 @@ export class AuthService {
       });
     if (refreshToken) {
       const now = dayjs();
-      const sessionDuration = this.config.get("general.sessionDuration");
+      const sessionDuration = this.config.getTimespan("general.sessionDuration");
       const maxAge = dayjs(now)
         .add(sessionDuration.value, sessionDuration.unit)
         .diff(now);
@@ -395,7 +405,7 @@ export class AuthService {
       const payload = await this.jwtService.verifyAsync(
         request.cookies.access_token,
         {
-          secret: this.config.get("internal.jwtSecret"),
+          secret: this.config.getString("internal.jwtSecret"),
         },
       );
       return payload.sub;

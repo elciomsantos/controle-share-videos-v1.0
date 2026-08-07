@@ -19,6 +19,7 @@ import { validate as isValidUUID } from "uuid";
 import { SHARE_DIRECTORY } from "../constants";
 import { Readable } from "stream";
 import { createZipStream } from "../common/zip";
+import { toBytes } from "../share/dto/share.dto";
 
 @Injectable()
 export class LocalFileService {
@@ -96,7 +97,7 @@ export class LocalFileService {
     }
 
     // If the sent chunk index and the expected chunk index doesn't match throw an error
-    const chunkSize = this.config.get("share.chunkSize");
+    const chunkSize = this.config.getNumber("share.chunkSize");
     const expectedChunkIndex = Math.ceil(diskFileSize / chunkSize);
 
     if (expectedChunkIndex != chunk.index)
@@ -119,15 +120,15 @@ export class LocalFileService {
 
     // Check if share size limit is exceeded
     const fileSizeSum = share.files.reduce(
-      (n, { size }) => n + parseInt(size),
+      (n, { size }) => n + toBytes(size),
       0,
     );
 
     const shareSizeSum = fileSizeSum + diskFileSize + buffer.byteLength;
 
-    const globalLimit = parseInt(this.config.get("share.maxSize"));
-    const userLimit = share.creator?.shareSizeLimit
-      ? parseInt(share.creator.shareSizeLimit)
+    const globalLimit = this.config.getNumber("share.maxSize");
+    const userLimit = share.creator?.shareSizeLimit != null
+      ? toBytes(share.creator.shareSizeLimit)
       : undefined;
     const limit = userLimit !== undefined ? Math.min(globalLimit, userLimit) : globalLimit;
 
@@ -140,7 +141,7 @@ export class LocalFileService {
 
     // GAP-01: per-file size limit, when configured (> 0 applies). Defends
     // against a single huge upload consuming the entire share budget.
-    const maxFileSize = parseInt(this.config.get("share.maxFileSize"));
+    const maxFileSize = this.config.getNumber("share.maxFileSize");
     if (maxFileSize > 0 && diskFileSize + buffer.byteLength > maxFileSize) {
       throw new HttpException(
         `File exceeds per-file size limit of ${maxFileSize} bytes`,
@@ -200,7 +201,7 @@ export class LocalFileService {
         data: {
           id: file.id,
           name: file.name,
-          size: fileSize.toString(),
+          size: fileSize,
           description: file.description || null,
           share: { connect: { id: shareId } },
         },
@@ -285,7 +286,7 @@ export class LocalFileService {
       metaData: {
         mimeType: mime.contentType(fileMetaData.name.split(".").pop() ?? "") || "application/octet-stream",
         ...fileMetaData,
-        size: fileMetaData.size,
+        size: fileMetaData.size.toString(),
       },
       file,
     };
@@ -354,51 +355,49 @@ export class LocalFileService {
 
     const entryName = fileMetaData.name || fileId;
 
-    return new Promise(async (resolve, reject) => {
-      let archive;
-      try {
-        archive = await createZipStream({
-          zlib: { level: this.config.get("share.zipCompressionLevel") },
-        });
-      } catch (err) {
-        reject(err);
-        return;
-      }
+    return new Promise((resolve, reject) => {
+      createZipStream({
+        zlib: { level: this.config.getNumber("share.zipCompressionLevel") },
+      }).then(
+        (archive) => {
+          let settled = false;
+          const settle = (err: unknown) => {
+            if (settled) return;
+            settled = true;
+            reject(err);
+          };
 
-      let settled = false;
-      archive.on("error", (err: unknown) => {
-        if (settled) return;
-        settled = true;
-        reject(
-          new InternalServerErrorException(
-            err instanceof Error ? err.message : "Failed to create zip",
-          ),
-        );
-      });
+          archive.on("error", (err: unknown) => {
+            settle(
+              new InternalServerErrorException(
+                err instanceof Error ? err.message : "Failed to create zip",
+              ),
+            );
+          });
 
-      archive.on("warning", (err: unknown) => {
-        this.logger.warn(`zip warning: ${String(err)}`);
-      });
+          archive.on("warning", (err: unknown) => {
+            this.logger.warn(`zip warning: ${String(err)}`);
+          });
 
-      archive.append(
-        createReadStream(`${SHARE_DIRECTORY}/${shareId}/${fileId}`),
-        { name: entryName },
+          archive.append(
+            createReadStream(`${SHARE_DIRECTORY}/${shareId}/${fileId}`),
+            { name: entryName },
+          );
+
+          // Resolve immediately after finalize: the Nest StreamableFile will
+          // pipe and consume the archive, which in turn emits its "end" event.
+          // Waiting for "end" here would deadlock, since the stream is not
+          // read until the promise resolves.
+          try {
+            void archive.finalize();
+          } catch (err) {
+            settle(err);
+            return;
+          }
+          resolve(archive);
+        },
+        (err) => reject(err),
       );
-
-      // Resolve immediately after finalize: the Nest StreamableFile will pipe
-      // and consume the archive, which in turn emits its "end" event. Waiting
-      // for "end" here would deadlock, since the stream is not read until the
-      // promise resolves.
-      try {
-        void archive.finalize();
-      } catch (err) {
-        if (!settled) {
-          settled = true;
-          reject(err);
-        }
-        return;
-      }
-      resolve(archive);
     });
   }
 }

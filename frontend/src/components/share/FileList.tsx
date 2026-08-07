@@ -141,7 +141,7 @@ const FileList = ({
             : files!.map((file) => (
                 <tr key={file.name}>
                   <td>{renderFileName(file.name)}</td>
-                  <td>{byteToHumanSizeString(parseInt(file.size))}</td>
+                  <td>{byteToHumanSizeString(Number(file.size))}</td>
                   <td>{file.description || "-"}</td>
                   <td>
                     <Group justify="flex-end" wrap="nowrap">

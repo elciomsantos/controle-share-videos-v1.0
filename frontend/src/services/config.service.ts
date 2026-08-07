@@ -1,4 +1,4 @@
-import Config, { AdminConfig, UpdateConfig } from "../types/config.type";
+import Config, { AdminConfig, GetReturn, UpdateConfig } from "../types/config.type";
 import api from "./api.service";
 import { stringToTimespan } from "../utils/date.util";
 
@@ -31,12 +31,12 @@ const updateMany = async (data: UpdateConfig[]): Promise<AdminConfig[]> => {
   return (await api.patch("/configs/admin", data)).data;
 };
 
-const get = (
-  key: string,
+const get = <K extends string>(
+  key: K,
   configVariables: Config[],
   returnDefault: boolean = false,
-): any => {
-  if (!configVariables) return null;
+): GetReturn<K> => {
+  if (!configVariables) return null as unknown as GetReturn<K>;
 
   const configVariable = configVariables.filter(
     (variable) => variable.key == key,
@@ -49,11 +49,14 @@ const get = (
     : (configVariable.value ?? configVariable.defaultValue);
 
   if (configVariable.type == "number" || configVariable.type == "filesize")
-    return parseInt(value);
-  if (configVariable.type == "boolean") return value == "true";
+    return parseInt(value) as unknown as GetReturn<K>;
+  if (configVariable.type == "boolean")
+    return (value == "true") as unknown as GetReturn<K>;
   if (configVariable.type == "string" || configVariable.type == "text")
-    return value;
-  if (configVariable.type == "timespan") return stringToTimespan(value);
+    return value as unknown as GetReturn<K>;
+  if (configVariable.type == "timespan")
+    return stringToTimespan(value) as unknown as GetReturn<K>;
+  return undefined as unknown as GetReturn<K>;
 };
 
 const finishSetup = async (): Promise<AdminConfig[]> => {

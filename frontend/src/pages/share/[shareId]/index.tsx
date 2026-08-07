@@ -45,13 +45,18 @@ const Share = ({ shareId }: { shareId: string }) => {
 
   const handleEditClick = async () => {
     try {
-      const myShares = await shareService.getMyShares();
-      const myShare = myShares.find((s) => s.id === shareId);
+      // R03: getMyShares() agora retorna Page<MyShare>. Buscamos o share
+      // na primeira página (perPage=100). Se o owner tiver mais de 100
+      // shares ativos e o alvo não estiver aqui, o modal não abre — mesmo
+      // comportamento anterior ("return early if not found"). Follow-up
+      // poderia trocar esta chamada por um `getMyShareById` dedicado.
+      const page = await shareService.getMyShares({ page: 1, perPage: 100 });
+      const myShare = page.items.find((s) => s.id === shareId);
       if (!myShare) return;
       showShareInformationsModal(
         modals,
         myShare,
-        parseInt(config.get("share.maxSize")),
+        config.get("share.maxSize"),
         config.get("general.appUrl"),
         config.get("general.appUrl", true),
         isAdminOrAuditor(user)
@@ -181,7 +186,7 @@ const Share = ({ shareId }: { shareId: string }) => {
                   size: byteToHumanSizeString(
                     share?.files?.reduce(
                       (total: number, file: { size: string }) =>
-                        total + parseInt(file.size),
+                        total + Number(file.size),
                       0,
                     ) || 0,
                   ),

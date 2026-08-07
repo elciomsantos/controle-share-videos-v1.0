@@ -34,7 +34,7 @@ const EditableUpload = ({
   const config = useConfig();
   const modals = useModals();
 
-  const chunkSize = useRef(parseInt(config.get("share.chunkSize")));
+  const chunkSize = useRef(config.get("share.chunkSize"));
 
   const [existingFiles, setExistingFiles] =
     useState<Array<FileMetaData & { deleted?: boolean }>>(savedFiles);
@@ -63,13 +63,13 @@ const EditableUpload = ({
     setExistingFiles(_existingFiles);
   };
 
-  maxShareSize ??= parseInt(config.get("share.maxSize"));
+  maxShareSize ??= config.get("share.maxSize");
 
   const currentFilesSize = useMemo(() => {
     return (
       existingFiles
         .filter((file) => !file.deleted)
-        .reduce((acc, file) => acc + parseInt(file.size), 0) +
+        .reduce((acc, file) => acc + Number(file.size), 0) +
       uploadingFiles.reduce((acc, file) => acc + file.size, 0)
     );
   }, [existingFiles, uploadingFiles]);
