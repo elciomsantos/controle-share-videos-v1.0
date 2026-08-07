@@ -13,7 +13,7 @@
 A auditoria completa (Fases 1–11) produziu **75 achados** distribuídos em 11 domínios. Esta fase consolida esses achados em um único plano de refatoração priorizado e detalha, com **código atual × sugerido**, as **8 refatorações de maior retorno sobre investimento (ROI)**, cobrindo os 4 pilares de impacto:
 
 - **Segurança**: JwtGuard fail-closed (SEC-01 — resolvido 2026-08-07) e tipagem de tamanho de arquivo (BDB-01 — resolvido 2026-08-07) — as duas causas raiz mais perigosas.
-- **Performance**: paginação de listagens (PERF-01) e limpeza de shares em lote (BDB-04/PERF-04).
+- **Performance**: paginação de listagens (PERF-01 — resolvido 2026-08-07) e limpeza de shares em lote (BDB-04/PERF-04).
 - **Manutenibilidade**: god class `ShareService` (ARQ-02) e `get(): any` no `ConfigService` (QAL-03).
 - **Qualidade/Operação**: infraestrutura de testes + CI (QTS-01/02/04 — resolvidos 2026-08-07) e correções de deploy Docker/Caddy (DOP-01/03/05).
 
@@ -67,7 +67,7 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 
 | ID | Achado | Fase | Localização |
 |----|--------|------|-------------|
-| PERF-01 | Listagens de shares sem paginação (carrega tudo) | 6 | `share.service.ts:272-301` |
+| ~~PERF-01~~ | ~~Listagens de shares sem paginação (carrega tudo)~~ | 6 | ✅ Resolvido 2026-08-07 — `getShares(page,perPage)`/`getSharesByUser(userId,page,perPage)` com `skip`/`take`/`count` + envelope `{items,total,page,perPage}`; controller `normalizePagination`; frontend consome `page.items` |
 | ~~QAL-01 / QTS-01~~ | ~~Zero testes (unitário/frontend)~~ | 7/10 | ✅ Resolvido 2026-08-07 (R07) — 9 suites backend/77 testes + 5 testes Vitest frontend |
 | ~~QTS-02~~ | ~~`test:system` destrutivo (`migrate reset -f`) + `newman` não declarado~~ | 10 | ✅ Resolvido 2026-08-07 — `test:system` delega ao `test:e2e` efêmero; `newman` em devDependencies |
 | ~~QTS-04~~ | ~~Sem CI/gates~~ | 10 | ✅ Resolvido 2026-08-07 — `.github/workflows/ci.yml` (lint/build/unit/coverage/e2e) |
@@ -199,7 +199,7 @@ ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (t
 
 ---
 
-### R03 — Paginação nas listagens de shares
+### R03 — Paginação nas listagens de shares — ✅ **Resolvido 2026-08-07**
 
 1. **Problema**: `getShares()`/`getSharesByUser()` retornam **todos** os shares (incluindo `files`/`recipients`) — degrada com o volume e amplia N+1.
 2. **Localização**: `backend/src/share/share.service.ts:272-301`; controller em `backend/src/share/`.
@@ -451,7 +451,7 @@ ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (t
 2. R02 (JwtGuard)   ──►  ✅ Resolvido 2026-08-07 — fail-closed + spec
 3. R01 (File.size)  ──►  ✅ Resolvido 2026-08-07 — BigInt + migração + toBytes/getNumber
 4. R08 (Docker)     ──►  ✅ Resolvido 2026-08-07 (FASE-9)
-5. R03 (paginação)  ──►  muda contrato; documentar breaking change
+5. R03 (paginação)  ──►  ✅ Resolvido 2026-08-07 — skip/take/count + envelope `Page<T>`
 6. R04 (limpeza)    ──►  disponibilidade; baixo risco
 7. R06 (config)     ──►  incremental
 8. R05 (god class)  ──►  por último, com rede de testes (R07) estabilizada
