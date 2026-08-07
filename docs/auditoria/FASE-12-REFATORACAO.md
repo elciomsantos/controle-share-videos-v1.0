@@ -15,7 +15,7 @@ A auditoria completa (Fases 1–11) produziu **75 achados** distribuídos em 11 
 - **Segurança**: JwtGuard fail-open (SEC-01) e tipagem de tamanho de arquivo (BDB-01) — as duas causas raiz mais perigosas.
 - **Performance**: paginação de listagens (PERF-01) e limpeza de shares em lote (BDB-04/PERF-04).
 - **Manutenibilidade**: god class `ShareService` (ARQ-02) e `get(): any` no `ConfigService` (QAL-03).
-- **Qualidade/Operação**: infraestrutura de testes + CI (QTS-01/02/04) e correções de deploy Docker/Caddy (DOP-01/03/05).
+- **Qualidade/Operação**: infraestrutura de testes + CI (QTS-01/02/04 — resolvidos 2026-08-07) e correções de deploy Docker/Caddy (DOP-01/03/05).
 
 Nenhuma alteração de código é aplicada nesta fase. A implementação é responsabilidade da **Fase 13 (Plano de Execução)** e deve respeitar o processo controlado de implementação definido na Especificação-final (commits atômicos, aprovação de mudança, verificação por testes antes/depois).
 
@@ -68,9 +68,9 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 | ID | Achado | Fase | Localização |
 |----|--------|------|-------------|
 | PERF-01 | Listagens de shares sem paginação (carrega tudo) | 6 | `share.service.ts:272-301` |
-| QAL-01 / QTS-01 | Zero testes (unitário/frontend) | 7/10 | raiz; `backend/package.json:79` |
-| QTS-02 | `test:system` destrutivo (`migrate reset -f`) + `newman` não declarado | 10 | `backend/package.json:10` |
-| QTS-04 | Sem CI/gates | 10 | (inexistente) |
+| ~~QAL-01 / QTS-01~~ | ~~Zero testes (unitário/frontend)~~ | 7/10 | ✅ Resolvido 2026-08-07 (R07) — 9 suites backend/77 testes + 5 testes Vitest frontend |
+| ~~QTS-02~~ | ~~`test:system` destrutivo (`migrate reset -f`) + `newman` não declarado~~ | 10 | ✅ Resolvido 2026-08-07 — `test:system` delega ao `test:e2e` efêmero; `newman` em devDependencies |
+| ~~QTS-04~~ | ~~Sem CI/gates~~ | 10 | ✅ Resolvido 2026-08-07 — `.github/workflows/ci.yml` (lint/build/unit/coverage/e2e) |
 | INF-01 | Dependências vulneráveis (postcss/next) | 8 | `frontend/package.json` |
 | ~~DOP-01~~ | ~~`frontend` usa `target: frontend-builder` (inalcançável em prod)~~ | 9 | ✅ Resolvido 2026-08-07 — compose base usa `target: frontend-runner` + `command` do servidor standalone; validado HTTP 200 na 3333 |
 | ~~DOP-05~~ | ~~`Caddyfile.prod` usa `{$DOMAIN}`/`{$ACME_EMAIL}`; compose injeta `*_FILE` (Caddy não expande)~~ | 9 | ✅ Resolvido 2026-08-07 — `reverse-proxy/entrypoint.sh` expande `*_FILE` → `DOMAIN`/`ACME_EMAIL`; validado |
@@ -353,7 +353,9 @@ ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (t
 
 ---
 
-### R07 — Infraestrutura de testes + CI (quick win de maior impacto)
+### R07 — Infraestrutura de testes + CI (quick win de maior impacto) — ✅ **Resolvido 2026-08-07**
+
+> **Status:** Implementado — 9 suites unitárias backend (77 testes), 5 testes e2e efêmeros, 5 testes frontend (Vitest), coverage com thresholds e workflow CI `.github/workflows/ci.yml` (lint/build/unit/coverage/e2e nos dois workspaces). `newman` declarado em devDependencies; `test:system` agora delega ao `test:e2e` não destrutivo.
 
 1. **Problema**: Zero testes unitários/E2E não-destrutivos; `test:system` apaga o banco (`migrate reset -f`) e chama `newman` não declarado.
 2. **Localização**: `backend/package.json:10,79,107`; coleção `backend/test/newman-system-tests.json`.
@@ -434,7 +436,7 @@ ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (t
 - ~~DOP-08~~ ✅ **Resolvido 2026-08-07:** `/api/health` usa `$queryRaw\`SELECT 1\`` no lugar de `config.findMany()` (↔ PERF-07).
 - ~~DOP-07~~ ✅ **Resolvido 2026-08-07 (commit `5e9b987`):** `.dockerignore` inclui `**/secrets/`, `.env*`, `**/scripts/secrets/`, `**/data/` e `*.log`.
 - DOC-04: preencher `license`/`repository` nos 4 `package.json`.
-- QTS-07: remover `@nestjs/testing` órfão **após** R07.
+- ~~QTS-07~~ ✅ **Resolvido 2026-08-07:** `@nestjs/testing` deixou de ser órfão — usado pelo `test/auth-share.e2e-spec.ts` (R07).
 - BKD-05/QAL-05: revisar TODOs com impacto de segurança em `share.service.ts:246`.
 - FRN-09: adicionar `rel="noopener noreferrer"` nos `target="_blank"`.
 - FRN-06: remover `user-scalable=no` (acessibilidade).
@@ -445,10 +447,10 @@ ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (t
 ## 12.7 Ordem de execução sugerida (dependências)
 
 ```
-1. R07 (testes+CI)  ──►  pré-requisito de segurança para qualquer mudança de código
+1. R07 (testes+CI)  ──►  ✅ Resolvido 2026-08-07 — pré-requisito de garantia
 2. R02 (JwtGuard)   ──►  vulnerabilidade ativa, mudança isolada
 3. R01 (File.size)  ──►  exige migração; fazer com testes verdes (R07) e deploy coordenado
-4. R08 (Docker)     ──►  bloqueador de produção, independente
+4. R08 (Docker)     ──►  ✅ Resolvido 2026-08-07 (FASE-9)
 5. R03 (paginação)  ──►  muda contrato; documentar breaking change
 6. R04 (limpeza)    ──►  disponibilidade; baixo risco
 7. R06 (config)     ──►  incremental
