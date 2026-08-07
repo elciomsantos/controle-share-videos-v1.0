@@ -42,11 +42,12 @@ A base de imagem e os scripts de entrada são **exemplares** (multi-stage com pu
 - **Impacto:** segurança declarada que não executa; um atacante não pode contar com ela, mas o operador acredita que sim. Consolida SEC-02 (Fase 5), QAL-02 (Fase 7) e INF-03 (Fase 8) no plano de deploy.
 - **Resolução:** decisão formal `docs/Padronizacao-07-clamav.md` (26/07/2026) **rejeita** a integração. O serviço `clamav/clamav` foi **removido dos compose files** (base e dev), junto do módulo `backend/src/clamscan/` e da dependência `clamscan`. Não há mais controle fantasma no deploy.
 
-### DOP-03 — `DATABASE_URL` do compose base aponta para fora do volume — risco de perda de dados 🟠 Médio
+### DOP-03 — `DATABASE_URL` do compose base aponta para fora do volume — risco de perda de dados 🟠 Médio — ✅ Resolvido
 
 - **Onde:** `docker-compose.yml:33` (`DATABASE_URL=file:/data/controle-videos.db`) vs volume `backend-data:/opt/app/backend/data` (l.42) e prod/local (`file:/opt/app/backend/data/controle-videos.db` / `./data`).
 - **Evidência:** o entrypoint roda com `WORKDIR /opt/app/backend`; o volume de persistência monta em `/opt/app/backend/data`. O path `/data` do compose base **não é persistido** — o SQLite seria recriado a cada `up`/recreate.
 - **Impacto:** se o compose base for usado, perda total do banco (config, shares, users) em qualquer recriação de contêiner.
+- **Resolução:** corrigido no commit `272e204` — o compose base usa `DATABASE_URL=file:/opt/app/backend/data/controle-videos.db` (l.33), dentro do volume `backend-data:/opt/app/backend/data`. Consistente com o prod (`file:/opt/app/backend/data/controle-videos.db` montado em `/srv/controle-share-videos/data`).
 
 ### DOP-04 — Compose base inconsistente e superseded: Caddy 2.8 vs 2.9, secrets mortos 🟠 Médio
 
@@ -108,7 +109,7 @@ A base de imagem e os scripts de entrada são **exemplares** (multi-stage com pu
 
 1. **Corrigir o serviço `frontend` (Alto, bloqueia prod):** apontar `target: frontend-runner` e adicionar `command: ["node", "server.js"]` + `ENV PORT=3333`, **ou** remover o serviço standalone e deixar o frontend exclusivamente na imagem `runner` (ajustando `Caddyfile.prod` para `backend:3333` interno). Validar com `docker compose -f docker-compose.prod.yml config` e um `up` de teste.
 2. ~~**Resolver ClamAV de uma vez (Alto)**~~ ✅ **Concluído (2026-08-07):** a decisão formal (`docs/Padronizacao-07-clamav.md`) é de **rejeição** — o serviço foi **removido dos compose files** (base e dev). Não há mais controle fantasma; fecha SEC-02/QAL-02/INF-03/DOP-02.
-3. **Alinhar `DATABASE_URL` do compose base ao volume** (`file:/opt/app/backend/data/controle-videos.db`) ou marcar o arquivo como deprecated/remover (DOP-03).
+3. ~~**Alinhar `DATABASE_URL` do compose base ao volume**~~ ✅ **Resolvido (commit `272e204`)**: usa `file:/opt/app/backend/data/controle-videos.db` (DOP-03).
 4. **Deprecar o compose base ou consolidá-lo** com o modelo prod: Caddy 2.9, remover secrets mortos (`jwt_secret`, `smtp_password`), eliminar a dependência de `./secrets/*.txt` (DOP-04).
 5. ~~**Corrigir a resolução de domínio/ACME do Caddy**~~ ✅ **Resolvido (2026-08-07)** (DOP-05): entrypoint do Caddy expande `DOMAIN_FILE`/`ACME_EMAIL_FILE` → `DOMAIN`/`ACME_EMAIL` antes de iniciar; validado "Valid configuration" e TLS para o domínio resolvido.
 6. **Pinar imagens** do monitoring (DOP-06) — alinhar com INF-01 (Fase 8). *(ClamAV removido do compose; item já não se aplica a ele.)*

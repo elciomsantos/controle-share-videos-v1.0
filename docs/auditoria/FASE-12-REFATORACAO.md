@@ -101,7 +101,7 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 | QAL-03 | `get(): any` e `parseInt` espalhado | 7 |
 | QAL-04/05 | Disciplina de erros; TODOs com impacto de segurança | 7 |
 | INF-02/03 | Rotina de atualização; dependências | 8 |
-| DOP-03 | `DATABASE_URL` fora do volume | 9 |
+| ~~DOP-03~~ | ~~`DATABASE_URL` fora do volume~~ | 9 | ✅ Resolvido — compose base usa `file:/opt/app/backend/data/controle-videos.db` (commit `272e204`) |
 | DOP-04 | Compose base superseded (Caddy 2.8→2.9, secrets mortos) | 9 |
 | QTS-03 | Cobertura coleção e2e só auth+share | 10 |
 | QTS-05 | Credenciais/URL hardcoded no Newman | 10 |
