@@ -13,7 +13,7 @@
 A auditoria completa (Fases 1–11) produziu **75 achados** distribuídos em 11 domínios. Esta fase consolida esses achados em um único plano de refatoração priorizado e detalha, com **código atual × sugerido**, as **8 refatorações de maior retorno sobre investimento (ROI)**, cobrindo os 4 pilares de impacto:
 
 - **Segurança**: JwtGuard fail-closed (SEC-01 — resolvido 2026-08-07) e tipagem de tamanho de arquivo (BDB-01 — resolvido 2026-08-07) — as duas causas raiz mais perigosas.
-- **Performance**: paginação de listagens (PERF-01 — resolvido 2026-08-07) e limpeza de shares em lote (BDB-04/PERF-04).
+- **Performance**: paginação de listagens (PERF-01 — resolvido 2026-08-07) e limpeza de shares em lote (BDB-04/PERF-04 — resolvido 2026-08-07).
 - **Manutenibilidade**: god class `ShareService` (ARQ-02) e `get(): any` no `ConfigService` (QAL-03).
 - **Qualidade/Operação**: infraestrutura de testes + CI (QTS-01/02/04 — resolvidos 2026-08-07) e correções de deploy Docker/Caddy (DOP-01/03/05).
 
@@ -76,7 +76,7 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 | ~~DOP-05~~ | ~~`Caddyfile.prod` usa `{$DOMAIN}`/`{$ACME_EMAIL}`; compose injeta `*_FILE` (Caddy não expande)~~ | 9 | ✅ Resolvido 2026-08-07 — `reverse-proxy/entrypoint.sh` expande `*_FILE` → `DOMAIN`/`ACME_EMAIL`; validado |
 | SEC-03 | Tokens em memória/duplicidade de refresh rotation | 5 | `auth/` |
 | SEC-04 | `i`/segredos em configuração | 5 | `config.seed.ts` |
-| BDB-04 | Jobs de limpeza sem transação/batching | 4 | `jobs.service.ts:21-56` |
+| ~~BDB-04~~ | ~~Jobs de limpeza sem transação/batching~~ | 4 | ✅ Resolvido 2026-08-07 — `jobs.service.ts:21-73` processa em lotes de 50 (cursor `lastId`), `try/catch` por item com log, `deleteMany` por ID |
 | ~~QAL-02~~ | ~~`ClamSca...` (flag/estado não implementado)~~ | 7 | ✅ Resolvido 2026-08-07 — módulo removido (decisão formal rejeita ClamAV) |
 | ~~DOC-03~~ | ~~Decisão ClamAV conflitante (README × Visão-geral × código)~~ | 11 | ✅ Resolvido 2026-08-07 — README sem menções; visão formal alinhada |
 
@@ -88,7 +88,7 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 | ARQ-03 | Código duplicado e divergente (frontend/backend parse) | 1 |
 | BKD-01 | `resetPassword()` reutilizado em fluxos | 2 |
 | ~~BKD-03 / FRN-03~~ | ~~`parseInt` de tamanho com `NaN`~~ | 2/3 | ✅ Resolvido 2026-08-07 (R01) — `parseInt` substituído por `toBytes()`/`getNumber()` |
-| BKD-06 / PERF-04 | Limpeza sem batch e I/O síncrono | 2/6 |
+| ~~BKD-06 / PERF-04~~ | ~~Limpeza sem batch e I/O síncrono~~ | 2/6 | ✅ Resolvido 2026-08-07 (R04) — batch de 50 + try/catch por item; `deleteTemporaryFiles` ainda síncrono (PERF-05, P2) |
 | BKD-08 / FRN-04 | Tipos `any` e props mutáveis | 2/3 |
 | FRN-01/02/12 | Estado mutável, gatilhos, mutação por referência | 3 |
 | FRN-05 | Fallback silencioso | 3 |
@@ -238,7 +238,7 @@ ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (t
 
 ---
 
-### R04 — Limpeza de shares expirados: lote + transação + isolamento de erro
+### R04 — Limpeza de shares expirados: lote + transação + isolamento de erro — ✅ **Resolvido 2026-08-07**
 
 1. **Problema**: Job minuto a minuto deleta share a share (N+1), sem transação e sem isolamento — um share com erro interrompe o restante; I/O de arquivos síncrono.
 2. **Localização**: `backend/src/jobs/jobs.service.ts:21-56`.
@@ -452,7 +452,7 @@ ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (t
 3. R01 (File.size)  ──►  ✅ Resolvido 2026-08-07 — BigInt + migração + toBytes/getNumber
 4. R08 (Docker)     ──►  ✅ Resolvido 2026-08-07 (FASE-9)
 5. R03 (paginação)  ──►  ✅ Resolvido 2026-08-07 — skip/take/count + envelope `Page<T>`
-6. R04 (limpeza)    ──►  disponibilidade; baixo risco
+6. R04 (limpeza)    ──►  ✅ Resolvido 2026-08-07 — batch 50 + try/catch por item + deleteMany
 7. R06 (config)     ──►  incremental
 8. R05 (god class)  ──►  por último, com rede de testes (R07) estabilizada
 ```
