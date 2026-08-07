@@ -48,6 +48,9 @@ https://{$DOMAIN} {
         }
         # Stricter limit for auth endpoints
         zone auth {
+            match {
+                path /api/auth/signIn /api/auth/signUp /api/auth/token /api/auth/resetPassword* /api/auth/verify* /api/auth/totp/*
+            }
             key {remote_host}
             events 10
             window 60s
@@ -56,15 +59,13 @@ https://{$DOMAIN} {
 
     # API routes
     handle /api/* {
-        # Apply stricter rate limit to auth endpoints
-        @auth path /api/auth/signIn /api/auth/signUp /api/auth/token /api/auth/resetPassword* /api/auth/verify* /api/auth/totp/*
-        rate_limit @auth zone auth
-
         # Health check restricted to internal networks only (INFRA-MED-01)
         @health path /api/health
-        @internal_network remote_ip 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 127.0.0.0/8
-        respond @health @internal_network 200 "OK"
-        respond @health 404
+        handle @health {
+            @internal_network remote_ip 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 127.0.0.0/8
+            respond @internal_network 200 "OK"
+            respond 404
+        }
 
         reverse_proxy backend:8080 {
             header_up X-Forwarded-For {remote_host}

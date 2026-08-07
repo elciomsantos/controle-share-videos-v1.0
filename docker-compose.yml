@@ -59,7 +59,9 @@ services:
 
   caddy:
     container_name: controle-share-videos-caddy
-    image: caddy:2.8-alpine
+    build:
+      context: ./reverse-proxy
+      dockerfile: Dockerfile
     restart: unless-stopped
     networks:
       - app-network
