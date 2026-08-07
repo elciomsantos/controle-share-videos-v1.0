@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
-import * as fs from "fs";
+import { promises as fsp, type Dirent } from "fs";
 import dayjs from "dayjs";
 import { FileService } from "../file/file.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -116,35 +116,56 @@ export class JobsService {
   }
 
   @Cron("0 0 * * *")
-  deleteTemporaryFiles() {
+  async deleteTemporaryFiles() {
     let filesDeleted = 0;
 
-    const shareDirectories = fs
-      .readdirSync(SHARE_DIRECTORY, { withFileTypes: true })
-      .filter((dirent) => dirent.isDirectory())
-      .map((dirent) => dirent.name);
+    let shareDirectories: Dirent[];
+    try {
+      shareDirectories = (await fsp.readdir(SHARE_DIRECTORY, {
+        withFileTypes: true,
+      })).filter((dirent) => dirent.isDirectory());
+    } catch (err) {
+      this.logger.error(
+        `Falha ao ler diretório de shares ${SHARE_DIRECTORY}: ${err instanceof Error ? err.stack : String(err)}`,
+      );
+      return;
+    }
 
     for (const shareDirectory of shareDirectories) {
-      const temporaryFiles = fs
-        .readdirSync(`${SHARE_DIRECTORY}/${shareDirectory}`)
-        .filter((file) => file.endsWith(".tmp-chunk"));
-
-      for (const file of temporaryFiles) {
-        const stats = fs.statSync(
-          `${SHARE_DIRECTORY}/${shareDirectory}/${file}`,
+      try {
+        const entries = await fsp.readdir(`${SHARE_DIRECTORY}/${shareDirectory.name}`);
+        const temporaryFiles = entries.filter((file) =>
+          file.endsWith(".tmp-chunk"),
         );
-        const isOlderThanOneDay = dayjs(stats.mtime)
-          .add(1, "day")
-          .isBefore(dayjs());
 
-        if (isOlderThanOneDay) {
-          fs.rmSync(`${SHARE_DIRECTORY}/${shareDirectory}/${file}`);
-          filesDeleted++;
+        for (const file of temporaryFiles) {
+          const filePath = `${SHARE_DIRECTORY}/${shareDirectory.name}/${file}`;
+          try {
+            const stats = await fsp.stat(filePath);
+            const isOlderThanOneDay = dayjs(stats.mtime)
+              .add(1, "day")
+              .isBefore(dayjs());
+
+            if (isOlderThanOneDay) {
+              await fsp.rm(filePath);
+              filesDeleted++;
+            }
+          } catch (err) {
+            this.logger.error(
+              `Falha ao processar arquivo temporário ${filePath}: ${err instanceof Error ? err.stack : String(err)}`,
+            );
+          }
         }
+      } catch (err) {
+        this.logger.error(
+          `Falha ao ler diretório de share ${shareDirectory.name}: ${err instanceof Error ? err.stack : String(err)}`,
+        );
       }
     }
 
-    this.logger.log(`Deleted ${filesDeleted} temporary files`);
+    if (filesDeleted > 0) {
+      this.logger.log(`Deleted ${filesDeleted} temporary files`);
+    }
   }
 
   @Cron("1 * * * *")
