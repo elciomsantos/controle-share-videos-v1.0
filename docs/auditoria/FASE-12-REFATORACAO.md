@@ -102,7 +102,7 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 | QAL-04/05 | Disciplina de erros; TODOs com impacto de segurança | 7 |
 | INF-02/03 | Rotina de atualização; dependências | 8 |
 | ~~DOP-03~~ | ~~`DATABASE_URL` fora do volume~~ | 9 | ✅ Resolvido — compose base usa `file:/opt/app/backend/data/controle-videos.db` (commit `272e204`) |
-| ~~DOP-04~~ | ~~Compose base superseded (Caddy 2.8→2.9, secrets mortos)~~ | 9 | ✅ Resolvido 2026-08-07 — base consolidado (Caddy 2.9 custom, `frontend-runner`, `DATABASE_URL` no volume); secrets mortos removidos; admin bootstrap por env; sem `./secrets/*.txt` |
+| ~~DOP-04~~ | ~~Compose base superseded (Caddy 2.8→2.9, secrets mortos)~~ | 9 | ✅ Resolvido 2026-08-07 — base consolidado (Caddy 2.9 custom, `frontend-runner`, `DATABASE_URL` no volume); secrets mortos removidos; admin bootstrap por env; sem `./secrets/*.txt`; pasta `secrets/` órfã (com `Admin@123` em texto-plano) **deletada** |
 | QTS-03 | Cobertura coleção e2e só auth+share | 10 |
 | QTS-05 | Credenciais/URL hardcoded no Newman | 10 |
 | DOC-04/05 | Sem `license`/`repository`; `.env.local.example` incompleto | 11 |
