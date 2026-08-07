@@ -74,8 +74,8 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 | ~~INF-01~~ | ~~Dependências vulneráveis (postcss/next/newman)~~ | 8 | ✅ Resolvido 2026-08-07 — frontend `npm audit fix` (0 vulns); backend `newman` removido (devDep) → `npm install` regenerou lockfile → 0 vulns (eram 14 transitive) |
 | ~~DOP-01~~ | ~~`frontend` usa `target: frontend-builder` (inalcançável em prod)~~ | 9 | ✅ Resolvido 2026-08-07 — compose base usa `target: frontend-runner` + `command` do servidor standalone; validado HTTP 200 na 3333 |
 | ~~DOP-05~~ | ~~`Caddyfile.prod` usa `{$DOMAIN}`/`{$ACME_EMAIL}`; compose injeta `*_FILE` (Caddy não expande)~~ | 9 | ✅ Resolvido 2026-08-07 — `reverse-proxy/entrypoint.sh` expande `*_FILE` → `DOMAIN`/`ACME_EMAIL`; validado |
-| SEC-03 | Tokens em memória/duplicidade de refresh rotation | 5 | `auth/` |
-| SEC-04 | `i`/segredos em configuração | 5 | `config.seed.ts` |
+| ~~SEC-03~~ | ~~Tokens em memória/duplicidade de refresh rotation~~ | 5 | ✅ Resolvido 2026-08-07 — TTL reset 1h + validação na redenção (`auth.service.ts:185`); refresh rotation/reuse-detection pago (SEC-07, commit `1e6eaa4`) |
+| ~~SEC-04~~ | ~~Injeção de HTML em e-mails de share~~ | 5 | ✅ Resolvido 2026-08-07 — `common/sanitize.ts` (`escapeHtml`) aplicado em `email.service.ts` quando `email.sendHtmlEmails=true` |
 | ~~BDB-04~~ | ~~Jobs de limpeza sem transação/batching~~ | 4 | ✅ Resolvido 2026-08-07 — `jobs.service.ts:21-73` processa em lotes de 50 (cursor `lastId`), `try/catch` por item com log, `deleteMany` por ID |
 | ~~QAL-02~~ | ~~`ClamSca...` (flag/estado não implementado)~~ | 7 | ✅ Resolvido 2026-08-07 — módulo removido (decisão formal rejeita ClamAV) |
 | ~~DOC-03~~ | ~~Decisão ClamAV conflitante (README × Visão-geral × código)~~ | 11 | ✅ Resolvido 2026-08-07 — README sem menções; visão formal alinhada |
@@ -93,7 +93,7 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 | FRN-01/02/12 | Estado mutável, gatilhos, mutação por referência | 3 |
 | FRN-05 | Fallback silencioso | 3 |
 | BDB-02/03 | Índices ausentes; listagem N+1 | 4 |
-| SEC-05 | Cabeçalhos de segurança opt-in | 5 |
+| ~~SEC-05~~ | ~~Senha de share em query string~~ | 5 | ✅ Resolvido 2026-08-07 — token via POST `/shares/:id/token` com senha no body; `includePasswordInShareLink` default `false` |
 | ~~SEC-06/07~~ | Rotação/expiração de refresh token | 5 ✅ (2026-08-07) |
 | PERF-02 | E-mails enviados sequencialmente | 6 |
 | PERF-03 | `createZip()` abre até `zipMaxFiles` streams simultâneos | 6 |
