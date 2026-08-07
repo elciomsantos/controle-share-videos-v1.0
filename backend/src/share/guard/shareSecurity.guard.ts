@@ -56,7 +56,7 @@ export class ShareSecurityGuard extends JwtGuard {
     // If admin access is enabled and user is admin, allow access
     if (
       user?.isAdmin &&
-      this.configService.get("share.allowAdminAccessAllShares")
+      this.configService.getBoolean("share.allowAdminAccessAllShares")
     ) {
       return true;
     }

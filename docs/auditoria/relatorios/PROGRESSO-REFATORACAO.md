@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Plano de referência | `REFACTORING_PLAN.md` |
-| Última atualização | 2026-08-04 |
+| Última atualização | 2026-08-07 |
 | Branch | `fix/producao-v1.1.0` |
 | Commits | `98de696` (BDB-02), `4686195` (R03 Breaking) |
 
@@ -16,9 +16,9 @@
 | R01 — BigInt size/shareSizeLimit | ✅ Concluído | migration + deploy coordenado |
 | R08 — Docker/Caddy | ✅ Concluído | compose prod com `target: frontend` |
 | R03 — Paginação nas listagens | ✅ Concluído | Breaking v1.2.0 — envelope `Page<T>` (commit `4686195`) |
-| R04 — Jobs de limpeza em lote + transação | ⬜ Pendente | — |
+| R04 — Jobs de limpeza em lote + transação | ✅ Concluído | batch `take: 50` + cursor + `try/catch` por item |
 | BDB-02 — Índices nos caminhos quentes | ✅ Concluído | quick-win (commit `98de696`) |
-| R06 — Config tipada | ⬜ Pendente | — |
+| R06 — Config tipada | ✅ Concluído | backend + frontend; sem `any`/`parseInt` manual |
 | R05 — Decomposição do ShareService | ⬜ Pendente | depende da rede de testes (R07 ok) |
 
 Sequência do plano: `R07 → R02 → R01 → R08 → R03 → R04 → R06 → R05`.
@@ -62,13 +62,35 @@ Sequência do plano: `R07 → R02 → R01 → R08 → R03 → R04 → R06 → R0
 - Compose prod com `target: frontend` (runtime) + ajustes Caddyfile/reverse proxy.
 - Sem quebra de compatibilidade.
 
-## 6. Próximos passos
+## 6. R04 — Jobs de limpeza em lote + isolamento de erro (concluído)
+- `deleteExpiredShares`/`deleteUnfinishedShares`/`deleteUnactivatedUsers` processam em **lotes de 50** com paginação por cursor (`id > lastId`), evitando loop infinito em falha persistente.
+- `select: { id: true }` (deleção não precisa das colunas) e `deleteMany({ where: { id } })` no lugar de `delete`.
+- `try/catch` por item com `logger.error` (stack) — falha de um share/usuário não interrompe o lote (aceite R04).
+- Unitário novo `jobs.service.spec.ts` (5 testes): early-return `retention = -1`, batching/terminação, isolamento de falha em shares e usuários.
+- `jest.config.js`: `moduleNameMapper` para `file-type` (stub, pkg ESM-only) + `transformIgnorePatterns` — espelhando o e2e.
+- Sem quebra de contrato; lint 0 erros, build OK, unit 49/49, e2e 5/5, cobertura 83.78%.
+
+## 7. R06 — Config tipada (concluído)
+
+**Backend** (`backend/src/config/config.service.ts`)
+- `ConfigValue = string | number | boolean | Timespan`, `ConfigTypeMap` (union com todas as chaves do `config.seed.ts`), `ConfigKeys = keyof ConfigTypeMap` e `GetReturn<K>` (`K extends ConfigKeys ? ConfigTypeMap[K] : unknown`).
+- `get<K extends string>(key)` agora retorna `GetReturn<K>` em vez de `any`; getters tipados `getNumber`/`getBoolean`/`getString`/`getTimespan` (constrain `K extends ConfigKeys`).
+- Migrados todos os consumidores backend: `local.service.ts`, `main.ts`, `config.controller.ts`, `systemLanguage.resolver.ts`, `cache.module.ts`, `user.service.ts`, `user.controller.ts`, `file.service.ts`, `fileSecurity.guard.ts`, `auth.service.ts`, `authTotp.service.ts`, `auth.controller.ts`, `jwt.strategy.ts`, `share.service.ts`, `shareSecurity.guard.ts`, `share.controller.ts`, `email.service.ts`, `jobs.service.ts`.
+- Testes: bloco `typed getters` no `config.service.spec.ts` (28/28); `jobs.service.spec.ts` atualizado para mockar `getTimespan`/`getNumber` (5/5). Unit 54/54, e2e 5/5, cobertura 83.66%.
+
+**Frontend** (`frontend/src/types/config.type.ts`, `services/config.service.ts`, `hooks/config.hook.ts`)
+- `ConfigTypeMap`/`GetReturn` espelhando o backend; `get<K extends string>()` tipado (sem `any`).
+- `middleware.ts` `getConfig` genérico (`<K extends string>`).
+- Removidos `parseInt(config.get(...))` manuais em `EditableUpload.tsx`, `pages/upload/index.tsx`, `pages/account/shares.tsx`, `pages/share/[shareId]/index.tsx`, `components/admin/shares/ManageShareTable.tsx`.
+- Verificação: `tsc --noEmit` 0 erros, `eslint` 0 erros, `next build` OK.
+
+## 8. Próximos passos
 
 1. ~~**Validar CI no GitHub**~~ ✅ push do branch `fix/producao-v1.1.0` e CI verde (backend + frontend, PR #1).
 2. ~~**R03 — Paginação nas listagens**~~ ✅ (commit `4686195`) — envelope `Page<T>`, quebra de contrato v1.2.0.
 3. ~~**BDB-02 — Índices nos caminhos quentes**~~ ✅ (commit `98de696`) — 5 @@index, sem quebra de contratos.
-4. **Revisão e merge** do PR #1 em `main` (após validação do usuário).
-5. **Registrar changelog/tech-debt**: marcar R01 (breaking), BDB-02 e R03 no `CHANGELOG_SUGERIDO.md` e `TECH_DEBT.md`.
-6. **R04 — Jobs de limpeza em lote + transação**.
-7. **R06 — Config tipada**.
+4. ~~**R04 — Jobs de limpeza em lote + transação**~~ ✅ — batch 50 + cursor + `try/catch` por item.
+5. ~~**R06 — Config tipada**~~ ✅ — backend + frontend, sem `any`/`parseInt` manual.
+6. **Revisão e merge** do PR #1 em `main` (após validação do usuário).
+7. **Registrar changelog/tech-debt**: marcar R01 (breaking), BDB-02, R03, R04 e R06 no `CHANGELOG_SUGERIDO.md` e `TECH_DEBT.md`.
 8. **R05 — Decomposição do `ShareService`** (por último; agora com rede de testes ativa).

@@ -85,12 +85,18 @@ Registro único da dívida técnica do projeto: tudo que não é bug de seguran�
 | DOC-02 | `SECURITY.md` vazio | ✅ Paga — versões suportadas + canal privado de report |
 | BDB-02 | Índices ausentes nos caminhos quentes | ✅ Paga (2026-08-04) — 5 @@index no schema, migration `add_hot_path_indexes` |
 | PERF-01/BDB-03 | Listagens sem paginação | ✅ Paga (R03) — envelope `Page<T>` + `take`/`skip` + `count`, frontend adaptado, Breaking v1.2.0 |
+| BKD-06 | Jobs de limpeza um-a-um sem transação | ✅ Paga (R04) — batch `take: 50` + cursor + `deleteMany` + `try/catch` por item |
+| BDB-04 | Crons de limpeza um-a-um sem transação | ✅ Paga (R04) — `select: { id: true }`, `deleteMany`, isolamento de erro por item |
+| PERF-04 | Jobs de limpeza sem batching/limite por execução | ✅ Paga (R04) — teto de 50 por lote, sem N+1 |
+| QAL-03 | `config.get(): any` como ponto fraco central | ✅ Paga (R06) — `ConfigKeys`/`ConfigTypeMap` + getters tipados, sem `any` no service (backend) |
+| BKD-08 | Retornos `any` em serviços | ✅ Paga (R06) — getters tipados `getNumber`/`getBoolean`/`getString`/`getTimespan` |
+| FRN-04 | Tipos `any`/props fracamente tipadas | ✅ Paga (R06) — `ConfigTypeMap`/`GetReturn` no frontend, `get()` sem `any`, `parseInt` manual removido |
 
 ## 6. Quadrante Urgência × Evolução
 
 - **Urgente pagar agora** (bloqueia segurança/evolução): ~~QAL-01 (testes)~~✅, BKD-01/SEC-03 (reset TTL), FRN-12 (mutação de props), ~~BDB-01 (String→BigInt)~~✅.
-- **Pagar em breve** (facilita features): ARQ-02 (split), QAL-03 (config tipada), BKD-06 (jobs), BDB-05 (nullable `expiresAt`), DOC-01 (README).
-- **Pagas recentemente**: ~~BDB-02~~ (índices), ~~PERF-01/BDB-03~~ (paginação R03).
+- **Pagar em breve** (facilita features): ARQ-02 (split), BDB-05 (nullable `expiresAt`), DOC-01 (README).
+- **Pagas recentemente**: ~~BDB-02~~ (índices), ~~PERF-01/BDB-03~~ (paginação R03), ~~BKD-06/BDB-04/PERF-04~~ (jobs em lote R04), ~~QAL-03/BKD-08/FRN-04~~ (config tipada R06).
 - **Baixa prioridade** (cosmético/semântico): FRN-05, FRN-02, BDB-06, QAL-06, ARQ-04.
 
 ## 7. Conclusões

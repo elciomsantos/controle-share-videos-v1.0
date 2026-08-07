@@ -44,7 +44,7 @@ export class UserService {
     let hash: string;
     let temporaryPassword: string | undefined;
 
-    const passwordLength = this.config.get("share.generatedPasswordLength");
+    const passwordLength = this.config.getNumber("share.generatedPasswordLength");
 
     if (dto.generatePassword || !dto.password) {
       temporaryPassword = this.generateSecurePassword(passwordLength);
@@ -71,7 +71,7 @@ export class UserService {
           },
         });
 
-        if (temporaryPassword && this.config.get("smtp.enabled")) {
+        if (temporaryPassword && this.config.getBoolean("smtp.enabled")) {
           await this.emailService.sendInviteEmail(dto.email, temporaryPassword);
         }
 

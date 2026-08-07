@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 import configService from "../services/config.service";
 import { ConfigHook } from "../types/config.type";
+import type { GetReturn } from "../types/config.type";
 
 export const ConfigContext = createContext<ConfigHook>({
   configVariables: [],
@@ -10,7 +11,7 @@ export const ConfigContext = createContext<ConfigHook>({
 const useConfig = () => {
   const configContext = useContext(ConfigContext);
   return {
-    get: (key: string, returnDefault?: boolean) =>
+    get: <K extends string>(key: K, returnDefault?: boolean): GetReturn<K> =>
       configService.get(key, configContext.configVariables, returnDefault),
     refresh: async () => configContext.refresh(),
   };

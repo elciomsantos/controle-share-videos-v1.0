@@ -105,7 +105,7 @@ export class AuthTotpService {
       throw new BadRequestException(this.i18n.t("auth.totpAlreadyEnabled"));
     }
 
-    const issuer = this.configService.get("general.appName");
+    const issuer = this.configService.getString("general.appName");
     const secret = generateSecret();
 
     const otpURL = generateURI({

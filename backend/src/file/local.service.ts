@@ -97,7 +97,7 @@ export class LocalFileService {
     }
 
     // If the sent chunk index and the expected chunk index doesn't match throw an error
-    const chunkSize = this.config.get("share.chunkSize");
+    const chunkSize = this.config.getNumber("share.chunkSize");
     const expectedChunkIndex = Math.ceil(diskFileSize / chunkSize);
 
     if (expectedChunkIndex != chunk.index)
@@ -126,7 +126,7 @@ export class LocalFileService {
 
     const shareSizeSum = fileSizeSum + diskFileSize + buffer.byteLength;
 
-    const globalLimit = toBytes(this.config.get("share.maxSize"));
+    const globalLimit = this.config.getNumber("share.maxSize");
     const userLimit = share.creator?.shareSizeLimit != null
       ? toBytes(share.creator.shareSizeLimit)
       : undefined;
@@ -141,7 +141,7 @@ export class LocalFileService {
 
     // GAP-01: per-file size limit, when configured (> 0 applies). Defends
     // against a single huge upload consuming the entire share budget.
-    const maxFileSize = toBytes(this.config.get("share.maxFileSize"));
+    const maxFileSize = this.config.getNumber("share.maxFileSize");
     if (maxFileSize > 0 && diskFileSize + buffer.byteLength > maxFileSize) {
       throw new HttpException(
         `File exceeds per-file size limit of ${maxFileSize} bytes`,
@@ -357,7 +357,7 @@ export class LocalFileService {
 
     return new Promise((resolve, reject) => {
       createZipStream({
-        zlib: { level: this.config.get("share.zipCompressionLevel") },
+        zlib: { level: this.config.getNumber("share.zipCompressionLevel") },
       }).then(
         (archive) => {
           let settled = false;
