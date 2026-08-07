@@ -10,3 +10,6 @@ frontend/.next/
 **/.env*
 **/.env.local
 **/.env.*
+**/data/
+**/scripts/secrets/
+**/*.log
