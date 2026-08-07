@@ -50,8 +50,8 @@ Relatório dedicado de segurança consolidando os achados da Fase 5 (`SEC-01` a 
 
 | ID | Achado | Sev. | Localização |
 |----|--------|------|-------------|
-| SEC-04 | Injeção de HTML em e-mails de share quando `email.sendHtmlEmails=true` | 🟠 | `backend/src/mail/` |
-| BKD-01 | `resetPassword()` reutilizado em fluxos (amplia SEC-03) | 🟠 | `backend/src/auth/` |
+| SEC-04 | Injeção de HTML em e-mails de share quando `email.sendHtmlEmails=true` | 🟠 | ~~`backend/src/mail/`~~ ✅ pago — `common/sanitize.ts` + `email.service.ts` |
+| BKD-01 | `resetPassword()` reutilizado em fluxos (amplia SEC-03) | 🟠 | ~~`backend/src/auth/`~~ ✅ pago — TTL 1h validado na redenção |
 
 ### 3.5 Dependências e Política
 
@@ -71,11 +71,11 @@ Relatório dedicado de segurança consolidando os achados da Fase 5 (`SEC-01` a 
 
 1. **P0 — SEC-01**: fail-closed no `JwtGuard` (relançar `UnauthorizedException`; marcar rotas públicas com `@Public()`). Baixo esforço, elimina bypass.
 2. **P0 — BDB-01**: migrar tamanhos para `BigInt` (fecha `NaN` de cota). Requer deploy coordenado.
-3. **P1 — SEC-03**: expirar token de reset (TTL + `expiresAt`); corrigir `BKD-01`.
-4. **P1 — SEC-05**: política de compartilhamento sem senha em query string (usar campo POST / header).
-5. **P1 — INF-01**: remover override de `postcss` para 8.5.22+ e rodar `npm audit fix`.
-6. **P1 — DOC-02**: preencher `SECURITY.md` (versões suportadas + canal de report).
-7. **P2 — SEC-04**: sanitizar HTML em e-mails (`sanitize-html` ou só texto).
+3. **P1 — SEC-03**: expirar token de reset (TTL + `expiresAt`); corrigir `BKD-01`. ✅ **pago** — TTL 1h validado na redenção.
+4. **P1 — SEC-05**: política de compartilhamento sem senha em query string (usar campo POST / header). ✅ **pago** — token via POST `/shares/:id/token` com senha no body.
+5. **P1 — INF-01**: remover override de `postcss` para 8.5.22+ e rodar `npm audit fix`. ✅ **pago** — `postcss ^8.5.22`.
+6. **P1 — DOC-02**: preencher `SECURITY.md` (versões suportadas + canal de report). ✅ **pago**.
+7. **P2 — SEC-04**: sanitizar HTML em e-mails (`sanitize-html` ou só texto). ✅ **pago (2026-08-07)** — `escapeHtml` + `escapeUserInput`.
 8. **P2 — SEC-02/QAL-02**: decidir ClamAV (implementar scan real no upload ou remover deps e docs) — alinhar README, `Visao-geral.md` e código.
 9. **P3 — SEC-06/07/08, QTS-05, DOP-07**: rate-limit de `resendVerification`, transação+reuse-detection no refresh, validar magic bytes de forma fail-closed, mover credenciais Newman para env, excluir `secrets/`/`.env*` do docker context.
 

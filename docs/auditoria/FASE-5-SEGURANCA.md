@@ -34,9 +34,9 @@ O backend é **bem endurecido nas camadas de infraestrutura**: o Prisma parametr
 | Flags de cookie de sessão | ✅ Adequado (`httpOnly`, `sameSite: strict`, `secure` configurável) |
 | Path traversal em download | ✅ Adequado (arquivos em disco renomeados para UUID; `fileId` validado no banco) |
 | Antivírus / malware em uploads | ❌ Falho (SEC-02 — ClamAV nunca executado) |
-| Recuperação de senha / tokens | ⚠️ Parcial (SEC-03 — token de reset não expira; c/ BKD-01) |
-| E-mail transacional (injeção HTML) | ⚠️ Parcial (SEC-04 — condicional a `sendHtmlEmails`) |
-| Credenciais em URL | ⚠️ Parcial (SEC-05 — opt-in, default desligado) |
+| Recuperação de senha / tokens | ✅ Adequado (SEC-03/BKD-01 — token de reset expira em 1h) |
+| E-mail transacional (injeção HTML) | ✅ Adequado (SEC-04 — valores de usuário escapados com `escapeHtml` quando `sendHtmlEmails=true`) |
+| Credenciais em URL | ⚠️ Parcial (SEC-05 — token via body, sem senha em query string) |
 | Enumeração de contas | ⚠️ Parcial (SEC-06) |
 | Rotação de refresh tokens | ⚠️ Parcial (SEC-07) |
 | Fail-open em detecção de magic bytes | ⚠️ Parcial (SEC-08 — documentado) |
@@ -230,6 +230,7 @@ O backend é **bem endurecido nas camadas de infraestrutura**: o Prisma parametr
 - **Benefícios:** neutraliza injeção de HTML/links em e-mail (CWE-79/CWE-80, OWASP ASVS V7); protege destinatários de phishing com aparência oficial; mantém flexibilidade de templates.
 - **Riscos:** escapar o texto pode afetar descrições legítimas que usam formatação simples (quebras de linha) — contornável preservando `\n`; requer decisão de política sobre rich content.
 - **Compatibilidade:** compatível; somente valores controlados por usuário são sanitizados; URLs de sistema intocadas.
+- **✅ Resolvido (2026-08-07):** `backend/src/common/sanitize.ts` (`escapeHtml`) criado; aplicado via `escapeUserInput` em `email.service.ts` para `{creator}`, `{creatorEmail}`, `{desc}`, `{recipientEmail}`, `{fileName}` e `{email}` quando `email.sendHtmlEmails=true`. +4 testes em `email.service.spec.ts` (unit 67/67).
 
 ---
 

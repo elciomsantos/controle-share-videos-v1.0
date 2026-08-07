@@ -11,6 +11,7 @@ import "dayjs/locale/pt-br";
 import nodemailer from "nodemailer";
 import { I18nService } from "nestjs-i18n";
 import { ConfigService } from "../config/config.service";
+import { escapeHtml } from "../common/sanitize";
 
 dayjs.extend(relativeTime as PluginFunc);
 
@@ -62,6 +63,12 @@ export class EmailService {
   
   }
 
+  private escapeUserInput(input: string): string {
+    return this.config.getBoolean("email.sendHtmlEmails")
+      ? escapeHtml(input)
+      : input;
+  }
+
   async sendMailToShareRecipients(
     recipientEmail: string,
     recipientId: string,
@@ -89,14 +96,22 @@ export class EmailService {
         .replaceAll("\\n", "\n")
         .replaceAll(
           "{creator}",
-          creator?.username ??
-          this.i18n.t("email.shareRecipientsCreatorFallback"),
+          this.escapeUserInput(
+            creator?.username ??
+              this.i18n.t("email.shareRecipientsCreatorFallback"),
+          ),
         )
-        .replaceAll("{creatorEmail}", creator?.email ?? "")
+        .replaceAll(
+          "{creatorEmail}",
+          this.escapeUserInput(creator?.email ?? ""),
+        )
         .replaceAll("{shareUrl}", shareUrl)
         .replaceAll(
           "{desc}",
-          description ?? this.i18n.t("email.shareRecipientsDescFallback"),
+          this.escapeUserInput(
+            description ??
+              this.i18n.t("email.shareRecipientsDescFallback"),
+          ),
         )
         .replaceAll(
           "{expires}",
@@ -121,8 +136,8 @@ export class EmailService {
       this.config
         .getString("email.shareDownloadNotificationMessage")
         .replaceAll("\\n", "\n")
-        .replaceAll("{recipientEmail}", recipientEmail)
-        .replaceAll("{fileName}", fileName)
+        .replaceAll("{recipientEmail}", this.escapeUserInput(recipientEmail))
+        .replaceAll("{fileName}", this.escapeUserInput(fileName))
         .replaceAll("{shareUrl}", shareUrl),
     );
   }
@@ -152,7 +167,7 @@ export class EmailService {
         .getString("email.inviteMessage")
         .replaceAll("{url}", loginUrl)
         .replaceAll("{password}", password)
-        .replaceAll("{email}", recipientEmail),
+        .replaceAll("{email}", this.escapeUserInput(recipientEmail)),
     );
   }
 

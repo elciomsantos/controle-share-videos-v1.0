@@ -95,12 +95,13 @@ Registro único da dívida técnica do projeto: tudo que não é bug de seguran�
 | SEC-03/BKD-01 | Token de reset de senha sem TTL | ✅ Paga — `expiresAt` 1h + validação na redenção em `resetPassword()` |
 | SEC-05 | Senha de share em query string | ✅ Paga — token via POST `/shares/:id/token` com senha no body |
 | FRN-12 | Mutação de props por referência | ✅ Paga (2026-08-07) — `map` imutável com spread em `upload/index.tsx`, `EditableUpload.tsx`, `showCreateUploadModal.tsx` |
+| SEC-04 | Injeção de HTML em e-mails de share | ✅ Paga (2026-08-07) — `escapeHtml` em `common/sanitize.ts` aplicado a valores de usuário quando `email.sendHtmlEmails=true` |
 
 ## 6. Quadrante Urgência × Evolução
 
 - **Urgente pagar agora** (bloqueia segurança/evolução): ~~QAL-01 (testes)~~✅, ~~BKD-01/SEC-03 (reset TTL)~~✅, ~~FRN-12 (mutação de props)~~✅, ~~BDB-01 (String→BigInt)~~✅.
-- **Pagar em breve** (facilita features): BDB-05 (nullable `expiresAt`), DOC-01 (README), SEC-04 (sanitizar e-mails de share).
-- **Pagas recentemente**: ~~BDB-02~~ (índices), ~~PERF-01/BDB-03~~ (paginação R03), ~~BKD-06/BDB-04/PERF-04~~ (jobs em lote R04), ~~QAL-03/BKD-08/FRN-04~~ (config tipada R06), ~~ARQ-02~~ (split ShareService R05), ~~SEC-03/BKD-01~~ (TTL reset), ~~SEC-05~~ (token via body), ~~FRN-12~~ (mutação por referência).
+- **Pagar em breve** (facilita features): BDB-05 (nullable `expiresAt`), DOC-01 (README), SEC-06 (rate-limit resend), SEC-07 (reuse-detection refresh).
+- **Pagas recentemente**: ~~BDB-02~~ (índices), ~~PERF-01/BDB-03~~ (paginação R03), ~~BKD-06/BDB-04/PERF-04~~ (jobs em lote R04), ~~QAL-03/BKD-08/FRN-04~~ (config tipada R06), ~~ARQ-02~~ (split ShareService R05), ~~SEC-03/BKD-01~~ (TTL reset), ~~SEC-05~~ (token via body), ~~FRN-12~~ (mutação por referência), ~~SEC-04~~ (sanitização HTML e-mail).
 - **Baixa prioridade** (cosmético/semântico): FRN-05, FRN-02, BDB-06, QAL-06, ARQ-04.
 
 ## 7. Conclusões
@@ -115,5 +116,5 @@ Registro único da dívida técnica do projeto: tudo que não é bug de seguran�
 1. ✅ ~~Testes + CI (QAL-01/QTS-01)~~ — **pago (R07)**.
 2. ✅ ~~BKD-01/SEC-03, FRN-12~~ — dívidas com risco de segurança **pagas**.
 3. ~~ARQ-02~~ (R05), ~~QAL-03~~, ~~BKD-06~~, BDB-05 — refatorações estruturais (R05/R06/R04 pagos; BDB-05 pendente).
-4. SEC-04 (sanitização HTML e-mail), SEC-06 (rate-limit resend), SEC-07 (reuse-detection refresh) — segurança pendente.
+4. SEC-06 (rate-limit resend), SEC-07 (reuse-detection refresh) — segurança pendente.
 5. DOC-01, FRN-05, BDB-06, QAL-04/05/06, ARQ-04 — backlog contínuo.

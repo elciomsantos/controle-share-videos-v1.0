@@ -117,3 +117,4 @@ Fixa **ARQ-02** (god class 772 LOC / 27 métodos). `ShareService` vira orquestra
 7. ✅ **Revisão e merge** do PR #1 em `main` (commit `0bdb1c9`, CI verde backend + frontend).
 8. ✅ **Registrar changelog/tech-debt**: R01 (breaking), BDB-02, R03, R04, R06 e R05 marcados no `CHANGELOG_SUGERIDO.md` e `TECH_DEBT.md`.
 9. ✅ **SEC-03/BKD-01 (TTL reset)**, **SEC-05 (senha em body)**, **FRN-12 (mutação de props)** — pagos e registrados no `TECH_DEBT.md`.
+10. ✅ **SEC-04 (sanitização HTML e-mail)** — `escapeHtml` em `common/sanitize.ts` aplicado a valores de usuário quando `email.sendHtmlEmails=true`; +4 testes em `email.service.spec.ts`.

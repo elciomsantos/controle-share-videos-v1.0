@@ -31,7 +31,7 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 - ✅ **R04** — Jobs de limpeza em lote (batch `take: 50` + cursor + `deleteMany` + `try/catch` por item); fix PERF-04/BDB-04/BKD-06 — sem breaking.
 
 **Pendente (próximos épicos):**
-- v1.1.0: ~~SEC-03 (TTL reset)~~ ✅, ~~SEC-05 (senha em query string)~~ ✅, SEC-04 (sanitização HTML), INF-01 (override postcss), DOC-04 (license/repository).
+- v1.1.0: ~~SEC-03 (TTL reset)~~ ✅, ~~SEC-05 (senha em query string)~~ ✅, ~~SEC-04 (sanitização HTML)~~ ✅, INF-01 (override postcss), DOC-04 (license/repository).
 - v1.2.0: ~~PERF-01/BDB-03 (paginação — R03)~~ ✅, ~~PERF-04/BDB-04 (jobs — R04)~~ ✅, PERF-02..03,05..07, BDB-06 (unique composto).
 - v1.3.0: QAL-03 (R06), ARQ-02 (R05), BDB-05, INF-03, DOC-01/03.
 
@@ -51,6 +51,7 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 - **Meta**: `license`/`repository` preenchidos nos `package.json` — fix DOC-04.
 
 ### Changed
+- Cabeçalhos de e-mail: valores controlados por usuário (creator, desc, recipientEmail, fileName) escapados com `escapeHtml` quando `email.sendHtmlEmails=true` — fix SEC-04.
 - Índices de banco adicionados nos caminhos quentes (`expiration`, `creatorId`, `File.shareId`, `expiresAt`, `isActivated`) — fix BDB-02.
 
 ## 4. Versão Sugerida — v1.2.0 (dados + performance)
