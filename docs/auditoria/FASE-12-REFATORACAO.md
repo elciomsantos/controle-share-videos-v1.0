@@ -71,7 +71,7 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 | ~~QAL-01 / QTS-01~~ | ~~Zero testes (unitário/frontend)~~ | 7/10 | ✅ Resolvido 2026-08-07 (R07) — 9 suites backend/77 testes + 5 testes Vitest frontend |
 | ~~QTS-02~~ | ~~`test:system` destrutivo (`migrate reset -f`) + `newman` não declarado~~ | 10 | ✅ Resolvido 2026-08-07 — `test:system` delega ao `test:e2e` efêmero; `newman` em devDependencies |
 | ~~QTS-04~~ | ~~Sem CI/gates~~ | 10 | ✅ Resolvido 2026-08-07 — `.github/workflows/ci.yml` (lint/build/unit/coverage/e2e) |
-| INF-01 | Dependências vulneráveis (postcss/next) | 8 | `frontend/package.json` |
+| ~~INF-01~~ | ~~Dependências vulneráveis (postcss/next/newman)~~ | 8 | ✅ Resolvido 2026-08-07 — frontend `npm audit fix` (0 vulns); backend `newman` removido (devDep) → `npm install` regenerou lockfile → 0 vulns (eram 14 transitive) |
 | ~~DOP-01~~ | ~~`frontend` usa `target: frontend-builder` (inalcançável em prod)~~ | 9 | ✅ Resolvido 2026-08-07 — compose base usa `target: frontend-runner` + `command` do servidor standalone; validado HTTP 200 na 3333 |
 | ~~DOP-05~~ | ~~`Caddyfile.prod` usa `{$DOMAIN}`/`{$ACME_EMAIL}`; compose injeta `*_FILE` (Caddy não expande)~~ | 9 | ✅ Resolvido 2026-08-07 — `reverse-proxy/entrypoint.sh` expande `*_FILE` → `DOMAIN`/`ACME_EMAIL`; validado |
 | SEC-03 | Tokens em memória/duplicidade de refresh rotation | 5 | `auth/` |
@@ -104,7 +104,7 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 | ~~DOP-03~~ | ~~`DATABASE_URL` fora do volume~~ | 9 | ✅ Resolvido — compose base usa `file:/opt/app/backend/data/controle-videos.db` (commit `272e204`) |
 | ~~DOP-04~~ | ~~Compose base superseded (Caddy 2.8→2.9, secrets mortos)~~ | 9 | ✅ Resolvido 2026-08-07 — base consolidado (Caddy 2.9 custom, `frontend-runner`, `DATABASE_URL` no volume); secrets mortos removidos; admin bootstrap por env; sem `./secrets/*.txt`; pasta `secrets/` órfã (com `Admin@123` em texto-plano) **deletada** |
 | QTS-03 | Cobertura coleção e2e só auth+share | 10 |
-| QTS-05 | Credenciais/URL hardcoded no Newman | 10 |
+| ~~QTS-05~~ | ~~Credenciais/URL hardcoded no Newman~~ | 10 | ✅ Resolvido 2026-08-07 — `newman` removido (devDep); `test/newman-system-tests.json` deletado (órfão) |
 | DOC-04/05 | Sem `license`/`repository`; `.env.local.example` incompleto | 11 |
 
 ### P3 — Baixo / Backlog

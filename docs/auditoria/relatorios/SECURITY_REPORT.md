@@ -35,7 +35,7 @@ Relatório dedicado de segurança consolidando os achados da Fase 5 (`SEC-01` a 
 |----|--------|------|-------------|
 | SEC-03 | Token de redefinição de senha **não expira** (amplia `BKD-01`) | 🟠 | `backend/src/auth/` (reset password) |
 | SEC-05 | `includePasswordInShareLink=true` coloca **senha de share na query string** (vazamento em logs/histórico) | 🟠 | `backend/src/share/`; config |
-| QTS-05 | Credenciais/URL hardcoded na coleção Newman (`system2@test.org`, senha, `API_URL`) | 🟡 | `backend/test/newman-system-tests.json` |
+| ~~QTS-05~~ | ~~Credenciais/URL hardcoded na coleção Newman~~ | 🟡 | ✅ Resolvido 2026-08-07 — `newman` removido (devDep); `test/newman-system-tests.json` deletado |
 | DOP-07 | `.dockerignore` **não exclui** `secrets/` nem `.env*` (contexto completo vai ao daemon) | 🟠 | raiz `.dockerignore` |
 
 ### 3.3 Upload / Antivírus / Limites
@@ -57,7 +57,7 @@ Relatório dedicado de segurança consolidando os achados da Fase 5 (`SEC-01` a 
 
 | ID | Achado | Sev. | Localização |
 |----|--------|------|-------------|
-| INF-01 | `postcss 8.5.18` fixado em `overrides` **dentro da faixa vulnerável**, bloqueando `npm audit fix` (2 moderate) | 🟠 | `frontend/package.json:13` |
+| ~~INF-01~~ | ~~`postcss 8.5.18` fixado em `overrides` **dentro da faixa vulnerável**, bloqueando `npm audit fix`~~ | 🟠 | ✅ Resolvido 2026-08-07 — frontend: override removido + `npm audit fix` (0 vulns); backend: `newman` removido (devDep, vetor de 14 vulns transitive) → 0 vulns |
 | DOC-02 | `SECURITY.md` é stub vazio (sem versões suportadas / canal de disclosure) | 🟠 | `SECURITY.md` (74 bytes) |
 
 ## 4. Conclusões

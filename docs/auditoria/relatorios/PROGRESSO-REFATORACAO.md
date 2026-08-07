@@ -129,5 +129,5 @@ Fixa **ARQ-02** (god class 772 LOC / 27 métodos). `ShareService` vira orquestra
 | SEC-02 — ClamAV no upload | ⚪ Encerrado por decisão formal (26/07/2026) | `docs/Padronizacao-07-clamav.md`; FASE-5 §SEC-02 — código, dep `clamscan` e daemon do compose já removidos |
 | SEC-05 — Mascarar query strings no proxy/Caddy (ex.: token no URL) | ⏳ Aberto | FASE-5 §SEC-05; `reverse-proxy/Caddyfile` |
 | TODO `auth.service.ts:131` — invalidar `loginTokens` antigos (logout de todos os dispositivos) | ⏳ Aberto | distinto do SEC-07 (já pago) |
-| QTS-05 / DOP-07 | ⏳ Aberto | FASE-10 / FASE-12 |
+| QTS-05 / DOP-07 | ✅ QTS-05 pago (2026-08-07) — `newman` removido, `test/newman-system-tests.json` deletado; DOP-07 ⏳ Aberto | FASE-10 / FASE-12 |
 | SEC-06, SEC-07, SEC-08 | ✅ Pago (2026-08-07) | commit `1e6eaa4` |
