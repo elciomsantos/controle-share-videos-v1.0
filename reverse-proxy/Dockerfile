@@ -11,3 +11,10 @@ RUN xcaddy build --with github.com/mholt/caddy-ratelimit
 FROM caddy:2.9-alpine
 
 COPY --from=builder /usr/bin/caddy /usr/bin/caddy
+
+# DOP-05: wrapper que expande *_FILE (Docker secrets) para {$DOMAIN}/{$ACME_EMAIL}
+COPY entrypoint.sh /usr/local/bin/caddy-entrypoint.sh
+RUN chmod +x /usr/local/bin/caddy-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/caddy-entrypoint.sh"]
+CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

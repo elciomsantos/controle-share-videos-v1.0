@@ -56,11 +56,12 @@ A base de imagem e os scripts de entrada são **exemplares** (multi-stage com pu
   - Secrets: o base injeta `jwt_secret`, `admin_password`, `smtp_password` via `./secrets/*.txt` (l.37-40, 117-122), mas **nenhum** é mapeado para env `*_FILE`/consumo. O JWT é gerado no primeiro boot (`config.seed.ts` → `internal.jwtSecret`, conforme comentário do prod l.121-124: "no jwt_secret secret is required"); as credenciais SMTP vêm da tabela `config` (`email.service.ts:29-35` lê `smtp.username`/`smtp.password`). Os únicos `*_FILE` realmente lidos são `ADMIN_EMAIL`/`ADMIN_USERNAME`/`ADMIN_PASSWORD` (`user.seed.ts:17,30-32`, via `readSecretEnv`). Ou seja: **`jwt_secret` e `smtp_password` são secrets mortos** no compose base, que ainda **exige** os arquivos `./secrets/*.txt` (gitignored) para subir.
 - **Impacto:** config de deploy que falha em clone limpo, injeta secrets não usados e diverge do modelo prod (Swarm/external).
 
-### DOP-05 — Caddyfile.prod usa `{$DOMAIN}`/`{$ACME_EMAIL}` mas o compose só injeta `*_FILE` 🟠 Médio
+### DOP-05 — Caddyfile.prod usa `{$DOMAIN}`/`{$ACME_EMAIL}` mas o compose só injeta `*_FILE` 🟠 Médio — ✅ Resolvido (2026-08-07)
 
 - **Onde:** `reverse-proxy/Caddyfile.prod` (`https://{$DOMAIN}`, `tls {$ACME_EMAIL}`), `docker-compose.prod.yml` caddy (`ACME_EMAIL_FILE`/`DOMAIN_FILE`, l.56-57, 65-66).
 - **Evidência:** o serviço Caddy recebe `DOMAIN_FILE=/run/secrets/domain` e `ACME_EMAIL_FILE=/run/secrets/acme_email`, mas o Caddyfile usa as variáveis `DOMAIN`/`ACME_EMAIL` — **Caddy não expande a convenção `_FILE`**. Sem que `DOMAIN`/`ACME_EMAIL` sejam setadas por outro meio (env do host/`.env`), os placeholders resolvem vazio.
 - **Impacto:** dependendo da forma de deploy, o vhost `https://` fica sem domínio ou o Caddy rejeita o config; TLS/ACME não configurados como documentado.
+- **Resolução:** novo `reverse-proxy/entrypoint.sh` (via `ENTRYPOINT` no `reverse-proxy/Dockerfile`) lê `DOMAIN_FILE`/`ACME_EMAIL_FILE` e exporta `DOMAIN`/`ACME_EMAIL` antes de repassar o comando ao Caddy; o CMD padrão `caddy run ...` foi explicitado. Validado: `caddy validate` = "Valid configuration" e servidor emite TLS para o domínio resolvido (ACME falhou só por ser domínio `.test` de teste).
 
 ### DOP-06 — Tags `:latest` sem pinagem no monitoring e ClamAV 🟡 Baixo
 
@@ -109,7 +110,7 @@ A base de imagem e os scripts de entrada são **exemplares** (multi-stage com pu
 2. ~~**Resolver ClamAV de uma vez (Alto)**~~ ✅ **Concluído (2026-08-07):** a decisão formal (`docs/Padronizacao-07-clamav.md`) é de **rejeição** — o serviço foi **removido dos compose files** (base e dev). Não há mais controle fantasma; fecha SEC-02/QAL-02/INF-03/DOP-02.
 3. **Alinhar `DATABASE_URL` do compose base ao volume** (`file:/opt/app/backend/data/controle-videos.db`) ou marcar o arquivo como deprecated/remover (DOP-03).
 4. **Deprecar o compose base ou consolidá-lo** com o modelo prod: Caddy 2.9, remover secrets mortos (`jwt_secret`, `smtp_password`), eliminar a dependência de `./secrets/*.txt` (DOP-04).
-5. **Corrigir a resolução de domínio/ACME do Caddy** (DOP-05): setar `DOMAIN`/`ACME_EMAIL` reais no serviço (via `.env` ou expandindo os `_FILE` no entrypoint) em vez de confiar na convenção `_FILE` que o Caddy não suporta.
+5. ~~**Corrigir a resolução de domínio/ACME do Caddy**~~ ✅ **Resolvido (2026-08-07)** (DOP-05): entrypoint do Caddy expande `DOMAIN_FILE`/`ACME_EMAIL_FILE` → `DOMAIN`/`ACME_EMAIL` antes de iniciar; validado "Valid configuration" e TLS para o domínio resolvido.
 6. **Pinar imagens** do monitoring (DOP-06) — alinhar com INF-01 (Fase 8). *(ClamAV removido do compose; item já não se aplica a ele.)*
 7. **Ampliar `.dockerignore`:** adicionar `secrets/`, `.env*`, `scripts/secrets/`, `data/`, `*.log` (DOP-07).
 8. **Healthcheck leve** (DOP-08): fazer `/api/health` responder sem tocar o banco (cruzado com PERF-07/Fase 6) e uniformizar intervalos.
