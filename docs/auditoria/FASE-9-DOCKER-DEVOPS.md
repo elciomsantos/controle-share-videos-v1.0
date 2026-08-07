@@ -102,7 +102,7 @@ A base de imagem e os scripts de entrada são **exemplares** (multi-stage com pu
 | Critério | Nota (0-100) | Justificativa |
 |---|---|---|
 | Higiene/segurança da imagem | **80** | Multi-stage, non-root, sem npm, purge, healthchecks — pouca margem |
-| Correção do orquestramento | **45** | 2 defeitos prod-blocking (frontend target, ClamAV fantasma) — *ClamAV fantasma resolvido em 2026-08-07 (DOP-02)* |
+| Correção do orquestramento | **85** | 2 defeitos prod-blocking (frontend target, ClamAV fantasma) — *ambos resolvidos em 2026-08-07 (DOP-01, DOP-02)* |
 | Consistência compose | **50** | Base superseded diverge de prod (caddy, DATABASE_URL, secrets) |
 | Segurança de deploy/secrets | **65** | `*_FILE` suportado p/ admin; mas Caddy `_FILE` não expandido e secrets mortos |
 | Pinagem/supply-chain | **55** | `:latest` no monitoring/clamav; Caddy 2.8 vs 2.9 — *item ClamAV não se aplica mais (serviço removido)* |
@@ -110,7 +110,7 @@ A base de imagem e os scripts de entrada são **exemplares** (multi-stage com pu
 
 ## 9.6 Recomendações (priorizadas)
 
-1. **Corrigir o serviço `frontend` (Alto, bloqueia prod):** apontar `target: frontend-runner` e adicionar `command: ["node", "server.js"]` + `ENV PORT=3333`, **ou** remover o serviço standalone e deixar o frontend exclusivamente na imagem `runner` (ajustando `Caddyfile.prod` para `backend:3333` interno). Validar com `docker compose -f docker-compose.prod.yml config` e um `up` de teste.
+1. ~~**Corrigir o serviço `frontend` (Alto, bloqueia prod)**~~ ✅ **Resolvido (2026-08-07, DOP-01):** base e prod usam `target: frontend-runner` + `command: ["sh","-c","cd /opt/app/frontend && PORT=3333 HOSTNAME=0.0.0.0 node server.js"]`; `Caddyfile.prod` roteia `frontend:3333`. Validado com `docker compose -f docker-compose.prod.yml config --quiet` = OK e `frontend-runner` respondendo HTTP 200 na porta 3333.
 2. ~~**Resolver ClamAV de uma vez (Alto)**~~ ✅ **Concluído (2026-08-07):** a decisão formal (`docs/Padronizacao-07-clamav.md`) é de **rejeição** — o serviço foi **removido dos compose files** (base e dev). Não há mais controle fantasma; fecha SEC-02/QAL-02/INF-03/DOP-02.
 3. ~~**Alinhar `DATABASE_URL` do compose base ao volume**~~ ✅ **Resolvido (commit `272e204`)**: usa `file:/opt/app/backend/data/controle-videos.db` (DOP-03).
 4. ~~**Deprecar o compose base ou consolidá-lo**~~ ✅ **Resolvido (2026-08-07)** (DOP-04): o base foi **consolidado** — Caddy 2.9 custom, `frontend-runner`, `DATABASE_URL` no volume; secrets mortos (`jwt_secret`, `smtp_password`, `admin_password`) removidos; admin bootstrap por env; sem mais dependência de `./secrets/*.txt`.
