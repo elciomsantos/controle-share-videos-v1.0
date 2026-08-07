@@ -128,7 +128,6 @@ export class AuthService {
   }
 
   async generateToken(user: User) {
-    // TODO: Make all old loginTokens invalid when a new one is created
     // Check if the user has TOTP enabled
     if (user.totpVerified) {
       const loginToken = await this.createLoginToken(user.id);
@@ -389,13 +388,20 @@ export class AuthService {
   }
 
   async createLoginToken(userId: string) {
-    const loginToken = (
-      await this.prisma.loginToken.create({
-        data: { userId, expiresAt: dayjs().add(5, "minutes").toDate() },
-      })
-    ).token;
+    return this.prisma.$transaction(async (tx) => {
+      await tx.loginToken.updateMany({
+        where: { userId, used: false },
+        data: { used: true },
+      });
 
-    return loginToken;
+      const loginToken = (
+        await tx.loginToken.create({
+          data: { userId, expiresAt: dayjs().add(5, "minutes").toDate() },
+        })
+      ).token;
+
+      return loginToken;
+    });
   }
 
   addTokensToResponse(

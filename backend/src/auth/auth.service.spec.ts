@@ -17,7 +17,7 @@ describe("AuthService", () => {
       deleteMany: jest.Mock;
       create: jest.Mock;
     };
-    loginToken: { create: jest.Mock };
+    loginToken: { create: jest.Mock; updateMany: jest.Mock };
     $transaction: jest.Mock;
   };
   let jwtService: { sign: jest.Mock; decode: jest.Mock };
@@ -42,7 +42,7 @@ describe("AuthService", () => {
         deleteMany: jest.fn(),
         create: jest.fn(),
       },
-      loginToken: { create: jest.fn() },
+      loginToken: { create: jest.fn(), updateMany: jest.fn() },
       $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
     };
     jwtService = { sign: jest.fn(() => "access-token"), decode: jest.fn() };
@@ -144,6 +144,24 @@ describe("AuthService", () => {
       await expect(service.refreshAccessToken("missing")).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
+    });
+  });
+
+  describe("createLoginToken (TODO loginTokens)", () => {
+    it("invalida loginTokens antigos não usados antes de criar um novo", async () => {
+      prisma.loginToken.updateMany.mockResolvedValue({ count: 2 });
+      prisma.loginToken.create.mockResolvedValue({
+        token: "new-login-token",
+      });
+
+      const result = await service.createLoginToken("u1");
+
+      expect(prisma.loginToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: "u1", used: false },
+        data: { used: true },
+      });
+      expect(prisma.loginToken.create).toHaveBeenCalled();
+      expect(result).toBe("new-login-token");
     });
   });
 });
