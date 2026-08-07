@@ -12,7 +12,7 @@
 
 A auditoria completa (Fases 1–11) produziu **75 achados** distribuídos em 11 domínios. Esta fase consolida esses achados em um único plano de refatoração priorizado e detalha, com **código atual × sugerido**, as **8 refatorações de maior retorno sobre investimento (ROI)**, cobrindo os 4 pilares de impacto:
 
-- **Segurança**: JwtGuard fail-closed (SEC-01 — resolvido 2026-08-07) e tipagem de tamanho de arquivo (BDB-01) — as duas causas raiz mais perigosas.
+- **Segurança**: JwtGuard fail-closed (SEC-01 — resolvido 2026-08-07) e tipagem de tamanho de arquivo (BDB-01 — resolvido 2026-08-07) — as duas causas raiz mais perigosas.
 - **Performance**: paginação de listagens (PERF-01) e limpeza de shares em lote (BDB-04/PERF-04).
 - **Manutenibilidade**: god class `ShareService` (ARQ-02) e `get(): any` no `ConfigService` (QAL-03).
 - **Qualidade/Operação**: infraestrutura de testes + CI (QTS-01/02/04 — resolvidos 2026-08-07) e correções de deploy Docker/Caddy (DOP-01/03/05).
@@ -59,7 +59,7 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 | ID | Achado | Fase | Código Atual → Refatorar |
 |----|--------|------|---------------------------|
 | ~~SEC-01~~ | ~~`JwtGuard` global com fail-open (catch retorna config em erro)~~ | 5 | ✅ Resolvido 2026-08-07 — `jwt.guard.ts:35-40` lança `UnauthorizedException` no catch (fail-closed); spec cobre token inválido e ausente (5 testes, coverage 100%) |
-| BDB-01 | `File.size`/`User.shareSizeLimit` como `String` → NaN em `parseInt` | 4 | `schema.prisma:106,21`; `share.service.ts:135,505`; `local.service.ts:122,128-130,203` |
+| ~~BDB-01~~ | ~~`File.size`/`User.shareSizeLimit` como `String` → NaN em `parseInt`~~ | 4 | ✅ Resolvido 2026-08-07 — schema BigInt + migração `20260804100000_convert_file_size_and_share_limit_to_bigint`; `toBytes()` no DTO; `getNumber()` no ConfigService; frontend `Number()` |
 | DOC-01 | ~20 referências quebradas no README | 11 | `README.md:18,38,80,139-169` |
 | DOC-02 | `SECURITY.md` stub vazio | 11 | `SECURITY.md` (74 bytes) |
 
@@ -87,7 +87,7 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 | ARQ-02 | God class `ShareService` (772 LOC, 27 métodos) | 1 |
 | ARQ-03 | Código duplicado e divergente (frontend/backend parse) | 1 |
 | BKD-01 | `resetPassword()` reutilizado em fluxos | 2 |
-| BKD-03 / FRN-03 | `parseInt` de tamanho com `NaN` | 2/3 |
+| ~~BKD-03 / FRN-03~~ | ~~`parseInt` de tamanho com `NaN`~~ | 2/3 | ✅ Resolvido 2026-08-07 (R01) — `parseInt` substituído por `toBytes()`/`getNumber()` |
 | BKD-06 / PERF-04 | Limpeza sem batch e I/O síncrono | 2/6 |
 | BKD-08 / FRN-04 | Tipos `any` e props mutáveis | 2/3 |
 | FRN-01/02/12 | Estado mutável, gatilhos, mutação por referência | 3 |
@@ -115,7 +115,7 @@ ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (t
 
 ## 12.5 Refatorações prioritárias (R01–R08) — formato 10 campos
 
-### R01 — `File.size` e `User.shareSizeLimit` como número inteiro (não `String`)
+### R01 — `File.size` e `User.shareSizeLimit` como número inteiro (não `String`) — ✅ **Resolvido 2026-08-07**
 
 1. **Problema**: Tamanhos de arquivo e cota armazenados como `String` no banco. Todo consumo faz `parseInt(size)`, que retorna `NaN` para valores inválidos e quebra somas de cotas (vídeo pode exceder 2^31 → `Int` insuficiente; `BigInt` é o correto). Corrupção de dado única → cotas liberadas/erradas, upload sem limite.
 2. **Localização**: `backend/prisma/schema.prisma:106` (`File.size String`), `:21` (`User.shareSizeLimit String?`); `backend/src/share/share.service.ts:135,505`; `backend/src/file/local.service.ts:92-93,122,128-130,163-164,203,288`; `frontend/src/components/upload/EditableUpload.tsx:66-72`; `frontend/src/components/upload/FileList.tsx:68`.
@@ -449,7 +449,7 @@ ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (t
 ```
 1. R07 (testes+CI)  ──►  ✅ Resolvido 2026-08-07 — pré-requisito de garantia
 2. R02 (JwtGuard)   ──►  ✅ Resolvido 2026-08-07 — fail-closed + spec
-3. R01 (File.size)  ──►  exige migração; fazer com testes verdes (R07) e deploy coordenado
+3. R01 (File.size)  ──►  ✅ Resolvido 2026-08-07 — BigInt + migração + toBytes/getNumber
 4. R08 (Docker)     ──►  ✅ Resolvido 2026-08-07 (FASE-9)
 5. R03 (paginação)  ──►  muda contrato; documentar breaking change
 6. R04 (limpeza)    ──►  disponibilidade; baixo risco
