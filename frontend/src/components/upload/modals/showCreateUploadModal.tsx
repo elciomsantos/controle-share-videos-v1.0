@@ -282,10 +282,10 @@ const CreateUploadModalBody = ({
           maxDownloads: values.maxDownloads || undefined,
         },
       },
-      files.map((file, index) => {
-        file.description = fileDescriptions[index] || undefined;
-        return file;
-      }),
+      files.map((file, index) => ({
+        ...file,
+        description: fileDescriptions[index] || undefined,
+      })),
     );
   });
 
@@ -671,10 +671,10 @@ const SimplifiedCreateUploadModalModal = ({
           maxViews: undefined,
         },
       },
-      files.map((file, index) => {
-        file.description = fileDescriptions[index] || undefined;
-        return file;
-      }),
+      files.map((file, index) => ({
+        ...file,
+        description: fileDescriptions[index] || undefined,
+      })),
     );
   });
 

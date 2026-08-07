@@ -82,12 +82,11 @@ const EditableUpload = ({
 
         const setFileProgress = (progress: number) => {
           setUploadingFiles((files) =>
-            files.map((file, callbackIndex) => {
-              if (fileIndex == callbackIndex) {
-                file.uploadingProgress = progress;
-              }
-              return file;
-            }),
+            files.map((file, callbackIndex) =>
+              fileIndex == callbackIndex
+                ? { ...file, uploadingProgress: progress }
+                : file,
+            ),
           );
         };
 

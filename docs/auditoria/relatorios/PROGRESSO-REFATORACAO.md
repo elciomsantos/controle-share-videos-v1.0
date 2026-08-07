@@ -4,8 +4,8 @@
 |---|---|
 | Plano de referência | `REFACTORING_PLAN.md` |
 | Última atualização | 2026-08-07 |
-| Branch | `fix/producao-v1.1.0` |
-| Commits | `98de696` (BDB-02), `4686195` (R03 Breaking) |
+| Branch | `main` (PR #1 mergeado em `0bdb1c9`) |
+| Commits | `98de696` (BDB-02), `4686195` (R03 Breaking), `0412c93` (R06), `7729f22` (R05) |
 
 ## 1. Visão geral
 
@@ -114,5 +114,6 @@ Fixa **ARQ-02** (god class 772 LOC / 27 métodos). `ShareService` vira orquestra
 4. ~~**R04 — Jobs de limpeza em lote + transação**~~ ✅ — batch 50 + cursor + `try/catch` por item.
 5. ~~**R06 — Config tipada**~~ ✅ — backend + frontend, sem `any`/`parseInt` manual.
 6. ~~**R05 — Decomposição do `ShareService`**~~ ✅ — 3 extrações coesas, `ShareService` −96 LOC.
-7. **Revisão e merge** do PR #1 em `main` (após validação do usuário).
-8. **Registrar changelog/tech-debt**: marcar R01 (breaking), BDB-02, R03, R04, R06 e R05 no `CHANGELOG_SUGERIDO.md` e `TECH_DEBT.md`.
+7. ✅ **Revisão e merge** do PR #1 em `main` (commit `0bdb1c9`, CI verde backend + frontend).
+8. ✅ **Registrar changelog/tech-debt**: R01 (breaking), BDB-02, R03, R04, R06 e R05 marcados no `CHANGELOG_SUGERIDO.md` e `TECH_DEBT.md`.
+9. ✅ **SEC-03/BKD-01 (TTL reset)**, **SEC-05 (senha em body)**, **FRN-12 (mutação de props)** — pagos e registrados no `TECH_DEBT.md`.

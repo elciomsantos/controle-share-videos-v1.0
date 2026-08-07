@@ -31,7 +31,7 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 - ✅ **R04** — Jobs de limpeza em lote (batch `take: 50` + cursor + `deleteMany` + `try/catch` por item); fix PERF-04/BDB-04/BKD-06 — sem breaking.
 
 **Pendente (próximos épicos):**
-- v1.1.0: SEC-03 (TTL reset), SEC-04 (sanitização HTML), SEC-05 (senha em query string), INF-01 (override postcss), DOC-04 (license/repository).
+- v1.1.0: ~~SEC-03 (TTL reset)~~ ✅, ~~SEC-05 (senha em query string)~~ ✅, SEC-04 (sanitização HTML), INF-01 (override postcss), DOC-04 (license/repository).
 - v1.2.0: ~~PERF-01/BDB-03 (paginação — R03)~~ ✅, ~~PERF-04/BDB-04 (jobs — R04)~~ ✅, PERF-02..03,05..07, BDB-06 (unique composto).
 - v1.3.0: QAL-03 (R06), ARQ-02 (R05), BDB-05, INF-03, DOC-01/03.
 
@@ -51,7 +51,6 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 - **Meta**: `license`/`repository` preenchidos nos `package.json` — fix DOC-04.
 
 ### Changed
-- Cabeçalhos de e-mail: HTML sanitizado quando `email.sendHtmlEmails=true` — fix SEC-04.
 - Índices de banco adicionados nos caminhos quentes (`expiration`, `creatorId`, `File.shareId`, `expiresAt`, `isActivated`) — fix BDB-02.
 
 ## 4. Versão Sugerida — v1.2.0 (dados + performance)
@@ -78,6 +77,7 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 - Duas libs JWT no frontend unificadas em uma — fix INF-03.
 - `SECURITY.md` preenchido (versões suportadas + canal de report) — fix DOC-02.
 - README: ~20 referências quebradas corrigidas; decisão ClamAV alinhada em docs e código — fix DOC-01/03.
+- Progresso de upload e descrição de arquivos atualizados de forma imutável (spread em `upload/index.tsx`, `EditableUpload.tsx`, `showCreateUploadModal.tsx`) — fix FRN-12.
 
 ### Removed
 - Dependências órfãs removidas (`clamscan`/`@types/clamscan` após decisão; `@nestjs/testing` após testes reais) — fix INF-03/QTS-07.

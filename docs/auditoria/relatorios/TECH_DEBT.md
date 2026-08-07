@@ -92,24 +92,28 @@ Registro único da dívida técnica do projeto: tudo que não é bug de seguran�
 | BKD-08 | Retornos `any` em serviços | ✅ Paga (R06) — getters tipados `getNumber`/`getBoolean`/`getString`/`getTimespan` |
 | FRN-04 | Tipos `any`/props fracamente tipadas | ✅ Paga (R06) — `ConfigTypeMap`/`GetReturn` no frontend, `get()` sem `any`, `parseInt` manual removido |
 | ARQ-02 | God class `ShareService` (772 LOC, 27 métodos) | ✅ Paga (R05) — extraídos `ShareMapper`/`ShareArchiveService`/`FileStorageService`; `ShareService` 794 → 698 LOC; +9 testes de regressão |
+| SEC-03/BKD-01 | Token de reset de senha sem TTL | ✅ Paga — `expiresAt` 1h + validação na redenção em `resetPassword()` |
+| SEC-05 | Senha de share em query string | ✅ Paga — token via POST `/shares/:id/token` com senha no body |
+| FRN-12 | Mutação de props por referência | ✅ Paga (2026-08-07) — `map` imutável com spread em `upload/index.tsx`, `EditableUpload.tsx`, `showCreateUploadModal.tsx` |
 
 ## 6. Quadrante Urgência × Evolução
 
-- **Urgente pagar agora** (bloqueia segurança/evolução): ~~QAL-01 (testes)~~✅, BKD-01/SEC-03 (reset TTL), FRN-12 (mutação de props), ~~BDB-01 (String→BigInt)~~✅.
-- **Pagar em breve** (facilita features): BDB-05 (nullable `expiresAt`), DOC-01 (README).
-- **Pagas recentemente**: ~~BDB-02~~ (índices), ~~PERF-01/BDB-03~~ (paginação R03), ~~BKD-06/BDB-04/PERF-04~~ (jobs em lote R04), ~~QAL-03/BKD-08/FRN-04~~ (config tipada R06), ~~ARQ-02~~ (split ShareService R05).
+- **Urgente pagar agora** (bloqueia segurança/evolução): ~~QAL-01 (testes)~~✅, ~~BKD-01/SEC-03 (reset TTL)~~✅, ~~FRN-12 (mutação de props)~~✅, ~~BDB-01 (String→BigInt)~~✅.
+- **Pagar em breve** (facilita features): BDB-05 (nullable `expiresAt`), DOC-01 (README), SEC-04 (sanitizar e-mails de share).
+- **Pagas recentemente**: ~~BDB-02~~ (índices), ~~PERF-01/BDB-03~~ (paginação R03), ~~BKD-06/BDB-04/PERF-04~~ (jobs em lote R04), ~~QAL-03/BKD-08/FRN-04~~ (config tipada R06), ~~ARQ-02~~ (split ShareService R05), ~~SEC-03/BKD-01~~ (TTL reset), ~~SEC-05~~ (token via body), ~~FRN-12~~ (mutação por referência).
 - **Baixa prioridade** (cosmético/semântico): FRN-05, FRN-02, BDB-06, QAL-06, ARQ-04.
 
 ## 7. Conclusões
 
 - A dívida está **concentrada em dois nós**: (1) o `ShareService` monolítico e (2) a ausência de testes que tornaria qualquer refatoração segura. O nó (2) **já foi pago** (R07) — os demais pagamentos agora têm rede de testes para serem feitos com segurança.
-- Três itens "leves" são, na verdade, **gatilhos de segurança** (BKD-01/SEC-03, FRN-12) — devem subir na fila apesar do baixo esforço.
+- Três itens "leves" são, na verdade, **gatilhos de segurança** (BKD-01/SEC-03, FRN-12) — **já pagos**, subiram na fila apesar do baixo esforço.
 - Não há dívida de contrato público acumulada além de R03 (paginação) — **já paga com Breaking v1.2.0**.
 - BDB-02 (índices nos caminhos quentes) também foi pago como quick-win pré-R03.
 
 ## 8. Recomendações de pagamento (ordem)
 
 1. ✅ ~~Testes + CI (QAL-01/QTS-01)~~ — **pago (R07)**.
-2. BKD-01/SEC-03, FRN-12 — dívidas com risco de segurança.
+2. ✅ ~~BKD-01/SEC-03, FRN-12~~ — dívidas com risco de segurança **pagas**.
 3. ~~ARQ-02~~ (R05), ~~QAL-03~~, ~~BKD-06~~, BDB-05 — refatorações estruturais (R05/R06/R04 pagos; BDB-05 pendente).
-4. DOC-01, FRN-05, BDB-06, QAL-04/05/06, ARQ-04 — backlog contínuo.
+4. SEC-04 (sanitização HTML e-mail), SEC-06 (rate-limit resend), SEC-07 (reuse-detection refresh) — segurança pendente.
+5. DOC-01, FRN-05, BDB-06, QAL-04/05/06, ARQ-04 — backlog contínuo.

@@ -104,12 +104,11 @@ const Upload = ({
 
         const setFileProgress = (progress: number) => {
           setFiles((files) =>
-            files.map((file, callbackIndex) => {
-              if (fileIndex == callbackIndex) {
-                file.uploadingProgress = progress;
-              }
-              return file;
-            }),
+            files.map((file, callbackIndex) =>
+              fileIndex == callbackIndex
+                ? { ...file, uploadingProgress: progress }
+                : file,
+            ),
           );
         };
 

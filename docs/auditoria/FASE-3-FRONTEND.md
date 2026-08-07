@@ -323,7 +323,7 @@ O frontend é **bem estruturado e defensivo em pontos críticos** (upload chunke
 ### FRN-12 — Mutação de props por referência
 
 - **Problema:** componentes mutam os objetos `File` recebidos como prop em vez de copiá-los — efeitos colaterais indiretos no estado do pai e padrão frágil.
-- **Localização:** `frontend/src/components/upload/FileList.tsx:132-138` (atribui `files[index].deleted` e `file.uploadingProgress` diretamente); `frontend/src/pages/upload/index.tsx:105-114` (muta `file.uploadingProgress` dentro do updater); `frontend/src/components/upload/modals/showCreateUploadModal.tsx:285-288,674-677` (`file.description = fileDescriptions[index]` dentro de `map`).
+- **Localização:** `frontend/src/pages/upload/index.tsx:105-114` (muta `file.uploadingProgress` dentro do updater); `frontend/src/components/upload/EditableUpload.tsx:83-92` (idem); `frontend/src/components/upload/modals/showCreateUploadModal.tsx:285-288,674-677` (`file.description = fileDescriptions[index]` dentro de `map`).
 - **Evidência:**
   ```ts
   // showCreateUploadModal.tsx:285-288
