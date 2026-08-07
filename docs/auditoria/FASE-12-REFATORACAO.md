@@ -14,7 +14,7 @@ A auditoria completa (Fases 1–11) produziu **75 achados** distribuídos em 11 
 
 - **Segurança**: JwtGuard fail-closed (SEC-01 — resolvido 2026-08-07) e tipagem de tamanho de arquivo (BDB-01 — resolvido 2026-08-07) — as duas causas raiz mais perigosas.
 - **Performance**: paginação de listagens (PERF-01 — resolvido 2026-08-07) e limpeza de shares em lote (BDB-04/PERF-04 — resolvido 2026-08-07).
-- **Manutenibilidade**: god class `ShareService` (ARQ-02) e `get(): any` no `ConfigService` (QAL-03).
+- **Manutenibilidade**: god class `ShareService` (ARQ-02) e `get(): any` no `ConfigService` (QAL-03 — resolvido 2026-08-07).
 - **Qualidade/Operação**: infraestrutura de testes + CI (QTS-01/02/04 — resolvidos 2026-08-07) e correções de deploy Docker/Caddy (DOP-01/03/05).
 
 Nenhuma alteração de código é aplicada nesta fase. A implementação é responsabilidade da **Fase 13 (Plano de Execução)** e deve respeitar o processo controlado de implementação definido na Especificação-final (commits atômicos, aprovação de mudança, verificação por testes antes/depois).
@@ -98,7 +98,7 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 | PERF-02 | E-mails enviados sequencialmente | 6 |
 | PERF-03 | `createZip()` abre até `zipMaxFiles` streams simultâneos | 6 |
 | PERF-05 | `deleteTemporaryFiles()` I/O síncrono | 6 |
-| QAL-03 | `get(): any` e `parseInt` espalhado | 7 |
+| ~~QAL-03~~ | ~~`get(): any` e `parseInt` espalhado~~ | 7 | ✅ Resolvido 2026-08-07 — `ConfigTypeMap` + `ConfigKeys` + `GetReturn<K>` eliminam `any` no `get()`, `getNumber`/`getBoolean`/`getString`/`getTimespan` em todo o código |
 | QAL-04/05 | Disciplina de erros; TODOs com impacto de segurança | 7 |
 | INF-02/03 | Rotina de atualização; dependências | 8 |
 | ~~DOP-03~~ | ~~`DATABASE_URL` fora do volume~~ | 9 | ✅ Resolvido — compose base usa `file:/opt/app/backend/data/controle-videos.db` (commit `272e204`) |
@@ -320,7 +320,7 @@ ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (t
 
 ---
 
-### R06 — Config tipada: eliminar `get(): any`
+### R06 — Config tipada: eliminar `get(): any` — ✅ **Resolvido 2026-08-07**
 
 1. **Problema**: `ConfigService.get(key)` retorna `any`; chamadas fazem `parseInt` manual (NaN) e perdem verificação em tempo de compilação.
 2. **Localização**: `backend/src/config/config.service.ts:103-115`; consumidores (`local.service.ts:128,143`; `EditableUpload.tsx:37,66`).
@@ -453,7 +453,7 @@ ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (t
 4. R08 (Docker)     ──►  ✅ Resolvido 2026-08-07 (FASE-9)
 5. R03 (paginação)  ──►  ✅ Resolvido 2026-08-07 — skip/take/count + envelope `Page<T>`
 6. R04 (limpeza)    ──►  ✅ Resolvido 2026-08-07 — batch 50 + try/catch por item + deleteMany
-7. R06 (config)     ──►  incremental
+7. R06 (config)     ──►  ✅ Resolvido 2026-08-07 — ConfigTypeMap + getters tipados
 8. R05 (god class)  ──►  por último, com rede de testes (R07) estabilizada
 ```
 
