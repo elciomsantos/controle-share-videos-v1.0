@@ -72,7 +72,7 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 | QTS-02 | `test:system` destrutivo (`migrate reset -f`) + `newman` não declarado | 10 | `backend/package.json:10` |
 | QTS-04 | Sem CI/gates | 10 | (inexistente) |
 | INF-01 | Dependências vulneráveis (postcss/next) | 8 | `frontend/package.json` |
-| DOP-01 | `frontend` usa `target: frontend-builder` (inalcançável em prod) | 9 | `docker-compose.yml:33` / `Caddyfile.prod` |
+| ~~DOP-01~~ | ~~`frontend` usa `target: frontend-builder` (inalcançável em prod)~~ | 9 | ✅ Resolvido 2026-08-07 — compose base usa `target: frontend-runner` + `command` do servidor standalone; validado HTTP 200 na 3333 |
 | DOP-05 | `Caddyfile.prod` usa `{$DOMAIN}`/`{$ACME_EMAIL}`; compose injeta `*_FILE` (Caddy não expande) | 9 | `Caddyfile.prod`; `docker-compose.prod.yml:56-57,65-66` |
 | SEC-03 | Tokens em memória/duplicidade de refresh rotation | 5 | `auth/` |
 | SEC-04 | `i`/segredos em configuração | 5 | `config.seed.ts` |

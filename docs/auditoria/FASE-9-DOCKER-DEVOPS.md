@@ -10,7 +10,7 @@
 
 A base de imagem e os scripts de entrada são **exemplares** (multi-stage com purge de build-deps, non-root com UID/GID estável, imagem final sem npm, healthchecks e limites de recursos). Porém a camada de orquestração esconde **dois defeitos bloqueantes de produção** e um conjunto de inconsistências entre os compose files:
 
-1. **O serviço `frontend` nos compose files builda o alvo errado** — `target: frontend-builder` (estágio que apenas roda `npm run build` e **não tem CMD/ENTRYPOINT/EXPOSE**). O `Caddyfile.prod` roteia `reverse_proxy frontend:3333`, mas o contêiner do serviço `frontend` sobe com o CMD padrão do `node:24-alpine` (`node`, REPL que encerra com stdin fechado) e **nada escuta na porta 3333** — o frontend fica inalcançável em produção.
+1. ~~**O serviço `frontend` nos compose files builda o alvo errado**~~ ✅ **Resolvido (2026-08-07):** o compose base passou a usar `target: frontend-runner` + `command` que inicia o servidor standalone (mesmo padrão do prod). O estágio `frontend-runner` foi validado servindo HTTP 200 na porta 3333.
 2. ~~**ClamAV é implantado como "varredura obrigatória"**~~ (`docker-compose.yml:83`, `docker-compose.dev.yml`) **mas nenhum código o consome** — ~~o backend nunca chama o `ClamScanService` (SEC-02/QAL-02/INF-03). Um serviço com limite de 1G de RAM que escaneia nada, ecoando no deploy o código morto já identificado em 3 fases~~. ✅ **Resolvido (2026-08-07):** a decisão formal (`docs/Padronizacao-07-clamav.md`, 26/07/2026) rejeita a integração e o serviço `clamav/clamav` foi **removido dos compose files** — o controle fantasma não existe mais (fecha DOP-02, SEC-02/QAL-02/INF-03).
 3. O `docker-compose.yml` **base é superseded e inconsistente**: `DATABASE_URL=file:/data/controle-videos.db` aponta para fora do volume (`backend-data:/opt/app/backend/data`), Caddy `2.8` vs `2.9` no prod, e injeta secrets (`jwt_secret`, `smtp_password`) que o aplicativo **não consome** (o JWT é gerado no boot via `config.seed.ts`; o SMTP vem da tabela `config`).
 
@@ -28,11 +28,12 @@ A base de imagem e os scripts de entrada são **exemplares** (multi-stage com pu
 
 ## 9.3 Achados Detalhados
 
-### DOP-01 — Serviço `frontend` builda alvo errado (`frontend-builder`); frontend inalcançável em prod 🔴 Alto
+### DOP-01 — Serviço `frontend` builda alvo errado (`frontend-builder`); frontend inalcançável em prod 🔴 Alto — ✅ Resolvido (2026-08-07)
 
 - **Onde:** `docker-compose.yml:50`, `docker-compose.prod.yml:12` (`target: frontend-builder`), `Dockerfile:12-18` (estágio sem CMD), `reverse-proxy/Caddyfile.prod` (`reverse_proxy frontend:3333`).
 - **Evidência:** o estágio `frontend-builder` termina em `RUN npm run build` — sem `CMD`, `ENTRYPOINT` ou `EXPOSE`. O único runtime com entrada válida é o estágio final `runner` (`Dockerfile:124-125`). O `frontend` standalone de verdade é montado no estágio `frontend-runner` (`Dockerfile:49-55`) e embutido na imagem `runner`. Nos compose, porém, o serviço `frontend` aponta para o alvo `frontend-builder`: o contêiner sobe com o CMD herdado do `node:24-alpine` (`node`, REPL que termina com stdin EOF) e não serve a porta 3333. Como `Caddyfile.prod` roteia `handle { reverse_proxy frontend:3333 }`, em produção o Caddy aponta para um contêiner que **não responde**.
 - **Impacto:** frontend indisponível em produção; o healthcheck `curl :3333` (prod `docker-compose.prod.yml:19-22`) falha em loop, e a UI não carrega.
+- **Resolução:** o compose base (`docker-compose.yml`) passou a usar `target: frontend-runner` + `command` que inicia o servidor standalone (`PORT=3333 HOSTNAME=0.0.0.0 node server.js`), espelhando o padrão já aplicado no prod. Validado: `frontend-runner` responde HTTP 200 na porta 3333. O compose prod já usava o alvo correto.
 
 ### DOP-02 — ClamAV implantado como "obrigatório" mas nunca usado — controle fantasma no deploy 🔴 Alto — ✅ Resolvido (2026-08-07)
 

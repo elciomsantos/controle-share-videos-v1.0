@@ -45,10 +45,18 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: frontend-builder
+      target: frontend-runner
     restart: unless-stopped
     networks:
       - app-network
+    # Start the Next.js standalone server (runtime stage does not define a CMD)
+    command: ["sh", "-c", "cd /opt/app/frontend && PORT=3333 HOSTNAME=0.0.0.0 node server.js"]
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://127.0.0.1:3333"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
     environment:
       - NODE_ENV=production
       - PORT=3333
