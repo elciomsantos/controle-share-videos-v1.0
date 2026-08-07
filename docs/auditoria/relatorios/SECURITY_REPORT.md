@@ -25,9 +25,9 @@ Relatório dedicado de segurança consolidando os achados da Fase 5 (`SEC-01` a 
 | ID | Achado | Sev. | Localização | CWE |
 |----|--------|------|-------------|-----|
 | SEC-01 | `JwtGuard` global com **fail-open**: qualquer erro de auth retorna `allowUnauthenticatedShares`, liberando rotas protegidas sem token | 🔴 | `backend/src/auth/guard/jwt.guard.ts:36-38` | CWE-863 |
-| SEC-07 | Rotação de refresh token **não atômica** e sem detecção de reuso | 🟡 | `backend/src/auth/` | CWE-308 |
-| SEC-06 | Enumeração de contas via `resendVerification` (oráculo de e-mail) | 🟡 | `backend/src/auth/` | CWE-204 |
-| SEC-08 | Fail-open documentado na detecção de magic bytes (mime) | 🟡 | `backend/src/file/` | CWE-434 |
+| SEC-07 | Rotação de refresh token **não atômica** e sem detecção de reuso | 🟡 | ~~`backend/src/auth/`~~ ✅ pago — `$transaction` + reuse-detection com revogação | CWE-308 |
+| SEC-06 | Enumeração de contas via `resendVerification` (oráculo de e-mail) | 🟡 | ~~`backend/src/auth/`~~ ✅ pago — resposta uniforme | CWE-204 |
+| SEC-08 | Fail-open documentado na detecção de magic bytes (mime) | 🟡 | ~~`backend/src/file/`~~ ✅ pago — fail-closed + unlink | CWE-434 |
 
 ### 3.2 Tokens e Credenciais
 
@@ -77,6 +77,6 @@ Relatório dedicado de segurança consolidando os achados da Fase 5 (`SEC-01` a 
 6. **P1 — DOC-02**: preencher `SECURITY.md` (versões suportadas + canal de report). ✅ **pago**.
 7. **P2 — SEC-04**: sanitizar HTML em e-mails (`sanitize-html` ou só texto). ✅ **pago (2026-08-07)** — `escapeHtml` + `escapeUserInput`.
 8. **P2 — SEC-02/QAL-02**: decidir ClamAV (implementar scan real no upload ou remover deps e docs) — alinhar README, `Visao-geral.md` e código.
-9. **P3 — SEC-06/07/08, QTS-05, DOP-07**: rate-limit de `resendVerification`, transação+reuse-detection no refresh, validar magic bytes de forma fail-closed, mover credenciais Newman para env, excluir `secrets/`/`.env*` do docker context.
+9. **P3 — SEC-06/07/08, QTS-05, DOP-07**: rate-limit de `resendVerification`, transação+reuse-detection no refresh, validar magic bytes de forma fail-closed, mover credenciais Newman para env, excluir `secrets/`/`.env*` do docker context. — *SEC-06, SEC-07 e SEC-08 pagos em 2026-08-07; resta QTS-05 e DOP-07.*
 
 **Próximo passo:** executar itens P0/P1 conforme `REFACTORING_PLAN.md` (R02, R01, R08) e validar com `TEST_PLAN.md`.

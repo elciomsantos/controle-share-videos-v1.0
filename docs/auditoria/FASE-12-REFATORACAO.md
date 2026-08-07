@@ -94,7 +94,7 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 | FRN-05 | Fallback silencioso | 3 |
 | BDB-02/03 | Índices ausentes; listagem N+1 | 4 |
 | SEC-05 | Cabeçalhos de segurança opt-in | 5 |
-| SEC-06/07 | Rotação/expiração de refresh token | 5 |
+| ~~SEC-06/07~~ | Rotação/expiração de refresh token | 5 ✅ (2026-08-07) |
 | PERF-02 | E-mails enviados sequencialmente | 6 |
 | PERF-03 | `createZip()` abre até `zipMaxFiles` streams simultâneos | 6 |
 | PERF-05 | `deleteTemporaryFiles()` I/O síncrono | 6 |
@@ -109,7 +109,7 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 
 ### P3 — Baixo / Backlog
 
-ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (tipos, parse, throttler, `sig`), FRN-06 (`user-scalable=no`), FRN-07 (preview PDF), FRN-08, FRN-09 (`target=_blank`), FRN-10/11 (strikethrough, chaves de lista), BDB-05/06 (seed, `ShareRecipie`), SEC-08, PERF-06/07 (stream sem Range; health lê `Config`), QAL-06 (duplicação leve), INF-04 (higiene), DOP-02 (ClamAV não consumido — decidir flag), DOP-06/07/08 (`:latest`, `.dockerignore`, healthcheck ↔ PERF-07), QTS-06/07 (`@nestjs/testing` órfão).
+ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (tipos, parse, throttler, `sig`), FRN-06 (`user-scalable=no`), FRN-07 (preview PDF), FRN-08, FRN-09 (`target=_blank`), FRN-10/11 (strikethrough, chaves de lista), BDB-05/06 (seed, `ShareRecipie`), ~~SEC-08~~ (pago 2026-08-07 — fail-closed magic bytes), PERF-06/07 (stream sem Range; health lê `Config`), QAL-06 (duplicação leve), INF-04 (higiene), DOP-02 (ClamAV não consumido — decidir flag), DOP-06/07/08 (`:latest`, `.dockerignore`, healthcheck ↔ PERF-07), QTS-06/07 (`@nestjs/testing` órfão).
 
 ---
 

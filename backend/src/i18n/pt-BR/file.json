@@ -6,5 +6,6 @@
   "notEnoughSpace": "Espaço insuficiente no servidor",
   "unexpectedChunk": "Chunk inesperado recebido",
   "maxSizeExceeded": "Tamanho máximo de compartilhamento excedido",
-  "zipError": "Erro ao criar arquivo ZIP"
+  "zipError": "Erro ao criar arquivo ZIP",
+  "typeUnverified": "Tipo do arquivo não pôde ser verificado"
 }

@@ -231,11 +231,10 @@ export class AuthService {
       where: { email },
     });
 
-    if (!user) return;
-
-    if (user.isActivated) {
-      throw new BadRequestException(this.i18n.t("auth.userAlreadyActivated"));
-    }
+    // SEC-06: identical response for unknown and already-activated emails so
+    // the endpoint can't be used as an account-enumeration oracle. A new token
+    // is only sent to pending users.
+    if (!user || user.isActivated) return;
 
     const activationToken = crypto.randomUUID();
     const activationTokenExpiresAt = dayjs().add(1, "day").toDate();
@@ -319,24 +318,56 @@ export class AuthService {
     if (!refreshTokenMetaData || refreshTokenMetaData.expiresAt < new Date())
       throw new UnauthorizedException();
 
-    // JWT rotation: delete old refresh token and create new one
-    await this.prisma.refreshToken.delete({
-      where: { id: refreshTokenMetaData.id },
-    });
+    // SEC-07: atomic rotation + reuse detection. delete+create happen inside a
+    // transaction; deleteMany reports the count so a replayed token (already
+    // consumed by a previous rotation) is detected and the whole family is
+    // revoked. The revocation commits (it's returned from the tx) before the
+    // UnauthorizedException is raised, so it persists across the throw.
+    try {
+      const outcome = await this.prisma.$transaction(async (tx) => {
+        const { count } = await tx.refreshToken.deleteMany({
+          where: { id: refreshTokenMetaData.id },
+        });
 
-    const newRefreshToken = await this.createRefreshToken(
-      refreshTokenMetaData.user.id,
-    );
+        if (count === 0) {
+          // Reuse detected — a rotated token was presented again. Revoke every
+          // session token for the user before refusing.
+          await tx.refreshToken.deleteMany({
+            where: { userId: refreshTokenMetaData.user.id },
+          });
+          return { reuse: true } as const;
+        }
 
-    const accessToken = await this.createAccessToken(
-      refreshTokenMetaData.user,
-      newRefreshToken.refreshTokenId,
-    );
+        const newRefreshToken = await this.createRefreshToken(
+          refreshTokenMetaData.user.id,
+          tx,
+        );
 
-    return {
-      accessToken,
-      ...newRefreshToken,
-    };
+        const accessToken = await this.createAccessToken(
+          refreshTokenMetaData.user,
+          newRefreshToken.refreshTokenId,
+        );
+
+        return {
+          reuse: false,
+          accessToken,
+          ...newRefreshToken,
+        } as const;
+      });
+
+      if (outcome.reuse) {
+        this.logger.warn(
+          `Reuse of refresh token detected for user ${refreshTokenMetaData.user.email}; all sessions revoked`,
+        );
+        throw new UnauthorizedException();
+      }
+
+      const { accessToken, refreshToken: newToken, refreshTokenId } = outcome;
+      return { accessToken, refreshToken: newToken, refreshTokenId };
+    } catch (e) {
+      if (e instanceof UnauthorizedException) throw e;
+      throw new UnauthorizedException();
+    }
   }
 
   async createRefreshToken(

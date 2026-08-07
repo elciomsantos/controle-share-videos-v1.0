@@ -79,12 +79,15 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 - `SECURITY.md` preenchido (versões suportadas + canal de report) — fix DOC-02.
 - README: ~20 referências quebradas corrigidas; decisão ClamAV alinhada em docs e código — fix DOC-01/03.
 - Progresso de upload e descrição de arquivos atualizados de forma imutável (spread em `upload/index.tsx`, `EditableUpload.tsx`, `showCreateUploadModal.tsx`) — fix FRN-12.
+- `resendVerification` com resposta uniforme (sem oráculo de e-mail) — fix SEC-06.
+- Refresh token rotacionado em transação atômica com reuse-detection (revogação da família em replay) — fix SEC-07.
+- Detecção de magic bytes **fail-closed**: falhas inesperadas rejeitam o upload e removem o arquivo — fix SEC-08.
 
 ### Removed
 - Dependências órfãs removidas (`clamscan`/`@types/clamscan` após decisão; `@nestjs/testing` após testes reais) — fix INF-03/QTS-07.
 
 ## 6. Itens Adiados (próximos ciclos)
-- Rate-limit de `resendVerification` (SEC-06); refresh token atômico + reuse-detection (SEC-07); magic bytes fail-closed (SEC-08).
+- Mascaramento de query strings no proxy quando `includePasswordInShareLink=true` (SEC-05); mover credenciais Newman para env (QTS-05); excluir `secrets/`/`.env*` do docker context (DOP-07).
 - Rotação de `JWT_SECRET` / secret manager.
 - Migração SQLite → PostgreSQL; armazenamento S3; observabilidade.
 - CI/CD com deploy automatizado e reauditoria de segurança trimestral.

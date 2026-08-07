@@ -191,10 +191,17 @@ export class LocalFileService {
           }
         }
       } catch (e) {
-        // Validation failures are re-thrown for the client; unexpected errors
-        // are swallowed so the upload still completes (fail-open on detection
-        // errors) — the extension allowlist remains the primary safeguard.
+        // SEC-08: fail-closed on detection errors. Validation mismatches are
+        // re-thrown for the client; unexpected failures no longer fall through
+        // — a broken/malicious parser must never bypass the type check.
         if (e instanceof BadRequestException) throw e;
+        this.logger.error(
+          `Magic-byte detection failed for file ${file.id}: ${e}`,
+        );
+        await fs
+          .unlink(`${SHARE_DIRECTORY}/${shareId}/${file.id}`)
+          .catch(() => undefined);
+        throw new BadRequestException(this.i18n.t("file.typeUnverified"));
       }
 
       await this.prisma.file.create({

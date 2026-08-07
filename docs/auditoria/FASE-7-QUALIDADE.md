@@ -51,7 +51,7 @@ A base de código é **limpa e disciplinada**: TypeScript `strict` habilitado, l
 ### QAL-05 — TODOs com impacto de segurança/sessão pendentes 🟡 Baixo
 
 - **Onde:** `auth.service.ts:131` (`// TODO: Make all old loginTokens invalid when a new one is created`) e `config.service.ts:273` (`// TODO add validation for timespan type`).
-- **Evidência:** dois TODOs legítimos restantes (de 2 no total no backend — índice saudável). O de `auth.service.ts:131` correlaciona-se diretamente com SEC-07 (Fase 5, refresh não atômico / sessões): enquanto não invalidar tokens antigos, sessões anteriores permanecem válidas após novo login/refresh.
+- **Evidência:** dois TODOs legítimos restantes (de 2 no total no backend — índice saudável). O de `auth.service.ts:131` é sobre invalidação de **loginTokens** (sessões de login) — distinto do SEC-07 (rotacionamento/reuso de **refresh tokens**), que foi pago em 2026-08-07; o TODO de loginTokens permanece aberto.
 - **Impacto:** Reforça o achado de sessão da Fase 5; validação de `timespan` (ex.: TTL de reset token, SEC-03/Fase 5) depende do mesmo tipo.
 
 ### QAL-06 — Duplicação leve e arquivos monolíticos 🟡 Baixo
@@ -90,7 +90,7 @@ A base de código é **limpa e disciplinada**: TypeScript `strict` habilitado, l
 3. **Remover ou reativar o `ClamScanService` (Médio):** resolver a conciliação do SEC-02/Fase 5 — se mantida a remoção, apagar o módulo; se reativada, registrar a decisão no doc referenciado. Nunca deixar "código morto que parece segurança".
 4. **Endurecer tipagem (Médio):** elevar `no-explicit-any` para `error`; substituir `config.get(): any` por mapa tipado de chaves (issue #6), eliminando a propagação de `any` no runtime.
 5. **Corrigir `local.service.ts:357` (Baixo):** trocar `new Promise(async …)` por fluxo baseado em `async` com `try/finally` no `archive.finalize()`.
-6. **Resolver TODOs de sessão/validação (Baixo):** `auth.service.ts:131` (invalidar loginTokens antigos) — fechar junto com SEC-07/Fase 5; `config.service.ts:273` (validação `timespan`) — fechar junto com SEC-03/Fase 5.
+6. **Resolver TODOs de sessão/validação (Baixo):** `auth.service.ts:131` (invalidar loginTokens antigos) — distinto do SEC-07 (pago em 2026-08-07); continua pendente; `config.service.ts:273` (validação `timespan`) — fechar junto com SEC-03/Fase 5.
 7. **Fatorar os monolíticos (Baixo):** extrair sub-componentes do `showCreateUploadModal.tsx` (751 L) e dividir responsabilidades do `share.service.ts`; centralizar `pLimit` em módulo compartilhado para limitar upload globalmente.
 
 ## 7.7 Notas de Execução

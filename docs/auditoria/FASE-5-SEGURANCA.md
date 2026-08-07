@@ -37,9 +37,9 @@ O backend é **bem endurecido nas camadas de infraestrutura**: o Prisma parametr
 | Recuperação de senha / tokens | ✅ Adequado (SEC-03/BKD-01 — token de reset expira em 1h) |
 | E-mail transacional (injeção HTML) | ✅ Adequado (SEC-04 — valores de usuário escapados com `escapeHtml` quando `sendHtmlEmails=true`) |
 | Credenciais em URL | ⚠️ Parcial (SEC-05 — token via body, sem senha em query string) |
-| Enumeração de contas | ⚠️ Parcial (SEC-06) |
-| Rotação de refresh tokens | ⚠️ Parcial (SEC-07) |
-| Fail-open em detecção de magic bytes | ⚠️ Parcial (SEC-08 — documentado) |
+| Enumeração de contas | ✅ Adequado (SEC-06 — resposta uniforme no `resendVerification`) |
+| Rotação de refresh tokens | ✅ Adequado (SEC-07 — rotação atômica + reuse-detection) |
+| Fail-open em detecção de magic bytes | ✅ Adequado (SEC-08 — fail-closed no `local.service`) |
 | Segredo JWT / hashing de senha | ✅ Adequado (argon2; HS256 com segredo forte) |
 
 ---
@@ -286,6 +286,7 @@ O backend é **bem endurecido nas camadas de infraestrutura**: o Prisma parametr
 - **Benefícios:** remove o oráculo de e-mail ativo (OWASP ASVS V2.3.1, CWE-204); impede fingerprinting da base de usuários.
 - **Riscos:** usuários ativados que chamam "reenviar" não recebem erro visível — UX aceitável e comum; pode ser complementado por nota informativa.
 - **Compatibilidade:** compatível; comportamento de sucesso preservado para o fluxo principal (reenvio de token pendente).
+- **✅ Resolvido (2026-08-07):** `resendVerification()` em `backend/src/auth/auth.service.ts` agora retorna silenciosamente para e-mail não cadastrado **e** para já ativado (`if (!user || user.isActivated) return;`) — resposta idêntica nos dois casos, eliminando o oráculo. +3 testes em `auth.service.spec.ts` (unit 76/76).
 
 ---
 
@@ -322,6 +323,7 @@ O backend é **bem endurecido nas camadas de infraestrutura**: o Prisma parametr
 - **Benefícios:** sessão resiliente a corridas; detecção de replay de refresh token roubado (OWASP ASVS V3.2.1); trilha de auditoria para incidentes.
 - **Riscos:** revogar a família em reuso legítimo (ex.: retry de cliente) pode desconectar o usuário — exigir política de tolerância (janela curta) ou apenas registrar.
 - **Compatibilidade:** compatível; API de refresh inalterada.
+- **✅ Resolvido (2026-08-07):** `refreshAccessToken()` em `backend/src/auth/auth.service.ts` agora executa `findUnique` + `deleteMany` + `create` dentro de `$transaction`. Se `deleteMany` retornar `count === 0` (token já consumido → replay), todos os refresh tokens do usuário são revogados na mesma transação e um `UnauthorizedException` é lançado após o commit — a exceção fica fora da tx para o rollback não desfazer a revogação. `logger.warn` registra o incidente de reuso. +3 testes em `auth.service.spec.ts` (unit 76/76).
 
 ---
 
@@ -354,6 +356,7 @@ O backend é **bem endurecido nas camadas de infraestrutura**: o Prisma parametr
 - **Benefícios:** remove a exceção ao princípio fail-closed; impede contorno da validação de tipo em cenários de parser quebrado (CWE-436).
 - **Riscos:** uploads legítimos com tipos raros podem ser bloqueados se o detector falhar — mitigado por monitoramento e allow-list.
 - **Compatibilidade:** compatível; contrato de erro idêntico (`400 Bad Request`).
+- **✅ Resolvido (2026-08-07):** o `catch` de `local.service.ts` agora é fail-closed: erros de validação (magic bytes ≠ extensão) continuam re-lançados; falhas inesperadas da detecção fazem `logger.error`, removem o arquivo em disco (`fs.unlink`) e lançam `BadRequestException(file.typeUnverified)`. Nova chave i18n `file.typeUnverified` em `backend/src/i18n/pt-BR/file.json`. +3 testes em `local.service.spec.ts` (unit 76/76).
 
 ---
 
@@ -385,7 +388,7 @@ O backend é **bem endurecido nas camadas de infraestrutura**: o Prisma parametr
 | SEC-04 | Injeção HTML em e-mails com `sendHtmlEmails=true` | Médio | Segurança | Baixo | ✅ |
 | SEC-05 | Senha em query string (`includePasswordInShareLink`) | Médio | Segurança | Muito Baixo | ✅ (política) |
 | SEC-06 | Enumeração de contas via `resendVerification` | Baixo | Segurança | Muito Baixo | ✅ |
-| SEC-07 | Rotação de refresh token não atômica / sem reuse-detection | Baixo | Disponibilidade | Médio | ❌ |
+| SEC-07 | Rotação de refresh token não atômica / sem reuse-detection | Baixo | Disponibilidade | Médio | ✅ |
 | SEC-08 | Fail-open na detecção de magic bytes | Baixo | Segurança | Muito Baixo | ✅ |
 
 ---
@@ -396,8 +399,8 @@ O backend é **bem endurecido nas camadas de infraestrutura**: o Prisma parametr
 2. **SEC-03 (Médio, Quick Win):** validar `expiresAt` no `resetPassword()` — fecha a janela indefinida de account takeover; alinha com `verifyAccount()`.
 3. **SEC-02 (Médio):** conectar `ClamScanService.check()` ao `complete()` do upload com política configurável de bloqueio — ativa a camada antivírus já provisionada.
 4. **SEC-04 (Médio):** sanitizar `{desc}`/`{creator}` quando `sendHtmlEmails=true` (escapar HTML) — neutraliza phishing via e-mail oficial.
-5. **SEC-06/05/08 (Baixos):** uniformizar resposta do `resendVerification`; documentar mascaramento de query strings no proxy se `includePasswordInShareLink` for usado; rejeitar (fail-closed) quando a detecção de magic bytes falhar de forma inesperada.
-6. **SEC-07 (Baixo):** transação no refresh + `deleteMany` para detecção de reuso com revogação da família de tokens.
+5. **SEC-06/05/08 (Baixos):** uniformizar resposta do `resendVerification`; documentar mascaramento de query strings no proxy se `includePasswordInShareLink` for usado; rejeitar (fail-closed) quando a detecção de magic bytes falhar de forma inesperada. — *SEC-06 e SEC-08 pagos em 2026-08-07; resta apenas SEC-05 (documentação do proxy).*
+6. **SEC-07 (Baixo):** transação no refresh + `deleteMany` para detecção de reuso com revogação da família de tokens. — *Pago em 2026-08-07.*
 
 ---
 
