@@ -11,7 +11,7 @@ export class AppController {
   @Public()
   async health(@Res({ passthrough: true }) res: Response) {
     try {
-      await this.prismaService.config.findMany();
+      await this.prismaService.$queryRaw`SELECT 1`;
       return "OK";
     } catch {
       res.statusCode = 500;

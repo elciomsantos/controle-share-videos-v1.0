@@ -65,11 +65,12 @@ A base de imagem e os scripts de entrada são **exemplares** (multi-stage com pu
 - **Impacto:** dependendo da forma de deploy, o vhost `https://` fica sem domínio ou o Caddy rejeita o config; TLS/ACME não configurados como documentado.
 - **Resolução:** novo `reverse-proxy/entrypoint.sh` (via `ENTRYPOINT` no `reverse-proxy/Dockerfile`) lê `DOMAIN_FILE`/`ACME_EMAIL_FILE` e exporta `DOMAIN`/`ACME_EMAIL` antes de repassar o comando ao Caddy; o CMD padrão `caddy run ...` foi explicitado. Validado: `caddy validate` = "Valid configuration" e servidor emite TLS para o domínio resolvido (ACME falhou só por ser domínio `.test` de teste).
 
-### DOP-06 — Tags `:latest` sem pinagem no monitoring e ClamAV 🟡 Baixo
+### DOP-06 — Tags `:latest` sem pinagem no monitoring e ClamAV 🟡 Baixo — ✅ Resolvido (2026-08-07)
 
 - **Onde:** `docker-compose.monitoring.yml` (prometheus, grafana, loki, promtail, node-exporter — todos `:latest`), `docker-compose.yml:86` e `docker-compose.dev.yml` (`clamav/clamav:latest`).
 - **Evidência:** nenhum digest/pin. Enquanto prod fixa `caddy:2.9-alpine`, o resto da stack usa `latest`.
 - **Impacto:** builds não reprodutíveis; atualizações não planejadas quebram dashboards/alerts (Grafana/Prometheus) ou mudam comportamento do scanner (INF-01 reincidente).
+- **Resolução:** `docker-compose.monitoring.yml` agora pina tags semver estáveis: `prom/prometheus:v3.13.2`, `grafana/grafana:13.1.3`, `grafana/loki:3.7.6`, `grafana/promtail:3.6.11`, `prom/node-exporter:v1.12.1`. Validado com `docker compose -f docker-compose.monitoring.yml config --quiet`. *(ClamAV removido do compose — item não se aplica mais a ele.)*
 
 ### DOP-07 — `.dockerignore` não exclui secrets e env — vazamento para o daemon 🟡 Baixo
 
@@ -77,11 +78,12 @@ A base de imagem e os scripts de entrada são **exemplares** (multi-stage com pu
 - **Evidência:** não há exclusão de `secrets/`, `.env*`, `scripts/secrets/`. Embora o `Dockerfile` só `COPY` caminhos específicos (frontend/, backend/, reverse-proxy/, scripts/docker/), o **contexto de build inteiro** é enviado ao daemon — em daemon remoto/compartilhado, `secrets/` (com `jwt_secret.txt`, `admin_password.txt`) e `.env.local` (com `ADMIN_PASSWORD`) trafegam e ficam nos caches do buildkit.
 - **Impacto:** exposição de segredos na cadeia de build; facilmente evitável.
 
-### DOP-08 — Healthchecks `/api/health` cruzam com PERF-07 (leitura da tabela `Config`) 🟡 Baixo
+### DOP-08 — Healthchecks `/api/health` cruzam com PERF-07 (leitura da tabela `Config`) 🟡 Baixo — ✅ Resolvido (2026-08-07)
 
 - **Onde:** `Dockerfile:120-121` (30s), `docker-compose.yml:13-18` (30s), `docker-compose.prod.yml` backend (10s) e Caddy `caddy validate`.
 - **Evidência:** `/api/health` (`app.controller.ts`) executa `findMany` na tabela `Config` (PERF-07/Fase 6). Em prod o backend é sondado a cada 10s; somando múltiplos réplicas/orquestradores, é carga de DB recorrente num endpoint que deveria ser trivial.
 - **Impacto:** acúmulo de I/O de banco em endpoint de saúde; sem impacto funcional isolado.
+- **Resolução:** `app.controller.ts` passou a usar `prisma.$queryRaw\`SELECT 1\`` no lugar de `config.findMany()` — probe barato (1 row), padrão de health check de banco (PERF-07). Validado: `tsc -p tsconfig.build.json` OK, lint sem erros novos, e2e `GET /api/health` → 200 permanece válido.
 
 ## 9.4 Fortalezas
 
@@ -113,9 +115,9 @@ A base de imagem e os scripts de entrada são **exemplares** (multi-stage com pu
 3. ~~**Alinhar `DATABASE_URL` do compose base ao volume**~~ ✅ **Resolvido (commit `272e204`)**: usa `file:/opt/app/backend/data/controle-videos.db` (DOP-03).
 4. ~~**Deprecar o compose base ou consolidá-lo**~~ ✅ **Resolvido (2026-08-07)** (DOP-04): o base foi **consolidado** — Caddy 2.9 custom, `frontend-runner`, `DATABASE_URL` no volume; secrets mortos (`jwt_secret`, `smtp_password`, `admin_password`) removidos; admin bootstrap por env; sem mais dependência de `./secrets/*.txt`.
 5. ~~**Corrigir a resolução de domínio/ACME do Caddy**~~ ✅ **Resolvido (2026-08-07)** (DOP-05): entrypoint do Caddy expande `DOMAIN_FILE`/`ACME_EMAIL_FILE` → `DOMAIN`/`ACME_EMAIL` antes de iniciar; validado "Valid configuration" e TLS para o domínio resolvido.
-6. **Pinar imagens** do monitoring (DOP-06) — alinhar com INF-01 (Fase 8). *(ClamAV removido do compose; item já não se aplica a ele.)*
+6. ~~**Pinar imagens** do monitoring (DOP-06)~~ ✅ **Resolvido (2026-08-07):** `docker-compose.monitoring.yml` pina `prom/prometheus:v3.13.2`, `grafana/grafana:13.1.3`, `grafana/loki:3.7.6`, `grafana/promtail:3.6.11`, `prom/node-exporter:v1.12.1`. *(ClamAV removido do compose; item já não se aplica a ele.)*
 7. **Ampliar `.dockerignore`:** adicionar `secrets/`, `.env*`, `scripts/secrets/`, `data/`, `*.log` (DOP-07).
-8. **Healthcheck leve** (DOP-08): fazer `/api/health` responder sem tocar o banco (cruzado com PERF-07/Fase 6) e uniformizar intervalos.
+8. ~~**Healthcheck leve** (DOP-08)~~ ✅ **Resolvido (2026-08-07):** `/api/health` usa `$queryRaw\`SELECT 1\`` no lugar de `config.findMany()` (PERF-07).
 
 ## 9.7 Notas de Execução
 

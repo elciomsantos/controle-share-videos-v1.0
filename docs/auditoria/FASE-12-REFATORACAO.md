@@ -109,7 +109,7 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 
 ### P3 — Baixo / Backlog
 
-ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (tipos, parse, throttler, `sig`), FRN-06 (`user-scalable=no`), FRN-07 (preview PDF), FRN-08, FRN-09 (`target=_blank`), FRN-10/11 (strikethrough, chaves de lista), BDB-05/06 (seed, `ShareRecipie`), ~~SEC-08~~ (pago 2026-08-07 — fail-closed magic bytes), PERF-06/07 (stream sem Range; health lê `Config`), QAL-06 (duplicação leve), INF-04 (higiene), ~~DOP-02~~ (ClamAV — encerrado 2026-08-07 por decisão formal; serviço/dep/módulo removidos), ~~DOP-04~~ (compose base consolidado), DOP-06/08 (`:latest`, healthcheck ↔ PERF-07), QTS-06/07 (`@nestjs/testing` órfão).
+ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (tipos, parse, throttler, `sig`), FRN-06 (`user-scalable=no`), FRN-07 (preview PDF), FRN-08, FRN-09 (`target=_blank`), FRN-10/11 (strikethrough, chaves de lista), BDB-05/06 (seed, `ShareRecipie`), ~~SEC-08~~ (pago 2026-08-07 — fail-closed magic bytes), PERF-06/07 (stream sem Range; health lê `Config`), QAL-06 (duplicação leve), INF-04 (higiene), ~~DOP-02~~ (ClamAV — encerrado 2026-08-07 por decisão formal; serviço/dep/módulo removidos), ~~DOP-04~~ (compose base consolidado), ~~DOP-06~~ (imagens monitoring pinadas 2026-08-07), ~~DOP-08~~ (healthcheck leve `SELECT 1` 2026-08-07, ↔ PERF-07), QTS-06/07 (`@nestjs/testing` órfão).
 
 ---
 
@@ -430,7 +430,8 @@ ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (t
 
 ## 12.6 Quick wins (melhorias < 30 min, sem refatoração estrutural)
 
-- DOP-06: fixar tags de imagem no monitoring (`:latest` → versão). *(ClamAV removido do compose — item não se aplica mais a ele.)*
+- ~~DOP-06~~ ✅ **Resolvido 2026-08-07:** `docker-compose.monitoring.yml` pina `prom/prometheus:v3.13.2`, `grafana/grafana:13.1.3`, `grafana/loki:3.7.6`, `grafana/promtail:3.6.11`, `prom/node-exporter:v1.12.1`. *(ClamAV removido do compose — item não se aplica mais a ele.)*
+- ~~DOP-08~~ ✅ **Resolvido 2026-08-07:** `/api/health` usa `$queryRaw\`SELECT 1\`` no lugar de `config.findMany()` (↔ PERF-07).
 - ~~DOP-07~~ ✅ **Resolvido 2026-08-07 (commit `5e9b987`):** `.dockerignore` inclui `**/secrets/`, `.env*`, `**/scripts/secrets/`, `**/data/` e `*.log`.
 - DOC-04: preencher `license`/`repository` nos 4 `package.json`.
 - QTS-07: remover `@nestjs/testing` órfão **após** R07.

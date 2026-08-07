@@ -272,6 +272,7 @@ A base é **bem comportada no essencial**: configurações são cacheadas em mem
 - **Benefícios:** probe barato (1 row), padrão de health check de banco.
 - **Riscos:** nenhum (SELECT 1 não expõe dados).
 - **Compatibilidade:** compatível.
+- **✅ Resolvido (2026-08-07, junto com DOP-08/Fase 9):** `backend/src/app.controller.ts` usa `prisma.$queryRaw\`SELECT 1\`` no probe `/api/health`. Validado por `tsc` (tsconfig.build) e lint; e2e `GET /api/health` → 200 permanece.
 ---
 
 ## 6.4 Fortalezas / Boas práticas já existentes (não são achados)
