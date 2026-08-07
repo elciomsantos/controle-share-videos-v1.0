@@ -5,7 +5,7 @@
 | Plano de referência | `REFACTORING_PLAN.md` |
 | Última atualização | 2026-08-07 |
 | Branch | `main` (PR #1 mergeado em `0bdb1c9`) |
-| Commits | `98de696` (BDB-02), `4686195` (R03 Breaking), `0412c93` (R06), `7729f22` (R05) |
+| Commits | `98de696` (BDB-02), `4686195` (R03 Breaking), `0412c93` (R06), `7729f22` (R05), `165de4a` (SEC-04), `1e6eaa4` (SEC-06/07/08) |
 
 ## 1. Visão geral
 
@@ -119,3 +119,15 @@ Fixa **ARQ-02** (god class 772 LOC / 27 métodos). `ShareService` vira orquestra
 9. ✅ **SEC-03/BKD-01 (TTL reset)**, **SEC-05 (senha em body)**, **FRN-12 (mutação de props)** — pagos e registrados no `TECH_DEBT.md`.
 10. ✅ **SEC-04 (sanitização HTML e-mail)** — `escapeHtml` em `common/sanitize.ts` aplicado a valores de usuário quando `email.sendHtmlEmails=true`; +4 testes em `email.service.spec.ts`.
 11. ✅ **SEC-06 (oráculo de e-mail), SEC-07 (rotação/reuso de refresh), SEC-08 (fail-closed magic bytes)** — resposta uniforme em `resendVerification`; refresh em `$transaction` com reuse-detection e revogação da família; `local.service.ts` rejeita upload quando a detecção falha de forma inesperada; +6 testes em `auth.service.spec.ts`, +3 em `local.service.spec.ts` (unit 76/76).
+12. ✅ **SEC-01 (fail-open do JwtGuard)** — já pago no R02: `jwt.guard.ts` lança `UnauthorizedException` no `catch` e acesso anônimo restrito a `@Public()`; confirmado em código e testes.
+13. ✅ **SEC-02 (ClamAV)** — **encerrado por decisão formal** (26/07/2026): `docs/Padronizacao-07-clamav.md` rejeita a integração (uploads só do owner autenticado, somente mídia de vídeo, destinatários só baixam, overhead ~1-2 GB RAM + cold start, air-gapped incompatível com freshclam). Código `backend/src/clamscan/`, dep `clamscan` e daemon `clamav/clamav` já **removidos** do repositório e dos compose files. Sem pendência técnica.
+
+## 10. Backlog pendente de segurança (registro da sequência)
+
+| Item | Status | Local/Ref |
+|---|---|---|
+| SEC-02 — ClamAV no upload | ⚪ Encerrado por decisão formal (26/07/2026) | `docs/Padronizacao-07-clamav.md`; FASE-5 §SEC-02 — código, dep `clamscan` e daemon do compose já removidos |
+| SEC-05 — Mascarar query strings no proxy/Caddy (ex.: token no URL) | ⏳ Aberto | FASE-5 §SEC-05; `reverse-proxy/Caddyfile` |
+| TODO `auth.service.ts:131` — invalidar `loginTokens` antigos (logout de todos os dispositivos) | ⏳ Aberto | distinto do SEC-07 (já pago) |
+| QTS-05 / DOP-07 | ⏳ Aberto | FASE-10 / FASE-12 |
+| SEC-06, SEC-07, SEC-08 | ✅ Pago (2026-08-07) | commit `1e6eaa4` |

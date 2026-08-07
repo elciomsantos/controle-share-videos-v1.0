@@ -37,11 +37,12 @@ O corpo documental **existente** é de boa qualidade: `docs/Visao-geral.md` (33 
 - **Evidência:** as seções "Supported Versions" e "Reporting a Vulnerability" estão em branco. Para um serviço com 8 achados de segurança na Fase 5, 2 vulnerabilidades ativas na Fase 8 (INF-01) e 7 achados de QA/segurança na Fase 10, **não há canal documentado de disclosure** nem política de versões suportadas.
 - **Impacto:** vulnerabilidades reportadas por terceiros não têm caminho oficial; o repositório não sinaliza quais versões recebem correção.
 
-### DOC-03 — Decisão ClamAV conflitante entre README, `Visao-geral` e código 🟠 Médio
+### DOC-03 — Decisão ClamAV conflitante entre README, `Visao-geral` e código 🟠 Médio — ✅ Resolvido (2026-08-07)
 
-- **Onde:** `README.md:38,149` ("Decidido — código pendente"), `docs/Visao-geral.md:9` ("**Rejeitado** — fora de escopo, sem código"), `backend/src/share/share.service.ts:246` ("ClamAV scan removed per formal decision docs/Padronizacao-07-clamav.md" — arquivo **inexistente**).
-- **Evidência:** três fontes afirmam status diferentes para o mesmo tema, e o documento que "formalizaria" a decisão não existe. A Fase 5 (SEC-02) já registrara a divergência; ela persiste.
+- **Onde:** `README.md:38,149` ("Decidido — código pendente", na época), `docs/Visao-geral.md:9` ("**Rejeitado** — fora de escopo, sem código"), `backend/src/share/share.service.ts:246` ("ClamAV scan removed per formal decision docs/Padronizacao-07-clamav.md").
+- **Evidência:** três fontes afirmavam status diferentes para o mesmo tema, e o documento que "formalizaria" a decisão **existia** mas não fora cruzado pela auditoria (`docs/Padronizacao-07-clamav.md`, 26/07/2026 — **Rejeitado**). A Fase 5 (SEC-02) já registrara a divergência; ela persiste.
 - **Impacto:** a ausência de varredura antivírus é **apresentada como recurso do produto** no README e ao mesmo tempo **rejeitada** na visão arquitetural — o operador não sabe se deve contar com a proteção (eco de DOP-02/Fase 9).
+- **Resolução:** a decisão formal existe e **rejeita** a integração. O módulo `backend/src/clamscan/`, a dependência `clamscan` e o daemon dos compose files foram removidos (fecha SEC-02/QAL-02/INF-03/DOP-02). **README já limpo:** `grep -rn "ClamAV|clamscan|antivírus"` no README não retorna ocorrências — os relatos "Decidido — código pendente" foram retirados, alinhando README ↔ `Visao-geral.md` ↔ `Padronizacao-07-clamav.md`. DOC-03 **fechado**.
 
 ### DOC-04 — Ausência de metadados de licença/repositório e atribuição de upstream 🟡 Baixo
 
@@ -80,7 +81,7 @@ O corpo documental **existente** é de boa qualidade: `docs/Visao-geral.md` (33 
 
 1. **Re-sincronizar o README com o corpus real (Alto):** ou restaurar do histórico git (`git show <commit>:` das guias de padronização/implantacao — commits `912f838`/`22a0c2f`) os docs ainda relevantes, ou reescrever a seção "Documentação" para listar apenas os arquivos existentes (`docs/Visao-geral.md`, `docs/PLANO-IMPLANTACAO.md`, `docs/conf-dominio.md`, `docs/auditoria/*`); corrigir os paths `docs/Implantacao/*` → raiz de `docs/`. Manter a lista verificada por um script simples (`for f in $(grep -oP 'docs/[A-Za-z0-9_./-]+\.md' README.md)`).
 2. **Preencher `SECURITY.md` (Alto):** versões suportadas, e-mail/chave privada de security disclosure e política de correção — fecha DOC-02 e dá canal aos achados das Fases 5/8/10.
-3. **Resolver a decisão ClamAV (Médio):** adotar **um** status (recomendado: "Rejeitado — removido", alinhado a `Visao-geral` e `share.service.ts`) e removê-lo dos recursos anunciados no README; registrar a decisão num doc de arquitetura existente. Fecha DOC-03, SEC-02 (F5), QAL-02 (F7) e DOP-02 (F9).
+3. ~~**Resolver a decisão ClamAV (Médio)**~~ ✅ **Concluído (2026-08-07):** a decisão formal `docs/Padronizacao-07-clamav.md` (26/07/2026) é **"Rejeitado — removido"**, alinhada a `Visao-geral` e `share.service.ts`; módulo, dep e daemon removidos; README já sem menções ao ClamAV. Fecha DOC-03, SEC-02 (F5), QAL-02 (F7) e DOP-02 (F9).
 4. **Adicionar metadata de licença/atribuição (Baixo):** `"license": "BSD-2-Clause"` + `"repository"` nos 4 `package.json`; `NOTICE` no README creditando Pingvin Share X v1.21.1; verificar conformidade da cadeia de licenciamento.
 5. **Documentar as variáveis de ambiente (Baixo):** expandir `.env.local.example` (DATABASE_URL, BACKEND_PORT, TRUST_PROXY) e criar `.env.example`/seção no README cobrindo o modelo prod (`DOMAIN`, `ACME_EMAIL`, `ADMIN_*`, `*_FILE`).
 

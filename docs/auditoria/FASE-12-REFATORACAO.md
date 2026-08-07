@@ -77,8 +77,8 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 | SEC-03 | Tokens em memória/duplicidade de refresh rotation | 5 | `auth/` |
 | SEC-04 | `i`/segredos em configuração | 5 | `config.seed.ts` |
 | BDB-04 | Jobs de limpeza sem transação/batching | 4 | `jobs.service.ts:21-56` |
-| QAL-02 | `ClamSca...` (flag/estado não implementado) | 7 | `share.service.ts:246` |
-| DOC-03 | Decisão ClamAV conflitante (README × Visão-geral × código) | 11 | `README.md:149` |
+| ~~QAL-02~~ | ~~`ClamSca...` (flag/estado não implementado)~~ | 7 | ✅ Resolvido 2026-08-07 — módulo removido (decisão formal rejeita ClamAV) |
+| ~~DOC-03~~ | ~~Decisão ClamAV conflitante (README × Visão-geral × código)~~ | 11 | ✅ Resolvido 2026-08-07 — README sem menções; visão formal alinhada |
 
 ### P2 — Médio
 
@@ -109,7 +109,7 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 
 ### P3 — Baixo / Backlog
 
-ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (tipos, parse, throttler, `sig`), FRN-06 (`user-scalable=no`), FRN-07 (preview PDF), FRN-08, FRN-09 (`target=_blank`), FRN-10/11 (strikethrough, chaves de lista), BDB-05/06 (seed, `ShareRecipie`), ~~SEC-08~~ (pago 2026-08-07 — fail-closed magic bytes), PERF-06/07 (stream sem Range; health lê `Config`), QAL-06 (duplicação leve), INF-04 (higiene), DOP-02 (ClamAV não consumido — decidir flag), DOP-06/07/08 (`:latest`, `.dockerignore`, healthcheck ↔ PERF-07), QTS-06/07 (`@nestjs/testing` órfão).
+ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (tipos, parse, throttler, `sig`), FRN-06 (`user-scalable=no`), FRN-07 (preview PDF), FRN-08, FRN-09 (`target=_blank`), FRN-10/11 (strikethrough, chaves de lista), BDB-05/06 (seed, `ShareRecipie`), ~~SEC-08~~ (pago 2026-08-07 — fail-closed magic bytes), PERF-06/07 (stream sem Range; health lê `Config`), QAL-06 (duplicação leve), INF-04 (higiene), ~~DOP-02~~ (ClamAV — encerrado 2026-08-07 por decisão formal; serviço/dep/módulo removidos), DOP-06/07/08 (`:latest`, `.dockerignore`, healthcheck ↔ PERF-07), QTS-06/07 (`@nestjs/testing` órfão).
 
 ---
 
@@ -430,7 +430,7 @@ ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (t
 
 ## 12.6 Quick wins (melhorias < 30 min, sem refatoração estrutural)
 
-- DOP-06: fixar tags de imagem no monitoring/ClamAV (`:latest` → versão).
+- DOP-06: fixar tags de imagem no monitoring (`:latest` → versão). *(ClamAV removido do compose — item não se aplica mais a ele.)*
 - DOP-07: adicionar `secrets/` e `.env*` ao `.dockerignore`.
 - DOC-04: preencher `license`/`repository` nos 4 `package.json`.
 - QTS-07: remover `@nestjs/testing` órfão **após** R07.

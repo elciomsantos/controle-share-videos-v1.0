@@ -8,7 +8,7 @@
 
 ## 5.1 Resumo Executivo
 
-O backend é **bem endurecido nas camadas de infraestrutura**: o Prisma parametriza toda consulta (não há `$queryRaw`/`$executeRaw`), não há requisições a URLs externas no backend (SSRF improvável), helmet aplica CSP restritiva, há CSRF double-submit, cookies com `httpOnly` + `sameSite: strict`, e o upload é validado por magic bytes com allow-list de extensões. Entretanto, a **camada de guardas de autenticação tem um fail-open de alto risco** e a integração com ClamAV — anunciada no produto — **nunca é executada**. Foram identificados **8 achados**:
+O backend é **bem endurecido nas camadas de infraestrutura**: o Prisma parametriza toda consulta (não há `$queryRaw`/`$executeRaw`), não há requisições a URLs externas no backend (SSRF improvável), helmet aplica CSP restritiva, há CSRF double-submit, cookies com `httpOnly` + `sameSite: strict`, e o upload é validado por magic bytes com allow-list de extensões. Entretanto, a **camada de guardas de autenticação tem um fail-open de alto risco** e a integração com ClamAV — anunciada no produto — **nunca é executada** (mais tarde **rejeitada por decisão formal** de 26/07/2026; ver §SEC-02). Foram identificados **8 achados**:
 
 | Severidade | Qtd |
 |---|---|
@@ -33,7 +33,7 @@ O backend é **bem endurecido nas camadas de infraestrutura**: o Prisma parametr
 | CSRF | ✅ Adequado (double-submit cookie + `sameSite: strict`) |
 | Flags de cookie de sessão | ✅ Adequado (`httpOnly`, `sameSite: strict`, `secure` configurável) |
 | Path traversal em download | ✅ Adequado (arquivos em disco renomeados para UUID; `fileId` validado no banco) |
-| Antivírus / malware em uploads | ❌ Falho (SEC-02 — ClamAV nunca executado) |
+| Antivírus / malware em uploads | ⚪ Rejeitado (SEC-02 — decisão formal 26/07/2026, ver `docs/Padronizacao-07-clamav.md`) |
 | Recuperação de senha / tokens | ✅ Adequado (SEC-03/BKD-01 — token de reset expira em 1h) |
 | E-mail transacional (injeção HTML) | ✅ Adequado (SEC-04 — valores de usuário escapados com `escapeHtml` quando `sendHtmlEmails=true`) |
 | Credenciais em URL | ⚠️ Parcial (SEC-05 — token via body, sem senha em query string) |
@@ -125,6 +125,7 @@ O backend é **bem endurecido nas camadas de infraestrutura**: o Prisma parametr
   src/clamscan/clamscan.module.ts:8
   ```
 - **Situação Atual:** Após o `complete()` de um upload, nenhuma varredura é disparada. Um ZIP ou documento Office malicioso compartilhado internamente passa intacto até o destinatário. A checagem de zip-bomb (GAP-04, Fase 2) protege contra compressão abusiva, mas não contra conteúdo malicioso. **Nota de conciliação (Fase 6):** o comentário em `share.service.ts:246-249` afirma que a varredura foi removida por "decisão formal" registrada em `docs/Padronizacao-07-clamav.md`, mas esse documento **não existe no repositório** (`find` não retorna ocorrência) — a decisão não é verificável. Recomenda-se registrar a decisão (ou reativar a varredura conforme a política) e, em qualquer caso, remover o código morto do `ClamScanService` se for manter a remoção.
+- **Resolução (2026-08-07):** o `docs/Padronizacao-07-clamav.md` **existe** e registra a **decisão formal de 26/07/2026** que **REJEITA** a integração ClamAV (6 justificativas: origem controlada dos uploads — só owner/operador autenticado; somente mídia de vídeo — não é vetor de execução; destinatários só baixam; overhead de ~1-2 GB RAM + cold start 5-15 min do daemon; incompatível com deploy air-gapped; caso de uso interno restrito). O código `backend/src/clamscan/` foi **removido** do repositório e o `share.service.ts` registra o comentário "ClamAV scan removed". **SEC-02 é encerrado como REJEITADO por decisão formal** — não há pendência técnica a executar.
 - **Implementação (recomendada):** Invocar `clamScanService.check(shareId)` (ou a lista de arquivos do share) no fluxo de `complete()` em `ShareService` e/ou na escrita dos arquivos, **antes** de o share ficar disponível; tratar falha do daemon como degradação configurável (`fail-open` com log, ou bloqueio se a política exigir — OWASP ASVS V12 "Malware protection"). Reutilizar o `check()` já implementado (retorna os arquivos infectados) e rejeitar o share ou marcar os arquivos.
 - **Código Atual:**
   ```ts
@@ -383,7 +384,7 @@ O backend é **bem endurecido nas camadas de infraestrutura**: o Prisma parametr
 | ID | Achado | Risco | Impacto | Esforço | Quick Win? |
 |---|---|---|---|---|---|
 | SEC-01 | `JwtGuard` global fail-open (`allowUnauthenticatedShares`) | Alto | Segurança | Médio | ⚠️ parcial |
-| SEC-02 | ClamAV nunca executado (antivírus é código morto) | Médio | Segurança | Médio | ❌ |
+| SEC-02 | ClamAV nunca executado (antivírus é código morto) | Médio | Segurança | Médio | ⚪ Rejeitado (decisão formal 26/07/2026) |
 | SEC-03 | Token de reset de senha não expira (c/ BKD-01) | Médio | Segurança | Muito Baixo | ✅ (1 linha) |
 | SEC-04 | Injeção HTML em e-mails com `sendHtmlEmails=true` | Médio | Segurança | Baixo | ✅ |
 | SEC-05 | Senha em query string (`includePasswordInShareLink`) | Médio | Segurança | Muito Baixo | ✅ (política) |
@@ -397,7 +398,7 @@ O backend é **bem endurecido nas camadas de infraestrutura**: o Prisma parametr
 
 1. **SEC-01 (Alto):** remover o fail-open global do `JwtGuard` (lançar `UnauthorizedException` no `catch`) e concentrar o acesso anônimo a shares no `ShareSecurityGuard`, restrito a rotas `@Public()` e sob a config. É o único achado que pode derrubar a autenticação da API inteira.
 2. **SEC-03 (Médio, Quick Win):** validar `expiresAt` no `resetPassword()` — fecha a janela indefinida de account takeover; alinha com `verifyAccount()`.
-3. **SEC-02 (Médio):** conectar `ClamScanService.check()` ao `complete()` do upload com política configurável de bloqueio — ativa a camada antivírus já provisionada.
+3. **SEC-02 (Médio):** ~~conectar `ClamScanService.check()` ao `complete()` do upload com política configurável de bloqueio~~ — **ENCERRADO por decisão formal** (26/07/2026) que rejeita a integração ClamAV; ver `docs/Padronizacao-07-clamav.md`. Nenhuma ação técnica necessária.
 4. **SEC-04 (Médio):** sanitizar `{desc}`/`{creator}` quando `sendHtmlEmails=true` (escapar HTML) — neutraliza phishing via e-mail oficial.
 5. **SEC-06/05/08 (Baixos):** uniformizar resposta do `resendVerification`; documentar mascaramento de query strings no proxy se `includePasswordInShareLink` for usado; rejeitar (fail-closed) quando a detecção de magic bytes falhar de forma inesperada. — *SEC-06 e SEC-08 pagos em 2026-08-07; resta apenas SEC-05 (documentação do proxy).*
 6. **SEC-07 (Baixo):** transação no refresh + `deleteMany` para detecção de reuso com revogação da família de tokens. — *Pago em 2026-08-07.*
@@ -407,6 +408,6 @@ O backend é **bem endurecido nas camadas de infraestrutura**: o Prisma parametr
 ## 5.7 Notas de Execução
 
 - Nenhum achado desta fase foi aplicado — correções pertencem à Fase 12 (proposta) e ao plano de execução (Fase 13), salvo decisão explícita do solicitante.
-- **Referências cruzadas:** BKD-01/BKD-05/BKD-07 (Fase 2 — Backend); FRN-01 (Fase 3 — Frontend, JWT decodificado sem verificação de assinatura no middleware); Fase 9 (Docker/DevOps) deve verificar se o daemon ClamAV está provisionado no `docker-compose` e se o proxy mascara query strings; Fase 6 (Performance) deve revisar o custo do `resendVerification`/refresh e a latência de `complete()`.
+- **Referências cruzadas:** BKD-01/BKD-05/BKD-07 (Fase 2 — Backend); FRN-01 (Fase 3 — Frontend, JWT decodificado sem verificação de assinatura no middleware); Fase 9 (Docker/DevOps) deve verificar se o proxy mascara query strings (SEC-05); SEC-02 encerrado por decisão formal — não há daemon ClamAV a provisionar no `docker-compose`; Fase 6 (Performance) deve revisar o custo do `resendVerification`/refresh e a latência de `complete()`.
 - **Evidências coletadas em:** `auth/guard/jwt.guard.ts`, `app.module.ts`, `share/guard/shareSecurity.guard.ts`, `share/guard/shareOwner.guard.ts`, `auth/auth.service.ts`, `email/email.service.ts`, `file/local.service.ts`, `file/file.controller.ts`, `main.ts`, `share/share.service.ts`, `prisma/seed/config.seed.ts`.
 - **Cobertura OWASP ASVS (resumo):** V1 (arquitetura) parcial; V2 (auth) — SEC-01, SEC-03, SEC-06, SEC-07; V3 (session) — SEC-07; V4 (access) — SEC-01; V5 (validation) — SEC-08; V7 (XSS) — SEC-04; V12 (malware) — SEC-02; V14 (config/headers) — forte.

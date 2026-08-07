@@ -8,7 +8,7 @@
 
 ## 8.1 Resumo Executivo
 
-A postura de supply-chain do projeto é **boa na intenção, com três vulnerabilidades ativas e dois pontos de dívida estrutural**. Lockfiles commitados, gating de postinstall via `allowScripts` e um bloco robusto de `overrides` mostram cultura de endurecimento — mas esse mesmo endurecimento tem uma falha concreta: o `overrides` do frontend fixa `postcss@8.5.18`, que está **dentro da faixa vulnerável** do advisory ativo, e pina exatamente a versão que o `npm audit fix` tentaria corrigir, bloqueando a correção automática. O backend tem 1 vulnerabilidade **high** (`fast-uri`, cadeia exclusivamente de dev/build via `@nestjs/cli` → `ajv`), sem impacto em runtime de produção. Não há pinagem do Node runtime (sem `engines`/`.nvmrc`), o que expõe binários nativos (Prisma/better-sqlite3, sharp) a drift de ambiente. A dependência morta `clamscan@2.4.0` (nunca invocada — consolida SEC-02/QAL-02) e a duplicação de libs JWT no frontend (`jose` usado em 1 linha + `jwt-decode`) fecham o quadro.
+A postura de supply-chain do projeto é **boa na intenção, com três vulnerabilidades ativas e dois pontos de dívida estrutural**. Lockfiles commitados, gating de postinstall via `allowScripts` e um bloco robusto de `overrides` mostram cultura de endurecimento — mas esse mesmo endurecimento tem uma falha concreta: o `overrides` do frontend fixa `postcss@8.5.18`, que está **dentro da faixa vulnerável** do advisory ativo, e pina exatamente a versão que o `npm audit fix` tentaria corrigir, bloqueando a correção automática. O backend tem 1 vulnerabilidade **high** (`fast-uri`, cadeia exclusivamente de dev/build via `@nestjs/cli` → `ajv`), sem impacto em runtime de produção. Não há pinagem do Node runtime (sem `engines`/`.nvmrc`), o que expõe binários nativos (Prisma/better-sqlite3, sharp) a drift de ambiente. A dependência morta `clamscan@2.4.0` (nunca invocada — consolida SEC-02/QAL-02) **foi removida após a decisão formal de rejeição do ClamAV (2026-08-07; ver INF-03)** e a duplicação de libs JWT no frontend (`jose` usado em 1 linha + `jwt-decode`) fecha o quadro.
 
 ## 8.2 Critérios Avaliados
 
@@ -36,12 +36,12 @@ A postura de supply-chain do projeto é **boa na intenção, com três vulnerabi
 - **Evidência:** nenhum `engines`, nenhum `.nvmrc`/`.node-version`; ambiente atual roda `node v24.18.0`. Dependências com binários nativos (Prisma 7 + `@prisma/adapter-better-sqlite3` → `better-sqlite3@12.11.1`, `sharp@0.35.3`, `argon2@0.45.1`) são sensíveis à versão do runtime e à plataforma.
 - **Impacto:** drift de ambiente entre dev/staging/prod e entre máquinas de devs; builds "funcionam aqui e não no servidor". Node 24 atual atende com folga NestJS 11 / Next 16 / Prisma 7, mas a escolha não é documentada.
 
-### INF-03 — Dependências órfãs e sobrepostas 🟠 Médio
+### INF-03 — Dependências órfãs e sobrepostas 🟠 Médio — ✅ Parcialmente resolvido (2026-08-07)
 
 - **Onde:** `backend/package.json` (`clamscan`, `@types/clamscan`); `frontend/package.json` (`jose`, `jwt-decode`).
 - **Evidência:**
-  - `clamscan@2.4.0` (runtime) e `@types/clamscan` (dev) instalados, mas **zero chamadas** no código — a única referência real foi removida em `share.service.ts:246`. Além do peso morto, `clamscan` **não está** no `allowScripts`, então seus scripts de instalação são bloqueados pelo npm — uma dependência que não roda e não é chamada. Consolida SEC-02 (Fase 5) e QAL-02 (Fase 7).
-  - Frontend: `jose@6.2.4` é usado em **exatamente 1 linha** — `jose.decodeJwt(accessToken).exp` em `auth.service.ts:46` (checagem de expiração) — coexistindo com `jwt-decode@4.0.0` usado no `middleware.ts` (claims `role`/`isAdmin`). Duas libs JWT para decodificação pura, sem sign/verify.
+  - ~~`clamscan@2.4.0` (runtime) e `@types/clamscan` (dev) instalados, mas **zero chamadas** no código — a única referência real foi removida em `share.service.ts:246`. Além do peso morto, `clamscan` **não está** no `allowScripts`, então seus scripts de instalação são bloqueados pelo npm — uma dependência que não roda e não é chamada. Consolida SEC-02 (Fase 5) e QAL-02 (Fase 7).~~ **✅ Removidas (2026-08-07):** a decisão formal (`docs/Padronizacao-07-clamav.md`, 26/07/2026) rejeita a integração; `clamscan`/`@types/clamscan` foram retirados do `backend/package.json` e do lockfile.
+  - Frontend: `jose@6.2.4` é usado em **exatamente 1 linha** — `jose.decodeJwt(accessToken).exp` em `auth.service.ts:46` (checagem de expiração) — coexistindo com `jwt-decode@4.0.0` usado no `middleware.ts` (claims `role`/`isAdmin`). Duas libs JWT para decodificação pura, sem sign/verify. *(ainda pendente — unificar em uma lib)*
 - **Impacto:** superfície de patch desnecessária, confusão de auditoria (dead dep que "parece segurança") e manutenção duplicada de contratos JWT.
 
 ### INF-04 — Higiene de embalagem: `@types` em produção e duplicidades de build 🟡 Baixo
@@ -74,7 +74,7 @@ A postura de supply-chain do projeto é **boa na intenção, com três vulnerabi
 1. **Corrigir a cadeia `postcss` no frontend (Alto, bloqueio de audit):** atualizar o `overrides` para `"postcss": "^8.5.24"` (ou versão acima de 8.5.22) e rodar `npm audit fix`; sem isso, a correção automática continua barrada pela própria config.
 2. **Corrigir `fast-uri` no backend (Médio):** `npm audit fix` e/ou `overrides: { "fast-uri": "^3.2.0" }` no backend; validar que a versão corrigida propaga para `@nestjs/cli`/`webpack`.
 3. **Pinagem do runtime (Médio):** adicionar `"engines": { "node": ">=24 <25" }` (ou alinhar à imagem Docker da Fase 9) + `.nvmrc` na raiz; documentar a versão-alvo.
-4. **Remover `clamscan`/`@types/clamscan` (Médio):** fechar junto com QAL-02/SEC-02 — se a varredura for mantida desativada, retirar a dep; se reativada, registrar a decisão.
+4. ~~**Remover `clamscan`/`@types/clamscan` (Médio)**~~ ✅ **Concluído (2026-08-07):** a varredura foi mantida desativada — a decisão formal (`docs/Padronizacao-07-clamav.md`) rejeita a integração; deps removidas. Fecha QAL-02/SEC-02/INF-03.
 5. **Consolidar libs JWT no frontend (Baixo):** manter apenas `jwt-decode` e substituir `jose.decodeJwt` em `auth.service.ts:46` (eliminar a dependência `jose`).
 6. **Mover `@types/cors` para `devDependencies` (Baixo):** e, no próximo `npm install` limpo, reavaliar as duplicidades de build (TS 5.9/6.0, webpack 5.106/5.109) via dedupe.
 7. **Adicionar `npm audit` ao CI (Baixo):** junto com a pipeline proposta na Fase 7 (QAL-01), rodar `npm audit --omit=dev` como gate de merge.

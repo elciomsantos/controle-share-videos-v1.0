@@ -91,7 +91,6 @@ Compreender completamente o projeto antes de qualquer análise: identificar ling
 - Armazenamento **apenas local** no servidor (removidos buckets S3).
 - RBAC com papéis `admin` / `operador` / `auditor`.
 - Auditoria completa de views e downloads (IP, user-agent, timestamp, sucesso/falha).
-- Integração opcional com ClamAV.
 - TLS automático via Caddy 2.9 (Let's Encrypt) no ambiente de produção.
 
 ### 0.2 Stack Tecnológica
@@ -111,7 +110,6 @@ Compreender completamente o projeto antes de qualquer análise: identificar ling
 | Cache | `cache-manager` + `@keyv/redis` | 6.4.2 / 4.4.0 |
 | Rate limit | `@nestjs/throttler` | ^6.5.0 |
 | Upload / Multimídia | multer, sharp | multer ^2.2.0 / sharp ^0.35.3 |
-| Antivírus | clamscan | ^2.4.0 |
 | E-mail | nodemailer | ^9.0.1 |
 | Validação | class-validator, class-transformer | 0.15.1 / 0.5.1 |
 | I18n / Swagger | `nestjs-i18n`, `@nestjs/swagger` | 10.8.5 / 11.1.3 |
@@ -138,7 +136,7 @@ Compreender completamente o projeto antes de qualquer análise: identificar ling
 | Categoria | Tecnologia |
 |---|---|
 | Container | Docker (multi-stage, 7 estágios — `Dockerfile` único) |
-| Orquestração | Docker Compose v2 (5 variantes) |
+| Orquestração | Docker Compose v2 (4 variantes) |
 | Reverse proxy / TLS | Caddy 2.9 (interno desativável + externo `caddy:2.9-alpine`) |
 | Observabilidade | Prometheus + Grafana + Loki + Promtail (`scripts/monitoring/`) |
 | Hardening | `scripts/provision/hardening.sh` |
@@ -154,7 +152,6 @@ controle-share-videos-v1.0/
 │   ├── src/
 │   │   ├── auth/           # JWT, local strategy, TOTP, guards, DTOs
 │   │   ├── cache/          # cache-manager + Redis (Keyv)
-│   │   ├── clamscan/       # ClamAV opcional
 │   │   ├── common/         # request-context (AsyncLocalStorage), zip, duplicated-field
 │   │   ├── config/         # ConfigService persistido no banco + logo.service
 │   │   ├── download-log/   # auditoria de views/downloads + admin-download-logs
@@ -187,7 +184,7 @@ controle-share-videos-v1.0/
 ├── docs/                  # Visão-geral, Padronizacao-NN, Implantacao/, auditoria/
 ├── data/                  # controle-videos.db, images/, uploads/ (volumes Docker)
 ├── secrets/               # admin_password.txt, jwt_secret.txt, smtp_password.txt
-├── docker-compose*.yml    # 5 variantes (.yml, .dev, .local, .prod, .monitoring)
+├── docker-compose*.yml    # 4 variantes (.yml, .local, .prod, .monitoring)
 └── Dockerfile             # multi-stage único
 ```
 
@@ -207,7 +204,7 @@ controle-share-videos-v1.0/
 
 #### 0.5.1 Padrão arquitetural
 
-- **Backend**: NestJS modular, com módulos por feature (auth, share, file, user, config, system, jobs, download-log, email, cache, clamscan, i18n, prisma, throttler, common). Cada módulo expõe controller, service e DTOs; guards globais registrados via `APP_GUARD`. Prisma como camada de persistência. AsyncLocalStorage (`common/request-context`) para correlation ID.
+- **Backend**: NestJS modular, com módulos por feature (auth, share, file, user, config, system, jobs, download-log, email, cache, i18n, prisma, throttler, common). Cada módulo expõe controller, service e DTOs; guards globais registrados via `APP_GUARD`. Prisma como camada de persistência. AsyncLocalStorage (`common/request-context`) para correlation ID.
 - **Frontend**: Next.js **Pages Router** (`pages/`) com componentes de feature, hooks customizados, services centralizando chamadas axios, middleware Next para autenticação de cookies.
 
 #### 0.5.2 Fluxo de requisição HTTP (backend)
@@ -269,13 +266,12 @@ Categoria única `Config` no banco (categorias: general, appearance, share, cach
 - Healthcheck explícito (`curl /api/health`, `start-period=120s`).
 - `npm` binary removido da imagem final (redução de superfície).
 
-#### 0.8.2 Compose — 5 variantes
+#### 0.8.2 Compose — 4 variantes
 
 | Arquivo | Propósito |
 |---|---|
 | `docker-compose.yml` | Base de produção |
 | `docker-compose.local.yml` | Override local/teste |
-| `docker-compose.dev.yml` | Dev (adiciona ClamAV) |
 | `docker-compose.prod.yml` | Produção com secrets externos e domínio |
 | `docker-compose.monitoring.yml` | Stack de observabilidade |
 
@@ -705,7 +701,7 @@ As fortalezas arquiteturais (modularidade, guards segmentados, física de arquiv
 |---|---|---|---|
 | **P0** | SEC-01 (fail-open), BDB-01 (String→BigInt), DOC-01 (refs README), DOC-02 (SECURITY stub) | S/M/L | R07 (testes) p/ BDB-01 |
 | **P1** | PERF-01 (paginação), QTS-01/02/04 (testes+CI), INF-01 (postcss), DOP-01/05 (deploy), SEC-03/05 | S/M | — |
-| **P2** | ARQ-02 (god class), PERF-02/03/06, BDB-02/04, SEC-02/04/07, QAL-03, DOC-03/04/05 | M | R07, R01 |
+| **P2** | ARQ-02 (god class), PERF-02/03/06, BDB-02/04, ~~SEC-02~~⚪ rejeitado por decisão formal, SEC-04/07, QAL-03, DOC-03/04/05 | M | R07, R01 |
 | **P3** | FRN-06/09/10/11, PERF-05/07, BDB-05/06, DOP-06/07/08, QTS-05/06/07 | Baixo | — |
 
 ### 13.3 Quick Wins (melhorias < 30 min)
@@ -725,7 +721,7 @@ Override `postcss` → 8.5.22+ (INF-01); `engines`+`.nvmrc` (INF-02); tags de im
 ### 13.5 Plano de Evolução (curto/médio/longo)
 
 - **Curto (0–1 mês):** testes+CI (R07), fail-closed (R02), BigInt (R01), deploy (R08), reset token TTL (SEC-03), `SECURITY.md` (DOC-02), paginação (R03).
-- **Médio (1–3 meses):** HTTP Range 206 (PERF-06), jobs em lote (R04), config tipada (R06), decisão ClamAV (SEC-02), órfãs de deps (INF-03), README (DOC-01).
+- **Médio (1–3 meses):** HTTP Range 206 (PERF-06), jobs em lote (R04), config tipada (R06), ~~decisão ClamAV (SEC-02)~~ ✅ encerrado por decisão formal 26/07/2026 (rejeitado; `docs/Padronizacao-07-clamav.md`), órfãs de deps (INF-03, `clamscan` já removido), README (DOC-01).
 - **Longo (3–6 meses):** decomposição do `ShareService` (R05), refresh atômico (SEC-07), secret manager, migração SQLite→PostgreSQL se o volume exigir, observabilidade, API versionada.
 
 ### 13.6 Artefatos Finais Entregues (Fase 13)
@@ -761,7 +757,7 @@ Localizados em `docs/auditoria/relatorios/`:
 ## Recomendações (consolidadas)
 
 1. **Primeiro lote (v1.1.0, 0–1 mês):** testes+CI (R07), fail-closed (R02), `BigInt` (R01), correções de deploy (R08), reset-token TTL (SEC-03), `SECURITY.md` (DOC-02), paginação (R03).
-2. **Segundo lote (v1.2.0):** HTTP Range 206 (PERF-06), jobs em lote (R04), config tipada (R06), decisão ClamAV (SEC-02), órfãs de dependências (INF-03), README (DOC-01).
+2. **Segundo lote (v1.2.0):** HTTP Range 206 (PERF-06), jobs em lote (R04), config tipada (R06), ~~decisão ClamAV (SEC-02)~~ ✅ encerrado por decisão formal, órfãs de dependências (INF-03, `clamscan` removido), README (DOC-01).
 3. **Terceiro lote (v1.3.0):** decomposição do `ShareService` (R05), refresh atômico (SEC-07), secret manager, migração SQLite→PostgreSQL se o volume exigir, observabilidade.
 4. **Governança:** PR com CI verde e changelog a cada mudança; reauditoria de segurança trimestral; manter `ROADMAP.md` e `CHANGELOG_SUGERIDO.md` vivos.
 5. Detalhamento operacional em `REFACTORING_PLAN.md` (tarefas/aceite), `TEST_PLAN.md` (cobertura ≥60%) e `ROADMAP.md` (horizontes).

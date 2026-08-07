@@ -21,7 +21,7 @@ Roteiro de evolução organizado em horizontes **curto/médio/longo prazo**, agr
 
 - Fix override `postcss` → 8.5.22+ e `npm audit fix` (INF-01).
 - `engines` + `.nvmrc` (Node ≥24) (INF-02).
-- Fixar tags de imagem `:latest` no monitoring/ClamAV (DOP-06).
+- Fixar tags de imagem `:latest` no monitoring (DOP-06) — ClamAV removido do compose.
 - Excluir `secrets/` e `.env*` do `.dockerignore` (DOP-07).
 - `rel="noopener noreferrer"` nos `target="_blank"` (FRN-09).
 - Remover `user-scalable=no` (FRN-06).
@@ -53,9 +53,9 @@ Roteiro de evolução organizado em horizontes **curto/médio/longo prazo**, agr
 | Config tipada, sem `any` (R06) | `TECH_DEBT.md` | P2 |
 | E-mails de destinatários em paralelo controlado | `PERFORMANCE_REPORT.md` | P2 |
 | ZIP: concorrência e nível de deflate | `PERFORMANCE_REPORT.md` | P2 |
-| Decidir ClamAV (implementar ou remover + docs) | `SECURITY_REPORT.md` | P2 |
+| ~~Decidir ClamAV~~ ✅ Encerrado por decisão formal (26/07/2026) — rejeitado; código/dep/daemon removidos | `SECURITY_REPORT.md` | P2 |
 | Sanear HTML em e-mails (SEC-04) | `SECURITY_REPORT.md` | P2 |
-| Remover órfãs (`clamscan`, 1 de 2 libs JWT) | `DEPENDENCY_AUDIT.md` | P2 |
+| ~~Remover órfãs (`clamscan`, 1 de 2 libs JWT)~~ ✅ `clamscan` removido; resta unificar `jose`×`jwt-decode` | `DEPENDENCY_AUDIT.md` | P2 |
 | Corrigir ~20 referências quebradas do README (DOC-01) | `TECH_DEBT.md` | P2 |
 | `EPOCH_ZERO` → `expiresAt` nullable (BDB-05) | `TECH_DEBT.md` | P2 |
 | Refresh token atômico + reuse-detection (SEC-07) | `SECURITY_REPORT.md` | P3 |

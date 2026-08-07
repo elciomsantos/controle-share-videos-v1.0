@@ -11,7 +11,7 @@
 A base de imagem e os scripts de entrada são **exemplares** (multi-stage com purge de build-deps, non-root com UID/GID estável, imagem final sem npm, healthchecks e limites de recursos). Porém a camada de orquestração esconde **dois defeitos bloqueantes de produção** e um conjunto de inconsistências entre os compose files:
 
 1. **O serviço `frontend` nos compose files builda o alvo errado** — `target: frontend-builder` (estágio que apenas roda `npm run build` e **não tem CMD/ENTRYPOINT/EXPOSE**). O `Caddyfile.prod` roteia `reverse_proxy frontend:3333`, mas o contêiner do serviço `frontend` sobe com o CMD padrão do `node:24-alpine` (`node`, REPL que encerra com stdin fechado) e **nada escuta na porta 3333** — o frontend fica inalcançável em produção.
-2. **ClamAV é implantado como "varredura obrigatória"** (`docker-compose.yml:83`, `docker-compose.dev.yml`) **mas nenhum código o consome** — o backend nunca chama o `ClamScanService` (SEC-02/QAL-02/INF-03). Um serviço com limite de 1G de RAM que escaneia nada, ecoando no deploy o código morto já identificado em 3 fases.
+2. ~~**ClamAV é implantado como "varredura obrigatória"**~~ (`docker-compose.yml:83`, `docker-compose.dev.yml`) **mas nenhum código o consome** — ~~o backend nunca chama o `ClamScanService` (SEC-02/QAL-02/INF-03). Um serviço com limite de 1G de RAM que escaneia nada, ecoando no deploy o código morto já identificado em 3 fases~~. ✅ **Resolvido (2026-08-07):** a decisão formal (`docs/Padronizacao-07-clamav.md`, 26/07/2026) rejeita a integração e o serviço `clamav/clamav` foi **removido dos compose files** — o controle fantasma não existe mais (fecha DOP-02, SEC-02/QAL-02/INF-03).
 3. O `docker-compose.yml` **base é superseded e inconsistente**: `DATABASE_URL=file:/data/controle-videos.db` aponta para fora do volume (`backend-data:/opt/app/backend/data`), Caddy `2.8` vs `2.9` no prod, e injeta secrets (`jwt_secret`, `smtp_password`) que o aplicativo **não consome** (o JWT é gerado no boot via `config.seed.ts`; o SMTP vem da tabela `config`).
 
 **Nota de escopo:** Fase 8 cobriu dependências; esta fase cobre o empacotamento. Os achados da Fase 8 (INF-01/02) reincidem aqui (`:latest` no monitoring, Node não pinado fora do Dockerfile).
@@ -34,11 +34,12 @@ A base de imagem e os scripts de entrada são **exemplares** (multi-stage com pu
 - **Evidência:** o estágio `frontend-builder` termina em `RUN npm run build` — sem `CMD`, `ENTRYPOINT` ou `EXPOSE`. O único runtime com entrada válida é o estágio final `runner` (`Dockerfile:124-125`). O `frontend` standalone de verdade é montado no estágio `frontend-runner` (`Dockerfile:49-55`) e embutido na imagem `runner`. Nos compose, porém, o serviço `frontend` aponta para o alvo `frontend-builder`: o contêiner sobe com o CMD herdado do `node:24-alpine` (`node`, REPL que termina com stdin EOF) e não serve a porta 3333. Como `Caddyfile.prod` roteia `handle { reverse_proxy frontend:3333 }`, em produção o Caddy aponta para um contêiner que **não responde**.
 - **Impacto:** frontend indisponível em produção; o healthcheck `curl :3333` (prod `docker-compose.prod.yml:19-22`) falha em loop, e a UI não carrega.
 
-### DOP-02 — ClamAV implantado como "obrigatório" mas nunca usado — controle fantasma no deploy 🔴 Alto
+### DOP-02 — ClamAV implantado como "obrigatório" mas nunca usado — controle fantasma no deploy 🔴 Alto — ✅ Resolvido (2026-08-07)
 
 - **Onde:** `docker-compose.yml:83-98` (comentário "ClamAV for mandatory malware scanning in production (MED-06)"), `docker-compose.dev.yml` (porta 3310), `backend/src/clamscan/*` (nunca invocado).
-- **Evidência:** o compose provisiona `clamav/clamav` com 1G de RAM; o backend não tem **nenhuma** referência runtime ao serviço (sem env de host/porta, sem chamada — `share.service.ts:246-249` contém apenas o comentário de remoção). Nenhum `depends_on`/healthcheck liga o backend ao ClamAV.
+- **Evidência:** o compose provisionava `clamav/clamav` com 1G de RAM; o backend não tinha **nenhuma** referência runtime ao serviço (sem env de host/porta, sem chamada — `share.service.ts:246-249` contém apenas o comentário de remoção). Nenhum `depends_on`/healthcheck ligava o backend ao ClamAV.
 - **Impacto:** segurança declarada que não executa; um atacante não pode contar com ela, mas o operador acredita que sim. Consolida SEC-02 (Fase 5), QAL-02 (Fase 7) e INF-03 (Fase 8) no plano de deploy.
+- **Resolução:** decisão formal `docs/Padronizacao-07-clamav.md` (26/07/2026) **rejeita** a integração. O serviço `clamav/clamav` foi **removido dos compose files** (base e dev), junto do módulo `backend/src/clamscan/` e da dependência `clamscan`. Não há mais controle fantasma no deploy.
 
 ### DOP-03 — `DATABASE_URL` do compose base aponta para fora do volume — risco de perda de dados 🟠 Médio
 
@@ -95,20 +96,20 @@ A base de imagem e os scripts de entrada são **exemplares** (multi-stage com pu
 | Critério | Nota (0-100) | Justificativa |
 |---|---|---|
 | Higiene/segurança da imagem | **80** | Multi-stage, non-root, sem npm, purge, healthchecks — pouca margem |
-| Correção do orquestramento | **45** | 2 defeitos prod-blocking (frontend target, ClamAV fantasma) |
+| Correção do orquestramento | **45** | 2 defeitos prod-blocking (frontend target, ClamAV fantasma) — *ClamAV fantasma resolvido em 2026-08-07 (DOP-02)* |
 | Consistência compose | **50** | Base superseded diverge de prod (caddy, DATABASE_URL, secrets) |
 | Segurança de deploy/secrets | **65** | `*_FILE` suportado p/ admin; mas Caddy `_FILE` não expandido e secrets mortos |
-| Pinagem/supply-chain | **55** | `:latest` no monitoring/clamav; Caddy 2.8 vs 2.9 |
+| Pinagem/supply-chain | **55** | `:latest` no monitoring/clamav; Caddy 2.8 vs 2.9 — *item ClamAV não se aplica mais (serviço removido)* |
 | **Geral (média)** | **59** | Excelente imagem, orquestração com falhas críticas |
 
 ## 9.6 Recomendações (priorizadas)
 
 1. **Corrigir o serviço `frontend` (Alto, bloqueia prod):** apontar `target: frontend-runner` e adicionar `command: ["node", "server.js"]` + `ENV PORT=3333`, **ou** remover o serviço standalone e deixar o frontend exclusivamente na imagem `runner` (ajustando `Caddyfile.prod` para `backend:3333` interno). Validar com `docker compose -f docker-compose.prod.yml config` e um `up` de teste.
-2. **Resolver ClamAV de uma vez (Alto):** ou reativar a varredura no backend (conectando ao serviço clamav:3310, com `depends_on`+healthcheck) ou remover o serviço dos compose files — nunca manter "controle fantasma". Documentar a decisão (fecha SEC-02/QAL-02/INF-03/DOP-02).
+2. ~~**Resolver ClamAV de uma vez (Alto)**~~ ✅ **Concluído (2026-08-07):** a decisão formal (`docs/Padronizacao-07-clamav.md`) é de **rejeição** — o serviço foi **removido dos compose files** (base e dev). Não há mais controle fantasma; fecha SEC-02/QAL-02/INF-03/DOP-02.
 3. **Alinhar `DATABASE_URL` do compose base ao volume** (`file:/opt/app/backend/data/controle-videos.db`) ou marcar o arquivo como deprecated/remover (DOP-03).
 4. **Deprecar o compose base ou consolidá-lo** com o modelo prod: Caddy 2.9, remover secrets mortos (`jwt_secret`, `smtp_password`), eliminar a dependência de `./secrets/*.txt` (DOP-04).
 5. **Corrigir a resolução de domínio/ACME do Caddy** (DOP-05): setar `DOMAIN`/`ACME_EMAIL` reais no serviço (via `.env` ou expandindo os `_FILE` no entrypoint) em vez de confiar na convenção `_FILE` que o Caddy não suporta.
-6. **Pinar imagens** do monitoring e ClamAV (DOP-06) — alinhar com INF-01 (Fase 8).
+6. **Pinar imagens** do monitoring (DOP-06) — alinhar com INF-01 (Fase 8). *(ClamAV removido do compose; item já não se aplica a ele.)*
 7. **Ampliar `.dockerignore`:** adicionar `secrets/`, `.env*`, `scripts/secrets/`, `data/`, `*.log` (DOP-07).
 8. **Healthcheck leve** (DOP-08): fazer `/api/health` responder sem tocar o banco (cruzado com PERF-07/Fase 6) e uniformizar intervalos.
 

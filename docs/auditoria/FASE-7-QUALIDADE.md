@@ -8,14 +8,14 @@
 
 ## 7.1 Resumo Executivo
 
-A base de código é **limpa e disciplinada**: TypeScript `strict` habilitado, lint do frontend 100% limpo e backend com apenas 1 erro + 1 warning. As fortalezas de qualidade compensam parcialmente o maior déficit do projeto: **ausência total de testes automatizados de unidade/integração** em ambos os lados, sem CI para frear regressões. Há um bloco de código morto real (`ClamScanService`, nunca invocado — consolida o SEC-02 da Fase 5), dívida tipada concentrada em `config.get(): any`, um anti-pattern de `Promise` assíncrona no serviço de download e dois TODOs pendentes com impacto de segurança/sessão. Nenhum arquivo órfão foi encontrado no frontend; as duas "UNUSED?" detectadas (`_app.tsx`, `_document.tsx`) são pontos de entrada do Next.js (falso positivo).
+A base de código é **limpa e disciplinada**: TypeScript `strict` habilitado, lint do frontend 100% limpo e backend com apenas 1 erro + 1 warning. As fortalezas de qualidade compensam parcialmente o maior déficit do projeto: **ausência total de testes automatizados de unidade/integração** em ambos os lados, sem CI para frear regressões. A dívida de qualidade identificada concentra-se em `config.get(): any`, um anti-pattern de `Promise` assíncrona no serviço de download e dois TODOs pendentes com impacto de segurança/sessão. *(Na auditoria também havia um bloco de código morto — `ClamScanService`, nunca invocado, que consolidava o SEC-02 da Fase 5 — removido em 2026-08-07 por decisão formal; ver QAL-02.)* Nenhum arquivo órfão foi encontrado no frontend; as duas "UNUSED?" detectadas (`_app.tsx`, `_document.tsx`) são pontos de entrada do Next.js (falso positivo).
 
 ## 7.2 Critérios Avaliados
 
 | Critério | Método | Evidência |
 |---|---|---|
 | Testes automatizados | Busca de `*.test.*`/`*.spec.*`, configs jest/vitest, scripts npm | Nenhum arquivo de teste; `test:system` (Newman) como único teste |
-| Dead code | Referências cruzadas (ClamScan, exports, componentes) | `ClamScanService` registrado e nunca chamado |
+| Dead code | Referências cruzadas (ClamScan, exports, componentes) | `ClamScanService` registrado e nunca chamado *(módulo removido em 2026-08-07 — QAL-02)* |
 | Tipagem | `grep` de `any`/`as any`/eslint-disable, tsconfig | 10 `: any` + 1 `as any` (backend); 51 `: any` + 6 `as any` (frontend) |
 | Lint | Execução de `eslint` nos dois projetos | Backend: 1 erro + 1 warning; Frontend: 0 |
 | Manutenibilidade | LOC por arquivo, duplicação, TODOs | `share.service.ts` 772 L, modal 751 L, `pLimit` duplicado |
@@ -30,11 +30,12 @@ A base de código é **limpa e disciplinada**: TypeScript `strict` habilitado, l
 - **Impacto:** Nenhuma rede de segurança para os fluxos críticos (upload, share, auth). As correções da Fase 5 (SEC-01 JwtGuard fail-open, SEC-04 e-mail, etc.) e as futuras (PERF) não podem ser validadas automaticamente; regressões silenciosas são prováveis a cada merge.
 - **Exceção observada:** a collection Newman cobre o contrato e2e básico, mas não é parte da execução normal de desenvolvimento.
 
-### QAL-02 — `ClamScanService` é código morto 🔴 Médio
+### QAL-02 — `ClamScanService` é código morto 🔴 Médio — ✅ Resolvido (2026-08-07)
 
 - **Onde:** `backend/src/clamscan/clamscan.service.ts`, `clamscan.module.ts`, `app.module.ts`, `constants.ts`.
-- **Evidência:** o módulo está registrado em `app.module.ts` e referenciado em `constants.ts`, mas a única chamada real foi **removida** — `share.service.ts:246-249` contém apenas `// ClamAV scan removed per formal decision docs/Padronizacao-07-clamav.md` (doc inexistente, ver nota de conciliação no SEC-02/Fase 5). O serviço nunca é injetado nem invocado em nenhum fluxo.
+- **Evidência:** o módulo estava registrado em `app.module.ts` e referenciado em `constants.ts`, mas a única chamada real foi **removida** — `share.service.ts:246-249` contém apenas `// ClamAV scan removed per formal decision docs/Padronizacao-07-clamav.md`. O serviço nunca era injetado nem invocado em nenhum fluxo.
 - **Impacto:** ~3 arquivos de superfície de segurança que não executam nada, sugerindo proteção inexistente; confunde manutenção e auditoria.
+- **Resolução:** a decisão formal existe — `docs/Padronizacao-07-clamav.md` (26/07/2026) **rejeita** a integração ClamAV (uploads só do owner autenticado, somente mídia de vídeo, destinatários só baixam, overhead ~1-2 GB RAM + cold start, air-gapped incompatível com freshclam). O módulo `backend/src/clamscan/`, a dependência `clamscan@2.4.0`/`@types/clamscan` e o daemon `clamav/clamav` dos compose files foram **removidos** do repositório. Código morto eliminado (consolida SEC-02/Fase 5 e INF-03/Fase 8).
 
 ### QAL-03 — Disciplina de tipagem: `any` espalhado, `config.get(): any` como ponto fraco central 🟠 Médio
 
@@ -85,9 +86,9 @@ A base de código é **limpa e disciplinada**: TypeScript `strict` habilitado, l
 
 ## 7.6 Recomendações (priorizadas)
 
-1. **Adicionar testes automatizados (Alto):** backend com `jest` + `supertest` cobrindo `share.service.ts` (complete, zip-bomb, views) e `auth.service.ts` (refresh/tokens); frontend com `vitest` + Testing Library para os formulários de auth e o modal de upload. Desacoplar o `ClamScanService`/e-mail antes de testar (injetar mocks).
+1. **Adicionar testes automatizados (Alto):** backend com `jest` + `supertest` cobrindo `share.service.ts` (complete, zip-bomb, views) e `auth.service.ts` (refresh/tokens); frontend com `vitest` + Testing Library para os formulários de auth e o modal de upload. Desacoplar o serviço de e-mail antes de testar (injetar mocks). *(O `ClamScanService` citado na versão original foi removido em 2026-08-07 — não há mais módulo a desacoplar.)*
 2. **Criar pipeline de CI (Alto):** GitHub Actions (ou equivalente) com `lint → build → test` nos dois pacotes; rodar a collection Newman em ambiente descartável (sem `migrate reset` em banco real).
-3. **Remover ou reativar o `ClamScanService` (Médio):** resolver a conciliação do SEC-02/Fase 5 — se mantida a remoção, apagar o módulo; se reativada, registrar a decisão no doc referenciado. Nunca deixar "código morto que parece segurança".
+3. ~~**Remover ou reativar o `ClamScanService` (Médio)**~~ ✅ **Concluído (2026-08-07):** a decisão formal (`docs/Padronizacao-07-clamav.md`, 26/07/2026) é de **rejeição** — o módulo `backend/src/clamscan/`, a dependência `clamscan` e o daemon dos compose files foram removidos. Não há mais "código morto que parece segurança".
 4. **Endurecer tipagem (Médio):** elevar `no-explicit-any` para `error`; substituir `config.get(): any` por mapa tipado de chaves (issue #6), eliminando a propagação de `any` no runtime.
 5. **Corrigir `local.service.ts:357` (Baixo):** trocar `new Promise(async …)` por fluxo baseado em `async` com `try/finally` no `archive.finalize()`.
 6. **Resolver TODOs de sessão/validação (Baixo):** `auth.service.ts:131` (invalidar loginTokens antigos) — distinto do SEC-07 (pago em 2026-08-07); continua pendente; `config.service.ts:273` (validação `timespan`) — fechar junto com SEC-03/Fase 5.

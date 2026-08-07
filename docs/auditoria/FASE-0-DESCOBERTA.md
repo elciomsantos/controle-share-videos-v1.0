@@ -12,7 +12,7 @@
 - Armazenamento **apenas local** no servidor (removidos buckets S3)
 - RBAC com papéis `admin` / `operador` / `auditor`
 - Auditoria completa de views e downloads
-- Integração opcional com ClamAV
+- ClamAV — **rejeitado por decisão formal** (`docs/Padronizacao-07-clamav.md`); ver nota de reconciliação em §5
 
 ## 2. Stack Tecnológica
 
@@ -31,7 +31,6 @@
 | Cache | `cache-manager` + `@keyv/redis` | 6.4.2 / 4.4.0 |
 | Rate limit | `@nestjs/throttler` | ^6.5.0 |
 | Upload/Multimídia | multer (override), sharp | multer ^2.2.0 / sharp ^0.35.3 |
-| Antivírus | clamscan | ^2.4.0 |
 | E-mail | nodemailer | ^9.0.1 |
 | JS doc/I18n | `nestjs-i18n`, `@nestjs/swagger` | 10.8.5 / 11.1.3 |
 | Agendamento | `@nestjs/schedule` | ^5.0.1 |
@@ -58,7 +57,7 @@
 | Categoria | Tecnologia |
 |---|---|
 | Container | Docker (multi-stage, 7 estágios) — `Dockerfile` único |
-| Orquestração | Docker Compose v2 (5 variantes: `.yml`, `.dev`, `.local`, `.prod`, `.monitoring`) |
+| Orquestração | Docker Compose v2 (4 variantes: `.yml`, `.local`, `.prod`, `.monitoring`; a 5ª `.dev` foi removida com o ClamAV — ver nota em §5) |
 | Reverse proxy / TLS | Caddy 2.9 (interno desativável via `CADDY_DISABLED=true` + externo `caddy:2.9-alpine`) |
 | Observabilidade | Prometheus + Grafana + Loki + Promtail (`scripts/monitoring/`) |
 | Hardening | `scripts/provision/hardening.sh` |
@@ -74,7 +73,6 @@ controle-share-videos-v1.0/
 │   ├── src/
 │   │   ├── auth/           # JWT, local strategy, TOTP, guards, DTOs
 │   │   ├── cache/           # cache-manager + Redis (Keyv)
-│   │   ├── clamscan/       # ClamAV opcional
 │   │   ├── common/         # request-context (AsyncLocalStorage), zip, duplicated-field
 │   │   ├── config/         # ConfigService persistido no banco + logo.service
 │   │   ├── download-log/   # auditoria de views/downloads + admin-download-logs
@@ -108,7 +106,7 @@ controle-share-videos-v1.0/
 ├── docs/                   # Visão-geral, Padronizacao-NN, Implantacao/, auditoria/
 ├── data/                   # controle-videos.db, images/, uploads/
 ├── secrets/                # admin_password.txt, jwt_secret.txt, smtp_password.txt
-├── docker-compose*.yml     # 5 variantes
+├── docker-compose*.yml     # 4 variantes (a 5ª `.dev` removida com o ClamAV)
 ├── Dockerfile              # multi-stage único
 ├── eslint.config.mjs       # raiz
 └── package.json            # raiz (lint/format orquestradores)
@@ -186,15 +184,16 @@ controle-share-videos-v1.0/
 - Healthcheck explícito (`curl /api/health` com `start-period=120s`).
 - `npm` binary removido da imagem final (redução de superfície).
 
-### Compose — 5 variantes
+### Compose — 4 variantes
 
 | Arquivo | Propósito |
 |---|---|
 | `docker-compose.yml` | Base de produção |
 | `docker-compose.local.yml` | Override local/teste |
-| `docker-compose.dev.yml` | Dev (adiciona ClamAV) |
 | `docker-compose.prod.yml` | Prod com secrets externos e domínio |
 | `docker-compose.monitoring.yml` | Observabilidade stack |
+
+> **Nota de reconciliação (2026-08-08):** na descoberta original havia uma 5ª variante, `docker-compose.dev.yml` ("Dev — adiciona ClamAV"), removida em 2026-08-07 junto com a integração ClamAV (decisão formal — `docs/Padronizacao-07-clamav.md`).
 
 ## 6. Documentação Existente (relevante p/ auditoria)
 

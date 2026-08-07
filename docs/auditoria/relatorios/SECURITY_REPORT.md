@@ -42,8 +42,8 @@ Relatório dedicado de segurança consolidando os achados da Fase 5 (`SEC-01` a 
 
 | ID | Achado | Sev. | Localização |
 |----|--------|------|-------------|
-| SEC-02 | Integração com ClamAV **nunca executada** (código morto; decisão conflitante entre README, `Visao-geral.md` e `share.service.ts:246`) | 🟠 | `backend/src/share/share.service.ts`; `package.json` |
-| QAL-02 | `ClamScanService` é código morto (consolida SEC-02) | 🟠 | `backend/src/` |
+| SEC-02 | Integração com ClamAV **nunca executada** | 🟠 | ⚪ **Encerrado por decisão formal** (26/07/2026) — `docs/Padronizacao-07-clamav.md`; código, dep e daemon removidos |
+| QAL-02 | `ClamScanService` é código morto (consolida SEC-02) | 🟠 | ✅ Resolvido — módulo `backend/src/clamscan/` removido do repositório |
 | BDB-01 | `File.size`/`shareSizeLimit` como `String` → `parseInt` gera `NaN` e **ignora cotas** | 🔴 | `schema.prisma:106,21`; `local.service.ts:121-130` |
 
 ### 3.4 E-mail e Injeção
@@ -64,7 +64,7 @@ Relatório dedicado de segurança consolidando os achados da Fase 5 (`SEC-01` a 
 
 - **1 vulnerabilidade crítica de design (fail-open)**, 6 achados médios e 3 baixos. Não há evidência de exploração ativa, mas o `JwtGuard` fail-open é um bypass de autenticação latente: qualquer falha transitória (token inválido, exceção de service) libera a rota.
 - A superfície de tokens (reset sem expiração, senha em query string, refresh sem reuse-detection) concentra o risco de sessão.
-- ClamAV existe como "decisão", mas nunca roda: é código morto com status documental conflitante — precisa de **decisão binária** (implementar ou remover).
+- ClamAV existia como "decisão" conflitante (README × `Visao-geral` × código). **Resolvido em 26/07/2026 por decisão formal** (`docs/Padronizacao-07-clamav.md`): integração **rejeitada** — uploads só do owner/operador autenticado, somente mídia de vídeo (não-vetor de execução), destinatários só baixam, overhead de ~1-2 GB RAM + cold start 5-15 min do daemon, incompatível com deploy air-gapped. Código `clamscan`, dependência `clamscan@2.4.0` e daemon `clamav/clamav` **removidos** do repositório e dos compose files.
 - A correção de `postcss` está **bloqueada por config própria** (override pinado em versão vulnerável).
 
 ## 5. Recomendações (prioridade de execução)
@@ -76,7 +76,7 @@ Relatório dedicado de segurança consolidando os achados da Fase 5 (`SEC-01` a 
 5. **P1 — INF-01**: remover override de `postcss` para 8.5.22+ e rodar `npm audit fix`. ✅ **pago** — `postcss ^8.5.22`.
 6. **P1 — DOC-02**: preencher `SECURITY.md` (versões suportadas + canal de report). ✅ **pago**.
 7. **P2 — SEC-04**: sanitizar HTML em e-mails (`sanitize-html` ou só texto). ✅ **pago (2026-08-07)** — `escapeHtml` + `escapeUserInput`.
-8. **P2 — SEC-02/QAL-02**: decidir ClamAV (implementar scan real no upload ou remover deps e docs) — alinhar README, `Visao-geral.md` e código.
+8. **P2 — SEC-02/QAL-02**: ~~decidir ClamAV (implementar scan real no upload ou remover deps e docs)~~ — **ENCERRADO por decisão formal** (26/07/2026) que rejeita a integração; código, dep `clamscan` e daemon removidos. Alinhamento documental feito. Nenhuma ação técnica restante.
 9. **P3 — SEC-06/07/08, QTS-05, DOP-07**: rate-limit de `resendVerification`, transação+reuse-detection no refresh, validar magic bytes de forma fail-closed, mover credenciais Newman para env, excluir `secrets/`/`.env*` do docker context. — *SEC-06, SEC-07 e SEC-08 pagos em 2026-08-07; resta QTS-05 e DOP-07.*
 
 **Próximo passo:** executar itens P0/P1 conforme `REFACTORING_PLAN.md` (R02, R01, R08) e validar com `TEST_PLAN.md`.

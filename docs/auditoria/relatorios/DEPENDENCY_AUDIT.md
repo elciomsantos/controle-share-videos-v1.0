@@ -37,7 +37,7 @@ Binários nativos sensíveis à versão do runtime: `better-sqlite3@12.11.1`, `s
 |----|--------|------|-------------|
 | INF-01 | **Vulnerabilidades ativas**: backend 1 high (`fast-uri@3.1.4`, GHSA-7p8r-x3mc-p8w7, cadeia **dev-only**: `@nestjs/cli → @angular-devkit/core → ajv → fast-uri`); frontend 2 moderate (`postcss ≤8.5.22`, via `next@16.2.12`). **Agravante:** override `postcss: 8.5.18` (linha 13) está **na faixa vulnerável** e **bloqueia `npm audit fix`** | 🔴 | `frontend/package.json:13` |
 | INF-02 | Runtime Node **não pinado** (sem `engines`/`.nvmrc`/`.node-version`) → drift dev/staging/prod | 🟠 | root, `backend/`, `frontend/` |
-| INF-03 | **Órfãs/sobrepostas**: `clamscan@2.4.0` + `@types/clamscan` (zero chamadas; **não está** no `allowScripts`, scripts de instalação bloqueados); frontend `jose@6.2.4` (1 uso: `jose.decodeJwt(...).exp` em `auth.service.ts:46`) coexistindo com `jwt-decode@4.0.0` (middleware) — 2 libs JWT para decodificação pura | 🟠 | `backend/package.json`, `frontend/package.json` |
+| INF-03 | **Órfãs/sobrepostas**: ~~`clamscan@2.4.0` + `@types/clamscan` (zero chamadas)~~ ✅ removidas após decisão formal do ClamAV (SEC-02); resta frontend `jose@6.2.4` (1 uso: `jose.decodeJwt(...).exp` em `auth.service.ts:46`) coexistindo com `jwt-decode@4.0.0` (middleware) — 2 libs JWT para decodificação pura | 🟠 | `backend/package.json`, `frontend/package.json` |
 | INF-04 | Higiene de embalagem: `@types` em produção; duplicidades de build | 🟡 | `backend/`, `frontend/` |
 | QTS-07 | `@nestjs/testing` órfão (sem specs) | 🟡 | `backend/package.json:79` |
 | QTS-02 | `newman` **não declarado** mas invocado em `test:system` (binário ausente) | 🟠 | `backend/package.json:10` |
@@ -46,13 +46,13 @@ Binários nativos sensíveis à versão do runtime: `better-sqlite3@12.11.1`, `s
 ## 5. Conclusões
 
 - **Nenhuma vulnerabilidade de runtime explorável de forma prática** (fast-uri é dev-only; postcss exige CSS controlado pelo atacante). Porém, a **correção de postcss está bloqueada pela própria config** (`overrides` pinado em versão vulnerável) — barreira de processo, não técnica.
-- Superfície de patch desnecessária: `clamscan` morto, duas libs JWT sobrepostas, `@types` em runtime.
+- Superfície de patch desnecessária: ~~`clamscan` morto (removido em 2026-08-07 após decisão formal do ClamAV)~~, duas libs JWT sobrepostas (`jose`×`jwt-decode`), `@types` em runtime.
 - Node não pinado ameaça a reprodutibilidade dos binários nativos (Prisma/better-sqlite3/sharp/argon2).
 
 ## 6. Recomendações (prioridade de execução)
 
 1. **P1 — INF-01**: remover override `postcss` → `8.5.22+`; rodar `npm audit fix` nos dois pacotes; reauditar.
-2. **P2 — INF-03**: remover `clamscan`/`@types/clamscan` **após** decisão ClamAV (SEC-02); unificar JWT no frontend em uma lib.
+2. **P2 — INF-03**: ~~remover `clamscan`/`@types/clamscan` após decisão ClamAV (SEC-02)~~ ✅ **concluído** — ClamAV rejeitado por decisão formal (`docs/Padronizacao-07-clamav.md`); deps removidas. Resta unificar o JWT no frontend em uma lib (`jose`×`jwt-decode`).
 3. **P2 — INF-02**: adicionar `engines` (`node >=24`) e `.nvmrc` na raiz.
 4. **P2 — QTS-02**: declarar `newman` como devDependency (junto a R07).
 5. **P3 — INF-04/QTS-07**: mover `@types` para dev, remover `@nestjs/testing` órfão.
