@@ -102,14 +102,14 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 | QAL-04/05 | Disciplina de erros; TODOs com impacto de segurança | 7 |
 | INF-02/03 | Rotina de atualização; dependências | 8 |
 | ~~DOP-03~~ | ~~`DATABASE_URL` fora do volume~~ | 9 | ✅ Resolvido — compose base usa `file:/opt/app/backend/data/controle-videos.db` (commit `272e204`) |
-| DOP-04 | Compose base superseded (Caddy 2.8→2.9, secrets mortos) | 9 |
+| ~~DOP-04~~ | ~~Compose base superseded (Caddy 2.8→2.9, secrets mortos)~~ | 9 | ✅ Resolvido 2026-08-07 — base consolidado (Caddy 2.9 custom, `frontend-runner`, `DATABASE_URL` no volume); secrets mortos removidos; admin bootstrap por env; sem `./secrets/*.txt` |
 | QTS-03 | Cobertura coleção e2e só auth+share | 10 |
 | QTS-05 | Credenciais/URL hardcoded no Newman | 10 |
 | DOC-04/05 | Sem `license`/`repository`; `.env.local.example` incompleto | 11 |
 
 ### P3 — Baixo / Backlog
 
-ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (tipos, parse, throttler, `sig`), FRN-06 (`user-scalable=no`), FRN-07 (preview PDF), FRN-08, FRN-09 (`target=_blank`), FRN-10/11 (strikethrough, chaves de lista), BDB-05/06 (seed, `ShareRecipie`), ~~SEC-08~~ (pago 2026-08-07 — fail-closed magic bytes), PERF-06/07 (stream sem Range; health lê `Config`), QAL-06 (duplicação leve), INF-04 (higiene), ~~DOP-02~~ (ClamAV — encerrado 2026-08-07 por decisão formal; serviço/dep/módulo removidos), DOP-06/07/08 (`:latest`, `.dockerignore`, healthcheck ↔ PERF-07), QTS-06/07 (`@nestjs/testing` órfão).
+ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (tipos, parse, throttler, `sig`), FRN-06 (`user-scalable=no`), FRN-07 (preview PDF), FRN-08, FRN-09 (`target=_blank`), FRN-10/11 (strikethrough, chaves de lista), BDB-05/06 (seed, `ShareRecipie`), ~~SEC-08~~ (pago 2026-08-07 — fail-closed magic bytes), PERF-06/07 (stream sem Range; health lê `Config`), QAL-06 (duplicação leve), INF-04 (higiene), ~~DOP-02~~ (ClamAV — encerrado 2026-08-07 por decisão formal; serviço/dep/módulo removidos), ~~DOP-04~~ (compose base consolidado), DOP-06/08 (`:latest`, healthcheck ↔ PERF-07), QTS-06/07 (`@nestjs/testing` órfão).
 
 ---
 
@@ -431,7 +431,7 @@ ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (t
 ## 12.6 Quick wins (melhorias < 30 min, sem refatoração estrutural)
 
 - DOP-06: fixar tags de imagem no monitoring (`:latest` → versão). *(ClamAV removido do compose — item não se aplica mais a ele.)*
-- DOP-07: adicionar `secrets/` e `.env*` ao `.dockerignore`.
+- ~~DOP-07~~ ✅ **Resolvido 2026-08-07 (commit `5e9b987`):** `.dockerignore` inclui `**/secrets/`, `.env*`, `**/scripts/secrets/`, `**/data/` e `*.log`.
 - DOC-04: preencher `license`/`repository` nos 4 `package.json`.
 - QTS-07: remover `@nestjs/testing` órfão **após** R07.
 - BKD-05/QAL-05: revisar TODOs com impacto de segurança em `share.service.ts:246`.

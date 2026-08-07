@@ -33,9 +33,12 @@ services:
       - DATABASE_URL=file:/opt/app/backend/data/controle-videos.db
       # CORS origin must be set explicitly for production (MED-02)
       - CORS_ORIGIN=https://${DOMAIN}
-    # Secrets injected via Docker secrets (INFRA-MED-04)
-    secrets:
-      - admin_password
+      # Admin bootstrap user (seeded by user.seed.ts). No Docker secrets —
+      # pass via env (e.g. .env file or `docker compose run -e`). Do NOT
+      # hardcode credentials in version control.
+      - ADMIN_EMAIL=${ADMIN_EMAIL:?ADMIN_EMAIL is required.}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD is required. Generate with openssl rand -base64 32.}
     volumes:
       - backend-data:/opt/app/backend/data
       - frontend-images:/opt/app/frontend/public/img
@@ -102,7 +105,3 @@ volumes:
     name: controle-share-videos-caddy-data
   caddy-config:
     name: controle-share-videos-caddy-config
-
-secrets:
-  admin_password:
-    file: ./secrets/admin_password.txt

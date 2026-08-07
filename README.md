@@ -109,10 +109,12 @@ docker compose -f docker-compose.local.yml up -d --build
 O `docker-compose.yml` (padrão) sobe os serviços `backend`, `frontend` e `caddy`:
 
 ```bash
+DOMAIN=seu-dominio.com ACME_EMAIL=voce@email.com \
+ADMIN_EMAIL=admin@email.com ADMIN_PASSWORD=$(openssl rand -base64 32) \
 docker compose up -d --build
 ```
 
-Requer as variáveis `DOMAIN` e `ACME_EMAIL` (env) e os arquivos de secret em `./secrets/` (`jwt_secret.txt`, `admin_password.txt`, `smtp_password.txt`).
+Requer as variáveis `DOMAIN`, `ACME_EMAIL`, `ADMIN_EMAIL` e `ADMIN_PASSWORD` (env ou `.env`). Não há mais secrets em arquivos — credenciais entram via variáveis de ambiente.
 
 Para produção com Docker Swarm/secrets externos e dados em RAID6 (`/srv`):
 
@@ -165,7 +167,7 @@ Recria o banco (`prisma migrate reset -f`), inicia o servidor na porta `8080` e 
 
 | Arquivo | Uso |
 |---------|-----|
-| `docker-compose.yml` | Produção padrão (backend, frontend, caddy; secrets em arquivos `./secrets/*.txt`) |
+| `docker-compose.yml` | Produção padrão (backend, frontend, caddy; admin e TLS via variáveis de ambiente — `DOMAIN`, `ACME_EMAIL`, `ADMIN_*`) |
 | `docker-compose.local.yml` | Ambiente de teste local — container único (backend + frontend + Caddy) com `.env.local` |
 | `docker-compose.prod.yml` | Produção com secrets externos (Docker Swarm), TLS via Caddy 2.9 e dados em RAID6 (`/srv/controle-share-videos`) |
 | `docker-compose.monitoring.yml` | Observabilidade (prometheus, grafana, loki, promtail) |
