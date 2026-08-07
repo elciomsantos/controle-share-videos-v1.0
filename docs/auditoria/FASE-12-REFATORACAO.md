@@ -12,7 +12,7 @@
 
 A auditoria completa (Fases 1–11) produziu **75 achados** distribuídos em 11 domínios. Esta fase consolida esses achados em um único plano de refatoração priorizado e detalha, com **código atual × sugerido**, as **8 refatorações de maior retorno sobre investimento (ROI)**, cobrindo os 4 pilares de impacto:
 
-- **Segurança**: JwtGuard fail-open (SEC-01) e tipagem de tamanho de arquivo (BDB-01) — as duas causas raiz mais perigosas.
+- **Segurança**: JwtGuard fail-closed (SEC-01 — resolvido 2026-08-07) e tipagem de tamanho de arquivo (BDB-01) — as duas causas raiz mais perigosas.
 - **Performance**: paginação de listagens (PERF-01) e limpeza de shares em lote (BDB-04/PERF-04).
 - **Manutenibilidade**: god class `ShareService` (ARQ-02) e `get(): any` no `ConfigService` (QAL-03).
 - **Qualidade/Operação**: infraestrutura de testes + CI (QTS-01/02/04 — resolvidos 2026-08-07) e correções de deploy Docker/Caddy (DOP-01/03/05).
@@ -58,7 +58,7 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 
 | ID | Achado | Fase | Código Atual → Refatorar |
 |----|--------|------|---------------------------|
-| SEC-01 | `JwtGuard` global com fail-open (catch retorna config em erro) | 5 | `backend/src/auth/guard/jwt.guard.ts:36-38` |
+| ~~SEC-01~~ | ~~`JwtGuard` global com fail-open (catch retorna config em erro)~~ | 5 | ✅ Resolvido 2026-08-07 — `jwt.guard.ts:35-40` lança `UnauthorizedException` no catch (fail-closed); spec cobre token inválido e ausente (5 testes, coverage 100%) |
 | BDB-01 | `File.size`/`User.shareSizeLimit` como `String` → NaN em `parseInt` | 4 | `schema.prisma:106,21`; `share.service.ts:135,505`; `local.service.ts:122,128-130,203` |
 | DOC-01 | ~20 referências quebradas no README | 11 | `README.md:18,38,80,139-169` |
 | DOC-02 | `SECURITY.md` stub vazio | 11 | `SECURITY.md` (74 bytes) |
@@ -166,7 +166,7 @@ ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (t
 
 ---
 
-### R02 — `JwtGuard`: fail-open → fail-closed
+### R02 — `JwtGuard`: fail-open → fail-closed — ✅ **Resolvido 2026-08-07**
 
 1. **Problema**: Qualquer erro de autenticação (token expirado, malformado, serviço indisponível) cai no `catch` e retorna `allowUnauthenticatedShares`, tornando rotas protegidas **acessíveis sem autenticação**.
 2. **Localização**: `backend/src/auth/guard/jwt.guard.ts:36-38`; config `share.allowUnauthenticatedShares`.
@@ -448,7 +448,7 @@ ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (t
 
 ```
 1. R07 (testes+CI)  ──►  ✅ Resolvido 2026-08-07 — pré-requisito de garantia
-2. R02 (JwtGuard)   ──►  vulnerabilidade ativa, mudança isolada
+2. R02 (JwtGuard)   ──►  ✅ Resolvido 2026-08-07 — fail-closed + spec
 3. R01 (File.size)  ──►  exige migração; fazer com testes verdes (R07) e deploy coordenado
 4. R08 (Docker)     ──►  ✅ Resolvido 2026-08-07 (FASE-9)
 5. R03 (paginação)  ──►  muda contrato; documentar breaking change
