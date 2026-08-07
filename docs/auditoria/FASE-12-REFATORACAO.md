@@ -86,13 +86,13 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 |----|--------|------|
 | ~~ARQ-02~~ | ~~God class `ShareService` (772 LOC, 27 métodos)~~ | 1 | ✅ Resolvido 2026-08-07 — extraídos `ShareMapper` (DTO), `ShareArchiveService` (zip/streaming), `FileStorageService` (física/cotas); `ShareService` 698 LOC (orquestração) |
 | ARQ-03 | Código duplicado e divergente (frontend/backend parse) | 1 |
-| BKD-01 | `resetPassword()` reutilizado em fluxos | 2 |
+| ~~BKD-01~~ | ~~`resetPassword()` reutilizado em fluxos (sem TTL)~~ | 2 | ✅ Resolvido 2026-08-07 — TTL reset 1h + validação na redenção (SEC-03) |
 | ~~BKD-03 / FRN-03~~ | ~~`parseInt` de tamanho com `NaN`~~ | 2/3 | ✅ Resolvido 2026-08-07 (R01) — `parseInt` substituído por `toBytes()`/`getNumber()` |
 | ~~BKD-06 / PERF-04~~ | ~~Limpeza sem batch e I/O síncrono~~ | 2/6 | ✅ Resolvido 2026-08-07 (R04) — batch de 50 + try/catch por item; `deleteTemporaryFiles` ainda síncrono (PERF-05, P2) |
-| BKD-08 / FRN-04 | Tipos `any` e props mutáveis | 2/3 |
-| FRN-01/02/12 | Estado mutável, gatilhos, mutação por referência | 3 |
+| ~~BKD-08 / FRN-04~~ | ~~Tipos `any` e props mutáveis~~ | 2/3 | ✅ Resolvido 2026-08-07 (R06) — `ConfigTypeMap` elimina `any`; props imutáveis validadas |
+| ~~FRN-01/02/12~~ | ~~Estado mutável, gatilhos, mutação por referência~~ | 3 | ✅ Resolvido 2026-08-07 (FRN-12 pago — mutação por referência corrigida) |
 | FRN-05 | Fallback silencioso | 3 |
-| BDB-02/03 | Índices ausentes; listagem N+1 | 4 |
+| ~~BDB-02/03~~ | ~~Índices ausentes; listagem N+1~~ | 4 | ✅ Resolvido 2026-08-04 (BDB-02: 5 @@index no schema); 2026-08-07 (BDB-03/PERF-01 R03: paginação) |
 | ~~SEC-05~~ | ~~Senha de share em query string~~ | 5 | ✅ Resolvido 2026-08-07 — token via POST `/shares/:id/token` com senha no body; `includePasswordInShareLink` default `false` |
 | ~~SEC-06/07~~ | Rotação/expiração de refresh token | 5 ✅ (2026-08-07) |
 | PERF-02 | E-mails enviados sequencialmente | 6 |
@@ -105,11 +105,11 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 | ~~DOP-04~~ | ~~Compose base superseded (Caddy 2.8→2.9, secrets mortos)~~ | 9 | ✅ Resolvido 2026-08-07 — base consolidado (Caddy 2.9 custom, `frontend-runner`, `DATABASE_URL` no volume); secrets mortos removidos; admin bootstrap por env; sem `./secrets/*.txt`; pasta `secrets/` órfã (com `Admin@123` em texto-plano) **deletada** |
 | QTS-03 | Cobertura coleção e2e só auth+share | 10 |
 | ~~QTS-05~~ | ~~Credenciais/URL hardcoded no Newman~~ | 10 | ✅ Resolvido 2026-08-07 — `newman` removido (devDep); `test/newman-system-tests.json` deletado (órfão) |
-| DOC-04/05 | Sem `license`/`repository`; `.env.local.example` incompleto | 11 |
+| ~~DOC-04/05~~ | ~~Sem `license`/`repository`; `.env.local.example` incompleto~~ | 11 | ✅ Resolvido 2026-08-07 (quick wins 12.6) — `license: MIT` + `repository` em 4 `package.json`; `.env.local.example` expandido |
 
 ### P3 — Baixo / Backlog
 
-ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (tipos, parse, throttler, `sig`), FRN-06 (`user-scalable=no`), FRN-07 (preview PDF), FRN-08, FRN-09 (`target=_blank`), FRN-10/11 (strikethrough, chaves de lista), BDB-05/06 (seed, `ShareRecipie`), ~~SEC-08~~ (pago 2026-08-07 — fail-closed magic bytes), PERF-06/07 (stream sem Range; health lê `Config`), QAL-06 (duplicação leve), INF-04 (higiene), ~~DOP-02~~ (ClamAV — encerrado 2026-08-07 por decisão formal; serviço/dep/módulo removidos), ~~DOP-04~~ (compose base consolidado), ~~DOP-06~~ (imagens monitoring pinadas 2026-08-07), ~~DOP-08~~ (healthcheck leve `SELECT 1` 2026-08-07, ↔ PERF-07), QTS-06/07 (`@nestjs/testing` órfão).
+ARQ-01 (dependências/tamanho), ARQ-04 (boilerplate guardas), BKD-02/04/05/07 (tipos, parse, throttler, `sig`), ~~FRN-06~~ (`user-scalable=no` — pago 2026-08-07 quick wins 12.6), FRN-07 (preview PDF), FRN-08, ~~FRN-09~~ (`target=_blank` — pago 2026-08-07 quick wins 12.6: `rel="noopener noreferrer"`), FRN-10/11 (strikethrough, chaves de lista), BDB-05/06 (seed, `ShareRecipie`), ~~SEC-08~~ (pago 2026-08-07 — fail-closed magic bytes), PERF-06/07 (stream sem Range; ~~health lê `Config` — pago DOP-08 2026-08-07~~), QAL-06 (duplicação leve), ~~INF-04~~ (higiene — pago 2026-08-07 quick wins 12.6: `.env.local.example` expandido), ~~DOP-02~~ (ClamAV — encerrado 2026-08-07 por decisão formal; serviço/dep/módulo removidos), ~~DOP-04~~ (compose base consolidado), ~~DOP-06~~ (imagens monitoring pinadas 2026-08-07), ~~DOP-08~~ (healthcheck leve `SELECT 1` 2026-08-07, ↔ PERF-07), ~~QTS-06/07~~ (`@nestjs/testing` órfão — pago 2026-08-07 quick wins 12.6: usado pelo e2e spec).
 
 ---
 
