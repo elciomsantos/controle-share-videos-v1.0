@@ -56,7 +56,7 @@ const Share = ({ shareId }: { shareId: string }) => {
       showShareInformationsModal(
         modals,
         myShare,
-        parseInt(config.get("share.maxSize")),
+        config.get("share.maxSize"),
         config.get("general.appUrl"),
         config.get("general.appUrl", true),
         isAdminOrAuditor(user)

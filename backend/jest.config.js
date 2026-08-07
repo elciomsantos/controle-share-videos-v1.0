@@ -7,6 +7,8 @@ module.exports = {
   transform: {
     "^.+\\.(t|j)s$": ["ts-jest", { tsconfig: "tsconfig.spec.json" }],
   },
+  moduleNameMapper: { "^file-type$": "<rootDir>/test/stubs/file-type.ts" },
+  transformIgnorePatterns: ["node_modules/(?!(?:@scure|@noble|@otplib)/)"],
   collectCoverageFrom: [
     "src/config/config.service.ts",
     "src/auth/guard/jwt.guard.ts",

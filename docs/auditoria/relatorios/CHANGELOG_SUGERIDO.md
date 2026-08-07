@@ -28,10 +28,11 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 - ✅ **DOC-02** — `SECURITY.md` preenchido (versões suportadas + canal privado de report).
 - ✅ **BDB-02** — 5 índices nos caminhos quentes (commit `98de696`) — quick-win sem breaking.
 - ✅ **R03** — Paginação nas listagens (commit `4686195`) — envelope `Page<T>`, **Breaking v1.2.0**.
+- ✅ **R04** — Jobs de limpeza em lote (batch `take: 50` + cursor + `deleteMany` + `try/catch` por item); fix PERF-04/BDB-04/BKD-06 — sem breaking.
 
 **Pendente (próximos épicos):**
 - v1.1.0: SEC-03 (TTL reset), SEC-04 (sanitização HTML), SEC-05 (senha em query string), INF-01 (override postcss), DOC-04 (license/repository).
-- v1.2.0: ~~PERF-01/BDB-03 (paginação — R03)~~ ✅, PERF-02..07, BDB-06 (unique composto).
+- v1.2.0: ~~PERF-01/BDB-03 (paginação — R03)~~ ✅, ~~PERF-04/BDB-04 (jobs — R04)~~ ✅, PERF-02..03,05..07, BDB-06 (unique composto).
 - v1.3.0: QAL-03 (R06), ARQ-02 (R05), BDB-05, INF-03, DOC-01/03.
 
 ## 3. Versão Sugerida — v1.1.0 (primeira entrega de correções)
@@ -61,7 +62,7 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 
 ### Fixed
 - Download de vídeo com suporte a **HTTP Range (206)** — seek/streaming do player — fix PERF-06.
-- Jobs de limpeza processam em lotes com isolamento de erro por share — fix PERF-04/BDB-04.
+- ~~Jobs de limpeza processam em lotes com isolamento de erro por share — fix PERF-04/BDB-04~~ ✅ **aplicado (R04)**.
 - E-mails de destinatários enviados em paralelo controlado — fix PERF-02.
 - ZIP com concorrência de streams e nível de deflate ajustados — fix PERF-03.
 - `deleteTemporaryFiles()` sem `fs` síncrono — fix PERF-05.
@@ -71,7 +72,7 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 ## 5. Versão Sugerida — v1.3.0 (manutenibilidade)
 
 ### Changed
-- `ConfigService.get()` tipado (sem `any`); getters `getNumber`/`getBoolean`/`getString` — fix QAL-03.
+- `ConfigService.get()` tipado (sem `any`); getters `getNumber`/`getBoolean`/`getString`/`getTimespan`; frontend com `ConfigTypeMap`/`GetReturn` e `parseInt` manual removido — fix QAL-03/BKD-08/FRN-04 (R06).
 - `ShareService` decomposto em `ShareMapper`/`ShareArchiveService`/`FileStorageService` (772 LOC → módulos coesos) — fix ARQ-02.
 - `EPOCH_ZERO` substituído por `expiresAt DateTime?` nullable — fix BDB-05.
 - Duas libs JWT no frontend unificadas em uma — fix INF-03.

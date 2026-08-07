@@ -10,11 +10,94 @@ import argon from "argon2";
 import { EventEmitter } from "events";
 import * as fs from "fs";
 import { PrismaService } from "../prisma/prisma.service";
-import { stringToTimespan } from "../utils/date.util";
+import { stringToTimespan, Timespan } from "../utils/date.util";
 import { parse as yamlParse } from "yaml";
 import { I18nContext } from "nestjs-i18n";
 import { YamlConfig } from "../../prisma/seed/config.seed";
 import { ARGON2_OPTIONS, CONFIG_FILE } from "../constants";
+
+/**
+ * Runtime value type produced by `ConfigService.get` per config variable type.
+ * `number`/`filesize` parse to number, `boolean` to boolean, `timespan` to
+ * `Timespan`, everything else stays a string.
+ */
+export type ConfigValue = string | number | boolean | Timespan;
+
+/**
+ * Typed config keys — single source of truth aligned with
+ * `prisma/seed/config.seed.ts`. Each key maps to the runtime value type
+ * `ConfigService.get` returns, so consumers get compile-time checking instead
+ * of `any` (R06 / QAL-03).
+ */
+export type ConfigTypeMap = {
+  "internal.jwtSecret": string;
+  "general.appName": string;
+  "general.appUrl": string;
+  "general.secureCookies": boolean;
+  "general.showHomePage": boolean;
+  "general.sessionDuration": Timespan;
+  "general.defaultLanguage": string;
+  "appearance.themePrimaryColor": string;
+  "appearance.themePrimaryColorOverride": string;
+  "appearance.themeRadius": string;
+  "appearance.themeColorScheme": string;
+  "appearance.customCss": string;
+  "share.allowRegistration": boolean;
+  "share.allowUnauthenticatedShares": boolean;
+  "share.maxExpiration": Timespan;
+  "share.defaultExpiration": Timespan;
+  "share.shareIdLength": number;
+  "share.maxSize": number;
+  "share.maxFileSize": number;
+  "share.zipCompressionLevel": number;
+  "share.zipMaxFiles": number;
+  "share.zipMaxTotalSize": number;
+  "share.zipMaxRatio": number;
+  "share.chunkSize": number;
+  "share.autoOpenShareModal": boolean;
+  "share.allowAdminAccessAllShares": boolean;
+  "share.fileRetentionPeriod": Timespan;
+  "share.maxDownloadsDefault": number;
+  "share.downloadLogRetentionDays": number;
+  "share.generatedPasswordLength": number;
+  "share.autoGeneratePassword": boolean;
+  "share.includePasswordInShareLink": boolean;
+  "cache.redis-enabled": boolean;
+  "cache.redis-url": string;
+  "cache.ttl": number;
+  "cache.maxItems": number;
+  "email.sendHtmlEmails": boolean;
+  "email.enableShareEmailRecipients": boolean;
+  "email.shareRecipientsSubject": string;
+  "email.shareRecipientsMessage": string;
+  "email.resetPasswordSubject": string;
+  "email.resetPasswordMessage": string;
+  "email.inviteSubject": string;
+  "email.inviteMessage": string;
+  "email.enableShareDownloadNotifications": boolean;
+  "email.shareDownloadNotificationSubject": string;
+  "email.shareDownloadNotificationMessage": string;
+  "email.enableEmailVerification": boolean;
+  "email.verificationSubject": string;
+  "email.verificationMessage": string;
+  "smtp.enabled": boolean;
+  "smtp.allowUnauthorizedCertificates": boolean;
+  "smtp.host": string;
+  "smtp.port": number;
+  "smtp.email": string;
+  "smtp.username": string;
+  "smtp.password": string;
+  "legal.enabled": boolean;
+  "legal.imprintText": string;
+  "legal.imprintUrl": string;
+  "legal.privacyPolicyText": string;
+  "legal.privacyPolicyUrl": string;
+};
+
+export type ConfigKeys = keyof ConfigTypeMap;
+
+/** Return type of `get(key)` — typed per known key, `unknown` for arbitrary keys. */
+type GetReturn<K extends string> = K extends ConfigKeys ? ConfigTypeMap[K] : unknown;
 
 /**
  * ConfigService extends EventEmitter to allow listening for config updates,
@@ -99,8 +182,11 @@ export class ConfigService extends EventEmitter {
     });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Config values can be string/number/boolean/{value,unit}; callers narrow by key semantics. See #6.
-  get(key: `${string}.${string}`): any {
+  // Returns the parsed runtime value for a config key. Known keys (ConfigKeys)
+  // resolve to their declared type via ConfigTypeMap; arbitrary keys fall back
+  // to `unknown`. Callers that need a specific type should prefer the typed
+  // getters below (R06).
+  get<K extends string>(key: K): GetReturn<K> {
     const configVariable = this.configVariables.filter(
       (variable) => `${variable.category}.${variable.name}` == key,
     )[0];
@@ -110,11 +196,30 @@ export class ConfigService extends EventEmitter {
     const value = configVariable.value ?? configVariable.defaultValue;
 
     if (configVariable.type == "number" || configVariable.type == "filesize")
-      return parseInt(value);
-    if (configVariable.type == "boolean") return value == "true";
+      return parseInt(value) as unknown as GetReturn<K>;
+    if (configVariable.type == "boolean")
+      return (value == "true") as unknown as GetReturn<K>;
     if (configVariable.type == "string" || configVariable.type == "text")
-      return value;
-    if (configVariable.type == "timespan") return stringToTimespan(value);
+      return value as unknown as GetReturn<K>;
+    if (configVariable.type == "timespan")
+      return stringToTimespan(value) as unknown as GetReturn<K>;
+    return undefined as unknown as GetReturn<K>;
+  }
+
+  getNumber<K extends ConfigKeys>(key: K): number {
+    return this.get(key) as number;
+  }
+
+  getBoolean<K extends ConfigKeys>(key: K): boolean {
+    return this.get(key) as boolean;
+  }
+
+  getString<K extends ConfigKeys>(key: K): string {
+    return this.get(key) as string;
+  }
+
+  getTimespan<K extends ConfigKeys>(key: K): Timespan {
+    return this.get(key) as Timespan;
   }
 
   async getByCategory(category: string) {

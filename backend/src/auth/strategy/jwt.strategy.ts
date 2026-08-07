@@ -11,10 +11,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     config: ConfigService,
     private prisma: PrismaService,
   ) {
-    config.get("internal.jwtSecret");
+    config.getString("internal.jwtSecret");
     super({
       jwtFromRequest: JwtStrategy.extractJWT,
-      secretOrKey: config.get("internal.jwtSecret"),
+      secretOrKey: config.getString("internal.jwtSecret"),
     });
   }
 

@@ -108,6 +108,49 @@ describe("ConfigService", () => {
     });
   });
 
+  describe("typed getters", () => {
+    it("getNumber returns a number", () => {
+      const service = makeService([
+        row({ category: "share", name: "chunkSize", type: "number", value: "5242880" }),
+      ]);
+      expect(service.getNumber("share.chunkSize")).toBe(5242880);
+    });
+
+    it("getBoolean returns a boolean", () => {
+      const service = makeService([
+        row({ name: "secureCookies", type: "boolean", value: "true" }),
+      ]);
+      expect(service.getBoolean("general.secureCookies")).toBe(true);
+    });
+
+    it("getString returns a string", () => {
+      const service = makeService([
+        row({ name: "appUrl", type: "string", value: "https://example.com" }),
+      ]);
+      expect(service.getString("general.appUrl")).toBe("https://example.com");
+    });
+
+    it("getTimespan returns a { value, unit } object", () => {
+      const service = makeService([
+        row({ name: "sessionDuration", type: "timespan", value: "3 months" }),
+      ]);
+      expect(service.getTimespan("general.sessionDuration")).toEqual({
+        value: 3,
+        unit: "months",
+      });
+    });
+
+    it("delegates to get, honoring the same fallback and error semantics", () => {
+      const service = makeService([
+        row({ category: "cache", name: "ttl", type: "number", value: null, defaultValue: "600" }),
+      ]);
+      expect(service.getNumber("cache.ttl")).toBe(600);
+      expect(() => service.getNumber("cache.maxItems")).toThrow(
+        "Config variable cache.maxItems not found",
+      );
+    });
+  });
+
   describe("isEditAllowed", () => {
     it("returns true when no yaml config is loaded", () => {
       const service = makeService([], undefined);

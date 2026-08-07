@@ -58,7 +58,7 @@ export async function configureApp(
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
 
   app.use((req: Request, res: Response, next: NextFunction) => {
-    const chunkSize = config.get("share.chunkSize");
+    const chunkSize = config.getNumber("share.chunkSize");
     bodyParser.raw({
       type: "application/octet-stream",
       limit: `${chunkSize}B`,
@@ -99,7 +99,7 @@ export async function configureApp(
   // CSRF protection via double-submit cookie (CRIT-01).
   // GET /api/auth/csrf-token sets an httpOnly+sameSite cookie with a random
   // token; mutating requests must echo it back via the X-CSRF-Token header.
-  const isSecure = config.get("general.secureCookies");
+  const isSecure = config.getBoolean("general.secureCookies");
   app.use((req: Request, res: Response, next: NextFunction) => {
     // Endpoint that issues the CSRF token cookie
     if (req.method === "GET" && req.path === "/api/auth/csrf-token") {

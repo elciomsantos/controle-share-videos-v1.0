@@ -7,6 +7,6 @@ export class SystemLanguageResolver implements I18nResolver {
   constructor(private readonly configService: ConfigService) {}
 
   resolve(): string | undefined {
-    return this.configService.get("general.defaultLanguage");
+    return this.configService.getString("general.defaultLanguage");
   }
 }

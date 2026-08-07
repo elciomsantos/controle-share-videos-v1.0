@@ -244,7 +244,7 @@ export class ShareController {
       path: "/",
       httpOnly: true,
       sameSite: "lax",
-      secure: this.config.get("general.secureCookies"),
+      secure: this.config.getBoolean("general.secureCookies"),
       maxAge: 365 * 24 * 60 * 60 * 1000,
     });
 
@@ -273,7 +273,7 @@ export class ShareController {
       response.clearCookie(cookie.key, {
         path: "/",
         sameSite: "lax",
-        secure: this.config.get("general.secureCookies"),
+        secure: this.config.getBoolean("general.secureCookies"),
       }),
     );
 
@@ -285,7 +285,7 @@ export class ShareController {
           response.clearCookie(cookie.key, {
             path: "/",
             sameSite: "lax",
-            secure: this.config.get("general.secureCookies"),
+            secure: this.config.getBoolean("general.secureCookies"),
           }),
         );
     }

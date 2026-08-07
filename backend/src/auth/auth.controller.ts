@@ -54,7 +54,7 @@ export class AuthController {
     @Req() { ip }: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
-    if (!this.config.get("share.allowRegistration"))
+    if (!this.config.getBoolean("share.allowRegistration"))
       throw new ForbiddenException(this.i18n.t("auth.registrationNotAllowed"));
 
     const result = await this.authService.signUp(dto, ip ?? "");
@@ -216,7 +216,7 @@ export class AuthController {
   ) {
     await this.authService.signOut(request.cookies.access_token);
 
-    const isSecure = this.config.get("general.secureCookies");
+    const isSecure = this.config.getBoolean("general.secureCookies");
     response.cookie("access_token", "", {
       maxAge: -1,
       secure: isSecure,

@@ -66,10 +66,10 @@ export class ShareService {
     if (share.security?.password) {
       share.security.password = await argon.hash(share.security.password, ARGON2_OPTIONS);
     } else if (
-      this.config.get("share.autoGeneratePassword") &&
+      this.config.getBoolean("share.autoGeneratePassword") &&
       !share.security?.password
     ) {
-      const length = this.config.get("share.generatedPasswordLength");
+      const length = this.config.getNumber("share.generatedPasswordLength");
       generatedPassword = this.generateRandomPassword(length);
       share.security = {
         ...share.security,
@@ -117,13 +117,13 @@ export class ShareService {
 
     // GAP-04: zip-bomb protection — limits are now admin-configurable via
     // share.zipMaxFiles / share.zipMaxTotalSize / share.zipMaxRatio.
-    const MAX_FILES = this.config.get("share.zipMaxFiles") ?? 10000;
-    const MAX_TOTAL_SIZE = this.config.get("share.zipMaxTotalSize") ?? 10 * 1024 * 1024 * 1024;
+    const MAX_FILES = this.config.getNumber("share.zipMaxFiles") ?? 10000;
+    const MAX_TOTAL_SIZE = this.config.getNumber("share.zipMaxTotalSize") ?? 10 * 1024 * 1024 * 1024;
     // Maximum allowed compression ratio (output / input). 103:1 is the classic
     // zip-bomb threshold (zlib's theoretical deflate worst-case is ~1037:1 for
     // highly compressible streams); 103 catches naive 42.zip-style bombs while
     // leaving plenty of headroom for genuinely redundant content.
-    const MAX_RATIO = this.config.get("share.zipMaxRatio") ?? 103;
+    const MAX_RATIO = this.config.getNumber("share.zipMaxRatio") ?? 103;
 
     const files = await this.prisma.file.findMany({ where: { shareId } });
 
@@ -141,7 +141,7 @@ export class ShareService {
     }
 
     const archive = await createZipStream({
-      zlib: { level: this.config.get("share.zipCompressionLevel") },
+      zlib: { level: this.config.getNumber("share.zipCompressionLevel") },
     });
     const writeStream = fs.createWriteStream(`${path}/archive.zip`);
 
@@ -553,7 +553,7 @@ export class ShareService {
 
   private validateExpiration(expiration: Date) {
     const expiresNever = isEpochZero(expiration);
-    const maxExpiration = this.config.get("share.maxExpiration");
+    const maxExpiration = this.config.getTimespan("share.maxExpiration");
 
     if (
       maxExpiration.value !== 0 &&
@@ -738,7 +738,7 @@ export class ShareService {
     };
 
     const tokenOptions: JwtSignOptions = {
-      secret: this.config.get("internal.jwtSecret"),
+      secret: this.config.getString("internal.jwtSecret"),
     };
 
     if (!isEpochZero(expiration)) {
@@ -758,7 +758,7 @@ export class ShareService {
 
     try {
       const claims = this.jwtService.verify(token, {
-        secret: this.config.get("internal.jwtSecret"),
+        secret: this.config.getString("internal.jwtSecret"),
         // Ignore expiration if expiration is 0
         ignoreExpiration: isEpochZero(expiration),
       });
@@ -779,7 +779,7 @@ export class ShareService {
     if (!password) return undefined;
 
     return crypto
-      .createHmac("sha512", this.config.get("internal.jwtSecret"))
+      .createHmac("sha512", this.config.getString("internal.jwtSecret"))
       .update(password)
       .digest("hex");
   }

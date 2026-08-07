@@ -20,7 +20,7 @@ export class JobsService {
 
   @Cron("* * * * *")
   async deleteExpiredShares() {
-    const fileRetentionPeriod = this.configServer.get(
+    const fileRetentionPeriod = this.configServer.getTimespan(
       "share.fileRetentionPeriod",
     );
 
@@ -32,56 +32,86 @@ export class JobsService {
       .subtract(fileRetentionPeriod.value, fileRetentionPeriod.unit)
       .toDate();
 
-    const expiredShares = await this.prisma.share.findMany({
-      where: {
-        // We want to remove only shares that have an expiration date + retention period less than the current date, but not 0
-        AND: [
-          { expiration: { lt: thresholdDate } },
-          { expiration: { not: EPOCH_ZERO } },
-        ],
-      },
-    });
+    let deleted = 0;
+    let lastId: string | undefined;
 
-    for (const expiredShare of expiredShares) {
-      this.logger.log(
-        `Deleting expired share ${expiredShare.id}: expiration=${expiredShare.expiration.toISOString()}, thresholdDate=${thresholdDate.toISOString()}, uploadLocked=${expiredShare.uploadLocked}`,
-      );
-      await this.fileService.deleteAllFiles(expiredShare.id);
-      await this.prisma.share.delete({
-        where: { id: expiredShare.id },
+    while (true) {
+      const batch = await this.prisma.share.findMany({
+        where: {
+          // We want to remove only shares that have an expiration date + retention period less than the current date, but not 0
+          AND: [
+            { expiration: { lt: thresholdDate } },
+            { expiration: { not: EPOCH_ZERO } },
+          ],
+          id: lastId ? { gt: lastId } : undefined,
+        },
+        orderBy: { id: "asc" },
+        take: 50,
+        select: { id: true },
       });
+
+      if (batch.length === 0) break;
+
+      for (const { id } of batch) {
+        try {
+          await this.fileService.deleteAllFiles(id);
+          await this.prisma.share.deleteMany({ where: { id } });
+          deleted++;
+        } catch (err) {
+          this.logger.error(
+            `Falha ao limpar share expirado ${id}: ${err instanceof Error ? err.stack : String(err)}`,
+          );
+        }
+      }
+
+      lastId = batch[batch.length - 1].id;
     }
 
-    if (expiredShares.length > 0) {
-      this.logger.log(`Deleted ${expiredShares.length} expired shares`);
+    if (deleted > 0) {
+      this.logger.log(`Deleted ${deleted} expired shares`);
     }
   }
 
   @Cron("0 */6 * * *")
   async deleteUnfinishedShares() {
     const cutoff = dayjs().subtract(1, "day").toDate();
-    const unfinishedShares = await this.prisma.share.findMany({
-      where: {
-        uploadLocked: false,
-        OR: [
-          { updatedAt: { lt: cutoff } },
-          { updatedAt: { equals: null }, createdAt: { lt: cutoff } },
-        ],
-      },
-    });
+    let deleted = 0;
+    let lastId: string | undefined;
 
-    for (const unfinishedShare of unfinishedShares) {
-      this.logger.log(
-        `Deleting unfinished share ${unfinishedShare.id}: uploadLocked=${unfinishedShare.uploadLocked}, updatedAt=${unfinishedShare.updatedAt?.toISOString()}, createdAt=${unfinishedShare.createdAt.toISOString()}`,
-      );
-      await this.fileService.deleteAllFiles(unfinishedShare.id);
-      await this.prisma.share.delete({
-        where: { id: unfinishedShare.id },
+    while (true) {
+      const batch = await this.prisma.share.findMany({
+        where: {
+          uploadLocked: false,
+          OR: [
+            { updatedAt: { lt: cutoff } },
+            { updatedAt: { equals: null }, createdAt: { lt: cutoff } },
+          ],
+          id: lastId ? { gt: lastId } : undefined,
+        },
+        orderBy: { id: "asc" },
+        take: 50,
+        select: { id: true },
       });
+
+      if (batch.length === 0) break;
+
+      for (const { id } of batch) {
+        try {
+          await this.fileService.deleteAllFiles(id);
+          await this.prisma.share.deleteMany({ where: { id } });
+          deleted++;
+        } catch (err) {
+          this.logger.error(
+            `Falha ao limpar share inacabado ${id}: ${err instanceof Error ? err.stack : String(err)}`,
+          );
+        }
+      }
+
+      lastId = batch[batch.length - 1].id;
     }
 
-    if (unfinishedShares.length > 0) {
-      this.logger.log(`Deleted ${unfinishedShares.length} unfinished shares`);
+    if (deleted > 0) {
+      this.logger.log(`Deleted ${deleted} unfinished shares`);
     }
   }
 
@@ -143,7 +173,7 @@ export class JobsService {
 
   @Cron("0 2 * * *")
   async deleteExpiredDownloadLogs() {
-    const retentionDays = this.configServer.get(
+    const retentionDays = this.configServer.getNumber(
       "share.downloadLogRetentionDays",
     );
 
@@ -167,23 +197,42 @@ export class JobsService {
   @Cron("0 * * * *")
   async deleteUnactivatedUsers() {
     const cutoff = dayjs().subtract(24, "hours").toDate();
-    const unactivatedUsers = await this.prisma.user.findMany({
-      where: {
-        isActivated: false,
-        createdAt: { lt: cutoff },
-      },
-      include: { shares: true },
-    });
+    let deleted = 0;
+    let lastId: string | undefined;
 
-    for (const user of unactivatedUsers) {
-      await Promise.all(
-        user.shares.map((share) => this.fileService.deleteAllFiles(share.id)),
-      );
-      await this.prisma.user.delete({ where: { id: user.id } });
+    while (true) {
+      const batch = await this.prisma.user.findMany({
+        where: {
+          isActivated: false,
+          createdAt: { lt: cutoff },
+          id: lastId ? { gt: lastId } : undefined,
+        },
+        orderBy: { id: "asc" },
+        take: 50,
+        select: { id: true, shares: { select: { id: true } } },
+      });
+
+      if (batch.length === 0) break;
+
+      for (const user of batch) {
+        try {
+          await Promise.all(
+            user.shares.map((share) => this.fileService.deleteAllFiles(share.id)),
+          );
+          await this.prisma.user.deleteMany({ where: { id: user.id } });
+          deleted++;
+        } catch (err) {
+          this.logger.error(
+            `Falha ao limpar usuário inativo ${user.id}: ${err instanceof Error ? err.stack : String(err)}`,
+          );
+        }
+      }
+
+      lastId = batch[batch.length - 1].id;
     }
 
-    if (unactivatedUsers.length > 0) {
-      this.logger.log(`Deleted ${unactivatedUsers.length} unactivated users`);
+    if (deleted > 0) {
+      this.logger.log(`Deleted ${deleted} unactivated users`);
     }
   }
 }

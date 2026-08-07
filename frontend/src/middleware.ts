@@ -44,7 +44,7 @@ export default async function middleware(request: NextRequest) {
   const apiUrl = process.env.API_URL || "http://localhost:8080";
   const config = await fetchConfig(apiUrl);
 
-  const getConfig = (key: string) => {
+  const getConfig = <K extends string>(key: K) => {
     return configService.get(key, config);
   };
 
