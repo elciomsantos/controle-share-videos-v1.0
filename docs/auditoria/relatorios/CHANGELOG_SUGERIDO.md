@@ -73,7 +73,7 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 
 ### Changed
 - `ConfigService.get()` tipado (sem `any`); getters `getNumber`/`getBoolean`/`getString`/`getTimespan`; frontend com `ConfigTypeMap`/`GetReturn` e `parseInt` manual removido — fix QAL-03/BKD-08/FRN-04 (R06).
-- `ShareService` decomposto em `ShareMapper`/`ShareArchiveService`/`FileStorageService` (772 LOC → módulos coesos) — fix ARQ-02.
+- `ShareService` decomposto em `ShareMapper`/`ShareArchiveService`/`FileStorageService` (794 → 698 LOC; mapeamento, ZIP e cotas/estrutura física em módulos coesos) — fix ARQ-02 (R05).
 - `EPOCH_ZERO` substituído por `expiresAt DateTime?` nullable — fix BDB-05.
 - Duas libs JWT no frontend unificadas em uma — fix INF-03.
 - `SECURITY.md` preenchido (versões suportadas + canal de report) — fix DOC-02.

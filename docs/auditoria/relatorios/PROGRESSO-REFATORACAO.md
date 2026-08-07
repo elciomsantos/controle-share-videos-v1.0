@@ -19,7 +19,7 @@
 | R04 — Jobs de limpeza em lote + transação | ✅ Concluído | batch `take: 50` + cursor + `try/catch` por item |
 | BDB-02 — Índices nos caminhos quentes | ✅ Concluído | quick-win (commit `98de696`) |
 | R06 — Config tipada | ✅ Concluído | backend + frontend; sem `any`/`parseInt` manual |
-| R05 — Decomposição do ShareService | ⬜ Pendente | depende da rede de testes (R07 ok) |
+| R05 — Decomposição do ShareService | ✅ Concluído | `ShareService` 794 → 698 LOC; testes de regressão 9 novos |
 
 Sequência do plano: `R07 → R02 → R01 → R08 → R03 → R04 → R06 → R05`.
 
@@ -84,13 +84,35 @@ Sequência do plano: `R07 → R02 → R01 → R08 → R03 → R04 → R06 → R0
 - Removidos `parseInt(config.get(...))` manuais em `EditableUpload.tsx`, `pages/upload/index.tsx`, `pages/account/shares.tsx`, `pages/share/[shareId]/index.tsx`, `components/admin/shares/ManageShareTable.tsx`.
 - Verificação: `tsc --noEmit` 0 erros, `eslint` 0 erros, `next build` OK.
 
-## 8. Próximos passos
+## 8. R05 — Decomposição do `ShareService` (concluído)
+
+Fixa **ARQ-02** (god class 772 LOC / 27 métodos). `ShareService` vira orquestração fina; as responsabilidades de mapeamento, arquivamento ZIP e cotas/estrutura física saem para módulos coesos.
+
+**Novos arquivos** (`backend/src/share/`)
+- `share.mapper.ts` — `ShareMapper.transformShare(share)` (20 LOC): espalha o share, soma `size` via `toBytes`, extrai `recipients` (emails) e monta `security { maxViews, maxDownloads, passwordProtected }`.
+- `share-archive.service.ts` — `ShareArchiveService.createZip(shareId)` (95 LOC): todo o pipeline ZIP movido (limites `zipMaxFiles`/`zipMaxTotalSize`/`zipMaxRatio`, guarda anti zip-bomb GAP-04, `archive.finalize`). Sem logger (não usado).
+- `file-storage.service.ts` — `FileStorageService` (26 LOC): `ensureSpaceAvailable(size)` (valida cota via `SystemService`, lança `share.notEnoughSpace`) e `createShareDirectory(shareId)` (`fs.mkdirSync` recursivo).
+
+**`share.service.ts`**
+- Imports limpos (`InternalServerErrorException`, `createZipStream`, `fs`, `SystemService`, `SHARE_DIRECTORY`, `toBytes`); `transformShare` privado e `createZip` removidos.
+- `create()` delega em `storageService.ensureSpaceAvailable` + `storageService.createShareDirectory`; `complete()` delega em `archiveService.createZip`; listagens/update usam `shareMapper.transformShare`.
+- **794 → 698 LOC (−96)**.
+
+**`share.module.ts`**
+- Providers: `[ShareService, ShareMapper, ShareArchiveService, FileStorageService]`; `SystemModule` mantido (dep. do `FileStorageService`).
+- Contrato público preservado: `reloadShareViews` (`fileSecurity.guard.ts`) e `verifyShareToken` (`shareSecurity.guard.ts`) intactos.
+
+**Testes de regressão** (`share.service.spec.ts`, +9)
+- `ShareMapper` (2), `FileStorageService` (3), `ShareArchiveService` (4 — limites de arquivos/tamanho, fluxo feliz, zip-bomb ratio).
+- Gates: unit **63/63** (54 + 9), e2e **5/5**, lint 0 erros, `tsc --noEmit` sem erros em não-spec, `nest build` OK.
+
+## 9. Próximos passos
 
 1. ~~**Validar CI no GitHub**~~ ✅ push do branch `fix/producao-v1.1.0` e CI verde (backend + frontend, PR #1).
 2. ~~**R03 — Paginação nas listagens**~~ ✅ (commit `4686195`) — envelope `Page<T>`, quebra de contrato v1.2.0.
 3. ~~**BDB-02 — Índices nos caminhos quentes**~~ ✅ (commit `98de696`) — 5 @@index, sem quebra de contratos.
 4. ~~**R04 — Jobs de limpeza em lote + transação**~~ ✅ — batch 50 + cursor + `try/catch` por item.
 5. ~~**R06 — Config tipada**~~ ✅ — backend + frontend, sem `any`/`parseInt` manual.
-6. **Revisão e merge** do PR #1 em `main` (após validação do usuário).
-7. **Registrar changelog/tech-debt**: marcar R01 (breaking), BDB-02, R03, R04 e R06 no `CHANGELOG_SUGERIDO.md` e `TECH_DEBT.md`.
-8. **R05 — Decomposição do `ShareService`** (por último; agora com rede de testes ativa).
+6. ~~**R05 — Decomposição do `ShareService`**~~ ✅ — 3 extrações coesas, `ShareService` −96 LOC.
+7. **Revisão e merge** do PR #1 em `main` (após validação do usuário).
+8. **Registrar changelog/tech-debt**: marcar R01 (breaking), BDB-02, R03, R04, R06 e R05 no `CHANGELOG_SUGERIDO.md` e `TECH_DEBT.md`.

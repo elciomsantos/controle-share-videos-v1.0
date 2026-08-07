@@ -6,6 +6,9 @@ import { FileModule } from "../file/file.module";
 import { SystemModule } from "../system/system.module";
 import { ShareController } from "./share.controller";
 import { ShareService } from "./share.service";
+import { ShareMapper } from "./share.mapper";
+import { ShareArchiveService } from "./share-archive.service";
+import { FileStorageService } from "./file-storage.service";
 
 @Module({
   imports: [
@@ -16,7 +19,7 @@ import { ShareService } from "./share.service";
     SystemModule,
   ],
   controllers: [ShareController],
-  providers: [ShareService],
+  providers: [ShareService, ShareMapper, ShareArchiveService, FileStorageService],
   exports: [ShareService],
 })
 export class ShareModule {}

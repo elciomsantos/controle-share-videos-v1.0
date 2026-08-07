@@ -91,12 +91,13 @@ Registro único da dívida técnica do projeto: tudo que não é bug de seguran�
 | QAL-03 | `config.get(): any` como ponto fraco central | ✅ Paga (R06) — `ConfigKeys`/`ConfigTypeMap` + getters tipados, sem `any` no service (backend) |
 | BKD-08 | Retornos `any` em serviços | ✅ Paga (R06) — getters tipados `getNumber`/`getBoolean`/`getString`/`getTimespan` |
 | FRN-04 | Tipos `any`/props fracamente tipadas | ✅ Paga (R06) — `ConfigTypeMap`/`GetReturn` no frontend, `get()` sem `any`, `parseInt` manual removido |
+| ARQ-02 | God class `ShareService` (772 LOC, 27 métodos) | ✅ Paga (R05) — extraídos `ShareMapper`/`ShareArchiveService`/`FileStorageService`; `ShareService` 794 → 698 LOC; +9 testes de regressão |
 
 ## 6. Quadrante Urgência × Evolução
 
 - **Urgente pagar agora** (bloqueia segurança/evolução): ~~QAL-01 (testes)~~✅, BKD-01/SEC-03 (reset TTL), FRN-12 (mutação de props), ~~BDB-01 (String→BigInt)~~✅.
-- **Pagar em breve** (facilita features): ARQ-02 (split), BDB-05 (nullable `expiresAt`), DOC-01 (README).
-- **Pagas recentemente**: ~~BDB-02~~ (índices), ~~PERF-01/BDB-03~~ (paginação R03), ~~BKD-06/BDB-04/PERF-04~~ (jobs em lote R04), ~~QAL-03/BKD-08/FRN-04~~ (config tipada R06).
+- **Pagar em breve** (facilita features): BDB-05 (nullable `expiresAt`), DOC-01 (README).
+- **Pagas recentemente**: ~~BDB-02~~ (índices), ~~PERF-01/BDB-03~~ (paginação R03), ~~BKD-06/BDB-04/PERF-04~~ (jobs em lote R04), ~~QAL-03/BKD-08/FRN-04~~ (config tipada R06), ~~ARQ-02~~ (split ShareService R05).
 - **Baixa prioridade** (cosmético/semântico): FRN-05, FRN-02, BDB-06, QAL-06, ARQ-04.
 
 ## 7. Conclusões
@@ -110,5 +111,5 @@ Registro único da dívida técnica do projeto: tudo que não é bug de seguran�
 
 1. ✅ ~~Testes + CI (QAL-01/QTS-01)~~ — **pago (R07)**.
 2. BKD-01/SEC-03, FRN-12 — dívidas com risco de segurança.
-3. ARQ-02, QAL-03, BKD-06, BDB-05 — refatorações estruturais (R05/R06/R04).
+3. ~~ARQ-02~~ (R05), ~~QAL-03~~, ~~BKD-06~~, BDB-05 — refatorações estruturais (R05/R06/R04 pagos; BDB-05 pendente).
 4. DOC-01, FRN-05, BDB-06, QAL-04/05/06, ARQ-04 — backlog contínuo.
