@@ -5,7 +5,6 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { RequestContextLogger } from "../common/request-context/request-context";
-import { JwtService, JwtSignOptions } from "@nestjs/jwt";
 import { Prisma, Share, User, ShareSecurity } from "../../prisma/generated/prisma/client";
 import argon from "argon2";
 import * as crypto from "crypto";
@@ -16,11 +15,6 @@ import { DownloadLogService } from "../download-log/download-log.service";
 import { EmailService } from "../email/email.service";
 import { FileService } from "../file/file.service";
 import { PrismaService } from "../prisma/prisma.service";
-import {
-  EPOCH_ZERO,
-  isEpochZero,
-  parseRelativeDateToAbsolute,
-} from "../utils/date.util";
 import { ARGON2_OPTIONS } from "../constants";
 import { CreateShareDTO } from "./dto/createShare.dto";
 import { ShareSecurityDTO } from "./dto/shareSecurity.dto";
@@ -28,6 +22,9 @@ import { UpdateShareDTO } from "./dto/updateShare.dto";
 import { ShareMapper } from "./share.mapper";
 import { ShareArchiveService } from "./share-archive.service";
 import { FileStorageService } from "./file-storage.service";
+import { ShareValidationService } from "./domain/share-validation.service";
+import { ShareTokenService } from "./domain/share-token.service";
+import { ShareLimitService } from "./domain/share-limit.service";
 
 @Injectable()
 export class ShareService {
@@ -35,16 +32,17 @@ export class ShareService {
 
   constructor(
     private prisma: PrismaService,
-    private configService: ConfigService,
     private fileService: FileService,
     private emailService: EmailService,
-    private config: ConfigService,
-    private jwtService: JwtService,
     private downloadLogService: DownloadLogService,
     private readonly i18n: I18nService,
     private shareMapper: ShareMapper,
     private archiveService: ShareArchiveService,
     private storageService: FileStorageService,
+    private validationService: ShareValidationService,
+    private tokenService: ShareTokenService,
+    private limitService: ShareLimitService,
+    private config: ConfigService,
   ) {}
 
   async create(share: CreateShareDTO, user?: User) {
@@ -52,7 +50,7 @@ export class ShareService {
       await this.storageService.ensureSpaceAvailable(share.size);
     }
 
-    if (!(await this.isShareIdAvailable(share.id)).isAvailable)
+    if (!(await this.validationService.validateShareIdAvailable(share.id)).isAvailable)
       throw new BadRequestException(this.i18n.t("share.idInUse"));
 
     if (!share.security || Object.keys(share.security).length == 0)
@@ -74,10 +72,8 @@ export class ShareService {
       } as ShareSecurityDTO;
     }
 
-    const expirationDate = this.parseExpiration(share.expiration);
-    if (!user?.isAdmin) {
-      this.validateExpiration(expirationDate);
-    }
+    const expirationDate = this.validationService.parseExpiration(share.expiration);
+    this.validationService.validateExpiration(expirationDate, user?.isAdmin);
 
     this.storageService.createShareDirectory(share.id);
 
@@ -96,8 +92,6 @@ export class ShareService {
         creator: { connect: user ? { id: user.id } : undefined },
         security: { create: share.security },
         recipients: {
-          // BDB-06: deduplica e-mails antes do insert (o unique [shareId,email]
-          // na camada de dados é a garantia final contra duplicidade).
           create: share.recipients
             ? [...new Set(share.recipients)].map((email) => ({ email }))
             : [],
@@ -131,9 +125,6 @@ export class ShareService {
         this.i18n.t("share.completionRequiresFile"),
       );
 
-    // Asynchronously create a zip of all files
-    // GAP-04: surface unhandled rejections instead of silently dropping them,
-    // and mark the share as broken so /api/shares/:id/zip returns 500 not 404.
     if (share.files.length > 1)
       this.archiveService.createZip(id)
         .then(() =>
@@ -145,17 +136,12 @@ export class ShareService {
             `Failed to create zip for share ${id}: ${message}`,
             err instanceof Error ? err.stack : undefined,
           );
-          // Leave isZipReady=false; consumers fall back to streaming or
-          // surface an explicit error instead of a hung download.
           return this.prisma.share.update({
             where: { id },
             data: { isZipReady: false },
           });
         });
 
-    // Send email for each recipient in parallel (PERF-02). Email delivery
-    // failures are logged but must not break share completion — the share is
-    // the source of truth, not the notification channel.
     const emailResults = await Promise.allSettled(
       share.recipients.map((recipient) =>
         this.emailService.sendMailToShareRecipients(
@@ -182,10 +168,6 @@ export class ShareService {
       }
     }
 
-    // ClamAV scan removed: uploads are owner-only media/videos by known
-    // authenticated operators. Mitigations: file-type magic-bytes validation
-    // + share per-file size limit (share.maxFileSize) on upload path.
-
     const updatedShare = await this.prisma.share.update({
       where: { id },
       data: { uploadLocked: true },
@@ -210,9 +192,7 @@ export class ShareService {
   async getShares(page: number, perPage: number) {
     const [shares, total] = await Promise.all([
       this.prisma.share.findMany({
-        orderBy: {
-          expiration: "desc",
-        },
+        orderBy: { expiration: "desc" },
         include: { files: true, creator: true, security: true, recipients: true },
         skip: (page - 1) * perPage,
         take: perPage,
@@ -232,19 +212,16 @@ export class ShareService {
     const where = {
       creator: { id: userId },
       uploadLocked: true,
-      // We want to grab any shares that are not expired or have their expiration date set to "never" (unix 0)
       OR: [
         { expiration: { gt: new Date() } },
-        { expiration: { equals: EPOCH_ZERO } },
+        { expiration: { equals: this.validationService.EPOCH_ZERO } },
       ],
     };
 
     const [shares, total] = await Promise.all([
       this.prisma.share.findMany({
         where,
-        orderBy: {
-          expiration: "desc",
-        },
+        orderBy: { expiration: "desc" },
         include: { recipients: true, files: true, security: true, creator: true },
         skip: (page - 1) * perPage,
         take: perPage,
@@ -260,16 +237,11 @@ export class ShareService {
     };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Return type includes Prisma-relational fields with internal DTO mapping; refactor requires aligning ShareDTO typing (see #6).
-  async get(id: string): Promise<any> {
+  async get(id: string) {
     const share = await this.prisma.share.findUnique({
       where: { id },
       include: {
-        files: {
-          orderBy: {
-            name: "asc",
-          },
-        },
+        files: { orderBy: { name: "asc" } },
         creator: true,
         security: true,
       },
@@ -280,16 +252,12 @@ export class ShareService {
 
     if (!share || !share.uploadLocked)
       throw new NotFoundException(this.i18n.t("share.notFound"));
-    return {
-      ...share,
-      hasPassword: !!share.security?.password,
-    };
+
+    return this.shareMapper.transformShare(share);
   }
 
   async getMetaData(id: string) {
-    const share = await this.prisma.share.findUnique({
-      where: { id },
-    });
+    const share = await this.prisma.share.findUnique({ where: { id } });
 
     if (!share || !share.uploadLocked)
       throw new NotFoundException(this.i18n.t("share.notFound"));
@@ -313,11 +281,8 @@ export class ShareService {
 
     if (!share) throw new NotFoundException(this.i18n.t("share.notFound"));
 
-    if (!share.creatorId && !isDeleterAdmin)
-      throw new ForbiddenException(this.i18n.t("share.anonymousNoDelete"));
+    this.validationService.validateCreatorAccess(share, isDeleterAdmin, "delete");
 
-    // Record a delete entry per file so the audit log shows exactly which
-    // files were removed when the whole share is deleted.
     if (actor) {
       for (const file of share.files ?? []) {
         void this.downloadLogService.record({
@@ -340,15 +305,11 @@ export class ShareService {
   }
 
   async expire(shareId: string) {
-    const share = await this.prisma.share.findUnique({
-      where: { id: shareId },
-    });
+    const share = await this.prisma.share.findUnique({ where: { id: shareId } });
 
     if (!share) throw new NotFoundException(this.i18n.t("share.notFound"));
 
-    if (!share.creatorId) {
-      throw new ForbiddenException(this.i18n.t("share.anonymousNoExpire"));
-    }
+    this.validationService.validateCreatorAccess(share, false, "expire");
 
     await this.prisma.share.update({
       where: { id: shareId },
@@ -372,29 +333,21 @@ export class ShareService {
     if (!currentShare) throw new NotFoundException(this.i18n.t("share.notFound"));
 
     const isUpdaterAdmin = user?.isAdmin === true;
-    if (!currentShare.creatorId && !isUpdaterAdmin) {
-      throw new ForbiddenException(this.i18n.t("share.anonymousNoUpdate"));
-    }
+    this.validationService.validateCreatorAccess(currentShare, isUpdaterAdmin, "update");
 
     let expirationDate: Date | undefined;
     if (body.expiration !== undefined) {
-      expirationDate = this.parseExpiration(body.expiration);
-      if (!user?.isAdmin) {
-        this.validateExpiration(expirationDate);
-      }
+      expirationDate = this.validationService.parseExpiration(body.expiration);
+      this.validationService.validateExpiration(expirationDate, isUpdaterAdmin);
     }
 
     const data: Prisma.ShareUpdateInput = {
       name: body.name !== undefined ? body.name || null : undefined,
-      description:
-        body.description !== undefined ? body.description || null : undefined,
+      description: body.description !== undefined ? body.description || null : undefined,
       expiration: expirationDate,
     };
 
-    await this.prisma.share.update({
-      where: { id: shareId },
-      data,
-    });
+    await this.prisma.share.update({ where: { id: shareId }, data });
 
     if (body.security) {
       await this.updateSecurity(shareId, body, currentShare.security ?? undefined);
@@ -420,14 +373,8 @@ export class ShareService {
       : body.security.password
         ? await argon.hash(body.security.password, ARGON2_OPTIONS)
         : currentSecurity?.password;
-    const nextMaxViews =
-      body.security.maxViews !== undefined
-        ? body.security.maxViews
-        : currentSecurity?.maxViews;
-    const nextMaxDownloads =
-      body.security.maxDownloads !== undefined
-        ? body.security.maxDownloads
-        : currentSecurity?.maxDownloads;
+    const nextMaxViews = body.security.maxViews !== undefined ? body.security.maxViews : currentSecurity?.maxViews;
+    const nextMaxDownloads = body.security.maxDownloads !== undefined ? body.security.maxDownloads : currentSecurity?.maxDownloads;
 
     if (nextPassword == null && nextMaxViews == null && nextMaxDownloads == null) {
       if (currentSecurity) {
@@ -457,56 +404,13 @@ export class ShareService {
     return share?.uploadLocked ?? false;
   }
 
-  private parseExpiration(expiration: string) {
-    if (expiration === "never") return EPOCH_ZERO;
-
-    if (
-      /^\d+-(minute|hour|day|week|month|year|minutes|hours|days|weeks|months|years)$/.test(
-        expiration,
-      )
-    ) {
-      return parseRelativeDateToAbsolute(expiration);
-    }
-
-    const absoluteExpiration = dayjs(expiration);
-    if (absoluteExpiration.isValid()) return absoluteExpiration.toDate();
-
-    throw new BadRequestException(this.i18n.t("share.invalidExpiration"));
-  }
-
-  private validateExpiration(expiration: Date) {
-    const expiresNever = isEpochZero(expiration);
-    const maxExpiration = this.config.getTimespan("share.maxExpiration");
-
-    if (
-      maxExpiration.value !== 0 &&
-      (expiresNever ||
-        expiration >
-          dayjs().add(maxExpiration.value, maxExpiration.unit).toDate())
-    ) {
-      throw new BadRequestException(this.i18n.t("share.maxExpirationExceeded"));
-    }
-  }
-
-  async isShareIdAvailable(id: string) {
-    const share = await this.prisma.share.findUnique({ where: { id } });
-    return { isAvailable: !share };
-  }
-
   async increaseViewCount(
     share: Share & { security?: { maxViews?: number | null } | null },
     context?: { ip?: string; userAgent?: string | null },
   ) {
-    // Cada play conta e bloqueia: não há janela de deduplicação — toda nova
-    // visualização incrementa a contagem (respeitando maxViews) e registra o
-    // log, para que re-assistir não seja gratuito nem o vídeo toque do cache.
     const ip = context?.ip ?? "unknown";
     const maxViews = share.security?.maxViews;
 
-    // Atomically increment views while respecting the limit, so the check and
-    // increment can't race. Once views reaches maxViews a *new* visitor is
-    // blocked (this also covers visitors holding an already-issued token, the
-    // path that previously bypassed the getShareToken limit check).
     let incremented: boolean;
     if (maxViews && maxViews > 0) {
       const result = await this.prisma.share.updateMany({
@@ -587,9 +491,7 @@ export class ShareService {
   ) {
     const share = await this.prisma.share.findFirst({
       where: { id: shareId },
-      include: {
-        security: true,
-      },
+      include: { security: true },
     });
 
     if (!share)
@@ -603,10 +505,7 @@ export class ShareService {
         });
       }
 
-      const isPasswordValid = await argon.verify(
-        share.security.password,
-        password,
-      );
+      const isPasswordValid = await argon.verify(share.security.password, password);
       if (!isPasswordValid) {
         if (context) {
           void this.downloadLogService.record({
@@ -644,74 +543,24 @@ export class ShareService {
       });
     }
 
-    const token = await this.generateShareToken({ ...share, security: share.security ?? undefined });
+    const token = await this.tokenService.generateShareToken({ ...share, security: share.security ?? undefined });
     return token;
-  }
-
-  async generateShareToken(share: Share & { security?: ShareSecurity }) {
-    const { id: shareId, expiration, createdAt, security } = share;
-
-    const tokenPayload = {
-      shareId,
-      shareCreatedAt: dayjs(createdAt).unix(),
-      sharePasswordSignature: this.getSharePasswordSignature(
-        security?.password ?? undefined,
-      ),
-      iat: dayjs().unix(),
-    };
-
-    const tokenOptions: JwtSignOptions = {
-      secret: this.config.getString("internal.jwtSecret"),
-    };
-
-    if (!isEpochZero(expiration)) {
-      const diffSeconds = dayjs(expiration).diff(new Date(), "seconds");
-      // Default to a 1 hour token if the share is expired but being viewed by an admin
-      tokenOptions.expiresIn = diffSeconds > 0 ? diffSeconds : 3600;
-    }
-
-    return this.jwtService.sign(tokenPayload, tokenOptions);
   }
 
   async verifyShareToken(
     share: Share & { security?: ShareSecurity },
     token: string,
   ) {
-    const { expiration, createdAt, security } = share;
-
-    try {
-      const claims = this.jwtService.verify(token, {
-        secret: this.config.getString("internal.jwtSecret"),
-        // Ignore expiration if expiration is 0
-        ignoreExpiration: isEpochZero(expiration),
-      });
-
-      return (
-        claims.shareId == share.id &&
-        claims.shareCreatedAt == dayjs(createdAt).unix() &&
-        (!security?.password ||
-          claims.sharePasswordSignature ===
-            this.getSharePasswordSignature(security.password))
-      );
-    } catch {
-      return false;
-    }
+    return this.tokenService.verifyShareToken(share, token);
   }
 
-  private getSharePasswordSignature(password?: string) {
-    if (!password) return undefined;
-
-    return crypto
-      .createHmac("sha512", this.config.getString("internal.jwtSecret"))
-      .update(password)
-      .digest("hex");
+  async isShareIdAvailable(id: string) {
+    return this.validationService.validateShareIdAvailable(id);
   }
 
   private generateRandomPassword(length: number): string {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
     const bytes = crypto.randomBytes(length);
-    return Array.from(bytes)
-      .map((b) => chars[b % chars.length])
-      .join("");
+    return Array.from(bytes).map((b) => chars[b % chars.length]).join("");
   }
 }

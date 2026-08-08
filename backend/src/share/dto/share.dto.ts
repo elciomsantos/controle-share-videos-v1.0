@@ -16,7 +16,7 @@ export class ShareDTO {
   id!: string;
 
   @Expose()
-  name?: string;
+  name?: string | null;
 
   @Expose()
   expiration!: Date;

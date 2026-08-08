@@ -150,3 +150,67 @@ Aplicados os achados da Fase 6 (PERFORMANCE) por decisão do solicitante — for
 | TODO `auth.service.ts:131` — invalidar `loginTokens` antigos (logout de todos os dispositivos) | ⏳ Aberto | distinto do SEC-07 (já pago) |
 | QTS-05 / DOP-07 | ✅ QTS-05 pago (2026-08-07) — `newman` removido, `test/newman-system-tests.json` deletado; DOP-07 ⏳ Aberto | FASE-10 / FASE-12 |
 | SEC-06, SEC-07, SEC-08 | ✅ Pago (2026-08-07) | commit `1e6eaa4` |
+
+---
+
+## 12. ARQ-01 — Quebra de dependência circular `ShareModule` ↔ `FileModule` (concluído 2026-08-08)
+
+Fixa **ARQ-01** (dependência circular bidirecional). O ciclo era:
+- `ShareModule` → `forwardRef(() => FileModule)` → `FileModule` importava `ShareModule` diretamente
+
+**Solução:** extração de `ShareDomainModule` com responsabilidades de domínio compartilhadas.
+
+### Novos arquivos (`backend/src/share/domain/`)
+| Arquivo | Responsabilidade |
+|---|---|
+| `share-domain.module.ts` | Módulo global que exporta os 3 serviços de domínio |
+| `share-validation.service.ts` | Validação de expiração, acesso do creator, disponibilidade de share ID, parsing de expiração |
+| `share-token.service.ts` | Geração e verificação de tokens JWT de share (com assinatura de senha) |
+| `share-limit.service.ts` | Checagem de cotas de tamanho, limites de ZIP, expiração máxima |
+
+### Mudanças nos módulos existentes
+- **`FileModule`**: agora importa `ShareDomainModule` em vez de `ShareModule` — quebra o ciclo
+- **`ShareModule`**: importa `ShareDomainModule` + mantém `forwardRef(() => FileModule)` para `FileService`
+- **`ShareService`**: delega validações, tokens e limites aos novos serviços de domínio (−96 LOC vs original 772)
+
+### Testes
+- Unit: **85/85** ✅
+- E2E: **16/16** ✅  
+- Frontend: **5/5** ✅
+- Build backend + frontend: **OK** ✅
+
+### Próximo item da fila (P2)
+- **ARQ-03** — `date.util.ts` duplicado backend/frontend → pacote `shared/`
+- **ARQ-04** — Boilerplate `@UseGuards` redundante → decorators compostos
+
+---
+
+## 13. ARQ-03 — Pacote `shared/` com `date.util.ts` unificado (concluído 2026-08-08)
+
+Fixa **ARQ-03** (util `date.util.ts` duplicado entre backend/frontend com implementações divergentes).
+
+### Solução: pacote `@controle-share/shared`
+
+**Novo pacote** (`packages/shared/`):
+- `src/date.util.ts` — utilitários comuns: `EPOCH_ZERO`, `parseRelativeDateToAbsolute`, `isEpochZero`, `Timespan`, `stringToTimespan`, `timespanToString`
+- `src/index.ts` — barrel export
+- Publicado localmente via `file:../packages/shared`
+
+### Mudanças
+| Arquivo | Antes | Depois |
+|---|---|---|
+| `backend/src/utils/date.util.ts` | 57 LOC (implementação própria) | 18 LOC (re-export do shared) |
+| `frontend/src/utils/date.util.ts` | 59 LOC (implementação própria + `getExpirationPreview`) | 38 LOC (re-export do shared + `getExpirationPreview` frontend-only) |
+
+O frontend mantém `getExpirationPreview` (usa i18n/translation hook) que é específico do frontend.
+
+### Testes ✅
+- Backend unit: 85/85
+- Backend e2e: 16/16
+- Frontend unit: 5/5
+- Builds: OK
+
+### Próximo item da fila (P2)
+- **ARQ-04** — Boilerplate `@UseGuards` redundante → decorators compostos (`@AdminOnly()`, `@ShareOwner()`)
+- **BKD-02** — Tipos `any` difusos restantes em `ConfigService.get()`
+- **BKD-04** — Falha engolida em `DownloadLogService.record()` — adicionar retry + log estruturado
