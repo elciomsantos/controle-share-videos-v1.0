@@ -4,7 +4,7 @@
 |---|---|
 | Fase de origem | 5 (Segurança) + achados correlatos de 2, 4, 8, 9, 10, 11 |
 | Data | 2026-08-04 |
-| Status | ✅ Consolidação entregue (correções pendentes de execução — Fase 13) |
+| Status | 🔄 Maioria executada — SEC-01–SEC-08 + DOP-07/QTS-05 pagos; resta PERF-06 (não deste relatório) e atualizações documentais |
 | Objeto | Backend NestJS 11 + Prisma 7/SQLite; frontend Next.js 16 + Mantine 9; Docker Compose |
 
 ## 1. Introdução
@@ -34,9 +34,9 @@ Relatório dedicado de segurança consolidando os achados da Fase 5 (`SEC-01` a 
 | ID | Achado | Sev. | Localização |
 |----|--------|------|-------------|
 | SEC-03 | Token de redefinição de senha **não expira** (amplia `BKD-01`) | 🟠 | `backend/src/auth/` (reset password) |
-| SEC-05 | `includePasswordInShareLink=true` coloca **senha de share na query string** (vazamento em logs/histórico) | 🟠 | `backend/src/share/`; config |
+| SEC-05 | `includePasswordInShareLink=true` coloca **senha de share na query string** (vazamento em logs/histórico) | 🟠 | ~~`backend/src/share/`; config~~ ✅ Resolvido 2026-08-07 — token via POST `/shares/:id/token` com senha no body; `includePasswordInShareLink` default `false`; Caddyfiles validados com filtro `format filter { request>uri query { replace pwd REDACTED } wrap json }` em `Caddyfile`, `Caddyfile.prod` e `Caddyfile.trust-proxy` (2026-08-08) |
 | ~~QTS-05~~ | ~~Credenciais/URL hardcoded na coleção Newman~~ | 🟡 | ✅ Resolvido 2026-08-07 — `newman` removido (devDep); `test/newman-system-tests.json` deletado |
-| DOP-07 | `.dockerignore` **não exclui** `secrets/` nem `.env*` (contexto completo vai ao daemon) | 🟠 | raiz `.dockerignore` |
+| ~~DOP-07~~ | ~~`.dockerignore` **não exclui** `secrets/` nem `.env*` (contexto completo vai ao daemon)~~ | ~~🟠~~ | ✅ Resolvido 2026-08-07 (commit `5e9b987`) — `.dockerignore` inclui `**/secrets/`, `.env*`, `**/scripts/secrets/`, `**/data/`, `*.log` |
 
 ### 3.3 Upload / Antivírus / Limites
 
@@ -62,21 +62,21 @@ Relatório dedicado de segurança consolidando os achados da Fase 5 (`SEC-01` a 
 
 ## 4. Conclusões
 
-- **1 vulnerabilidade crítica de design (fail-open)**, 6 achados médios e 3 baixos. Não há evidência de exploração ativa, mas o `JwtGuard` fail-open é um bypass de autenticação latente: qualquer falha transitória (token inválido, exceção de service) libera a rota.
-- A superfície de tokens (reset sem expiração, senha em query string, refresh sem reuse-detection) concentra o risco de sessão.
+- ~~**1 vulnerabilidade crítica de design (fail-open)**, 6 achados médios e 3 baixos.~~ ✅ **Bypass de auth fechado (SEC-01 pago R02)**; demais achados SEC-03/04/05/06/07/08 todos pagos em 2026-08-07. Não há evidência de exploração ativa.
+- A superfície de tokens (~~reset sem expiração~~ ✅, ~~senha em query string~~ ✅, ~~refresh sem reuse-detection~~ ✅) está **sanada**.
 - ClamAV existia como "decisão" conflitante (README × `Visao-geral` × código). **Resolvido em 26/07/2026 por decisão formal** (`docs/Padronizacao-07-clamav.md`): integração **rejeitada** — uploads só do owner/operador autenticado, somente mídia de vídeo (não-vetor de execução), destinatários só baixam, overhead de ~1-2 GB RAM + cold start 5-15 min do daemon, incompatível com deploy air-gapped. Código `clamscan`, dependência `clamscan@2.4.0` e daemon `clamav/clamav` **removidos** do repositório e dos compose files.
-- A correção de `postcss` está **bloqueada por config própria** (override pinado em versão vulnerável).
+- ~~A correção de `postcss` está **bloqueada por config própria** (override pinado em versão vulnerável).~~ ✅ INF-01 resolvido 2026-08-07.
 
 ## 5. Recomendações (prioridade de execução)
 
 1. **P0 — SEC-01**: fail-closed no `JwtGuard` (relançar `UnauthorizedException`; marcar rotas públicas com `@Public()`). Baixo esforço, elimina bypass.
 2. **P0 — BDB-01**: migrar tamanhos para `BigInt` (fecha `NaN` de cota). Requer deploy coordenado.
 3. **P1 — SEC-03**: expirar token de reset (TTL + `expiresAt`); corrigir `BKD-01`. ✅ **pago** — TTL 1h validado na redenção.
-4. **P1 — SEC-05**: política de compartilhamento sem senha em query string (usar campo POST / header). ✅ **pago** — token via POST `/shares/:id/token` com senha no body.
+4. **P1 — SEC-05**: política de compartilhamento sem senha em query string (usar campo POST / header). ✅ **pago (2026-08-07)** — token via POST `/shares/:id/token` com senha no body; `includePasswordInShareLink=false` default; Caddy mascara `?pwd=...` em access logs em todos os 3 Caddyfiles (2026-08-08).
 5. **P1 — INF-01**: remover override de `postcss` para 8.5.22+ e rodar `npm audit fix`. ✅ **pago** — `postcss ^8.5.22`.
 6. **P1 — DOC-02**: preencher `SECURITY.md` (versões suportadas + canal de report). ✅ **pago**.
 7. **P2 — SEC-04**: sanitizar HTML em e-mails (`sanitize-html` ou só texto). ✅ **pago (2026-08-07)** — `escapeHtml` + `escapeUserInput`.
 8. **P2 — SEC-02/QAL-02**: ~~decidir ClamAV (implementar scan real no upload ou remover deps e docs)~~ — **ENCERRADO por decisão formal** (26/07/2026) que rejeita a integração; código, dep `clamscan` e daemon removidos. Alinhamento documental feito. Nenhuma ação técnica restante.
-9. **P3 — SEC-06/07/08, QTS-05, DOP-07**: rate-limit de `resendVerification`, transação+reuse-detection no refresh, validar magic bytes de forma fail-closed, mover credenciais Newman para env, excluir `secrets/`/`.env*` do docker context. — *SEC-06, SEC-07 e SEC-08 pagos em 2026-08-07; resta QTS-05 e DOP-07.*
+9. ~~**P3 — SEC-06/07/08, QTS-05, DOP-07**: rate-limit de `resendVerification`, transação+reuse-detection no refresh, validar magic bytes de forma fail-closed, mover credenciais Newman para env, excluir `secrets/`/`.env*` do docker context.~~ ✅ **Todos pagos em 2026-08-07.**
 
 **Próximo passo:** executar itens P0/P1 conforme `REFACTORING_PLAN.md` (R02, R01, R08) e validar com `TEST_PLAN.md`.

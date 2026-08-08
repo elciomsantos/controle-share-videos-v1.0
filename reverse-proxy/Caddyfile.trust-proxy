@@ -2,12 +2,25 @@
 # Used when TRUST_PROXY=true is set
 
 :3000 {
-    # Trust X-Forwarded-* headers from Caddy (running in same container)
-    trusted_proxies private_ranges
+    # Logs (SEC-05): mascara senha em query string (?pwd=...) nos access logs,
+    # caso share.includePasswordInShareLink=true. Consistente com Caddyfile/Caddyfile.prod.
+    log {
+        output stdout
+        format filter {
+            request>uri query {
+                replace pwd REDACTED
+            }
+            wrap json
+        }
+    }
 
     # Reverse proxy for /api
-    reverse_proxy /api/* http://localhost:8080
+    reverse_proxy /api/* http://localhost:8080 {
+        trusted_proxies private_ranges
+    }
 
     # Reverse proxy for all other requests
-    reverse_proxy http://localhost:3333
+    reverse_proxy http://localhost:3333 {
+        trusted_proxies private_ranges
+    }
 }
