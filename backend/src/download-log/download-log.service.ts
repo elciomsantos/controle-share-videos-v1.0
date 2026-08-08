@@ -36,32 +36,63 @@ export class DownloadLogService {
   constructor(private prisma: PrismaService) {}
 
   async record(entry: DownloadLogEntry): Promise<void> {
-    try {
-      await this.prisma.downloadLog.create({
-        data: {
-          shareId: entry.shareId,
-          fileId: entry.fileId ?? null,
-          fileName: entry.fileName,
-          fileSize: entry.fileSize ?? null,
-          userId: entry.userId ?? null,
-          username: entry.username ?? null,
-          ip: entry.ip,
-          userAgent: entry.userAgent ?? null,
-          success: entry.success,
-          reason: entry.reason ?? null,
-          event: entry.event ?? "download",
-          // GAP-02: prefer an explicit requestId when provided, otherwise
-          // pull the correlation id from the active request context.
-          requestId:
-            entry.requestId ?? getRequestContext()?.requestId ?? null,
-        },
-      });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "unknown error";
-      this.logger.warn(
-        `Failed to record download log: ${message}`,
-      );
+    const maxRetries = 2;
+    const baseDelayMs = 100;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        await this.prisma.downloadLog.create({
+          data: {
+            shareId: entry.shareId,
+            fileId: entry.fileId ?? null,
+            fileName: entry.fileName,
+            fileSize: entry.fileSize ?? null,
+            userId: entry.userId ?? null,
+            username: entry.username ?? null,
+            ip: entry.ip,
+            userAgent: entry.userAgent ?? null,
+            success: entry.success,
+            reason: entry.reason ?? null,
+            event: entry.event ?? "download",
+            requestId:
+              entry.requestId ?? getRequestContext()?.requestId ?? null,
+          },
+        });
+        return;
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "unknown error";
+        const isLastAttempt = attempt === maxRetries;
+
+        if (isLastAttempt) {
+          this.logger.error(
+            `Failed to record download log after ${maxRetries + 1} attempts: ${message}`,
+            {
+              shareId: entry.shareId,
+              fileName: entry.fileName,
+              event: entry.event,
+              success: entry.success,
+              reason: entry.reason,
+              stack: err instanceof Error ? err.stack : undefined,
+            },
+          );
+          // BKD-04: don't throw — audit log failure must not break the main flow
+        } else {
+          this.logger.warn(
+            `Download log record attempt ${attempt + 1} failed, retrying: ${message}`,
+            {
+              shareId: entry.shareId,
+              attempt: attempt + 1,
+              maxRetries: maxRetries + 1,
+            },
+          );
+          await this.sleep(baseDelayMs * Math.pow(2, attempt));
+        }
+      }
     }
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   async findAll(params: {

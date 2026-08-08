@@ -273,3 +273,37 @@ Fixa **ARQ-04** (boilerplate `@UseGuards(JwtGuard, RolesGuard)` repetido em ~50 
 | **FRN-08** | Categorias config inconsistentes |
 | **BDB-05** | Sentinela `EPOCH_ZERO` + `ShareSecurity` 1:1 opcional |
 | **TODO** | Invalidar `loginTokens` antigos (logout all devices) |
+
+---
+
+## 15. BKD-02 — Tipos `any` no ShareMapper.transformShare (concluído 2026-08-08)
+
+Fixa **BKD-02** (tipos `any` difusos no `ShareMapper.transformShare(share: any)`).
+
+### Mudanças
+- **`share.mapper.ts`**: entrada tipada como `ShareLike` (interface com propriedades conhecidas + index signature) em vez de `any`
+- Retorno tipado como `Record<string, unknown>` para compatibilidade com DTOs
+- Removido `eslint-disable @typescript-eslint/no-explicit-any`
+
+### Testes
+- Mocks atualizados: `File.size` como `bigint` (`1048576n`), `ShareSecurity` e `ShareRecipient` shapes corretos
+- Unit: **85/85** ✅
+- E2E: **16/16** ✅
+- Frontend: **5/5** ✅
+- Builds: **OK** ✅
+
+---
+
+### Próximo item da fila (P2)
+
+| Item | Descrição |
+|------|-----------|
+| **BKD-04** | Falha engolida em `DownloadLogService.record()` — adicionar retry + log estruturado |
+| **FRN-01** | JWT no middleware sem verificação assinatura (jose/jwtVerify) |
+| **FRN-02** | Estado módulo-level + `Promise.all` não aguardado no upload |
+| **FRN-04** | Tipos `any` generalizados frontend (~55 usos) |
+| **FRN-05** | Loop potencial de reload por idioma |
+| **FRN-07** | Preview PDF via `window.location.href` |
+| **FRN-08** | Categorias config inconsistentes |
+| **BDB-05** | Sentinela `EPOCH_ZERO` + `ShareSecurity` 1:1 opcional |
+| **TODO** | Invalidar `loginTokens` antigos (logout all devices) |
