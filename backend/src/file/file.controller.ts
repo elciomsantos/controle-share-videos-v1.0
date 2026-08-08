@@ -10,17 +10,14 @@ import {
   Req,
   Res,
   StreamableFile,
-  UseGuards,
 } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import contentDisposition from "content-disposition";
 import { Request, Response } from "express";
 import { DownloadLogService } from "../download-log/download-log.service";
 import { User } from "../../prisma/generated/prisma/client";
-import { JwtGuard } from "../auth/guard/jwt.guard";
-import { Public } from "../auth/decorator/public.decorator";
-import { StrictShareOwnerGuard } from "../share/guard/strictShareOwner.guard";
-import { IdValidation } from "../share/guard/shareIdValidation.guard";
+import { Public, Authenticated } from "../auth/decorator/guards.decorator";
+import { StrictShareOwnerAccess, SharePublicAccess } from "../share/decorator/share-guards.decorator";
 import { FileService } from "./file.service";
 import { DownloadLimitGuard } from "./guard/downloadLimit.guard";
 import { FileSecurityGuard } from "./guard/fileSecurity.guard";
@@ -50,10 +47,8 @@ export class FileController {
   ) {}
 
   @Post()
-  // GAP-03: chunked uploads must be throttled — vector for DoS/abuse.
-  // 30 req/min per IP (chunked uploads case several requests per file).
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
-  @UseGuards(IdValidation, JwtGuard, StrictShareOwnerGuard)
+  @StrictShareOwnerAccess()
   async create(
     @Query()
     query: {
@@ -77,15 +72,12 @@ export class FileController {
       shareId,
     );
 
-    // GAP: record the upload as soon as the final chunk lands (the DB row is
-    // created on the last chunk) so the audit log shows who uploaded what.
     if (parseInt(chunkIndex) === parseInt(totalChunks) - 1) {
       let fileSize: string | null = null;
       try {
         const meta = await this.fileService.getFileMetaData(shareId, id);
         fileSize = meta?.size != null ? meta.size.toString() : null;
       } catch {
-        // File metadata may be momentarily unavailable; still log the event.
         fileSize = null;
       }
       void this.downloadLogService.record({
@@ -107,7 +99,7 @@ export class FileController {
 
   @Get("zip")
   @Public()
-  @UseGuards(FileSecurityGuard)
+  @SharePublicAccess()
   async getZip(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -151,7 +143,7 @@ export class FileController {
 
   @Get(":fileId")
   @Public()
-  @UseGuards(FileSecurityGuard)
+  @SharePublicAccess()
   async getFile(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -172,10 +164,6 @@ export class FileController {
 
     const file = await this.fileService.get(shareId, fileId);
 
-    // When the uploaded file lived in a folder (name carries a "dir/name"
-    // path), serve the download wrapped in a zip that preserves that folder
-    // structure. Browsers strip directory info from Content-Disposition, so
-    // only a zip keeps the original layout.
     const hasFolderPath = file.metaData.name.includes("/");
     if (isDownload && hasFolderPath) {
       const zipStream = await this.fileService.getFileZip(shareId, fileId);
@@ -211,9 +199,6 @@ export class FileController {
       return new StreamableFile(zipStream);
     }
 
-    // PERF-06: HTTP Range (206) negotiation for previews — video/audio seek
-    // and partial loads. Only the preview path honours range requests; bulk
-    // downloads keep the existing one-request = one-download bookkeeping.
     const rangeHeader = isDownload
       ? undefined
       : (req.headers.range as string | undefined);
@@ -224,7 +209,6 @@ export class FileController {
 
       const ranges = range(fullSize, rangeHeader, { combine: true });
       if (ranges === -1) {
-        // Unsatisfiable range (e.g. start beyond EOF) → 416.
         res.set({ "Content-Range": `bytes */${fullSize}` });
         return res.status(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE).end();
       }
@@ -249,7 +233,6 @@ export class FileController {
         });
         return new StreamableFile(rangedFile.file);
       }
-      // Malformed range header (-2) falls through to a full 200 response.
     }
 
     const headers = {
@@ -293,9 +276,8 @@ export class FileController {
   }
 
   @Delete(":fileId")
-  // GAP-03: file deletion must also be throttled to prevent abusive cleanup loops.
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
-  @UseGuards(StrictShareOwnerGuard)
+  @StrictShareOwnerAccess()
   async remove(
     @Param("fileId") fileId: string,
     @Param("shareId") shareId: string,

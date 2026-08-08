@@ -1,17 +1,14 @@
-import { Controller, Get, UseGuards } from "@nestjs/common";
-import { JwtGuard } from "../auth/guard/jwt.guard";
-import { Roles } from "../auth/decorator/roles.decorator";
-import { RolesGuard } from "../auth/guard/roles.guard";
+import { Controller, Get } from "@nestjs/common";
+import { AdminOrAuditor } from "../auth/decorator/guards.decorator";
 import { SystemService } from "./system.service";
 import { SystemInfoDTO } from "./dto/systemInfo.dto";
 
 @Controller("system")
-@UseGuards(JwtGuard, RolesGuard)
 export class SystemController {
   constructor(private systemService: SystemService) {}
 
   @Get("info")
-  @Roles("admin", "auditor")
+  @AdminOrAuditor()
   async getSystemInfo(): Promise<SystemInfoDTO | null> {
     return await this.systemService.getSystemInfo();
   }

@@ -10,16 +10,12 @@ import {
   Patch,
   Post,
   UploadedFile,
-  UseGuards,
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { createKeyv, RedisClientOptions } from "@keyv/redis";
 import { I18nService } from "nestjs-i18n";
-import { JwtGuard } from "../auth/guard/jwt.guard";
-import { Public } from "../auth/decorator/public.decorator";
-import { Roles } from "../auth/decorator/roles.decorator";
-import { RolesGuard } from "../auth/guard/roles.guard";
+import { AdminOnly, Public } from "../auth/decorator/guards.decorator";
 import { EmailService } from "../email/email.service";
 import { ConfigService } from "./config.service";
 import { AdminConfigDTO } from "./dto/adminConfig.dto";
@@ -29,7 +25,6 @@ import UpdateConfigDTO from "./dto/updateConfig.dto";
 import { LogoService } from "./logo.service";
 
 @Controller("configs")
-@UseGuards(JwtGuard, RolesGuard)
 export class ConfigController {
   constructor(
     private configService: ConfigService,
@@ -45,7 +40,7 @@ export class ConfigController {
   }
 
   @Get("admin/:category")
-  @Roles("admin")
+  @AdminOnly()
   async getByCategory(@Param("category") category: string) {
     return new AdminConfigDTO().fromList(
       await this.configService.getByCategory(category),
@@ -53,7 +48,7 @@ export class ConfigController {
   }
 
   @Patch("admin")
-  @Roles("admin")
+  @AdminOnly()
   async updateMany(@Body() data: UpdateConfigDTO[]) {
     return new AdminConfigDTO().fromList(
       (await this.configService.updateMany(data)) as Partial<AdminConfigDTO>[],
@@ -61,13 +56,13 @@ export class ConfigController {
   }
 
   @Post("admin/testEmail")
-  @Roles("admin")
+  @AdminOnly()
   async testEmail(@Body() { email }: TestEmailDTO) {
     await this.emailService.sendTestMail(email);
   }
 
   @Post("admin/testRedis")
-  @Roles("admin")
+  @AdminOnly()
   async testRedis() {
     const redisUrl = this.configService.getString("cache.redis-url");
     const enabled = this.configService.getBoolean("cache.redis-enabled");
@@ -145,7 +140,7 @@ export class ConfigController {
 
   @Post("admin/logo")
   @UseInterceptors(FileInterceptor("file"))
-  @Roles("admin")
+  @AdminOnly()
   async uploadLogo(
     @UploadedFile(
       new ParseFilePipe({
@@ -159,7 +154,7 @@ export class ConfigController {
 
   @Post("admin/logoDark")
   @UseInterceptors(FileInterceptor("file"))
-  @Roles("admin")
+  @AdminOnly()
   async uploadDarkLogo(
     @UploadedFile(
       new ParseFilePipe({

@@ -9,7 +9,6 @@ import {
   Req,
   Res,
   UnauthorizedException,
-  UseGuards,
 } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import { User } from "../../prisma/generated/prisma/client";
@@ -19,7 +18,7 @@ import { ConfigService } from "../config/config.service";
 import { AuthService } from "./auth.service";
 import { AuthTotpService } from "./authTotp.service";
 import { GetUser } from "./decorator/getUser.decorator";
-import { Public } from "./decorator/public.decorator";
+import { Public, Authenticated } from "./decorator/guards.decorator";
 import { AuthRegisterDTO } from "./dto/authRegister.dto";
 import { AuthSignInDTO } from "./dto/authSignIn.dto";
 import { AuthSignInTotpDTO } from "./dto/authSignInTotp.dto";
@@ -30,7 +29,6 @@ import { ResetPasswordDTO } from "./dto/resetPassword.dto";
 import { TokenDTO } from "./dto/token.dto";
 import { UpdatePasswordDTO } from "./dto/updatePassword.dto";
 import { VerifyTotpDTO } from "./dto/verifyTotp.dto";
-import { JwtGuard } from "./guard/jwt.guard";
 
 @Controller("auth")
 export class AuthController {
@@ -172,7 +170,7 @@ export class AuthController {
   }
 
   @Patch("password")
-  @UseGuards(JwtGuard)
+  @Authenticated()
   async updatePassword(
     @GetUser() user: User,
     @Res({ passthrough: true }) response: Response,
@@ -230,21 +228,20 @@ export class AuthController {
   }
 
   @Post("totp/enable")
-  @UseGuards(JwtGuard)
+  @Authenticated()
   async enableTotp(@GetUser() user: User, @Body() body: EnableTotpDTO) {
     return this.authTotpService.enableTotp(user, body.password);
   }
 
   @Post("totp/verify")
-  @UseGuards(JwtGuard)
+  @Authenticated()
   async verifyTotp(@GetUser() user: User, @Body() body: VerifyTotpDTO) {
     return this.authTotpService.verifyTotp(user, body.password, body.code);
   }
 
   @Post("totp/disable")
-  @UseGuards(JwtGuard)
+  @Authenticated()
   async disableTotp(@GetUser() user: User, @Body() body: VerifyTotpDTO) {
-    // Note: We use VerifyTotpDTO here because it has both fields we need: password and totp code
     return this.authTotpService.disableTotp(user, body.password, body.code);
   }
 }

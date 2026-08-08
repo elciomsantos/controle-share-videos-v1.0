@@ -10,7 +10,6 @@ import {
   Query,
   Req,
   Res,
-  UseGuards,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { Throttle } from "@nestjs/throttler";
@@ -19,9 +18,7 @@ import { Request, Response } from "express";
 import dayjs from "dayjs";
 import { GetUser } from "../auth/decorator/getUser.decorator";
 import { Public } from "../auth/decorator/public.decorator";
-import { JwtGuard } from "../auth/guard/jwt.guard";
-import { Roles } from "../auth/decorator/roles.decorator";
-import { RolesGuard } from "../auth/guard/roles.guard";
+import { AdminOnly, AdminOrAuditor, Authenticated } from "../auth/decorator/guards.decorator";
 import { AdminShareDTO } from "./dto/adminShare.dto";
 import { CreateShareDTO } from "./dto/createShare.dto";
 import { MyShareDTO } from "./dto/myShare.dto";
@@ -30,11 +27,7 @@ import { ShareMetaDataDTO } from "./dto/shareMetaData.dto";
 import { SharePasswordDto } from "./dto/sharePassword.dto";
 import { UpdateShareDTO } from "./dto/updateShare.dto";
 import { GetShare } from "./decorator/getShare.decorator";
-import { ShareOwnerGuard } from "./guard/shareOwner.guard";
-import { StrictShareOwnerGuard } from "./guard/strictShareOwner.guard";
-import { ShareSecurityGuard } from "./guard/shareSecurity.guard";
-import { ShareTokenSecurity } from "./guard/shareTokenSecurity.guard";
-import { IdValidation } from "./guard/shareIdValidation.guard";
+import { ShareOwnerAccess, StrictShareOwnerAccess, SharePublicAccess, ShareTokenAccess } from "./decorator/share-guards.decorator";
 import { ShareService } from "./share.service";
 import { CompletedShareDTO } from "./dto/shareComplete.dto";
 import {
@@ -53,8 +46,7 @@ export class ShareController {
   ) {}
 
   @Get("all")
-  @UseGuards(JwtGuard, RolesGuard)
-  @Roles("admin", "auditor")
+  @AdminOrAuditor()
   async getAllShares(@Query() query: { page?: unknown; perPage?: unknown }) {
     const { page, perPage } = normalizePagination(query);
     const page_ = await this.shareService.getShares(page, perPage);
@@ -67,7 +59,7 @@ export class ShareController {
   }
 
   @Get()
-  @UseGuards(JwtGuard)
+  @Authenticated()
   async getMyShares(
     @GetUser() user: User,
     @Query() query: { page?: unknown; perPage?: unknown },
@@ -90,27 +82,20 @@ export class ShareController {
     },
   })
   @Public()
-  @UseGuards(IdValidation, ShareSecurityGuard)
+  @SharePublicAccess()
   async get(@Param("id") id: string, @Req() req: Request) {
-    // Note: view counting moved to POST /:id/view (count by play, not page
-    // load) — see recordView() below. Opening the share page alone does not
-    // consume a maxViews slot so a visitor can land on the password screen /
-    // file list without being charged; only an actual media playback
-    // triggers a view, matching the " Bloquear por play do vídeo" semantics.
     return new ShareDTO().from(await this.shareService.get(id));
   }
 
   @Post(":id/view")
   @Throttle({
     default: {
-      // Anti-abuse: at most 30 view increments per minute per IP — plenty for
-      // play/pause/replay churn without allowing trivial count bombing.
       limit: 30,
       ttl: 60_000,
     },
   })
   @Public()
-  @UseGuards(IdValidation, ShareSecurityGuard)
+  @SharePublicAccess()
   async recordView(@Param("id") id: string, @Req() req: Request) {
     const share = await this.shareService.get(id);
     const user = req.user as User | undefined;
@@ -124,7 +109,7 @@ export class ShareController {
   }
 
   @Get(":id/from-owner")
-  @UseGuards(IdValidation, StrictShareOwnerGuard)
+  @StrictShareOwnerAccess()
   async getFromOwner(@Param("id") id: string) {
     return new ShareDTO().from(await this.shareService.get(id));
   }
@@ -137,13 +122,13 @@ export class ShareController {
     },
   })
   @Public()
-  @UseGuards(IdValidation, ShareSecurityGuard)
+  @SharePublicAccess()
   async getMetaData(@Param("id") id: string) {
     return new ShareMetaDataDTO().from(await this.shareService.getMetaData(id));
   }
 
   @Post()
-  @UseGuards(JwtGuard)
+  @Authenticated()
   async create(
     @Body() body: CreateShareDTO,
     @GetUser() user: User,
@@ -154,7 +139,7 @@ export class ShareController {
   }
 
   @Patch(":id")
-  @UseGuards(IdValidation, ShareOwnerGuard)
+  @ShareOwnerAccess()
   async update(
     @Param("id") id: string,
     @Body() body: UpdateShareDTO,
@@ -168,7 +153,7 @@ export class ShareController {
 
   @Post(":id/complete")
   @HttpCode(202)
-  @UseGuards(IdValidation, StrictShareOwnerGuard)
+  @StrictShareOwnerAccess()
   async complete(@Param("id") id: string) {
     return new CompletedShareDTO().from(
       (await this.shareService.complete(id)) as unknown as Partial<CompletedShareDTO>,
@@ -176,7 +161,7 @@ export class ShareController {
   }
 
   @Delete(":id/complete")
-  @UseGuards(IdValidation, StrictShareOwnerGuard)
+  @StrictShareOwnerAccess()
   async revertComplete(@Param("id") id: string) {
     return new ShareDTO().from(
       (await this.shareService.revertComplete(id)) as unknown as Partial<ShareDTO>,
@@ -184,7 +169,7 @@ export class ShareController {
   }
 
   @Delete(":id")
-  @UseGuards(IdValidation, ShareOwnerGuard)
+  @ShareOwnerAccess()
   async remove(
     @Param("id") id: string,
     @GetUser() user: User,
@@ -201,7 +186,7 @@ export class ShareController {
 
   @Post(":id/expire")
   @HttpCode(200)
-  @UseGuards(IdValidation, ShareOwnerGuard)
+  @ShareOwnerAccess()
   async expire(@Param("id") id: string) {
     await this.shareService.expire(id);
   }
@@ -225,8 +210,8 @@ export class ShareController {
       ttl: 5 * 60 * 1000,
     },
   })
-  @UseGuards(IdValidation, ShareTokenSecurity)
   @Public()
+  @ShareTokenAccess()
   @Post(":id/token")
   async getShareToken(
     @Param("id") id: string,
