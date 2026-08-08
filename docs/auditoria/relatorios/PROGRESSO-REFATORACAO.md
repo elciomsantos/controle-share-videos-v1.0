@@ -307,3 +307,37 @@ Fixa **BKD-02** (tipos `any` difusos no `ShareMapper.transformShare(share: any)`
 | **FRN-08** | Categorias config inconsistentes |
 | **BDB-05** | Sentinela `EPOCH_ZERO` + `ShareSecurity` 1:1 opcional |
 | **TODO** | Invalidar `loginTokens` antigos (logout all devices) |
+
+---
+
+## 16. BKD-04 — Retry + log estruturado em DownloadLogService.record() (concluído 2026-08-08)
+
+Fixa **BKD-04** (falha engolida na trilha de auditoria).
+
+### Mudanças
+- **Retry com backoff exponencial**: 3 tentativas (0, 1, 2) com delay 100ms, 200ms, 400ms
+- **Log estruturado**:
+  - `warn` nas tentativas intermediárias (com shareId, attempt, maxRetries)
+  - `error` na última tentativa (com shareId, fileName, event, success, reason, stack trace)
+- **Não lança exceção**: falha de auditoria não quebra o fluxo principal (requisito do produto)
+
+### Testes ✅
+- Unit: 85/85
+- E2E: 16/16
+- Frontend: 5/5
+- Builds: OK
+
+---
+
+### Próximo item da fila (P3)
+
+| Item | Descrição |
+|------|-----------|
+| **FRN-01** | JWT no middleware sem verificação assinatura (jose/jwtVerify) |
+| **FRN-02** | Estado módulo-level + `Promise.all` não aguardado no upload |
+| **FRN-04** | Tipos `any` generalizados frontend (~55 usos) |
+| **FRN-05** | Loop potencial de reload por idioma |
+| **FRN-07** | Preview PDF via `window.location.href` |
+| **FRN-08** | Categorias config inconsistentes |
+| **BDB-05** | Sentinela `EPOCH_ZERO` + `ShareSecurity` 1:1 opcional |
+| **TODO** | Invalidar `loginTokens` antigos (logout all devices) |

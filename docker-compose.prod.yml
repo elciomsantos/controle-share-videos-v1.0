@@ -50,6 +50,7 @@ services:
       - smtp_password
       - acme_email
       - domain
+      - jwt_secret
     # Bind mounts to RAID6 — data lives outside the container lifecycle.
     # Host paths are owned by UID/GID 1002:1002 (see docs/Implantacao/Implantacao.md).
     volumes:
@@ -93,8 +94,10 @@ services:
       - NODE_ENV=production
       - PORT=3333
       - HOSTNAME=0.0.0.0
+      - JWT_SECRET_FILE=/run/secrets/jwt_secret
     secrets:
       - domain
+      - jwt_secret
     # Bind mount to RAID6 — images shared with backend (host: 1002:1002)
     volumes:
       - /srv/controle-share-videos/data/images:/opt/app/frontend/public/img:rw,z
@@ -161,9 +164,10 @@ secrets:
   # These should be created externally via: echo "value" | docker secret create name -
   # Or via Docker Swarm / Portainer / etc.
   #
-  # Note: the JWT secret is NOT a Docker secret. It is generated at first boot
-  # by backend/prisma/seed/config.seed.ts (internal.jwtSecret, locked) and
-  # stored in the database, so no jwt_secret secret is required.
+  # Note: the JWT secret is now a Docker secret shared between backend and frontend.
+  # It is generated at first boot by backend/prisma/seed/config.seed.ts (internal.jwtSecret, locked)
+  # and stored in the database. For Docker Swarm, create it with:
+  #   echo "value" | docker secret create jwt_secret -
   admin_email:
     external: true
   admin_username:
@@ -175,4 +179,6 @@ secrets:
   acme_email:
     external: true
   domain:
+    external: true
+  jwt_secret:
     external: true

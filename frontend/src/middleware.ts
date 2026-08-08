@@ -1,5 +1,6 @@
-import { decodeJwt } from "jose";
+import { jwtVerify } from "jose";
 import { NextRequest, NextResponse } from "next/server";
+import * as fs from "fs";
 import configService from "./services/config.service";
 import { getDefaultConfig } from "./utils/defaultConfig.util";
 
@@ -22,6 +23,38 @@ async function fetchConfig(apiUrl: string): Promise<any> {
   } catch (error) {
     console.error("Config fetch failed, using defaults:", error);
     return getDefaultConfig();
+  }
+}
+
+function getJwtSecret(): string {
+  // Prefer file-based secret (Docker secret)
+  const secretFile = process.env.JWT_SECRET_FILE;
+  if (secretFile && fs.existsSync(secretFile)) {
+    return fs.readFileSync(secretFile, "utf8").trim();
+  }
+  // Fallback to environment variable
+  const secretEnv = process.env.JWT_SECRET;
+  if (secretEnv) {
+    return secretEnv;
+  }
+  // Last resort: empty string (will cause verification to fail)
+  return "";
+}
+
+async function verifyJwt(token: string, secret: string): Promise<{ role: string; isAdmin: boolean } | null> {
+  if (!secret) {
+    console.warn("JWT_SECRET not configured, skipping token verification");
+    return null;
+  }
+  try {
+    const secretKey = new TextEncoder().encode(secret);
+    const { payload } = await jwtVerify(token, secretKey);
+    return {
+      role: payload.role as string,
+      isAdmin: payload.isAdmin === true,
+    };
+  } catch {
+    return null;
   }
 }
 
@@ -52,18 +85,9 @@ export default async function middleware(request: NextRequest) {
   let user: { role: string; isAdmin: boolean } | null = null;
   const accessToken = request.cookies.get("access_token")?.value;
 
-  try {
-    const claims = decodeJwt(
-      accessToken as string,
-    ) as { exp: number; role: string; isAdmin?: boolean };
-    if (claims.exp * 1000 > Date.now()) {
-      user = {
-        role: claims.role,
-        isAdmin: claims.isAdmin === true,
-      };
-    }
-  } catch {
-    user = null;
+  const jwtSecret = getJwtSecret();
+  if (accessToken && jwtSecret) {
+    user = await verifyJwt(accessToken, jwtSecret);
   }
 
   if (!getConfig("share.allowRegistration")) {

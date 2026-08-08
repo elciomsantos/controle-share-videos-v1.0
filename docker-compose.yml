@@ -61,6 +61,7 @@ services:
       start_period: 30s
       retries: 3
     environment:
+      - JWT_SECRET=${JWT_SECRET}
       - NODE_ENV=production
       - PORT=3333
       - HOSTNAME=0.0.0.0
