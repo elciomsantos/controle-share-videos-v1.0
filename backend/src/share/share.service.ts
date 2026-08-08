@@ -96,8 +96,10 @@ export class ShareService {
         creator: { connect: user ? { id: user.id } : undefined },
         security: { create: share.security },
         recipients: {
+          // BDB-06: deduplica e-mails antes do insert (o unique [shareId,email]
+          // na camada de dados é a garantia final contra duplicidade).
           create: share.recipients
-            ? share.recipients.map((email) => ({ email }))
+            ? [...new Set(share.recipients)].map((email) => ({ email }))
             : [],
         },
         storageProvider: "LOCAL",

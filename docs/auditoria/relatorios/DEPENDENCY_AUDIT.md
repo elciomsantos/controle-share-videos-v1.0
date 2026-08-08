@@ -36,9 +36,9 @@ Binários nativos sensíveis à versão do runtime: `better-sqlite3@12.11.1`, `s
 | ID | Achado | Sev. | Localização |
 |----|--------|------|-------------|
 | ~~INF-01~~ | ~~**Vulnerabilidades ativas**: override `postcss: 8.5.18` bloqueava `npm audit fix`~~ | ~~🔴~~ | ✅ Resolvido 2026-08-07 — frontend: override removido + `npm audit fix` (0 vulns); backend: `newman` removido (devDep, vetor de 14 vulns transitivas) → 0 vulns |
-| INF-02 | Runtime Node **não pinado** (sem `engines`/`.nvmrc`/`.node-version`) → drift dev/staging/prod | 🟠 | root, `backend/`, `frontend/` |
-| INF-03 | **Órfãs/sobrepostas**: ~~`clamscan@2.4.0` + `@types/clamscan` (zero chamadas)~~ ✅ removidas após decisão formal do ClamAV (SEC-02); resta frontend `jose@6.2.4` (1 uso: `jose.decodeJwt(...).exp` em `auth.service.ts:46`) coexistindo com `jwt-decode@4.0.0` (middleware) — 2 libs JWT para decodificação pura | 🟠 | `backend/package.json`, `frontend/package.json` |
-| INF-04 | Higiene de embalagem: `@types` em produção; duplicidades de build | 🟡 | `backend/`, `frontend/` |
+| ~~INF-02~~ | Runtime Node **não pinado** (sem `engines`/`.nvmrc`/`.node-version`) → drift dev/staging/prod | 🟠 | ✅ Resolvido 2026-08-08 — `engines: { node: ">=24" }` em root/`backend/`/`frontend/` + `.nvmrc` (root) |
+| ~~INF-03~~ | **Órfãs/sobrepostas**: ~~`clamscan@2.4.0` + `@types/clamscan` (zero chamadas)~~ ✅ removidas após decisão formal do ClamAV (SEC-02); resta frontend `jose@6.2.4` (1 uso: `jose.decodeJwt(...).exp` em `auth.service.ts:46`) coexistindo com `jwt-decode@4.0.0` (middleware) — 2 libs JWT para decodificação pura | 🟠 | ✅ Resolvido 2026-08-08 — `jwt-decode` removido; middleware usa `jose.decodeJwt` (única lib JWT no frontend) |
+| ~~INF-04~~ | Higiene de embalagem: `@types` em produção; duplicidades de build | 🟡 | ✅ Resolvido 2026-08-08 — `@types/cors` movido p/ `devDependencies` (único `@types` fora do lugar no backend) |
 | ~~QTS-07~~ | ~~`@nestjs/testing` órfão (sem specs)~~ | ~~🟡~~ | ✅ Resolvido 2026-08-07 — usado pelo e2e spec (quick wins 12.6) |
 | ~~QTS-02~~ | ~~`newman` **não declarado** mas invocado em `test:system`~~ | ~~🟠~~ | ✅ Resolvido 2026-08-07 — `newman` removido (devDep); `test:system` → `test:e2e` efêmero |
 | ~~DOC-04~~ | ~~Sem `license`/`repository` nos 4 `package.json`~~ | ~~🟡~~ | ✅ Resolvido 2026-08-07 (quick wins 12.6) — `license: MIT` + `repository` em 4 `package.json` |
@@ -52,10 +52,9 @@ Binários nativos sensíveis à versão do runtime: `better-sqlite3@12.11.1`, `s
 ## 6. Recomendações (prioridade de execução)
 
 1. ~~**P1 — INF-01**: remover override `postcss`→`8.5.22+`; rodar `npm audit fix`**~~ ✅ Resolvido 2026-08-07.
-2. **P2 — INF-03**: ~~remover `clamscan`/`@types/clamscan` após decisão ClamAV (SEC-02)~~ ✅ **concluído** — ClamAV rejeitado por decisão formal (`docs/Padronizacao-07-clamav.md`); deps removidas. Resta unificar o JWT no frontend em uma lib (`jose`×`jwt-decode`).
-3. **P2 — INF-02**: adicionar `engines` (`node >=24`) e `.nvmrc` na raiz. ⏳ Pendente.
-4. ~~**P2 — QTS-02**: declarar `newman` como devDependency~~ ✅ Resolvido 2026-08-07 — `newman` removido (devDep); `test:system` → `test:e2e`.
-5. **P3 — INF-04**: mover `@types` para dev. ⏳ Pendente. ~~QTS-07 (`@nestjs/testing` órfão)~~ ✅ Resolvido 2026-08-07.
+2. **P2 — INF-03**: ~~remover `clamscan`/`@types/clamscan` após decisão ClamAV (SEC-02)~~ ✅ **concluído** — ClamAV rejeitado por decisão formal (`docs/Padronizacao-07-clamav.md`); deps removidas. ~~Unificar o JWT no frontend em uma lib (`jose`×`jwt-decode`)~~ ✅ **concluído** 2026-08-08 — `jwt-decode` removido; `middleware.ts` usa `jose.decodeJwt`.
+3. **P2 — INF-02**: ~~adicionar `engines` (`node >=24`) e `.nvmrc` na raiz~~ ✅ **concluído** 2026-08-08 — `engines` em root/`backend/`/`frontend/` + `.nvmrc`.
+5. **P3 — INF-04**: ~~mover `@types` para dev~~ ✅ **concluído** 2026-08-08 — `@types/cors` para `devDependencies`. ~~QTS-07 (`@nestjs/testing` órfão)~~ ✅ Resolvido 2026-08-07.
 6. ~~**P3 — DOC-04**: preencher `license`/`repository`~~ ✅ Resolvido 2026-08-07 (quick wins 12.6).
 
 **Ferramenta sugerida para manutenção contínua:** `npm audit` + `renovate`/`dependabot` em PR; pinar runtime via `engines` + imagem Node em `Dockerfile`s.

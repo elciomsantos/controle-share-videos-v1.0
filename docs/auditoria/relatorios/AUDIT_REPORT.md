@@ -626,7 +626,7 @@ Modelagem Prisma/SQLite (tipos, constraints, índices), integridade/normalizaç�
 | BDB-03 | 🟡 Médio | Listagens de shares sem paginação e com `include` pesados | `share.service.ts:272-301` |
 | BDB-04 | 🟡 Médio | Crons de limpeza com exclusões um-a-um sem transação (consistência disco↔banco) | `jobs.service.ts:35-86,170-188` |
 | BDB-05 | 🟡 Médio | Sentinela `EPOCH_ZERO` para "nunca expira" + `ShareSecurity` 1:1 opcional | `date.util.ts:15,18`; `share.service.ts:291,516` |
-| BDB-06 | 🟢 Baixo | `ShareRecipient` sem `@@unique(shareId, email)` → duplicatas/e-mails repetidos | `schema.prisma:93-99` |
+| ~~BDB-06~~ | 🟢 Baixo | `ShareRecipient` sem `@@unique(shareId, email)` → duplicatas/e-mails repetidos | ~~`schema.prisma:93-99`~~ ✅ resolvido 2026-08-08 — `@@unique([shareId, email])` + deduplicação prévia em `share.service.ts` |
 
 **Total:** 6 achados (1 Alto, 4 Médios, 1 Baixo).
 
@@ -642,7 +642,7 @@ Modelagem Prisma/SQLite (tipos, constraints, índices), integridade/normalizaç�
 
 **BDB-05 — Sentinela `EPOCH_ZERO`.** `expiration = Date(0)` representa "nunca expira" em vez de nullable, espalhando `{ not/equals: EPOCH_ZERO }` em 3 arquivos; `ShareSecurity` é `String? @unique` embora sempre criado. **Proposta:** `expiresAt DateTime?` (null = nunca) e 1:1 obrigatória.
 
-**BDB-06 — Duplicatas de destinatário.** Sem `@@unique([shareId, email])`, um e-mail pode receber N notificações. **Proposta:** unique composto + deduplicação prévia.
+**~~BDB-06~~ — Duplicatas de destinatário.** Sem `@@unique([shareId, email])`, um e-mail pode receber N notificações. **Proposta:** unique composto + deduplicação prévia. **✅ Resolvido 2026-08-08:** `@@unique([shareId, email])` aplicado via migration `20260808000000_add_share_recipient_unique` + `[...new Set(share.recipients)]` em `share.service.ts:98-106`.
 
 ### 4.4 Fortalezas da Fase 4 (não são achados)
 
@@ -661,7 +661,7 @@ Modelagem Prisma/SQLite (tipos, constraints, índices), integridade/normalizaç�
 | BDB-03 | Listagens sem paginação | Médio | Performance | Médio | ⚠️ parcial |
 | BDB-04 | Crons um-a-um sem transação | Médio | Disponibilidade | Médio | ❌ |
 | BDB-05 | Sentinela `EPOCH_ZERO` + 1:1 opcional | Médio | Manutenibilidade | Médio | ⚠️ parcial |
-| BDB-06 | Recipient sem unique composto | Baixo | Disponibilidade | Muito Baixo | ✅ |
+| ~~BDB-06~~ | Recipient sem unique composto | Baixo | Disponibilidade | Muito Baixo | ✅ |
 
 ### 4.6 Recomendações Prioritárias
 
@@ -670,11 +670,11 @@ Modelagem Prisma/SQLite (tipos, constraints, índices), integridade/normalizaç�
 3. **BDB-04** — jobs de limpeza transacionais e em lotes.
 4. **BDB-03** — paginação por cursor nas listagens.
 5. **BDB-05** — `expiresAt` nullable + `ShareSecurity` 1:1 obrigatória.
-6. **BDB-06** — `@@unique([shareId, email])`.
+6. **BDB-06** — ~~`@@unique([shareId, email])`~~ ✅ **concluído** 2026-08-08.
 
 ### 4.7 Notas de Execução
 
-- Correções **propostas, não aplicadas** (escopo da Fase 12 — Refatoração / plano da Fase 13).
+- Correções **propostas, não aplicadas** (escopo da Fase 12 — Refatoração / plano da Fase 13); **BDB-06 já aplicado** em 2026-08-08 (unique composto + deduplicação prévia, migration `20260808000000_add_share_recipient_unique`).
 - **Referências cruzadas:** BDB-01 ↔ BKD-03 (Fase 2) e FRN-03 (Fase 3); BDB-04 ↔ BKD-06 (Fase 2); BDB-02/BDB-03 → Fase 6 (performance); queries/`any` → Fase 7.
 - **Próxima etapa:** Fase 13 — Plano de Execução (artefatos finais: REFACTORING_PLAN, ROADMAP, TECH_DEBT, SECURITY_REPORT, etc.).
 

@@ -20,6 +20,8 @@
 | BDB-02 — Índices nos caminhos quentes | ✅ Concluído | quick-win (commit `98de696`) |
 | R06 — Config tipada | ✅ Concluído | backend + frontend; sem `any`/`parseInt` manual |
 | R05 — Decomposição do ShareService | ✅ Concluído | `ShareService` 794 → 698 LOC; testes de regressão 9 novos |
+| INF-02/03/04 — Runtime pinado + deps | ✅ Concluído | 2026-08-08 — `engines`+`.nvmrc`; JWT unificado (`jose`); `@types/cors` → dev |
+| BDB-06 — Unique composto de recipients | ✅ Concluído | 2026-08-08 — migration + deduplicação prévia |
 
 Sequência do plano: `R07 → R02 → R01 → R08 → R03 → R04 → R06 → R05`.
 
@@ -136,6 +138,8 @@ Aplicados os achados da Fase 6 (PERFORMANCE) por decisão do solicitante — for
 11. ✅ **SEC-06 (oráculo de e-mail), SEC-07 (rotação/reuso de refresh), SEC-08 (fail-closed magic bytes)** — resposta uniforme em `resendVerification`; refresh em `$transaction` com reuse-detection e revogação da família; `local.service.ts` rejeita upload quando a detecção falha de forma inesperada; +6 testes em `auth.service.spec.ts`, +3 em `local.service.spec.ts` (unit 76/76).
 12. ✅ **SEC-01 (fail-open do JwtGuard)** — já pago no R02: `jwt.guard.ts` lança `UnauthorizedException` no `catch` e acesso anônimo restrito a `@Public()`; confirmado em código e testes.
 13. ✅ **SEC-02 (ClamAV)** — **encerrado por decisão formal** (26/07/2026): `docs/Padronizacao-07-clamav.md` rejeita a integração (uploads só do owner autenticado, somente mídia de vídeo, destinatários só baixam, overhead ~1-2 GB RAM + cold start, air-gapped incompatível com freshclam). Código `backend/src/clamscan/`, dep `clamscan` e daemon `clamav/clamav` já **removidos** do repositório e dos compose files. Sem pendência técnica.
+14. ✅ **INF-02/03/04 (dependências)** — `engines.node >=24` nos 3 `package.json` + `.nvmrc`; `jwt-decode` removido (JWT unificado em `jose.decodeJwt` no `middleware.ts`, edge-compatible); `@types/cors` movido para `devDependencies`. Registrados no `DEPENDENCY_AUDIT.md` (resolvidos 2026-08-08).
+15. ✅ **BDB-06 (unique composto de recipients)** — `@@unique([shareId, email])` + `@@index([shareId])` no schema; migration `20260808000000_add_share_recipient_unique` aplicada; deduplicação prévia `[...new Set(share.recipients)]` em `share.service.ts`; unit 85/85, builds backend+frontend OK.
 
 ## 11. Backlog pendente de segurança (registro da sequência)
 

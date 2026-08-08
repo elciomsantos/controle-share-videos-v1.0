@@ -60,7 +60,7 @@ Registro único da dívida técnica do projeto: tudo que não é bug de seguran�
 |----|--------|---------|---------|
 | BDB-01 | `File.size`/`shareSizeLimit` como `String` | Alta | Alto |
 | BDB-05 | Sentinela `EPOCH_ZERO` ("nunca expira") espalhada em 3 arquivos | Média | Médio |
-| BDB-06 | `ShareRecipient` sem `@@unique(shareId, email)` | Baixa | Muito baixo |
+| ~~BDB-06~~ | `ShareRecipient` sem `@@unique(shareId, email)` | Baixa | Muito baixo | ✅ Resolvido 2026-08-08 — unique composto + deduplicação prévia |
 
 ### 3.5 Qualidade/Processo (Fase 7, 10, 11)
 
@@ -102,7 +102,7 @@ Registro único da dívida técnica do projeto: tudo que não é bug de seguran�
 - **Urgente pagar agora** (bloqueia segurança/evolução): ~~QAL-01 (testes)~~✅, ~~BKD-01/SEC-03 (reset TTL)~~✅, ~~FRN-12 (mutação de props)~~✅, ~~BDB-01 (String→BigInt)~~✅.
 - **Pagar em breve** (facilita features): BDB-05 (nullable `expiresAt`), DOC-01 (README).
 - **Pagas recentemente**: ~~BDB-02~~ (índices), ~~PERF-01/BDB-03~~ (paginação R03), ~~BKD-06/BDB-04/PERF-04~~ (jobs em lote R04), ~~QAL-03/BKD-08/FRN-04~~ (config tipada R06), ~~ARQ-02~~ (split ShareService R05), ~~SEC-03/BKD-01~~ (TTL reset), ~~SEC-05~~ (token via body), ~~FRN-12~~ (mutação por referência), ~~SEC-04~~ (sanitização HTML e-mail), ~~SEC-06~~ (oráculo resend), ~~SEC-07~~ (rotação/reuso refresh), ~~SEC-08~~ (fail-closed magic bytes).
-- **Baixa prioridade** (cosmético/semântico): FRN-05, FRN-02, BDB-06, QAL-06, ARQ-04.
+- **Baixa prioridade** (cosmético/semântico): FRN-05, FRN-02, ~~BDB-06~~, QAL-06, ARQ-04.
 
 ## 7. Conclusões
 
@@ -117,5 +117,5 @@ Registro único da dívida técnica do projeto: tudo que não é bug de seguran�
 2. ✅ ~~BKD-01/SEC-03, FRN-12~~ — dívidas com risco de segurança **pagas**.
 3. ~~ARQ-02~~ (R05), ~~QAL-03~~, ~~BKD-06~~, BDB-05 — refatorações estruturais (R05/R06/R04 pagos; BDB-05 pendente).
 4. ~~SEC-06~~ (oráculo resend), ~~SEC-07~~ (rotação/reuso refresh), ~~SEC-08~~ (fail-closed magic bytes) — segurança **paga** (2026-08-07).
-5. DOC-01, FRN-05, BDB-06, QAL-04/05/06, ARQ-04 — backlog contínuo. ⏳ Parcialmente pendente (DOC-01, BDB-05/06, FRN-05, QAL-05, ARQ-03/04).
+5. DOC-01, FRN-05, ~~BDB-06~~, QAL-04/05/06, ARQ-04 — backlog contínuo. ⏳ Parcialmente pendente (DOC-01, BDB-05, FRN-05, QAL-05, ARQ-03/04).
 6. FRN-06 (user-scalable), FRN-09 (noopener), DOC-02 (SECURITY.md), BKD-05 (timespan validation) — ✅ pagos 2026-08-07 (quick wins 12.6).

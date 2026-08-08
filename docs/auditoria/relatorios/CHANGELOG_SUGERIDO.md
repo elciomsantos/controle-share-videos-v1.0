@@ -67,7 +67,7 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 - ZIP com concorrência de streams e nível de deflate ajustados — fix PERF-03.
 - `deleteTemporaryFiles()` sem `fs` síncrono — fix PERF-05.
 - Health check sem ler a tabela `Config` inteira — fix PERF-07/DOP-08.
-- `ShareRecipient` com unique composto `(shareId, email)` — evita notificações duplicadas — fix BDB-06.
+- ~~`ShareRecipient` com unique composto `(shareId, email)` — evita notificações duplicadas — fix BDB-06~~ ✅ **aplicado** 2026-08-08 (migration `20260808000000_add_share_recipient_unique` + deduplicação prévia).
 
 ## 5. Versão Sugerida — v1.3.0 (manutenibilidade)
 
@@ -75,7 +75,9 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 - `ConfigService.get()` tipado (sem `any`); getters `getNumber`/`getBoolean`/`getString`/`getTimespan`; frontend com `ConfigTypeMap`/`GetReturn` e `parseInt` manual removido — fix QAL-03/BKD-08/FRN-04 (R06).
 - `ShareService` decomposto em `ShareMapper`/`ShareArchiveService`/`FileStorageService` (794 → 698 LOC; mapeamento, ZIP e cotas/estrutura física em módulos coesos) — fix ARQ-02 (R05).
 - `EPOCH_ZERO` substituído por `expiresAt DateTime?` nullable — fix BDB-05.
-- Duas libs JWT no frontend unificadas em uma — fix INF-03.
+- ~~Duas libs JWT no frontend unificadas em uma — fix INF-03~~ ✅ **aplicado** 2026-08-08 (`jwt-decode` removido; `middleware.ts` usa `jose.decodeJwt`).
+- Runtime Node pinado via `engines` + `.nvmrc` — fix INF-02 (aplicado 2026-08-08).
+- `@types` fora de `dependencies` movidos para `devDependencies` — fix INF-04 (aplicado 2026-08-08).
 - `SECURITY.md` preenchido (versões suportadas + canal de report) — fix DOC-02.
 - README: ~20 referências quebradas corrigidas; decisão ClamAV alinhada em docs e código — fix DOC-01/03.
 - Progresso de upload e descrição de arquivos atualizados de forma imutável (spread em `upload/index.tsx`, `EditableUpload.tsx`, `showCreateUploadModal.tsx`) — fix FRN-12.

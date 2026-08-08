@@ -109,6 +109,8 @@ model ShareRecipient {
   share   Share  @relation(fields: [shareId], references: [id], onDelete: Cascade)
 
   // BDB-02: join share→recipients (include em getShares/getSharesByUser)
+  // BDB-06: impede duplicidade de destinatário por share (P2/P3 de código)
+  @@unique([shareId, email])
   @@index([shareId])
 }
 

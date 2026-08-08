@@ -1,4 +1,4 @@
-import { jwtDecode } from "jwt-decode";
+import { decodeJwt } from "jose";
 import { NextRequest, NextResponse } from "next/server";
 import configService from "./services/config.service";
 import { getDefaultConfig } from "./utils/defaultConfig.util";
@@ -53,9 +53,9 @@ export default async function middleware(request: NextRequest) {
   const accessToken = request.cookies.get("access_token")?.value;
 
   try {
-    const claims = jwtDecode<{ exp: number; role: string; isAdmin?: boolean }>(
+    const claims = decodeJwt(
       accessToken as string,
-    );
+    ) as { exp: number; role: string; isAdmin?: boolean };
     if (claims.exp * 1000 > Date.now()) {
       user = {
         role: claims.role,

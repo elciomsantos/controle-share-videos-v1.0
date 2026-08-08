@@ -6,6 +6,9 @@
     "type": "git",
     "url": "https://github.com/controle-share-videos/controle-share-videos.git"
   },
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
     "build": "nest build",
     "dev": "cross-env NODE_ENV=development nest start --watch",
@@ -51,7 +54,6 @@
     "@nestjs/throttler": "^6.5.0",
     "@prisma/adapter-better-sqlite3": "^7.9.0",
     "@prisma/client": "^7.9.0",
-    "@types/cors": "^2.8.19",
     "archiver": "^8.0.0",
     "argon2": "^0.45.1",
     "body-parser": "^2.2.0",
@@ -94,6 +96,7 @@
     "@types/archiver": "^6.0.3",
     "@types/content-disposition": "^0.5.9",
     "@types/cookie-parser": "^1.4.8",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.1",
     "@types/jest": "^30.0.0",
     "@types/mime-types": "^2.1.4",
