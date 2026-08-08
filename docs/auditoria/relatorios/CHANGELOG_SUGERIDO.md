@@ -61,7 +61,7 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 - Listagens de shares agora retornam envelope paginado `{ items, total, page, perPage, totalPages }` — fix PERF-01/BDB-03.
 
 ### Fixed
-- Download de vídeo com suporte a **HTTP Range (206)** — seek/streaming do player — fix PERF-06.
+- ~~Download de vídeo com suporte a **HTTP Range (206)** — seek/streaming do player — fix PERF-06~~ ✅ **aplicado** (commit `bc57267`, 2026-08-08).
 - ~~Jobs de limpeza processam em lotes com isolamento de erro por share — fix PERF-04/BDB-04~~ ✅ **aplicado (R04)**.
 - E-mails de destinatários enviados em paralelo controlado — fix PERF-02.
 - ZIP com concorrência de streams e nível de deflate ajustados — fix PERF-03.

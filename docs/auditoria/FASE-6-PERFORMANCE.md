@@ -30,7 +30,7 @@ A base é **bem comportada no essencial**: configurações são cacheadas em mem
 | Latência do `complete()` (upload finalizado) | ✅ Corrigido (PERF-02 — e-mails em paralelo via `Promise.allSettled`) |
 | Geração de ZIP (memória/descritores/CPU) | ✅ Corrigido (PERF-03 — streams lazy em lotes + deflate 6) |
 | Jobs de limpeza (batching/blocking I/O) | ⚠️ Parcial (PERF-04/PERF-05; tokens/logs usam `deleteMany` ✅) |
-| Download de arquivos (stream + HTTP Range) | ⚠️ Parcial (PERF-06 — stream ✅, sem Range/206 ❌) |
+| Download de arquivos (stream + HTTP Range) | ✅ Corrigido (PERF-06 — Range/206 + 416 no preview, 2026-08-08) |
 | Cache de configuração | ✅ Adequado (in-memory, recarga só em update) |
 | Concorrência de uploads | ✅ Adequado (`pLimit(3)` no frontend) |
 | Cache HTTP / Service Worker | ✅ Adequado (`NetworkOnly` para `/api`; Next sem cache em memória) |
@@ -301,14 +301,14 @@ A base é **bem comportada no essencial**: configurações são cacheadas em mem
 | PERF-03 | `createZip()` — N streams simultâneos + deflate 9 | Médio | CPU/EMFILE | Baixo | ✅ (nível zip) |
 | PERF-04 | Jobs de limpeza sem batching/limite | Médio | Escala | Baixo | ⚠️ parcial |
 | PERF-05 | `deleteTemporaryFiles()` com fs síncrono | Baixo | Blocking I/O | Baixo | ✅ |
-| PERF-06 | Downloads sem HTTP Range (206) — vídeo sem seek | Médio | Funcional/UX | Médio | ❌ |
+| PERF-06 | Downloads sem HTTP Range (206) — vídeo sem seek | Médio | Funcional/UX | Médio | ✅ (preview) |
 | PERF-07 | Health check lê tabela `Config` inteira | Baixo | Trivial | Muito Baixo | ✅ |
 
 ---
 
 ## 6.6 Recomendações Prioritárias
 
-1. **PERF-06 (Médio, maior impacto funcional no fork):** adicionar suporte a HTTP Range/206 no download de arquivos — habilita *seek* e retomada de vídeo no preview e em downloads. Alinhar a contagem de views/downloads (file.controller.ts:226-246) para contabilizar apenas a primeira requisição de um mesmo stream.
+1. **PERF-06 (Médio, maior impacto funcional no fork):** adicionar suporte a HTTP Range/206 no download de arquivos — habilita *seek* e retomada de vídeo no preview e em downloads. Alinhar a contagem de views/downloads (file.controller.ts:226-246) para contabilizar apenas a primeira requisição de um mesmo stream. *(✅ implementado 2026-08-08 — commit `bc57267`: `Range`/`206` + `416` apenas no preview, mantendo o download único; `get(range)` em `local.service.ts`; spec em `local.service.spec.ts:150`. Download completo segue sem Range para preservar o bookkeeping 1 download = 1 requisição.)*
 2. **PERF-02/PERF-05/PERF-07 (Quick Wins):** `Promise.allSettled` nos e-mails do `complete()`; `fs/promises` no job de temporários; `SELECT 1` no `/health`. Baixo esforço, ganho imediato. *(PERF-02 ✅ implementado; PERF-05 ✅ implementado.)*
 3. **PERF-03 (Quick Win de CPU):** reduzir o default de `zipCompressionLevel` (9 → 1–6) e abrir `ReadStream` de forma lazy no `createZip()` — evita `EMFILE` e picos de CPU na finalização de shares grandes. *(✅ implementado: lotes de 16 com `drain` + default nível 6.)*
 4. **PERF-01 + PERF-04 (Refatoração):** paginação por cursor nas listagens e batching nos jobs — devem entrar na Fase 12 (Refatoração) junto com BDB-03/BDB-04; a Fase 3 (frontend) precisará consumir o contrato paginado.
@@ -317,7 +317,7 @@ A base é **bem comportada no essencial**: configurações são cacheadas em mem
 
 ## 6.7 Notas de Execução
 
-- **Notas de Execução (Fase 6):** originalmente nenhum achado aplicado. **Exceção (decisão do solicitante):** PERF-02, PERF-03 e PERF-05 foram implementados e validadas por testes; PERF-01 e PERF-04 permanecem para a Fase 12 (Refatoração).
+- **Notas de Execução (Fase 6):** originalmente nenhum achado aplicado. **Exceção (decisão do solicitante):** PERF-02, PERF-03 e PERF-05 foram implementados e validadas por testes; PERF-01 e PERF-04 permanecem para a Fase 12 (Refatoração). **PERF-06 aplicado 2026-08-08 (commit `bc57267`)** — `Range`/`206`/`416` no preview em `file.controller.ts:214-253` + `get(range)` em `local.service.ts` + spec (`local.service.spec.ts:150`).
 - **Referências cruzadas:** PERF-01 ↔ BDB-03 e PERF-04 ↔ BDB-04 (Fase 4); PERF-01 → Fase 3 (frontend deve consumir paginação); PERF-06 → FRN (Fase 3) e Fase 9 (proxy não deve buffar/negar Range); PERF-03 → SEC-08/GAP-04 (Fase 5, zip-bomb); PERF-02 → Fase 2 (BKD, caminho quente do `complete()`).
 - **Evidências coletadas em:** `share/share.service.ts`, `jobs/jobs.service.ts`, `config/config.service.ts`, `app.controller.ts`, `file/file.controller.ts`, `file/local.service.ts`, `common/zip.ts`, `prisma/seed/config.seed.ts`, `download-log/download-log.service.ts`, `frontend/src/sw.ts`, `frontend/src/components/share/FilePreview.tsx`, `frontend/src/components/upload/EditableUpload.tsx`, `frontend/next.config.js`.
 - **Métricas sugeridas para o `Especificacao-final.md`:** p95 da latência do `complete()` × nº de destinatários; nº de FDs abertos vs. `zipMaxFiles`; profundidade do backlog de shares expirados por ciclo do job; % de requisições 206 após a implementação do Range.

@@ -4,7 +4,7 @@
 |---|---|
 | Fase de origem | 5 (Segurança) + achados correlatos de 2, 4, 8, 9, 10, 11 |
 | Data | 2026-08-04 |
-| Status | 🔄 Maioria executada — SEC-01–SEC-08 + DOP-07/QTS-05 pagos; resta PERF-06 (não deste relatório) e atualizações documentais |
+| Status | 🔄 Maioria executada — SEC-01–SEC-08 + DOP-07/QTS-05 pagos; resta atualizações documentais |
 | Objeto | Backend NestJS 11 + Prisma 7/SQLite; frontend Next.js 16 + Mantine 9; Docker Compose |
 
 ## 1. Introdução

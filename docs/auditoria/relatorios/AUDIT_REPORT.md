@@ -721,7 +721,7 @@ Override `postcss` → 8.5.22+ (INF-01); `engines`+`.nvmrc` (INF-02); tags de im
 ### 13.5 Plano de Evolução (curto/médio/longo)
 
 - **Curto (0–1 mês):** testes+CI (R07), fail-closed (R02), BigInt (R01), deploy (R08), reset token TTL (SEC-03), `SECURITY.md` (DOC-02), paginação (R03).
-- **Médio (1–3 meses):** HTTP Range 206 (PERF-06), jobs em lote (R04), config tipada (R06), ~~decisão ClamAV (SEC-02)~~ ✅ encerrado por decisão formal 26/07/2026 (rejeitado; `docs/Padronizacao-07-clamav.md`), órfãs de deps (INF-03, `clamscan` já removido), README (DOC-01).
+- **Médio (1–3 meses):** ~~HTTP Range 206 (PERF-06)~~ ✅ aplicado 2026-08-08, jobs em lote (R04), config tipada (R06), ~~decisão ClamAV (SEC-02)~~ ✅ encerrado por decisão formal 26/07/2026 (rejeitado; `docs/Padronizacao-07-clamav.md`), órfãs de deps (INF-03, `clamscan` já removido), README (DOC-01).
 - **Longo (3–6 meses):** decomposição do `ShareService` (R05), refresh atômico (SEC-07), secret manager, migração SQLite→PostgreSQL se o volume exigir, observabilidade, API versionada.
 
 ### 13.6 Artefatos Finais Entregues (Fase 13)
@@ -757,7 +757,7 @@ Localizados em `docs/auditoria/relatorios/`:
 ## Recomendações (consolidadas)
 
 1. **Primeiro lote (v1.1.0, 0–1 mês):** testes+CI (R07), fail-closed (R02), `BigInt` (R01), correções de deploy (R08), reset-token TTL (SEC-03), `SECURITY.md` (DOC-02), paginação (R03).
-2. **Segundo lote (v1.2.0):** HTTP Range 206 (PERF-06), jobs em lote (R04), config tipada (R06), ~~decisão ClamAV (SEC-02)~~ ✅ encerrado por decisão formal, órfãs de dependências (INF-03, `clamscan` removido), README (DOC-01).
+2. **Segundo lote (v1.2.0):** ~~HTTP Range 206 (PERF-06)~~ ✅ aplicado 2026-08-08, jobs em lote (R04), config tipada (R06), ~~decisão ClamAV (SEC-02)~~ ✅ encerrado por decisão formal, órfãs de dependências (INF-03, `clamscan` removido), README (DOC-01).
 3. **Terceiro lote (v1.3.0):** decomposição do `ShareService` (R05), refresh atômico (SEC-07), secret manager, migração SQLite→PostgreSQL se o volume exigir, observabilidade.
 4. **Governança:** PR com CI verde e changelog a cada mudança; reauditoria de segurança trimestral; manter `ROADMAP.md` e `CHANGELOG_SUGERIDO.md` vivos.
 5. Detalhamento operacional em `REFACTORING_PLAN.md` (tarefas/aceite), `TEST_PLAN.md` (cobertura ≥60%) e `ROADMAP.md` (horizontes).
