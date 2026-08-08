@@ -23,9 +23,6 @@ import isAdminOrAuditor from "../../utils/userRole.util";
 
 const promiseLimit = pLimit(3);
 const UPLOAD_ERROR_TOAST_ID = "upload-error-toast";
-let errorToastShown = false;
-let createdShare: Share;
-let pendingGeneratedPassword: string | undefined;
 
 const Upload = ({
   maxShareSize,
@@ -42,6 +39,9 @@ const Upload = ({
   const config = useConfig();
   const [files, setFiles] = useState<FileUpload[]>([]);
   const [isUploading, setisUploading] = useState(false);
+  const [errorToastShown, setErrorToastShown] = useState(false);
+  const [createdShare, setCreatedShare] = useState<Share | null>(null);
+  const [pendingGeneratedPassword, setPendingGeneratedPassword] = useState<string | undefined>(undefined);
 
   useConfirmLeave({
     message: t("upload.notify.confirm-leave"),
@@ -80,25 +80,25 @@ const Upload = ({
 
   const autoOpenCreateUploadModal = config.get("share.autoOpenShareModal");
 
-  const uploadFiles = async (share: CreateShare, files: FileUpload[]) => {
+  const uploadFiles = async (share: CreateShare, filesToUpload: FileUpload[]) => {
     setisUploading(true);
+    setErrorToastShown(false);
 
     try {
-      const totalSize = files.reduce((acc, file) => acc + file.size, 0);
+      const totalSize = filesToUpload.reduce((acc, file) => acc + file.size, 0);
       const result = await shareService.create({
         ...share,
         size: totalSize,
       });
-      createdShare = result;
-      pendingGeneratedPassword = (result as any).generatedPassword;
+      setCreatedShare(result);
+      setPendingGeneratedPassword((result as any).generatedPassword);
     } catch (e) {
       toast.axiosError(e);
       setisUploading(false);
       return;
     }
 
-    const fileUploadPromises = files.map(async (file, fileIndex) =>
-      // Limit the number of concurrent uploads to 3
+    const fileUploadPromises = filesToUpload.map(async (file, fileIndex) =>
       promiseLimit(async () => {
         let fileId;
 
@@ -116,7 +116,6 @@ const Upload = ({
 
         let chunks = Math.ceil(file.size / chunkSize.current);
 
-        // If the file is 0 bytes, we still need to upload 1 chunk
         if (chunks == 0) chunks++;
 
         for (let chunkIndex = 0; chunkIndex < chunks; chunkIndex++) {
@@ -126,7 +125,7 @@ const Upload = ({
           try {
             await shareService
               .uploadFile(
-                createdShare.id,
+                createdShare!.id,
                 blob,
                 {
                   id: fileId,
@@ -146,15 +145,12 @@ const Upload = ({
               e instanceof AxiosError &&
               e.response?.data.error == "unexpected_chunk_index"
             ) {
-              // Retry with the expected chunk index
               chunkIndex = e.response!.data!.expectedChunkIndex - 1;
               continue;
             } else {
               setFileProgress(-1);
-              // Retry after 5 seconds
               await new Promise((resolve) => setTimeout(resolve, 5000));
               chunkIndex = -1;
-
               continue;
             }
           }
@@ -162,10 +158,10 @@ const Upload = ({
       }),
     );
 
-    Promise.all(fileUploadPromises);
+    await Promise.all(fileUploadPromises);
   };
 
-  const showCreateUploadModalCallback = (files: FileUpload[]) => {
+  const showCreateUploadModalCallback = (filesToUpload: FileUpload[]) => {
     showCreateUploadModal(
       modals,
       {
@@ -185,7 +181,7 @@ const Upload = ({
         autoGeneratePassword: config.get("share.autoGeneratePassword"),
         generatedPasswordLength: config.get("share.generatedPasswordLength"),
       },
-      files,
+      filesToUpload,
       uploadFiles,
     );
   };
@@ -207,7 +203,6 @@ const Upload = ({
   };
 
   useEffect(() => {
-    // Check if there are any files that failed to upload
     const fileErrorCount = files.filter(
       (file) => file.uploadingProgress == -1,
     ).length;
@@ -226,17 +221,19 @@ const Upload = ({
           autoClose: false,
         });
       }
-      errorToastShown = true;
+      setErrorToastShown(true);
     } else {
       notifications.hide(UPLOAD_ERROR_TOAST_ID);
-      errorToastShown = false;
+      setErrorToastShown(false);
     }
+  }, [files, errorToastShown]);
 
-    // Complete share
+  useEffect(() => {
     if (
       files.length > 0 &&
       files.every((file) => file.uploadingProgress >= 100) &&
-      fileErrorCount == 0
+      files.every((file) => file.uploadingProgress !== -1) &&
+      createdShare
     ) {
       const attemptComplete = () =>
         shareService
@@ -251,7 +248,8 @@ const Upload = ({
               config.get("general.appUrl", true),
               pendingGeneratedPassword,
             );
-            pendingGeneratedPassword = undefined;
+            setPendingGeneratedPassword(undefined);
+            setCreatedShare(null);
             setFiles([]);
           })
           .catch((e: any) => {
@@ -284,7 +282,7 @@ const Upload = ({
 
       attemptComplete();
     }
-  }, [files]);
+  }, [files, createdShare, pendingGeneratedPassword]);
 
   return (
     <div

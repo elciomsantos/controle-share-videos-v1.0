@@ -341,3 +341,41 @@ Fixa **BKD-04** (falha engolida na trilha de auditoria).
 | **FRN-08** | Categorias config inconsistentes |
 | **BDB-05** | Sentinela `EPOCH_ZERO` + `ShareSecurity` 1:1 opcional |
 | **TODO** | Invalidar `loginTokens` antigos (logout all devices) |
+
+---
+
+## 17. FRN-01 — JWT verification no middleware (concluído 2026-08-08)
+
+Fixa **FRN-01** (JWT decodificado sem verificação de assinatura no middleware).
+
+### Mudanças
+- **`frontend/src/middleware.ts`**: substituir `decodeJwt` por `jwtVerify` do `jose`
+- **Leitura do segredo**: prioriza arquivo (`JWT_SECRET_FILE` — Docker secret), fallback para `JWT_SECRET` env
+- **Fallback gracioso**: se segredo não configurado, avisa no console e pula verificação (não quebra o app)
+- **Docker secrets**: adicionar `jwt_secret` secret compartilhado entre backend e frontend
+  - `docker-compose.yml`: `JWT_SECRET=${JWT_SECRET}` no frontend
+  - `docker-compose.prod.yml`: `JWT_SECRET_FILE=/run/secrets/jwt_secret` + secret `jwt_secret`
+- **Frontend `.env.local.example`**: documentar variável
+
+### Aviso de build
+- `fs` module warning no Edge Runtime — esperado pois lê arquivo de segredo; não bloqueia build
+
+### Testes ✅
+- Backend unit: 85/85
+- Backend e2e: 16/16
+- Frontend unit: 5/5
+- Frontend build: OK (com warning)
+
+---
+
+### Próximo item da fila (P3)
+
+| Item | Descrição |
+|------|-----------|
+| **FRN-02** | Estado módulo-level + `Promise.all` não aguardado no upload |
+| **FRN-04** | Tipos `any` generalizados frontend (~55 usos) |
+| **FRN-05** | Loop potencial de reload por idioma |
+| **FRN-07** | Preview PDF via `window.location.href` |
+| **FRN-08** | Categorias config inconsistentes |
+| **BDB-05** | Sentinela `EPOCH_ZERO` + `ShareSecurity` 1:1 opcional |
+| **TODO** | Invalidar `loginTokens` antigos (logout all devices) |
