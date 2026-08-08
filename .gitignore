@@ -54,6 +54,9 @@ yarn-error.log*
 /backend/prisma/generated/
 /backend/src/generated/
 /data/
+# local dev database (SQLite)
+/backend/prisma/dev.db
+/backend/prisma/dev.db-journal
 /docs/build/
 /docs/.docusaurus
 /docs/.cache-loader
