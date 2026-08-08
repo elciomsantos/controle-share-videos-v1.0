@@ -11,6 +11,7 @@ import { I18nService } from "nestjs-i18n";
 import { createZipStream } from "../common/zip";
 import { SHARE_DIRECTORY } from "../constants";
 import * as fs from "fs";
+import { File, ShareSecurity, ShareRecipient } from "../../prisma/generated/prisma/client";
 
 jest.mock("../common/zip", () => ({
   createZipStream: jest.fn(),
@@ -35,9 +36,9 @@ describe("ShareMapper", () => {
   it("soma os tamanhos dos arquivos via toBytes", () => {
     const result = mapper.transformShare({
       id: "s1",
-      files: [{ size: "1048576" }, { size: 2048 }],
-      recipients: [{ email: "a@x.com" }],
-      security: { password: "hash", maxViews: 5, maxDownloads: 3 },
+      files: [{ size: 1048576n }, { size: 2048n }] as File[],
+      recipients: [{ email: "a@x.com" }] as ShareRecipient[],
+      security: { password: "hash", maxViews: 5, maxDownloads: 3 } as ShareSecurity,
     });
 
     expect(result.size).toBe(1048576 + 2048);
@@ -55,8 +56,8 @@ describe("ShareMapper", () => {
     expect(result.size).toBe(0);
     expect(result.recipients).toEqual([]);
     expect(result.security).toEqual({
-      maxViews: undefined,
-      maxDownloads: undefined,
+      maxViews: null,
+      maxDownloads: null,
       passwordProtected: false,
     });
   });
@@ -167,9 +168,9 @@ describe("ShareArchiveService", () => {
       key === "share.zipMaxFiles" ? 2 : undefined,
     );
     prisma.file.findMany.mockResolvedValue([
-      { id: "f1", size: "1", name: "a" },
-      { id: "f2", size: "1", name: "b" },
-      { id: "f3", size: "1", name: "c" },
+      { id: "f1", size: 1n, name: "a" },
+      { id: "f2", size: 1n, name: "b" },
+      { id: "f3", size: 1n, name: "c" },
     ]);
 
     await expect(service.createZip("s1")).rejects.toBeInstanceOf(
@@ -182,8 +183,8 @@ describe("ShareArchiveService", () => {
       key === "share.zipMaxTotalSize" ? 100 : undefined,
     );
     prisma.file.findMany.mockResolvedValue([
-      { id: "f1", size: "60", name: "a" },
-      { id: "f2", size: "60", name: "b" },
+      { id: "f1", size: 60n, name: "a" },
+      { id: "f2", size: 60n, name: "b" },
     ]);
 
     await expect(service.createZip("s1")).rejects.toBeInstanceOf(
@@ -195,7 +196,7 @@ describe("ShareArchiveService", () => {
     config.getNumber.mockImplementation(() => undefined);
     const archive = makeArchive();
     createZipStreamMock.mockResolvedValue(archive as never);
-    prisma.file.findMany.mockResolvedValue([{ id: "f1", size: "10", name: "a" }]);
+    prisma.file.findMany.mockResolvedValue([{ id: "f1", size: 10n, name: "a" }]);
 
     const promise = service.createZip("s1");
     await new Promise((r) => setImmediate(r));
@@ -210,12 +211,12 @@ describe("ShareArchiveService", () => {
     config.getNumber.mockImplementation(() => undefined);
     const archive = makeArchive();
     createZipStreamMock.mockResolvedValue(archive as never);
-    prisma.file.findMany.mockResolvedValue([{ id: "f1", size: "10", name: "a" }]);
+    prisma.file.findMany.mockResolvedValue([{ id: "f1", size: 10n, name: "a" }]);
 
     const promise = service.createZip("s1");
     await new Promise((r) => setImmediate(r));
     archive.emitDrain();
-    archive.emitData(Buffer.alloc(1031)); // totalSize(10) * MAX_RATIO(103) = 1030; 1031 > limit
+    archive.emitData(Buffer.alloc(1031));
 
     await expect(promise).rejects.toBeInstanceOf(BadRequestException);
     expect(archive.abort).toHaveBeenCalled();

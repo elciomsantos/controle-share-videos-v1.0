@@ -358,6 +358,7 @@ export class ShareService {
       include: { creator: true, files: true, recipients: true, security: true },
     });
 
+    if (!updatedShare) throw new NotFoundException(this.i18n.t("share.notFound"));
     return this.shareMapper.transformShare(updatedShare);
   }
 
