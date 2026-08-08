@@ -279,7 +279,11 @@ export class LocalFileService {
     return true;
   }
 
-  async get(shareId: string, fileId: string) {
+  async get(
+    shareId: string,
+    fileId: string,
+    range?: { start: number; end: number },
+  ) {
     const fileMetaData = await this.prisma.file.findUnique({
       where: { id: fileId },
     });
@@ -287,7 +291,12 @@ export class LocalFileService {
     if (!fileMetaData)
       throw new NotFoundException(this.i18n.t("file.notFound"));
 
-    const file = createReadStream(`${SHARE_DIRECTORY}/${shareId}/${fileId}`);
+    const file = createReadStream(`${SHARE_DIRECTORY}/${shareId}/${fileId}`, {
+      // PERF-06: HTTP Range (206) support — serve only the requested byte
+      // window for video previews / seek or partial-download resumption.
+      start: range?.start,
+      end: range?.end,
+    });
 
     return {
       metaData: {

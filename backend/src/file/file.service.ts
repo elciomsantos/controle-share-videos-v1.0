@@ -53,8 +53,12 @@ export class FileService {
     });
   }
 
-  async get(shareId: string, fileId: string): Promise<File> {
-    return this.localFileService.get(shareId, fileId);
+  async get(
+    shareId: string,
+    fileId: string,
+    range?: { start: number; end: number },
+  ): Promise<File> {
+    return this.localFileService.get(shareId, fileId, range);
   }
 
   async getFileMetaData(shareId: string, fileId: string) {

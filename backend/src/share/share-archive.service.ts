@@ -82,10 +82,19 @@ export class ShareArchiveService {
       });
     });
 
-    for (const file of files) {
-      archive.append(fs.createReadStream(`${path}/${file.id}`), {
-        name: file.name,
-      });
+    // PERF-03: open file streams lazily in bounded batches instead of creating
+    // one ReadStream per file up front. Bounded concurrent open descriptors
+    // avoid EMFILE and CPU/memory spikes on huge shares; archiver consumes each
+    // batch (emitting "drain") before the next batch is opened.
+    const BATCH_SIZE = 16;
+    for (let i = 0; i < files.length; i += BATCH_SIZE) {
+      const batch = files.slice(i, i + BATCH_SIZE);
+      for (const file of batch) {
+        archive.append(fs.createReadStream(`${path}/${file.id}`), {
+          name: file.name,
+        });
+      }
+      await new Promise<void>((resolve) => archive.once("drain", resolve));
     }
 
     archive.pipe(writeStream);

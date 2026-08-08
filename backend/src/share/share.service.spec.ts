@@ -113,13 +113,19 @@ describe("ShareArchiveService", () => {
     const listeners: Record<string, ((...args: unknown[]) => void)[]> = {};
     const archive: {
       on: jest.Mock;
+      once: jest.Mock;
       append: jest.Mock;
       pipe: jest.Mock;
       finalize: jest.Mock;
       abort: jest.Mock;
       emitData: (chunk: Buffer) => void;
+      emitDrain: () => void;
     } = {
       on: jest.fn((event: string, cb: (...args: unknown[]) => void) => {
+        (listeners[event] ??= []).push(cb);
+        return archive;
+      }),
+      once: jest.fn((event: string, cb: (...args: unknown[]) => void) => {
         (listeners[event] ??= []).push(cb);
         return archive;
       }),
@@ -129,6 +135,9 @@ describe("ShareArchiveService", () => {
       abort: jest.fn(),
       emitData: (chunk: Buffer) => {
         (listeners["data"] ?? []).forEach((cb) => cb(chunk));
+      },
+      emitDrain: () => {
+        (listeners["drain"] ?? []).splice(0).forEach((cb) => cb());
       },
     };
     return archive;
@@ -184,10 +193,13 @@ describe("ShareArchiveService", () => {
 
   it("gera o zip quando os limites são respeitados", async () => {
     config.getNumber.mockImplementation(() => undefined);
-    createZipStreamMock.mockResolvedValue(makeArchive() as never);
+    const archive = makeArchive();
+    createZipStreamMock.mockResolvedValue(archive as never);
     prisma.file.findMany.mockResolvedValue([{ id: "f1", size: "10", name: "a" }]);
 
     const promise = service.createZip("s1");
+    await new Promise((r) => setImmediate(r));
+    archive.emitDrain();
     await new Promise((r) => setImmediate(r));
     writeStream.emit("close");
 
@@ -202,6 +214,7 @@ describe("ShareArchiveService", () => {
 
     const promise = service.createZip("s1");
     await new Promise((r) => setImmediate(r));
+    archive.emitDrain();
     archive.emitData(Buffer.alloc(1031)); // totalSize(10) * MAX_RATIO(103) = 1030; 1031 > limit
 
     await expect(promise).rejects.toBeInstanceOf(BadRequestException);

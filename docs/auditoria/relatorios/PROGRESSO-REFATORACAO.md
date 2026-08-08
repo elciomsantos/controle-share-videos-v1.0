@@ -106,7 +106,21 @@ Fixa **ARQ-02** (god class 772 LOC / 27 métodos). `ShareService` vira orquestra
 - `ShareMapper` (2), `FileStorageService` (3), `ShareArchiveService` (4 — limites de arquivos/tamanho, fluxo feliz, zip-bomb ratio).
 - Gates: unit **63/63** (54 + 9), e2e **5/5**, lint 0 erros, `tsc --noEmit` sem erros em não-spec, `nest build` OK.
 
-## 9. Próximos passos
+## 9. Quick wins de performance — PERF-02 e PERF-03 (concluído)
+
+Aplicados os achados da Fase 6 (PERFORMANCE) por decisão do solicitante — fora do escopo original da Fase 12.
+
+**PERF-02 — `complete()` com e-mails em paralelo** (`backend/src/share/share.service.ts`)
+- Antes: `for (const recipient of share.recipients) { await sendMailToShareRecipients(...) }` — latência `N × SMTP`, e falha de SMTP abortava o `complete()`.
+- Agora: `Promise.allSettled(share.recipients.map(...))` com `logger.error` por destinatário falho — falha de e-mail não impede mais `uploadLocked: true`.
+
+**PERF-03 — ZIP com streams lazy + deflate mais leve**
+- `backend/src/share/share-archive.service.ts`: `createZip()` abre `ReadStream` em lotes de `BATCH_SIZE = 16`, aguardando `archive.once("drain", resolve)` entre lotes — limita descritores abertos (evita `EMFILE` com `zipMaxFiles` alto).
+- `backend/prisma/seed/config.seed.ts`: default `zipCompressionLevel` reduzido `"9"` → `"6"` (CPU −~60% no threadpool; vídeos são mídia já comprimida).
+
+**Testes** — `share.service.spec.ts` atualizado (mock `makeArchive` com `once`/`emitDrain`): suites `share.service` + `config.service` **37 testes**; `src/email` **4 testes**; lint 0 erros; `nest build` OK.
+
+## 10. Próximos passos
 
 1. ~~**Validar CI no GitHub**~~ ✅ push do branch `fix/producao-v1.1.0` e CI verde (backend + frontend, PR #1).
 2. ~~**R03 — Paginação nas listagens**~~ ✅ (commit `4686195`) — envelope `Page<T>`, quebra de contrato v1.2.0.
@@ -114,6 +128,7 @@ Fixa **ARQ-02** (god class 772 LOC / 27 métodos). `ShareService` vira orquestra
 4. ~~**R04 — Jobs de limpeza em lote + transação**~~ ✅ — batch 50 + cursor + `try/catch` por item.
 5. ~~**R06 — Config tipada**~~ ✅ — backend + frontend, sem `any`/`parseInt` manual.
 6. ~~**R05 — Decomposição do `ShareService`**~~ ✅ — 3 extrações coesas, `ShareService` −96 LOC.
+7. ✅ **PERF-02 + PERF-03 (quick wins de performance)** — e-mails `Promise.allSettled`; ZIP em lotes de 16 com `drain` + `zipCompressionLevel` 9→6. Detalhes na seção 9.
 7. ✅ **Revisão e merge** do PR #1 em `main` (commit `0bdb1c9`, CI verde backend + frontend).
 8. ✅ **Registrar changelog/tech-debt**: R01 (breaking), BDB-02, R03, R04, R06 e R05 marcados no `CHANGELOG_SUGERIDO.md` e `TECH_DEBT.md`.
 9. ✅ **SEC-03/BKD-01 (TTL reset)**, **SEC-05 (senha em body)**, **FRN-12 (mutação de props)** — pagos e registrados no `TECH_DEBT.md`.
@@ -122,12 +137,12 @@ Fixa **ARQ-02** (god class 772 LOC / 27 métodos). `ShareService` vira orquestra
 12. ✅ **SEC-01 (fail-open do JwtGuard)** — já pago no R02: `jwt.guard.ts` lança `UnauthorizedException` no `catch` e acesso anônimo restrito a `@Public()`; confirmado em código e testes.
 13. ✅ **SEC-02 (ClamAV)** — **encerrado por decisão formal** (26/07/2026): `docs/Padronizacao-07-clamav.md` rejeita a integração (uploads só do owner autenticado, somente mídia de vídeo, destinatários só baixam, overhead ~1-2 GB RAM + cold start, air-gapped incompatível com freshclam). Código `backend/src/clamscan/`, dep `clamscan` e daemon `clamav/clamav` já **removidos** do repositório e dos compose files. Sem pendência técnica.
 
-## 10. Backlog pendente de segurança (registro da sequência)
+## 11. Backlog pendente de segurança (registro da sequência)
 
 | Item | Status | Local/Ref |
 |---|---|---|
 | SEC-02 — ClamAV no upload | ⚪ Encerrado por decisão formal (26/07/2026) | `docs/Padronizacao-07-clamav.md`; FASE-5 §SEC-02 — código, dep `clamscan` e daemon do compose já removidos |
-| SEC-05 — Mascarar query strings no proxy/Caddy (ex.: token no URL) | ⏳ Aberto | FASE-5 §SEC-05; `reverse-proxy/Caddyfile` |
+| ~~SEC-05 — Mascarar query strings no proxy/Caddy (ex.: token no URL)~~ | ✅ Pago (2026-08-08) — filtro `format filter { request>uri query { replace pwd REDACTED } wrap json }` em `Caddyfile`, `Caddyfile.prod` e `Caddyfile.trust-proxy`; `Caddyfile.trust-proxy` corrigido (`trusted_proxies` voltou para dentro de `reverse_proxy`); 3 Caddyfiles validados com `caddy validate` na imagem custom com `caddy-ratelimit` |
 | TODO `auth.service.ts:131` — invalidar `loginTokens` antigos (logout de todos os dispositivos) | ⏳ Aberto | distinto do SEC-07 (já pago) |
 | QTS-05 / DOP-07 | ✅ QTS-05 pago (2026-08-07) — `newman` removido, `test/newman-system-tests.json` deletado; DOP-07 ⏳ Aberto | FASE-10 / FASE-12 |
 | SEC-06, SEC-07, SEC-08 | ✅ Pago (2026-08-07) | commit `1e6eaa4` |

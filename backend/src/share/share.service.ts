@@ -151,16 +151,33 @@ export class ShareService {
           });
         });
 
-    // Send email for each recipient
-    for (const recipient of share.recipients) {
-      await this.emailService.sendMailToShareRecipients(
-        recipient.email,
-        recipient.id,
-        share.id,
-        share.creator ?? undefined,
-        share.description ?? undefined,
-        share.expiration,
-      );
+    // Send email for each recipient in parallel (PERF-02). Email delivery
+    // failures are logged but must not break share completion — the share is
+    // the source of truth, not the notification channel.
+    const emailResults = await Promise.allSettled(
+      share.recipients.map((recipient) =>
+        this.emailService.sendMailToShareRecipients(
+          recipient.email,
+          recipient.id,
+          share.id,
+          share.creator ?? undefined,
+          share.description ?? undefined,
+          share.expiration,
+        ),
+      ),
+    );
+
+    for (const result of emailResults) {
+      if (result.status === "rejected") {
+        this.logger.error(
+          `Failed to send completion email for share ${share.id}: ${
+            result.reason instanceof Error
+              ? result.reason.message
+              : String(result.reason)
+          }`,
+          result.reason instanceof Error ? result.reason.stack : undefined,
+        );
+      }
     }
 
     // ClamAV scan removed: uploads are owner-only media/videos by known

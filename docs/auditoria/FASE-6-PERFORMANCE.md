@@ -27,8 +27,8 @@ A base é **bem comportada no essencial**: configurações são cacheadas em mem
 |---|---|
 | Paginação nas listagens (shares/logs) | ⚠️ Parcial (PERF-01 — shares sem paginação; logs paginados ✅) |
 | Carga N+1 / `includes` pesados | ⚠️ Parcial (PERF-01 — listagens com joins completos) |
-| Latência do `complete()` (upload finalizado) | ❌ Falho (PERF-02 — e-mails sequenciais) |
-| Geração de ZIP (memória/descritores/CPU) | ❌ Falho (PERF-03 — N streams simultâneos + deflate 9 inline) |
+| Latência do `complete()` (upload finalizado) | ✅ Corrigido (PERF-02 — e-mails em paralelo via `Promise.allSettled`) |
+| Geração de ZIP (memória/descritores/CPU) | ✅ Corrigido (PERF-03 — streams lazy em lotes + deflate 6) |
 | Jobs de limpeza (batching/blocking I/O) | ⚠️ Parcial (PERF-04/PERF-05; tokens/logs usam `deleteMany` ✅) |
 | Download de arquivos (stream + HTTP Range) | ⚠️ Parcial (PERF-06 — stream ✅, sem Range/206 ❌) |
 | Cache de configuração | ✅ Adequado (in-memory, recarga só em update) |
@@ -108,6 +108,7 @@ A base é **bem comportada no essencial**: configurações são cacheadas em mem
 - **Benefícios:** latência do `complete()` ≈ máxima das notificações (não a soma); resiliência a falha parcial de SMTP; `uploadLocked` sempre atingido.
 - **Riscos:** SMTP pode aplicar throttling/rate-limit em rajadas — mitigar com concorrência limitada (ex.: `p-limit(5)`) se necessário.
 - **Compatibilidade:** compatível; resposta do `complete()` inalterada.
+- **✅ Implementado:** `backend/src/share/share.service.ts` — e-mails enviados via `Promise.allSettled` com log de falhas por destinatário (`logger.error`); falha de e-mail não aborta mais o `complete()` nem impede `uploadLocked: true`. Atualizado também o `uploadLocked` (PERF-05/PERF-06).
 ---
 
 ### PERF-03 — `createZip()` abre até `zipMaxFiles` streams simultâneos com deflate nível 9 inline
@@ -139,6 +140,7 @@ A base é **bem comportada no essencial**: configurações são cacheadas em mem
 - **Benefícios:** evita `EMFILE` em shares grandes; reduz pico de CPU no `complete()`; acelera o zip de vídeos (deflate em mídia já comprimida desperdiça CPU).
 - **Riscos:** archiver v6/8 (ESM `ZipArchive`) exige a forma lazy correta — validar em teste de integração; nível baixo aumenta pouco o tamanho do zip.
 - **Compatibilidade:** compatível; contrato do ZIP inalterado.
+- **✅ Implementado:** `backend/src/share/share-archive.service.ts` — `ReadStream` abertos em lotes de 16 (`BATCH_SIZE`), aguardando o evento `drain` do archiver entre lotes (concorrência limitada de descritores); `backend/prisma/seed/config.seed.ts` — default `zipCompressionLevel` reduzido de `"9"` para `"6"`. Testes atualizados no `share.service.spec.ts` (mock com `emitDrain`).
 
 ---
 
@@ -307,15 +309,15 @@ A base é **bem comportada no essencial**: configurações são cacheadas em mem
 ## 6.6 Recomendações Prioritárias
 
 1. **PERF-06 (Médio, maior impacto funcional no fork):** adicionar suporte a HTTP Range/206 no download de arquivos — habilita *seek* e retomada de vídeo no preview e em downloads. Alinhar a contagem de views/downloads (file.controller.ts:226-246) para contabilizar apenas a primeira requisição de um mesmo stream.
-2. **PERF-02/PERF-05/PERF-07 (Quick Wins):** `Promise.allSettled` nos e-mails do `complete()`; `fs/promises` no job de temporários; `SELECT 1` no `/health`. Baixo esforço, ganho imediato.
-3. **PERF-03 (Quick Win de CPU):** reduzir o default de `zipCompressionLevel` (9 → 1–6) e abrir `ReadStream` de forma lazy no `createZip()` — evita `EMFILE` e picos de CPU na finalização de shares grandes.
+2. **PERF-02/PERF-05/PERF-07 (Quick Wins):** `Promise.allSettled` nos e-mails do `complete()`; `fs/promises` no job de temporários; `SELECT 1` no `/health`. Baixo esforço, ganho imediato. *(PERF-02 ✅ implementado; PERF-05 ✅ implementado.)*
+3. **PERF-03 (Quick Win de CPU):** reduzir o default de `zipCompressionLevel` (9 → 1–6) e abrir `ReadStream` de forma lazy no `createZip()` — evita `EMFILE` e picos de CPU na finalização de shares grandes. *(✅ implementado: lotes de 16 com `drain` + default nível 6.)*
 4. **PERF-01 + PERF-04 (Refatoração):** paginação por cursor nas listagens e batching nos jobs — devem entrar na Fase 12 (Refatoração) junto com BDB-03/BDB-04; a Fase 3 (frontend) precisará consumir o contrato paginado.
 
 ---
 
 ## 6.7 Notas de Execução
 
-- Nenhum achado desta fase foi aplicado — correções propostas, escopo da Fase 12 (Refatoração) / plano da Fase 13, salvo decisão explícita do solicitante.
+- **Notas de Execução (Fase 6):** originalmente nenhum achado aplicado. **Exceção (decisão do solicitante):** PERF-02, PERF-03 e PERF-05 foram implementados e validadas por testes; PERF-01 e PERF-04 permanecem para a Fase 12 (Refatoração).
 - **Referências cruzadas:** PERF-01 ↔ BDB-03 e PERF-04 ↔ BDB-04 (Fase 4); PERF-01 → Fase 3 (frontend deve consumir paginação); PERF-06 → FRN (Fase 3) e Fase 9 (proxy não deve buffar/negar Range); PERF-03 → SEC-08/GAP-04 (Fase 5, zip-bomb); PERF-02 → Fase 2 (BKD, caminho quente do `complete()`).
 - **Evidências coletadas em:** `share/share.service.ts`, `jobs/jobs.service.ts`, `config/config.service.ts`, `app.controller.ts`, `file/file.controller.ts`, `file/local.service.ts`, `common/zip.ts`, `prisma/seed/config.seed.ts`, `download-log/download-log.service.ts`, `frontend/src/sw.ts`, `frontend/src/components/share/FilePreview.tsx`, `frontend/src/components/upload/EditableUpload.tsx`, `frontend/next.config.js`.
 - **Métricas sugeridas para o `Especificacao-final.md`:** p95 da latência do `complete()` × nº de destinatários; nº de FDs abertos vs. `zipMaxFiles`; profundidade do backlog de shares expirados por ciclo do job; % de requisições 206 após a implementação do Range.

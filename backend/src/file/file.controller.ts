@@ -25,6 +25,8 @@ import { FileService } from "./file.service";
 import { DownloadLimitGuard } from "./guard/downloadLimit.guard";
 import { FileSecurityGuard } from "./guard/fileSecurity.guard";
 import mime from "mime-types";
+import range from "range-parser";
+import { HttpStatus } from "@nestjs/common";
 import { getRequestIp, getRequestUserAgent } from "../utils/request.util";
 import { GetUser } from "../auth/decorator/getUser.decorator";
 
@@ -209,10 +211,52 @@ export class FileController {
       return new StreamableFile(zipStream);
     }
 
+    // PERF-06: HTTP Range (206) negotiation for previews — video/audio seek
+    // and partial loads. Only the preview path honours range requests; bulk
+    // downloads keep the existing one-request = one-download bookkeeping.
+    const rangeHeader = isDownload
+      ? undefined
+      : (req.headers.range as string | undefined);
+
+    if (rangeHeader) {
+      const meta = await this.fileService.getFileMetaData(shareId, fileId);
+      const fullSize = Number(meta.size);
+
+      const ranges = range(fullSize, rangeHeader, { combine: true });
+      if (ranges === -1) {
+        // Unsatisfiable range (e.g. start beyond EOF) → 416.
+        res.set({ "Content-Range": `bytes */${fullSize}` });
+        return res.status(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE).end();
+      }
+      if (ranges !== -2 && ranges.length > 0) {
+        const { start, end } = ranges[0];
+        const rangedFile = await this.fileService.get(shareId, fileId, {
+          start,
+          end,
+        });
+        res.status(HttpStatus.PARTIAL_CONTENT);
+        res.set({
+          "Content-Type":
+            mime?.lookup?.(meta.name) || "application/octet-stream",
+          "Content-Length": String(end - start + 1),
+          "Content-Range": `bytes ${start}-${end}/${fullSize}`,
+          "Accept-Ranges": "bytes",
+          "Content-Security-Policy": "sandbox",
+          "Cache-Control": "no-store",
+          "Content-Disposition": contentDisposition(meta.name, {
+            type: "inline",
+          }),
+        });
+        return new StreamableFile(rangedFile.file);
+      }
+      // Malformed range header (-2) falls through to a full 200 response.
+    }
+
     const headers = {
       "Content-Type":
         mime?.lookup?.(file.metaData.name) || "application/octet-stream",
       "Content-Length": file.metaData.size,
+      "Accept-Ranges": "bytes",
       "Content-Security-Policy": "sandbox",
       "Cache-Control": "no-store",
       "Content-Disposition": contentDisposition(

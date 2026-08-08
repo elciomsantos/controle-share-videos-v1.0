@@ -5,6 +5,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { I18nService } from "nestjs-i18n";
 import { fileTypeFromBuffer } from "file-type";
 import * as fs from "fs/promises";
+import { createReadStream } from "fs";
 
 jest.mock("fs/promises", () => ({
   stat: jest.fn(),
@@ -21,13 +22,32 @@ jest.mock("file-type", () => ({
   fileTypeFromBuffer: jest.fn(),
 }));
 
+jest.mock("fs", () => {
+  const { Readable } = jest.requireActual("stream");
+  return {
+    ...jest.requireActual("fs"),
+    createReadStream: jest.fn((_path: string, _opts?: { start?: number; end?: number }) => {
+      return new Readable({
+        read() {
+          const length = _opts?.end !== undefined && _opts.start !== undefined
+            ? _opts.end - _opts.start + 1
+            : 100;
+          this.push(Buffer.alloc(length));
+          this.push(null);
+        },
+      });
+    }),
+  };
+});
+
 const fsMock = fs as unknown as Record<string, jest.Mock>;
 const fileTypeMock = fileTypeFromBuffer as unknown as jest.Mock;
+const createReadStreamMock = createReadStream as unknown as jest.Mock;
 
 describe("LocalFileService (SEC-08)", () => {
   let prisma: {
     share: { findUnique: jest.Mock };
-    file: { create: jest.Mock };
+    file: { create: jest.Mock; findUnique: jest.Mock };
   };
   let config: {
     getBoolean: jest.Mock;
@@ -40,9 +60,10 @@ describe("LocalFileService (SEC-08)", () => {
   beforeEach(() => {
     fileTypeMock.mockReset();
     fileTypeMock.mockResolvedValue(undefined);
+    createReadStreamMock.mockClear();
     prisma = {
       share: { findUnique: jest.fn() },
-      file: { create: jest.fn() },
+      file: { create: jest.fn(), findUnique: jest.fn() },
     };
     config = {
       getBoolean: jest.fn(),
@@ -124,5 +145,51 @@ describe("LocalFileService (SEC-08)", () => {
       service.create("Zm9v", { index: 0, total: 1 }, { id: "a82eb345-ab84-4fa4-b71a-cbfe89592b9c", name: "doc.txt" }, "s1"),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.file.create).not.toHaveBeenCalled();
+  });
+
+  describe("get(range) PERF-06", () => {
+    const meta = {
+      id: "f1",
+      name: "clip.mp4",
+      size: BigInt(1000),
+      description: null,
+      createdAt: new Date(),
+    };
+
+    beforeEach(() => {
+      prisma.file.findUnique.mockResolvedValue(meta);
+    });
+
+    it("repassa o parâmetro de range para o createReadStream (stream parcial)", async () => {
+      await service.get("s1", "f1", { start: 100, end: 499 });
+
+      expect(createReadStreamMock).toHaveBeenCalledTimes(1);
+      expect(createReadStreamMock).toHaveBeenCalledWith(
+        expect.stringContaining("/s1/f1"),
+        { start: 100, end: 499 },
+      );
+    });
+
+    it("chama createReadStream sem range quando nenhum é fornecido", async () => {
+      await service.get("s1", "f1");
+
+      expect(createReadStreamMock).toHaveBeenCalledWith(
+        expect.stringContaining("/s1/f1"),
+        { start: undefined, end: undefined },
+      );
+    });
+
+    it("retorna o metadata com size como string e o stream da faixa solicitada", async () => {
+      const result = await service.get("s1", "f1", { start: 0, end: 100 });
+
+      expect(result.metaData.size).toBe("1000");
+      expect(result.file).toBeDefined();
+    });
+
+    it("lança NotFoundException quando o arquivo não existe", async () => {
+      prisma.file.findUnique.mockResolvedValue(null);
+
+      await expect(service.get("s1", "missing")).rejects.toThrow("t:file.notFound");
+    });
   });
 });

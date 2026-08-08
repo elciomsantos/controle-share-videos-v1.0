@@ -111,7 +111,10 @@ export const configVariables = {
     },
     zipCompressionLevel: {
       type: "number",
-      defaultValue: "9",
+      // PERF-03: level 9 (zlib max) costs ~4-5x CPU vs level 6 for marginal
+      // size gains. 6 is the gzip default and the practical sweet spot for
+      // large video/media archives.
+      defaultValue: "6",
     },
     // GAP-04: zip-bomb protection limits, configurable by admins.
     zipMaxFiles: {
