@@ -4,7 +4,7 @@
 |---|---|
 | Fase de origem | 7 (Qualidade) + contribuições de 1, 2, 3, 4, 11 |
 | Data | 2026-08-04 |
-| Status | 🔄 Parcialmente paga — PR #1 quitou QAL-01, BDB-01, BKD-03, FRN-03, QAL-04 e DOC-02; BDB-02/R03 pagos em `fix/producao-v1.1.0` (2026-08-04) |
+| Status | ✅ Maioria quitada — 18/26 itens pagos (R01-R08 + SEC-03/04/05/06/07/08 + FRN-12/06/09 + DOC-02); restam dívidas leves P3 (ARQ-03/04, FRN-05, BDB-05/06, QAL-06) |
 
 ## 1. Introdução
 
@@ -71,7 +71,7 @@ Registro único da dívida técnica do projeto: tudo que não é bug de seguran�
 | QAL-04 | Anti-pattern `new Promise(async …)` (download de arquivo) | Baixa | Baixo |
 | QAL-05 | TODOs com impacto de segurança/sessão pendentes | Média | Baixo |
 | QAL-06 | Arquivos monolíticos e duplicação leve | Baixa | Médio |
-| DOC-01 | ~20 referências quebradas no README | Média | Baixo |
+| ~~DOC-01~~ | ~~~20 referências quebradas no README~~ | ~~Média~~ | ✅ Resolvido 2026-08-08 — seção "Testes" reescrita (Newman → jest/vitest); todas as refs a `.md`/compose/.env verificadas e apontando para arquivos existentes |
 
 ## 5. Pagamentos realizados (2026-08-04)
 
@@ -117,4 +117,5 @@ Registro único da dívida técnica do projeto: tudo que não é bug de seguran�
 2. ✅ ~~BKD-01/SEC-03, FRN-12~~ — dívidas com risco de segurança **pagas**.
 3. ~~ARQ-02~~ (R05), ~~QAL-03~~, ~~BKD-06~~, BDB-05 — refatorações estruturais (R05/R06/R04 pagos; BDB-05 pendente).
 4. ~~SEC-06~~ (oráculo resend), ~~SEC-07~~ (rotação/reuso refresh), ~~SEC-08~~ (fail-closed magic bytes) — segurança **paga** (2026-08-07).
-5. DOC-01, FRN-05, BDB-06, QAL-04/05/06, ARQ-04 — backlog contínuo.
+5. DOC-01, FRN-05, BDB-06, QAL-04/05/06, ARQ-04 — backlog contínuo. ⏳ Parcialmente pendente (DOC-01, BDB-05/06, FRN-05, QAL-05, ARQ-03/04).
+6. FRN-06 (user-scalable), FRN-09 (noopener), DOC-02 (SECURITY.md), BKD-05 (timespan validation) — ✅ pagos 2026-08-07 (quick wins 12.6).

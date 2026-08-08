@@ -155,13 +155,21 @@ Copie `config.example.yaml` para `config.yaml` na raiz do repositório e ajuste 
 
 #### Testes
 
-Existem apenas testes de sistema para o backend (coleção Newman). Para rodá-los:
+Há testes unitários e E2E (backend) e unitários (frontend), com cobertura ≥60% e CI em `.github/workflows/ci.yml` (Node 24, lint/build/unit/coverage/e2e).
 
 ```bash
-npm run test:system   # na pasta backend
+# Backend
+npm run test:unit      # jest — unitários (9 suites, 77+ testes)
+npm run test:e2e       # jest — e2e efêmero (DB dedicado, não destrutivo)
+npm run test:coverage  # jest com cobertura (thresholds ≥60%)
+npm test               # alias para test:unit
+
+# Frontend
+npm run test           # vitest run
+npm run test:unit      # vitest run (mesma coisa)
 ```
 
-Recria o banco (`prisma migrate reset -f`), inicia o servidor na porta `8080` e executa a coleção em `backend/test/newman-system-tests.json`.
+Requisitos: backend precisa do `prisma generate` antes do primeiro run (Postinstall automático em `npm install`); e2e usa DB efêmero próprio. Para detalhes de cobertura e critérios ver `docs/auditoria/relatorios/TEST_PLAN.md`.
 
 ## Docker Compose (variantes)
 

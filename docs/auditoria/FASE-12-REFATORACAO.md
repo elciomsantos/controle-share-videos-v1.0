@@ -60,7 +60,7 @@ Prioridade = f(Severidade original, Alcance, Esforço estimado, Risco da mudanç
 |----|--------|------|---------------------------|
 | ~~SEC-01~~ | ~~`JwtGuard` global com fail-open (catch retorna config em erro)~~ | 5 | ✅ Resolvido 2026-08-07 — `jwt.guard.ts:35-40` lança `UnauthorizedException` no catch (fail-closed); spec cobre token inválido e ausente (5 testes, coverage 100%) |
 | ~~BDB-01~~ | ~~`File.size`/`User.shareSizeLimit` como `String` → NaN em `parseInt`~~ | 4 | ✅ Resolvido 2026-08-07 — schema BigInt + migração `20260804100000_convert_file_size_and_share_limit_to_bigint`; `toBytes()` no DTO; `getNumber()` no ConfigService; frontend `Number()` |
-| DOC-01 | ~20 referências quebradas no README | 11 | `README.md:18,38,80,139-169` |
+| ~~DOC-01~~ | ~~20 referências quebradas no README~~ | 11 | ✅ Resolvido 2026-08-08 — seção "Testes" reescrita (Newman → jest/vitest); todas as refs a `.md`/compose/.env verificadas e apontando para arquivos existentes |
 | DOC-02 | `SECURITY.md` stub vazio | 11 | `SECURITY.md` (74 bytes) |
 
 ### P1 — Alto
