@@ -1,4 +1,4 @@
-import { NativeSelect, NumberInput } from "@mantine/core";
+import { NativeSelect, NumberInput, NumberInputProps } from "@mantine/core";
 import { useState } from "react";
 
 const multipliers = {
@@ -17,10 +17,18 @@ const units = (
   ["B", "KB", "KiB", "MB", "MiB", "GB", "GiB", "TB", "TiB"] as const
 ).map((unit) => ({ label: unit, value: unit }));
 
+type UnitValue = (typeof units)[number]["value"];
+
 function getLargestApplicableUnit(value: number) {
   return (
     units.findLast((unit) => value % multipliers[unit.value] === 0) || units[0]
   );
+}
+
+interface FileSizeInputProps extends Omit<NumberInputProps, "value" | "onChange"> {
+  label?: string;
+  value?: number;
+  onChange?: (number: number) => void;
 }
 
 const FileSizeInput = ({
@@ -28,14 +36,9 @@ const FileSizeInput = ({
   value,
   onChange,
   ...restProps
-}: {
-  label?: string;
-  value?: number;
-  onChange?: (number: number) => void;
-  [key: string]: any;
-}) => {
+}: FileSizeInputProps) => {
   const resolvedValue = value ?? 0;
-  const [unit, setUnit] = useState(getLargestApplicableUnit(resolvedValue).value);
+  const [unit, setUnit] = useState<UnitValue>(getLargestApplicableUnit(resolvedValue).value);
   const [inputValue, setInputValue] = useState(resolvedValue / multipliers[unit]);
   const unitSelect = (
     <NativeSelect
@@ -52,8 +55,7 @@ const FileSizeInput = ({
         },
       }}
       onChange={(event) => {
-        const unit = event.currentTarget
-          .value as (typeof units)[number]["value"];
+        const unit = event.currentTarget.value as UnitValue;
         setUnit(unit);
         onChange?.(multipliers[unit] * inputValue);
       }}
@@ -66,7 +68,6 @@ const FileSizeInput = ({
       value={inputValue}
       min={1}
       max={999999}
-     
       rightSection={unitSelect}
       rightSectionWidth={76}
       onChange={(value) => {

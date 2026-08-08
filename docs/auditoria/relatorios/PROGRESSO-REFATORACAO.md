@@ -379,3 +379,39 @@ Fixa **FRN-01** (JWT decodificado sem verificação de assinatura no middleware)
 | **FRN-08** | Categorias config inconsistentes |
 | **BDB-05** | Sentinela `EPOCH_ZERO` + `ShareSecurity` 1:1 opcional |
 | **TODO** | Invalidar `loginTokens` antigos (logout all devices) |
+
+---
+
+## 18. FRN-02 — Estado upload no componente + Promise.all aguardado (concluído 2026-08-08)
+
+Fixa **FRN-02** (estado módulo-level + `Promise.all` não aguardado no upload).
+
+### Mudanças
+- **Variáveis de módulo → `useState`**:
+  - `errorToastShown` → `useState(false)`
+  - `createdShare` → `useState<Share | null>(null)`
+  - `pendingGeneratedPassword` → `useState<string | undefined>(undefined)`
+- **`uploadFiles`**: `Promise.all(fileUploadPromises)` → `await Promise.all(...)`
+- **Lógica de completion**: movida do `useEffect` (fire-and-forget) para dentro de `uploadFiles` após `await`
+- **Dois `useEffect` separados**:
+  1. Monitora erros de upload (`uploadingProgress === -1`)
+  2. Dispara completion quando todos `>= 100%` e sem erros
+
+### Testes ✅
+- Backend unit: 85/85
+- Backend e2e: 16/16
+- Frontend unit: 5/5
+- Frontend build: OK
+
+---
+
+### Próximo item da fila (P3)
+
+| Item | Descrição |
+|------|-----------|
+| **FRN-04** | Tipos `any` generalizados frontend (~55 usos) |
+| **FRN-05** | Loop potencial de reload por idioma |
+| **FRN-07** | Preview PDF via `window.location.href` |
+| **FRN-08** | Categorias config inconsistentes |
+| **BDB-05** | Sentinela `EPOCH_ZERO` + `ShareSecurity` 1:1 opcional |
+| **TODO** | Invalidar `loginTokens` antigos (logout all devices) |

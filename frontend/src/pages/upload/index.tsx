@@ -75,7 +75,7 @@ const Upload = ({
   }
 
   const currentFilesSize = useMemo(() => {
-    return files.reduce((acc, file) => acc + file.size, 0);
+    return files.reduce((acc, file) => acc + Number(file.size), 0);
   }, [files]);
 
   const autoOpenCreateUploadModal = config.get("share.autoOpenShareModal");
@@ -85,7 +85,7 @@ const Upload = ({
     setErrorToastShown(false);
 
     try {
-      const totalSize = filesToUpload.reduce((acc, file) => acc + file.size, 0);
+      const totalSize = filesToUpload.reduce((acc, file) => acc + Number(file.size), 0);
       const result = await shareService.create({
         ...share,
         size: totalSize,
@@ -114,14 +114,14 @@ const Upload = ({
 
         setFileProgress(1);
 
-        let chunks = Math.ceil(file.size / chunkSize.current);
+        let chunks = Math.ceil(Number(file.size) / chunkSize.current);
 
         if (chunks == 0) chunks++;
 
         for (let chunkIndex = 0; chunkIndex < chunks; chunkIndex++) {
           const from = chunkIndex * chunkSize.current;
           const to = from + chunkSize.current;
-          const blob = file.slice(from, to);
+          const blob = file.file!.slice(from, to);
           try {
             await shareService
               .uploadFile(
@@ -304,10 +304,9 @@ const Upload = ({
         isUploading={isUploading}
       />
       {files.length > 0 && (
-        <FileList<FileUpload>
+        <FileList
           files={files}
-          setFiles={setFiles}
-          onShare={() => showCreateUploadModalCallback(files)}
+          setFiles={(newFiles) => setFiles(newFiles as FileUpload[])}
           isUploading={isUploading}
         />
       )}

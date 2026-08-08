@@ -1,20 +1,29 @@
-export const getNormalizedFileName = (file: File): string => {
-  const pathName = file.webkitRelativePath || file.name;
+import { FileRecord, FileUpload } from "../types/File.type";
+
+type FileLike = FileRecord & { webkitRelativePath?: string };
+
+type ExistingFileLike = {
+  name: string;
+  webkitRelativePath?: string;
+  deleted?: boolean;
+};
+
+export const getNormalizedFileName = (file: FileLike | ExistingFileLike): string => {
+  const pathName = "webkitRelativePath" in file && file.webkitRelativePath
+    ? file.webkitRelativePath
+    : file.name;
   return pathName.replace(/\\/g, "/").replace(/^\//, "");
 };
 
-export const filterDuplicateFiles = <T extends File>(
+export const filterDuplicateFiles = <T extends FileLike>(
   newFiles: T[],
-  existingFilesList: Array<{ name: string; webkitRelativePath?: string; deleted?: boolean }>,
+  existingFilesList: ExistingFileLike[],
   onDuplicateDetected: (name: string) => void
 ): T[] => {
   const existingNames = new Set(
     existingFilesList
       .filter((file) => !file.deleted)
-      .map((file) => {
-        const pathName = file.webkitRelativePath || file.name;
-        return pathName.replace(/\\/g, "/").replace(/^\//, "");
-      })
+      .map((file) => getNormalizedFileName(file))
   );
 
   const filtered: T[] = [];

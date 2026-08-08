@@ -10,10 +10,10 @@
       "type": "local",
       "enabled": true,
       "command": [
-        "/home/corvo/.nvm/versions/node/v24.18.0/bin/npx",
+        "/home/suricato/.nvm/versions/node/v24.18.0/bin/npx",
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "/home/corvo/projects"
+        "/home/suricato/projects"
       ]
     },
 
@@ -26,16 +26,6 @@
         "mcp-server-fetch",
         "--with", "mcp<2",
         "mcp-server-fetch" 
-      ]
-    },
-
-    "memory": {
-      "type": "local",
-      "enabled": true,
-      "command": [
-        "npx",
-        "-y",
-        "@modelcontextprotocol/server-memory"
       ]
     },
 
@@ -98,47 +88,6 @@
         "-y",
         "mcp-server-docker"
       ]
-    },
-
-    "desktop": {
-      "type": "local",
-      "enabled": true,
-      "command": [
-        "desktop-commander"
-      ]
-    },
-
-    "ssh": {
-      "type": "local",
-      "enabled": true,
-      "command": [
-        "npx",
-        "-y",
-        "mcp-ssh-manager"
-      ]
-    },
-    
-    "figma": {
-      "type": "local",
-      "enabled": true,
-      "command": [
-        "npx",
-        "-y",
-        "figma-console-mcp"
-      ]
-    },
-
-    "notion": {
-      "type": "local",
-      "enabled": true,
-      "command": [
-        "npx",
-        "-y",
-        "@notionhq/notion-mcp-server"
-      ],
-      "environment": {
-        "NOTION_API_KEY": "{env:NOTION_API_KEY}"
-      }
     },
 
     "playwright": {

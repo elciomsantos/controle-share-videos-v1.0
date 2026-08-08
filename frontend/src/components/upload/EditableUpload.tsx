@@ -12,7 +12,7 @@ import { showBlockingErrorModal } from "../core/showBlockingErrorModal";
 import useConfig from "../../hooks/config.hook";
 import useTranslate from "../../hooks/useTranslate.hook";
 import shareService from "../../services/share.service";
-import { FileListItem, FileMetaData, FileUpload } from "../../types/File.type";
+import { FileListItem, FileMetaData, FileUpload, FileRecord } from "../../types/File.type";
 import toast from "../../utils/toast.util";
 import { getNormalizedFileName, filterDuplicateFiles } from "../../utils/file.util";
 
@@ -27,7 +27,7 @@ const EditableUpload = ({
 }: {
   maxShareSize?: number;
   shareId: string;
-  files?: FileMetaData[];
+  files?: FileRecord[];
 }) => {
   const t = useTranslate();
   const router = useRouter();
@@ -37,7 +37,7 @@ const EditableUpload = ({
   const chunkSize = useRef(config.get("share.chunkSize"));
 
   const [existingFiles, setExistingFiles] =
-    useState<Array<FileMetaData & { deleted?: boolean }>>(savedFiles);
+    useState<Array<FileRecord & { deleted?: boolean }>>(savedFiles);
   const [uploadingFiles, setUploadingFiles] = useState<FileUpload[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -57,7 +57,7 @@ const EditableUpload = ({
     ) as FileUpload[];
     const _existingFiles = files.filter(
       (file) => !("uploadingProgress" in file),
-    ) as FileMetaData[];
+    ) as FileRecord[];
 
     setUploadingFiles(_uploadFiles);
     setExistingFiles(_existingFiles);
@@ -70,7 +70,7 @@ const EditableUpload = ({
       existingFiles
         .filter((file) => !file.deleted)
         .reduce((acc, file) => acc + Number(file.size), 0) +
-      uploadingFiles.reduce((acc, file) => acc + file.size, 0)
+      uploadingFiles.reduce((acc, file) => acc + Number(file.size), 0)
     );
   }, [existingFiles, uploadingFiles]);
 
@@ -92,7 +92,7 @@ const EditableUpload = ({
 
         setFileProgress(1);
 
-        let chunks = Math.ceil(file.size / chunkSize.current);
+        let chunks = Math.ceil(Number(file.size) / chunkSize.current);
 
         // If the file is 0 bytes, we still need to upload 1 chunk
         if (chunks == 0) chunks++;
@@ -100,7 +100,7 @@ const EditableUpload = ({
         for (let chunkIndex = 0; chunkIndex < chunks; chunkIndex++) {
           const from = chunkIndex * chunkSize.current;
           const to = from + chunkSize.current;
-          const blob = file.slice(from, to);
+          const blob = file.file!.slice(from, to);
           try {
             await shareService
               .uploadFile(
@@ -262,7 +262,7 @@ const EditableUpload = ({
         isUploading={isUploading}
       />
       {existingAndUploadedFiles.length > 0 && (
-        <FileList files={existingAndUploadedFiles} setFiles={setFiles} />
+        <FileList files={existingAndUploadedFiles} setFiles={setFiles} isLoading={isUploading} />
       )}
     </>
   );

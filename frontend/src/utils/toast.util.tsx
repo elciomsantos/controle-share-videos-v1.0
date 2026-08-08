@@ -1,7 +1,7 @@
 import { showNotification, type NotificationData } from "@mantine/notifications";
 import { TbCheck, TbX } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
-import { getApiErrorMessage } from "./error.util";
+import { getApiErrorMessage, AxiosErrorWithResponse } from "./error.util";
 import { ReactNode } from "react";
 
 const error = (
@@ -14,18 +14,18 @@ const error = (
     radius: "md",
     title: <FormattedMessage id="common.error" />,
     message: message,
-
     autoClose: true,
-
     ...config,
   });
 
-const axiosError = (axiosError: any) =>
+const axiosError = (err: unknown) => {
+  const axiosErr = err as AxiosErrorWithResponse;
   error(
-    getApiErrorMessage(axiosError) ?? (
+    getApiErrorMessage(axiosErr) ?? (
       <FormattedMessage id="common.error.unknown" />
     ),
   );
+};
 
 const success = (
   message: ReactNode,

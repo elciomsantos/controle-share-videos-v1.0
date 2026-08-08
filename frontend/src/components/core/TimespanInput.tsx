@@ -1,19 +1,20 @@
 import { useState } from "react";
 import { Timespan } from "../../types/timespan.type";
-import { NativeSelect, NumberInput } from "@mantine/core";
+import { NativeSelect, NumberInput, NumberInputProps } from "@mantine/core";
 import useTranslate from "../../hooks/useTranslate.hook";
+
+interface TimespanInputProps extends Omit<NumberInputProps, "value" | "onChange"> {
+  label?: string;
+  value: Timespan;
+  onChange: (timespan: Timespan) => void;
+}
 
 const TimespanInput = ({
   label,
   value,
   onChange,
   ...restProps
-}: {
-  label?: string;
-  value: Timespan;
-  onChange: (timespan: Timespan) => void;
-  [key: string]: any;
-}) => {
+}: TimespanInputProps) => {
   const [unit, setUnit] = useState(value.unit);
   const [inputValue, setInputValue] = useState(value.value);
   const t = useTranslate();
@@ -72,7 +73,6 @@ const TimespanInput = ({
       value={inputValue}
       min={0}
       max={999999}
-     
       rightSection={unitSelect}
       rightSectionWidth={120}
       onChange={(value) => {

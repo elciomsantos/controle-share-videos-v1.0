@@ -2,7 +2,7 @@ import { ActionIcon, Table, Group, Button, Box } from "@mantine/core";
 import { useModals } from "@mantine/modals";
 import { TbTrash, TbEdit } from "react-icons/tb";
 import { GrUndo } from "react-icons/gr";
-import { FileListItem } from "../../types/File.type";
+import { FileListItem, FileUpload } from "../../types/File.type";
 import { byteToHumanSizeString } from "../../utils/fileSize.util";
 import UploadProgressIndicator from "./UploadProgressIndicator";
 import { FormattedMessage } from "react-intl";
@@ -24,13 +24,14 @@ const renderFileName = (name: string) => {
   );
 };
 
-const getFileNameOrPath = (file: FileListItem) => {
-  const pathName = ("webkitRelativePath" in file && file.webkitRelativePath)
-    ? file.webkitRelativePath
+const getFileNameOrPath = (file: FileListItem): string => {
+  const pathName = "webkitRelativePath" in file && file.webkitRelativePath
+    ? (file as { webkitRelativePath: string }).webkitRelativePath
     : file.name;
   return pathName.replace(/\\/g, "/").replace(/^\//, "");
 };
 
+  const t = useTranslate();
 const FileListRow = ({
   file,
   onRemove,
@@ -42,159 +43,118 @@ const FileListRow = ({
   onRestore?: () => void;
   onEdit?: () => void;
 }) => {
-  {
-    const uploadable = "uploadingProgress" in file;
-    const uploading = uploadable && file.uploadingProgress !== 0;
-    const removable = uploadable
-      ? file.uploadingProgress === 0
-      : onRemove && !file.deleted;
-    const restorable = onRestore && !uploadable && !!file.deleted;
-    const deleted = !uploadable && !!file.deleted;
-
-    const fileNameOrPath = getFileNameOrPath(file);
-    const isTextFile = shareService.isShareTextFile(fileNameOrPath);
-    const editable = isTextFile && uploadable && file.uploadingProgress === 0;
-
-    const t = useTranslate();
-
-    return (
-      <tr
-        style={{
-          color: deleted ? "rgba(120, 120, 120, 0.5)" : "inherit",
-          textDecoration: deleted ? "line-through" : "none",
-        }}
-      >
-        <td>{renderFileName(fileNameOrPath)}</td>
-        <td>{byteToHumanSizeString(+file.size)}</td>
-        <td>
-          <Group justify="flex-end" gap="xs" wrap="nowrap">
-            {editable && (
-              <HoverTip label={t("common.button.edit")}>
-                <ActionIcon
-                  color="blue"
-                  variant="light"
-                  size={25}
-                  onClick={onEdit}
-                >
-                  <TbEdit />
-                </ActionIcon>
-              </HoverTip>
-            )}
-            {removable && (
-              <HoverTip label={t("common.button.delete")}>
-                <ActionIcon
-                  color="red"
-                  variant="light"
-                  size={25}
-                  onClick={onRemove}
-                >
-                  <TbTrash />
-                </ActionIcon>
-              </HoverTip>
-            )}
-            {uploading && (
-              <UploadProgressIndicator progress={file.uploadingProgress} />
-            )}
-            {restorable && (
-              <HoverTip label={t("common.button.undo")}>
-                <ActionIcon
-                  color="victoria"
-                  variant="light"
-                  size={25}
-                  onClick={onRestore}
-                >
-                  <GrUndo />
-                </ActionIcon>
-              </HoverTip>
-            )}
-          </Group>
-        </td>
-      </tr>
-    );
-  }
-};
-
-const FileList = <T extends FileListItem = FileListItem>({
-  files,
-  setFiles,
-  onShare,
-  isUploading,
-}: {
-  files: T[];
-  setFiles: (files: T[]) => void;
-  onShare?: () => void;
-  isUploading?: boolean;
-}) => {
-  const modals = useModals();
-  const remove = (index: number) => {
-    const file = files[index];
-
-    if ("uploadingProgress" in file) {
-      files.splice(index, 1);
-    } else {
-      files[index] = { ...file, deleted: true };
-    }
-
-    setFiles([...files]);
-  };
-
-  const restore = (index: number) => {
-    const file = files[index];
-
-    if ("uploadingProgress" in file) {
-      return;
-    } else {
-      files[index] = { ...file, deleted: false };
-    }
-
-    setFiles([...files]);
-  };
-
-  const edit = async (index: number) => {
-    const originalFile = files[index] as unknown as File;
-    const text = await originalFile.text();
-
-    showTextEditorModal(index, files, setFiles, text, modals);
-  };
-
-  const rows = files.map((file, i) => (
-    <FileListRow
-      key={i}
-      file={file}
-      onRemove={() => remove(i)}
-      onRestore={() => restore(i)}
-      onEdit={() => edit(i)}
-    />
-  ));
+  const uploadable = "uploadingProgress" in file;
+  const uploading = uploadable && file.uploadingProgress !== 0;
+  const removable = uploadable
+    ? file.uploadingProgress === 0
+    : onRemove && "deleted" in file && !file.deleted;
+  const restorable = uploadable ? false : onRestore && "deleted" in file && file.deleted;
+  const editable = uploadable
+    ? file.uploadingProgress === 0 && "deleted" in file && !file.deleted
+    : onEdit && "deleted" in file && !file.deleted;
+  const fileName = getFileNameOrPath(file);
+  const fileSize = "size" in file ? byteToHumanSizeString(Number(file.size)) : "";
 
   return (
-    <Box style={{ display: "block", overflowX: "auto" }}>
-      <Table>
-        <thead>
-          <tr>
-            <th>
-              <FormattedMessage id="upload.filelist.name" />
-            </th>
-            <th>
-              <FormattedMessage id="upload.filelist.size" />
-            </th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>{rows}</tbody>
-      </Table>
-      {onShare && (
-        <Group justify="flex-end" mt={20}>
-          <Button
-            loading={isUploading}
-            disabled={files.length <= 0}
-            onClick={onShare}
-          >
-            <FormattedMessage id="common.button.share" />
-          </Button>
+    <tr style={{ opacity: "deleted" in file && file.deleted ? 0.4 : 1 }}>
+      <td>{renderFileName(fileName)}</td>
+      <td>{fileSize}</td>
+      <td>{file.description || "-"}</td>
+      <td>
+        <Group justify="flex-end" wrap="nowrap">
+          {uploadable && uploading && (
+            <UploadProgressIndicator progress={file.uploadingProgress} />
+          )}
+          {editable && (
+            <HoverTip label={t("share.file.edit")}>
+              <ActionIcon color="blue" variant="light" size={25} onClick={onEdit}>
+                <TbEdit />
+              </ActionIcon>
+            </HoverTip>
+          )}
+          {removable && (
+            <HoverTip label={t("share.file.remove")}>
+              <ActionIcon color="red" variant="light" size={25} onClick={onRemove}>
+                <TbTrash />
+              </ActionIcon>
+            </HoverTip>
+          )}
+          {restorable && (
+            <HoverTip label={t("share.file.restore")}>
+              <ActionIcon color="green" variant="light" size={25} onClick={onRestore}>
+                <GrUndo />
+              </ActionIcon>
+            </HoverTip>
+          )}
         </Group>
-      )}
-    </Box>
+      </td>
+    </tr>
+  );
+};
+
+const FileList = ({ isUploading,
+  files,
+  setFiles,
+  isLoading,
+}: {
+  files: (FileListItem | FileUpload)[];
+  setFiles: (files: FileListItem[] | FileUpload[]) => void;
+  isLoading?: boolean; isUploading?: boolean;
+}) => {
+  const modals = useModals();
+  const t = useTranslate();
+
+  const handleRemove = (file: FileListItem) => {
+    setFiles(files.map((f) => (f === file ? { ...f, deleted: true } : f)));
+  };
+
+  const handleRestore = (file: FileListItem) => {
+    setFiles(files.map((f) => (f === file ? { ...f, deleted: false } : f)));
+  };
+
+  const handleEdit = (file: FileListItem) => {
+    const idx = files.findIndex((f) => f === file);
+    showTextEditorModal(idx, files, setFiles, "", modals);
+  };
+
+  if (isLoading || isUploading) {
+    return (
+      <Box style={{ minHeight: 200 }}>
+        <div style={{ display: "flex", justifyContent: "center", marginTop: 50 }}>
+          <FormattedMessage id="common.loading" />
+        </div>
+      </Box>
+    );
+  }
+
+  return (
+    <Table>
+      <thead>
+        <tr>
+          <th>
+            <FormattedMessage id="share.table.name" />
+          </th>
+          <th>
+            <FormattedMessage id="share.table.size" />
+          </th>
+          <th>
+            <FormattedMessage id="share.table.description" />
+          </th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {files.map((file) => (
+          <FileListRow
+            key={file.id}
+            file={file}
+            onRemove={() => handleRemove(file)}
+            onRestore={() => handleRestore(file)}
+            onEdit={() => handleEdit(file)}
+          />
+        ))}
+      </tbody>
+    </Table>
   );
 };
 

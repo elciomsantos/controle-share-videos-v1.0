@@ -177,18 +177,18 @@ const Share = ({ shareId }: { shareId: string }) => {
         <Box style={{ maxWidth: "70%" }}>
           <Title order={3}>{share?.name || share?.id}</Title>
           <Text size="sm">{share?.description}</Text>
-          {share?.files?.length > 0 && (
+          {share && share.files && share.files.length > 0 && (
             <Text size="sm" color="dimmed" mt={5}>
               <FormattedMessage
                 id="share.fileCount"
                 values={{
-                  count: share?.files?.length || 0,
+                  count: share.files.length,
                   size: byteToHumanSizeString(
-                    share?.files?.reduce(
-                      (total: number, file: { size: string }) =>
+                    share.files.reduce(
+                      (total: number, file: { size: string | bigint }) =>
                         total + Number(file.size),
                       0,
-                    ) || 0,
+                    ),
                   ),
                 }}
               />
@@ -218,7 +218,7 @@ const Share = ({ shareId }: { shareId: string }) => {
               </ActionIcon>
             </HoverTip>
           )}
-          {share?.files.length > 1 && (
+          {share && share.files && share.files.length > 1 && (
             <DownloadAllButton shareId={shareId} recipientId={recipientId} />
           )}
         </Group>

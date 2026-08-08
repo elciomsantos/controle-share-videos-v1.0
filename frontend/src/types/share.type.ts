@@ -1,9 +1,10 @@
 import User from "./user.type";
+import { FileRecord } from "./File.type";
 
 export type Share = {
   id: string;
   name?: string;
-  files: any;
+  files: FileRecord[];
   creator?: User;
   description?: string;
   expiration: Date;

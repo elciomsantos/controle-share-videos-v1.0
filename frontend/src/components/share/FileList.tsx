@@ -15,7 +15,7 @@ import { FormattedMessage } from "react-intl";
 import useConfig from "../../hooks/config.hook";
 import useTranslate from "../../hooks/useTranslate.hook";
 import shareService from "../../services/share.service";
-import { FileMetaData } from "../../types/File.type";
+import { FileMetaData, FileRecord } from "../../types/File.type";
 import { Share } from "../../types/share.type";
 import { byteToHumanSizeString } from "../../utils/fileSize.util";
 import toast from "../../utils/toast.util";
@@ -45,7 +45,7 @@ const FileList = ({
   isLoading,
   recipientId,
 }: {
-  files?: FileMetaData[];
+  files?: (FileMetaData | FileRecord)[];
   setShare: Dispatch<SetStateAction<Share | undefined>>;
   share: Share;
   isLoading: boolean;
@@ -84,7 +84,7 @@ const FileList = ({
     }
   };
 
-  const copyFileLink = (file: FileMetaData) => {
+  const copyFileLink = (file: FileMetaData | FileRecord) => {
     const recipientQuery = recipientId
       ? `?recipient=${encodeURIComponent(recipientId)}`
       : "";

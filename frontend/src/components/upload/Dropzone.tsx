@@ -31,14 +31,21 @@ const Dropzone = ({
   const handleFolderSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const filesList = event.target.files;
     if (!filesList) return;
-    const filesArray = Array.from(filesList) as FileUpload[];
+    const filesArray = Array.from(filesList);
 
-    const files = filesArray.map((newFile) => {
-      newFile.uploadingProgress = 0;
-      return newFile;
-    });
+    const files: FileUpload[] = filesArray.map((newFile) => ({
+      id: crypto.randomUUID(),
+      name: newFile.webkitRelativePath || newFile.name,
+      size: newFile.size.toString(),
+      description: undefined,
+      shareId: "",
+      createdAt: new Date(),
+      mimeType: newFile.type || false,
+      uploadingProgress: 0,
+      file: newFile,
+    }));
 
-    const fileSizeSum = files.reduce((n, { size }) => n + size, 0);
+    const fileSizeSum = files.reduce((n, { size }) => n + Number(size), 0);
 
     if (fileSizeSum + currentFilesSize > maxShareSize) {
       toast.error(
@@ -62,7 +69,7 @@ const Dropzone = ({
         {...({
           webkitdirectory: "",
           directory: "",
-        } as any)}
+        } as React.InputHTMLAttributes<HTMLInputElement>)}
         multiple
         onChange={handleFolderSelect}
       />

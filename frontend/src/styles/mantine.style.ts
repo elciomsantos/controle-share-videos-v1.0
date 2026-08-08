@@ -1,6 +1,6 @@
-import { MantineThemeOverride } from "@mantine/core";
+import { MantineThemeOverride, MantineTheme } from "@mantine/core";
 
-export default {
+const themeOverride: MantineThemeOverride = {
   colors: {
     victoria: [
       "#E2E1F1",
@@ -18,7 +18,7 @@ export default {
   primaryColor: "victoria",
   components: {
     Modal: {
-      styles: (theme: any) => ({
+      styles: (theme: MantineTheme) => ({
         title: {
           fontSize: theme.fontSizes.lg,
           fontWeight: 700,
@@ -26,4 +26,6 @@ export default {
       }),
     },
   },
-} as MantineThemeOverride;
+};
+
+export default themeOverride;

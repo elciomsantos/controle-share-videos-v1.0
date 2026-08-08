@@ -1,13 +1,13 @@
 import { useModals } from "@mantine/modals";
 import mime from "mime-types";
-import { FileMetaData } from "../../../types/File.type";
+import { FileMetaData, FileRecord } from "../../../types/File.type";
 import FilePreview from "../FilePreview";
 
 type ModalsContextProps = ReturnType<typeof useModals>;
 
 const showFilePreviewModal = (
   shareId: string,
-  file: FileMetaData,
+  file: FileMetaData | FileRecord,
   modals: ModalsContextProps,
 ) => {
   const baseName = file.name.split("/").pop() || file.name;
@@ -20,7 +20,7 @@ const showFilePreviewModal = (
         shareId={shareId}
         fileId={file.id}
         mimeType={mimeType}
-        description={file.description}
+        description={file.description ?? undefined}
       />
     ),
   });

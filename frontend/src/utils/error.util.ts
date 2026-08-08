@@ -1,5 +1,19 @@
-export function getApiErrorMessage(error: any): string | undefined {
-  const data = error?.response?.data;
+import { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from "axios";
+
+export interface ApiErrorResponse {
+  message?: string | string[];
+  error?: string;
+  field?: string;
+  [key: string]: unknown;
+}
+
+export type AxiosErrorWithResponse<T = ApiErrorResponse> = AxiosError<T> & {
+  response?: AxiosResponse<T>;
+};
+
+export function getApiErrorMessage(error: AxiosErrorWithResponse | Error | unknown): string | undefined {
+  const axiosError = error as AxiosErrorWithResponse;
+  const data = axiosError.response?.data as ApiErrorResponse | undefined;
 
   const message = data?.message;
   if (typeof message === "string" && message.trim().length > 0) return message;
@@ -12,7 +26,7 @@ export function getApiErrorMessage(error: any): string | undefined {
   if (typeof errorField === "string" && errorField.trim().length > 0)
     return errorField;
 
-  if (typeof error?.message === "string" && error.message.trim().length > 0)
+  if (error instanceof Error && typeof error.message === "string" && error.message.trim().length > 0)
     return error.message;
 
   try {
@@ -23,8 +37,9 @@ export function getApiErrorMessage(error: any): string | undefined {
   return undefined;
 }
 
-export function getApiErrorField(error: any): string | undefined {
-  const data = error?.response?.data;
+export function getApiErrorField(error: AxiosErrorWithResponse | unknown): string | undefined {
+  const axiosError = error as AxiosErrorWithResponse;
+  const data = axiosError.response?.data as ApiErrorResponse | undefined;
   const field = data?.field;
   if (typeof field === "string" && field.trim().length > 0) return field;
   return undefined;
