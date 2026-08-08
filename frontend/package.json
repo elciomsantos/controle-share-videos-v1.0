@@ -30,6 +30,7 @@
     "handlebars": "^4.7.9"
   },
   "dependencies": {
+    "@controle-share/shared": "file:../packages/shared",
     "@mantine/core": "^9.4.2",
     "@mantine/dropzone": "^9.4.2",
     "@mantine/form": "^9.4.2",
