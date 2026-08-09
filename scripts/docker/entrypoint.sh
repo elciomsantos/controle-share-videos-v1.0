@@ -34,8 +34,12 @@ PORT=3333 HOSTNAME=0.0.0.0 node server.js &
 cd /opt/app/backend
 export DATABASE_URL="${DATABASE_URL:-file:./data/controle-videos.db}"
 ./node_modules/.bin/prisma migrate deploy
-./node_modules/.bin/prisma db seed
-./node_modules/.bin/tsx prisma/seed/user.seed.ts
+# NOTE: use the COMPILED seeds from dist/ (not tsx on prisma/seed/*.ts). The
+# image ships only dist/, and the source seeds import from src/ (e.g.
+# src/config/jwt-secret-crypto) which is not present at runtime. tsx would
+# only resolve those imports if src/ were copied into the image.
+node dist/prisma/seed/config.seed.js
+node dist/prisma/seed/user.seed.js
 node dist/src/main
 
 # Wait for all processes to finish

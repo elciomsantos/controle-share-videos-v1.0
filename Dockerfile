@@ -1,8 +1,23 @@
 # =============================================================================
+# Stage 0: Build @controle-share/shared (ARQ-03)
+# The backend and frontend depend on it via `file:../packages/shared`. npm
+# installs it as a relative symlink (node_modules/@controle-share/shared →
+# ../../../packages/shared), so the directory layout inside the image must
+# mirror the repo: /opt/app/{frontend,backend,packages}. See commit 499e2fd.
+# =============================================================================
+FROM node:24-alpine AS shared-builder
+WORKDIR /opt/app/packages/shared
+COPY packages/shared/package.json packages/shared/package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci --prefer-offline
+COPY packages/shared/tsconfig.json ./
+COPY packages/shared/src ./src
+RUN npm run build
+
+# =============================================================================
 # Stage 1: Frontend dependencies
 # =============================================================================
 FROM node:24-alpine AS frontend-dependencies
-WORKDIR /opt/app
+WORKDIR /opt/app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --prefer-offline
 
@@ -12,9 +27,11 @@ RUN --mount=type=cache,target=/root/.npm npm ci --prefer-offline
 FROM node:24-alpine AS frontend-builder
 ARG API_URL
 ENV API_URL=${API_URL:-http://localhost:3000}
-WORKDIR /opt/app
+WORKDIR /opt/app/frontend
 COPY ./frontend .
-COPY --from=frontend-dependencies /opt/app/node_modules ./node_modules
+COPY --from=frontend-dependencies /opt/app/frontend/node_modules ./node_modules
+# Shared package needed at build time (its dist is gitignored; built in stage 0).
+COPY --from=shared-builder /opt/app/packages/shared /opt/app/packages/shared
 RUN npm run build
 
 # =============================================================================
@@ -24,8 +41,12 @@ FROM node:24-alpine AS backend-dependencies
 # python3 + make + g++ are required for node-gyp (better-sqlite3, argon2 native
 # addons). Installed as a virtual package so they can be purged after `npm ci`
 # finishes, keeping the layer lean (P3 INFRA-LOW-01).
-WORKDIR /opt/app
+WORKDIR /opt/app/backend
 COPY backend/package.json backend/package-lock.json ./
+# prisma.config.ts + schema are required because `npm ci` runs the backend's
+# postinstall `prisma generate` (fix(ci) bfef55d), which needs the schema.
+COPY backend/prisma.config.ts ./
+COPY backend/prisma ./prisma
 RUN --mount=type=cache,target=/root/.npm \
     apk add --no-cache --virtual .build-deps python3 make g++ \
     && npm ci --prefer-offline \
@@ -37,9 +58,11 @@ RUN --mount=type=cache,target=/root/.npm \
 # =============================================================================
 FROM node:24-alpine AS backend-builder
 RUN apk add --no-cache openssl
-WORKDIR /opt/app
+WORKDIR /opt/app/backend
 COPY ./backend .
-COPY --from=backend-dependencies /opt/app/node_modules ./node_modules
+COPY --from=backend-dependencies /opt/app/backend/node_modules ./node_modules
+# Shared package needed at build time (its dist is gitignored; built in stage 0).
+COPY --from=shared-builder /opt/app/packages/shared /opt/app/packages/shared
 RUN npx prisma generate
 RUN npm run build && npm prune --production
 
@@ -49,10 +72,10 @@ RUN npm run build && npm prune --production
 FROM node:24-alpine AS frontend-runner
 ENV NODE_ENV=production
 WORKDIR /opt/app/frontend
-COPY --from=frontend-builder /opt/app/public ./public
-COPY --from=frontend-builder /opt/app/.next/standalone ./
-COPY --from=frontend-builder /opt/app/.next/static ./.next/static
-COPY --from=frontend-builder /opt/app/public/img /tmp/img
+COPY --from=frontend-builder /opt/app/frontend/public ./public
+COPY --from=frontend-builder /opt/app/frontend/.next/standalone ./
+COPY --from=frontend-builder /opt/app/frontend/.next/static ./.next/static
+COPY --from=frontend-builder /opt/app/frontend/public/img /tmp/img
 
 # =============================================================================
 # Stage 6: Backend runner (NestJS)
@@ -63,12 +86,14 @@ ENV NODE_ENV=production
 RUN addgroup -g 1001 -S appgroup && \
     adduser -u 1001 -S appuser -G appgroup
 WORKDIR /opt/app/backend
-COPY --from=backend-builder --chown=appuser:appgroup /opt/app/node_modules ./node_modules
-COPY --from=backend-builder --chown=appuser:appgroup /opt/app/dist ./dist
-COPY --from=backend-builder --chown=appuser:appgroup /opt/app/prisma ./prisma
-COPY --from=backend-builder --chown=appuser:appgroup /opt/app/prisma.config.ts ./
-COPY --from=backend-builder --chown=appuser:appgroup /opt/app/package.json ./
-COPY --from=backend-builder --chown=appuser:appgroup /opt/app/tsconfig.json ./
+COPY --from=backend-builder --chown=appuser:appgroup /opt/app/backend/node_modules ./node_modules
+COPY --from=backend-builder --chown=appuser:appgroup /opt/app/backend/dist ./dist
+COPY --from=backend-builder --chown=appuser:appgroup /opt/app/backend/prisma ./prisma
+COPY --from=backend-builder --chown=appuser:appgroup /opt/app/backend/prisma.config.ts ./
+COPY --from=backend-builder --chown=appuser:appgroup /opt/app/backend/package.json ./
+COPY --from=backend-builder --chown=appuser:appgroup /opt/app/backend/tsconfig.json ./
+# Shared package at runtime (npm symlink ../../../packages/shared resolves here).
+COPY --from=shared-builder --chown=appuser:appgroup /opt/app/packages/shared /opt/app/packages/shared
 USER appuser
 
 # =============================================================================
@@ -102,6 +127,11 @@ COPY --from=frontend-runner --chown=controle-user:controle-group /tmp/img /tmp/i
 
 # Copy backend
 COPY --from=backend-runner --chown=controle-user:controle-group /opt/app/backend ./backend
+
+# Copy shared package (@controle-share/shared). The backend's npm symlink
+# node_modules/@controle-share/shared → ../../../packages/shared resolves to
+# /opt/app/packages/shared at runtime.
+COPY --from=shared-builder --chown=controle-user:controle-group /opt/app/packages/shared /opt/app/packages/shared
 
 # Copy reverse proxy config and entrypoint scripts
 COPY ./reverse-proxy /opt/app/reverse-proxy

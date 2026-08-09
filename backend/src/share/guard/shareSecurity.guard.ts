@@ -9,7 +9,7 @@ import { Request } from "express";
 import dayjs from "dayjs";
 import { I18nService } from "nestjs-i18n";
 import { PrismaService } from "../../prisma/prisma.service";
-import { ShareService } from "../../share/share.service";
+import { ShareTokenService } from "./../domain/share-token.service";
 import { ConfigService } from "../../config/config.service";
 import { JwtGuard } from "../../auth/guard/jwt.guard";
 import { Prisma, User } from "../../../prisma/generated/prisma/client";
@@ -18,7 +18,7 @@ import { isEpochZero } from "../../utils/date.util";
 @Injectable()
 export class ShareSecurityGuard extends JwtGuard {
   constructor(
-    private shareService: ShareService,
+    private shareTokenService: ShareTokenService,
     private prisma: PrismaService,
     private configService: ConfigService,
     private readonly i18n: I18nService,
@@ -74,8 +74,12 @@ export class ShareSecurityGuard extends JwtGuard {
         error: "share_password_required",
       });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (!(await this.shareService.verifyShareToken(share as any, shareToken)))
+    if (
+      !(await this.shareTokenService.verifyShareToken(
+        { ...share, security: share.security ?? undefined },
+        shareToken,
+      ))
+    )
       throw new ForbiddenException({
         message: this.i18n.t("share.tokenRequired"),
         error: "share_token_required",

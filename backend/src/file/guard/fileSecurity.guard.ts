@@ -13,7 +13,7 @@ import { I18nService } from "nestjs-i18n";
 import { DownloadLogService } from "../../download-log/download-log.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ShareSecurityGuard } from "../../share/guard/shareSecurity.guard";
-import { ShareService } from "../../share/share.service";
+import { ShareTokenService } from "../../share/domain/share-token.service";
 import { ConfigService } from "../../config/config.service";
 import {
   getRequestIp,
@@ -24,14 +24,14 @@ import { isEpochZero } from "../../utils/date.util";
 @Injectable()
 export class FileSecurityGuard extends ShareSecurityGuard {
   constructor(
-    private _shareService: ShareService,
+    private _shareTokenService: ShareTokenService,
     private _prisma: PrismaService,
     private _config: ConfigService,
     private readonly _i18n: I18nService,
     private _downloadLogService: DownloadLogService,
     reflector: Reflector,
   ) {
-    super(_shareService, _prisma, _config, _i18n, reflector);
+    super(_shareTokenService, _prisma, _config, _i18n, reflector);
   }
 
   isBase64(toCheck: string) {
@@ -53,7 +53,11 @@ export class FileSecurityGuard extends ShareSecurityGuard {
       return;
     }
     if (share) {
-      await this._shareService.reloadShareViews(share);
+      const fresh = await this._prisma.share.findUnique({
+        where: { id: shareId },
+        select: { views: true },
+      });
+      if (fresh) share.views = fresh.views;
     }
     if (share?.security?.maxViews && share.security.maxViews <= share.views) {
       void this._downloadLogService.record({
