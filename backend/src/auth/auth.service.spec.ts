@@ -1,6 +1,7 @@
 import { UnauthorizedException } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { ConfigService } from "../config/config.service";
+import { JwtSecretService } from "../config/jwt-secret.service";
 import { I18nService } from "nestjs-i18n";
 import { JwtService } from "@nestjs/jwt";
 import { EmailService } from "../email/email.service";
@@ -27,6 +28,12 @@ describe("AuthService", () => {
     getNumber: jest.Mock;
     getTimespan: jest.Mock;
   };
+  let jwtSecret: {
+    getCurrentSecret: jest.Mock;
+    getVerificationSecrets: jest.Mock;
+    getKid: jest.Mock;
+    resolveSecretForToken: jest.Mock;
+  };
   let emailService: { sendVerificationEmail: jest.Mock };
   let i18n: { t: jest.Mock; translate: jest.Mock };
   let service: AuthService;
@@ -52,6 +59,12 @@ describe("AuthService", () => {
       getNumber: jest.fn(),
       getTimespan: jest.fn(() => ({ value: 30, unit: "days" })),
     };
+    jwtSecret = {
+      getCurrentSecret: jest.fn(() => "test-secret"),
+      getVerificationSecrets: jest.fn(() => ["test-secret"]),
+      getKid: jest.fn(() => "kid-test"),
+      resolveSecretForToken: jest.fn(() => "test-secret"),
+    };
     emailService = { sendVerificationEmail: jest.fn() };
     i18n = {
       t: jest.fn((key: string) => `t:${key}`),
@@ -61,6 +74,7 @@ describe("AuthService", () => {
       prisma as unknown as PrismaService,
       jwtService as unknown as JwtService,
       config as unknown as ConfigService,
+      jwtSecret as unknown as JwtSecretService,
       emailService as unknown as EmailService,
       i18n as unknown as I18nService,
     );

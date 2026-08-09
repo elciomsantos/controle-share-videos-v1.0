@@ -796,3 +796,36 @@ Removidos imports não usados em `guards.decorator.ts`, `file.controller.ts`, `s
 - Docs sincronizados: `CHANGELOG_SUGERIDO.md` (seção 8 Itens Adiados, Conclusões, Recomendação 4).
 
 
+
+## 27. Rotação de JWT secret sem queda de sessão + secret manager (concluído 2026-08-09)
+
+### Objetivo
+Permitir rotacionar o segredo de assinatura JWT **sem derrubar sessões ativas** e com integração a secret manager (Docker secrets / env), encerrando o item "Rotação de `JWT_SECRET` / secret manager" do backlog.
+
+### Implementação
+- **`backend/src/config/jwt-secret.service.ts`** (novo, `JwtSecretService`, global via `ConfigModule`):
+  - `getCurrentSecret()` — precedência: env `JWT_SECRET` → Docker secret file (`/run/secrets/jwt_secret`, sobrescrevível via `JWT_SECRET_FILE`) → DB `internal.jwtSecret`.
+  - `getVerificationSecrets()` — segredo atual + histórico `internal.jwtSecretHistory` (janela de retenção de ~13 meses com evicção por idade, de-duplicado).
+  - `getKid()`/`getSecretByKid()`/`resolveSecretForToken()` — resolve o segredo exato pelo `kid` do header do token.
+  - `rotate()` — move o atual para o histórico e persiste um novo aleatório via `$transaction`; **mutex em processo** (serializa chamadas concorrentes); suporta **rotação híbrida** quando o segredo vem de Docker secret file (o valor do arquivo entra no histórico e `internal.jwtSecretSource` vira `db`); bloqueado apenas com env `JWT_SECRET` ou `config.yaml`; criptografa o segredo em repouso (AES-256-GCM) quando `JWT_SECRET_ENCRYPTION_KEY` está presente; chama `config.reload()` para refletir sem restart.
+- **`backend/src/config/config.service.ts`** — `ConfigTypeMap` ganha `internal.jwtSecretHistory`; novo método público `reload()`.
+- **`backend/prisma/seed/config.seed.ts`** — variáveis `internal.jwtSecretHistory` e `internal.jwtSecretSource` (locked, secret); `seedConfigVariables` cria as linhas em DBs existentes.
+- **`backend/src/auth/strategy/jwt.strategy.ts`** — passa a usar `secretOrKeyProvider` que resolve o segredo pelo `kid` do token (fallback para o atual).
+- **`backend/src/auth/auth.service.ts`** — `createAccessToken` assina com o segredo atual + `keyid`; `getIdOfCurrentUser` resolve o segredo pelo `kid` (O(1), com fallback para o atual).
+- **`backend/src/share/domain/share-token.service.ts`** — share tokens assinados com `kid`; verificação O(1) pelo `kid` (recomputa a assinatura HMAC da senha com o mesmo segredo, comparação com `timingSafeEqual`).
+- **`backend/src/config/config.controller.ts`** — `POST /api/configs/admin/rotateJwtSecret` (AdminOnly, `@Throttle` 5/min), retorna `{ rotated: true, retainedSecrets }` (nunca expõe o segredo); log de auditoria com actor (email) e IP.
+- **`backend/src/config/jwt-secret-crypto.ts`** (novo) — helpers AES-256-GCM (`encryptSecret`/`decryptSecret`) para criptografia em repouso, compartilhados com o seed.
+- **i18n** — mensagens `jwtSecretExternallyManaged` e `jwtSecretRotated` em `pt-BR`.
+
+### Cobertura de testes
+- Novo `backend/src/config/jwt-secret.service.spec.ts` (19 casos): precedência env/file/DB, histórico de-duplicado, `kid` round-trip, resolução via header do token, rotação (persistência, cap 13, evicção por idade, normalização legada), concorrência serializada, rotação híbrida com Docker secret file, cache do arquivo, invalidação pós-rotação e criptografia em repouso.
+- `auth.service.spec` atualizado para o novo construtor (`jwtSecret`).
+- Bateria completa: unit **104/104**, e2e **16/16**, `tsc -p tsconfig.build.json` OK, lint OK, `nest build` OK.
+
+### Notas de operação
+- Após rodar `npm run prod` (que executa `prisma db seed`), DBs existentes ganham as linhas `internal.jwtSecretHistory` e `internal.jwtSecretSource`.
+- Tokens emitidos **antes** da rotação continuam válidos até expirarem (o antigo segredo fica no histórico, retido por ~13 meses — cobre share tokens de até 1 ano); o acesso token dura 15 min.
+- Segredo via env `JWT_SECRET`: rotação deve ser feita no secret manager (a API responde 400).
+- Segredo via Docker secret file: a API executa **rotação híbrida** (adota o valor do arquivo para o histórico e passa a usar o DB).
+- Criptografia em repouso: definir `JWT_SECRET_ENCRYPTION_KEY` (base64 de 32 bytes) para cifrar `internal.jwtSecret`/`internal.jwtSecretHistory`; sem ela, valores seguem em texto claro (modo legado). ⚠️ Remover a chave depois de usada invalida os tokens (warning no log).
+- Detalhes de todas as correções desta rodada: `docs/auditoria/relatorios/CHANGELOG_CORRECOES.md`.

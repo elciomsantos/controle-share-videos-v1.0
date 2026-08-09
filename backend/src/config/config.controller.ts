@@ -9,15 +9,20 @@ import {
   ParseFilePipe,
   Patch,
   Post,
+  Req,
   UploadedFile,
   UseInterceptors,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { createKeyv, RedisClientOptions } from "@keyv/redis";
 import { I18nService } from "nestjs-i18n";
+import { Throttle } from "@nestjs/throttler";
+import { Request } from "express";
 import { AdminOnly, Public } from "../auth/decorator/guards.decorator";
+import { GetUser } from "../auth/decorator/getUser.decorator";
 import { EmailService } from "../email/email.service";
 import { ConfigService } from "./config.service";
+import { JwtSecretService } from "./jwt-secret.service";
 import { AdminConfigDTO } from "./dto/adminConfig.dto";
 import { ConfigDTO } from "./dto/config.dto";
 import { TestEmailDTO } from "./dto/testEmail.dto";
@@ -30,6 +35,7 @@ export class ConfigController {
     private configService: ConfigService,
     private logoService: LogoService,
     private emailService: EmailService,
+    private jwtSecretService: JwtSecretService,
     private readonly i18n: I18nService,
   ) {}
 
@@ -59,6 +65,18 @@ export class ConfigController {
   @AdminOnly()
   async testEmail(@Body() { email }: TestEmailDTO) {
     await this.emailService.sendTestMail(email);
+  }
+
+  @Post("admin/rotateJwtSecret")
+  @AdminOnly()
+  // Tighter than the global throttle: rotation is an infrequent, high-impact
+  // operation and repeated calls would churn the secret history.
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async rotateJwtSecret(
+    @GetUser() user: { email?: string },
+    @Req() req: Request,
+  ) {
+    return this.jwtSecretService.rotate(user?.email ?? "admin", req.ip);
   }
 
   @Post("admin/testRedis")

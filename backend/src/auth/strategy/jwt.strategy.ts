@@ -2,18 +2,34 @@ import { Injectable } from "@nestjs/common";
 import { PassportStrategy } from "@nestjs/passport";
 import { Request } from "express";
 import { Strategy } from "passport-jwt";
-import { ConfigService } from "../../config/config.service";
+import { JwtSecretService } from "../../config/jwt-secret.service";
 import { PrismaService } from "../../prisma/prisma.service";
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
-    config: ConfigService,
+    jwtSecret: JwtSecretService,
     private prisma: PrismaService,
   ) {
     super({
       jwtFromRequest: JwtStrategy.extractJWT,
-      secretOrKey: config.getString("internal.jwtSecret"),
+      algorithms: ["HS256", "HS512"],
+      secretOrKeyProvider: (
+        _req: Request,
+        rawJwtToken: string,
+        done: (err: Error | null, secret?: string | Buffer) => void,
+      ) => {
+        try {
+          // Resolve the exact secret that signed the token (kid-based), falling
+          // back to the current secret for legacy tokens without a kid.
+          const secret =
+            jwtSecret.resolveSecretForToken(rawJwtToken) ??
+            jwtSecret.getCurrentSecret();
+          done(null, secret);
+        } catch (err) {
+          done(err as Error);
+        }
+      },
     });
   }
 
@@ -30,3 +46,4 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return user;
   }
 }
+

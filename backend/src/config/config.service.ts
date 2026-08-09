@@ -31,6 +31,8 @@ export type ConfigValue = string | number | boolean | Timespan;
  */
 export type ConfigTypeMap = {
   "internal.jwtSecret": string;
+  "internal.jwtSecretHistory": string;
+  "internal.jwtSecretSource": string;
   "general.appName": string;
   "general.appUrl": string;
   "general.secureCookies": boolean;
@@ -408,6 +410,15 @@ export class ConfigService extends EventEmitter {
 
   isEditAllowed(): boolean {
     return this.yamlConfig === undefined || this.yamlConfig === null;
+  }
+
+  /**
+   * Reloads the in-memory configVariables from the database. Used after
+   * internal secrets (e.g. JWT rotation) are persisted so get*() reflects
+   * the new values without a restart.
+   */
+  async reload(): Promise<void> {
+    this.configVariables = await this.prisma.config.findMany();
   }
 
   private t(

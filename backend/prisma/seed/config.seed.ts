@@ -1,12 +1,29 @@
 import { Prisma, PrismaClient } from "../generated/prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import * as crypto from "crypto";
+import { encryptSecret } from "../../src/config/jwt-secret-crypto";
 
 export const configVariables = {
   internal: {
     jwtSecret: {
       type: "string",
-      value: crypto.randomBytes(256).toString("base64"),
+      // Encrypted at rest when JWT_SECRET_ENCRYPTION_KEY (base64, 32 bytes) is
+      // set; falls back to plaintext (legacy) otherwise.
+      value: encryptSecret(crypto.randomBytes(256).toString("base64")),
+      locked: true,
+      secret: true,
+    },
+    jwtSecretHistory: {
+      type: "string",
+      defaultValue: "[]",
+      locked: true,
+      secret: true,
+    },
+    jwtSecretSource: {
+      type: "string",
+      // "auto": env → Docker secret file → DB. Flips to "db" after a hybrid
+      // rotation adopts a file secret and makes the DB authoritative.
+      defaultValue: "auto",
       locked: true,
       secret: true,
     },

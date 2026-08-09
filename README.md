@@ -194,4 +194,5 @@ Requisitos: backend precisa do `prisma generate` antes do primeiro run (Postinst
 - `docs/auditoria/Especificacao-final.md` — especificação da auditoria (14 fases)
 - `docs/auditoria/FASE-0-DESCOBERTA.md` … `docs/auditoria/FASE-12-REFATORACAO.md` — relatórios por fase
 - `docs/auditoria/relatorios/AUDIT_REPORT.md` — relatório final consolidado
+- `docs/auditoria/relatorios/CHANGELOG_CORRECOES.md` — registro das correções aplicadas (rotação de segredo JWT e pendências de segurança/performance)
 - `docs/auditoria/relatorios/` — demais relatórios: `SECURITY_REPORT`, `PERFORMANCE_REPORT`, `DEPENDENCY_AUDIT`, `TECH_DEBT`, `TEST_PLAN`, `ARCHITECTURE_REVIEW`, `REFACTORING_PLAN`, `ROADMAP`, `CHANGELOG_SUGERIDO`

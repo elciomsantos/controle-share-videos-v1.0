@@ -8,5 +8,7 @@
   "editNotAllowed": "Você só tem permissão para atualizar as variáveis de configuração através do arquivo config.yaml",
   "invalidType": "A variável de configuração deve ser do tipo {type}",
   "shareIdLengthValidation": "O comprimento do ID de compartilhamento deve estar entre 2 e 50",
-  "zipCompressionLevelValidation": "O nível de compressione Zip deve estar entre 0 e 9"
+  "zipCompressionLevelValidation": "O nível de compressione Zip deve estar entre 0 e 9",
+  "jwtSecretExternallyManaged": "O segredo JWT é gerenciado externamente (variável de ambiente ou arquivo de segredo do Docker); rotacione-o no gerenciador de segredos",
+  "jwtSecretRotated": "Segredo JWT rotacionado; {count} segredo(s) anterior(es) mantidos para verificação"
 }

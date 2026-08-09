@@ -50,10 +50,11 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 - ✅ **QTS-05** — `newman` removido (2026-08-07).
 - ✅ **TODO logoutAllDevices** — `POST /api/auth/logoutAll` invalida refresh+loginTokens (commit `5667793`, 2026-08-08).
 - ✅ **Hotfix v1.2.1** — Build frontend `/share/[shareId]/edit` corrigido (commit `71fee21`, 2026-08-09).
+- ✅ **Rotação de JWT secret sem queda de sessão** — `JwtSecretService` + `POST /api/configs/admin/rotateJwtSecret`; tokens anteriores continuam válidos via `kid` + histórico `internal.jwtSecretHistory`; suporte a Docker secret file (`/run/secrets/jwt_secret`) e env `JWT_SECRET` (2026-08-09).
 
 **Pendente (próximos épicos):**
 - v1.3.0+: **QAL-06** (cosmético — duplicação leve de arquivos monolíticos, baixa prioridade, não bloqueante).
-- Rotação de `JWT_SECRET` / secret manager; migração SQLite → PostgreSQL; observabilidade; CI/CD com deploy automatizado.
+- Migração SQLite → PostgreSQL; observabilidade; CI/CD com deploy automatizado.
 
 ## 3. Versão Sugerida — v1.1.0 (primeira entrega de correções)
 

@@ -14,6 +14,7 @@ import dayjs from "dayjs";
 import { I18nService } from "nestjs-i18n";
 import { ARGON2_OPTIONS } from "../constants";
 import { ConfigService } from "../config/config.service";
+import { JwtSecretService } from "../config/jwt-secret.service";
 import { EmailService } from "../email/email.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuthRegisterDTO } from "./dto/authRegister.dto";
@@ -25,6 +26,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private config: ConfigService,
+    private jwtSecret: JwtSecretService,
     private emailService: EmailService,
     private readonly i18n: I18nService,
   ) {}
@@ -278,6 +280,7 @@ export class AuthService {
   }
 
   async createAccessToken(user: User, refreshTokenId: string) {
+    const secret = this.jwtSecret.getCurrentSecret();
     return this.jwtService.sign(
       {
         sub: user.id,
@@ -288,7 +291,8 @@ export class AuthService {
       },
       {
         expiresIn: "15min",
-        secret: this.config.getString("internal.jwtSecret"),
+        secret,
+        keyid: this.jwtSecret.getKid(secret),
       },
     );
   }
@@ -446,16 +450,19 @@ export class AuthService {
   }
 
   /**
-   * Returns the user id if the user is logged in, null otherwise
+   * Returns the user id if the user is logged in, null otherwise.
+   * Resolves the exact secret that signed the token by its kid (rotation-aware)
+   * in O(1) instead of trying every verification secret.
    */
   async getIdOfCurrentUser(request: Request): Promise<string | null> {
     if (!request.cookies.access_token) return null;
+    const secret =
+      this.jwtSecret.resolveSecretForToken(request.cookies.access_token) ??
+      this.jwtSecret.getCurrentSecret();
     try {
       const payload = await this.jwtService.verifyAsync(
         request.cookies.access_token,
-        {
-          secret: this.config.getString("internal.jwtSecret"),
-        },
+        { secret, algorithms: ["HS256", "HS512"] },
       );
       return payload.sub;
     } catch {

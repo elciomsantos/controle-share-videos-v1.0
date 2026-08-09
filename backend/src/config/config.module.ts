@@ -4,6 +4,7 @@ import { EmailModule } from "../email/email.module";
 import { PrismaService } from "../prisma/prisma.service";
 import { ConfigController } from "./config.controller";
 import { ConfigService } from "./config.service";
+import { JwtSecretService } from "./jwt-secret.service";
 import { LogoService } from "./logo.service";
 
 @Global()
@@ -27,8 +28,9 @@ import { LogoService } from "./logo.service";
       inject: [PrismaService, "CONFIG_VARIABLES"],
     },
     LogoService,
+    JwtSecretService,
   ],
   controllers: [ConfigController],
-  exports: [ConfigService],
+  exports: [ConfigService, JwtSecretService],
 })
 export class ConfigModule {}
