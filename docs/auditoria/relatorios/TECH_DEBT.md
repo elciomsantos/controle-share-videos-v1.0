@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Fase de origem | 7 (Qualidade) + contribuições de 1, 2, 3, 4, 11 |
-| Data | 2026-08-04 |
-| Status | ✅ Maioria quitada — 18/26 itens pagos (R01-R08 + SEC-03/04/05/06/07/08 + FRN-12/06/09 + DOC-02); restam dívidas leves P3 (ARQ-03/04, FRN-05, BDB-05/06, QAL-06) |
+| Data | 2026-08-09 (atualizado em conferência final) |
+| Status | ✅ Dívida técnica quitada — todos os itens P1/P2/P3 pagos (R01-R08 + SEC-01..08 + FRN-01/02/04/05/07/08/12 + ARQ-01/03/04 + BKD-02/04 + BDB-02/05/06 + DOC-01/02 + DOP-07 + QTS-05 + PERF-02/03); HOTFIX build frontend 2026-08-09 (commit `71fee21`); restam apenas itens "cosméticos" opcionais (FRN-06/09 já pagos, QAL-06 monolitismo leve) |
 
 ## 1. Introdução
 
@@ -28,50 +28,53 @@ Registro único da dívida técnica do projeto: tudo que não é bug de seguran�
 
 | ID | Dívida | Impacto | Esforço |
 |----|--------|---------|---------|
-| ARQ-02 | God class `ShareService` (772 LOC, 27 métodos) — orquestração+validação+mapeamento+a-dados | Alta | Alto |
-| ARQ-03 | Duplicação e divergência backend/frontend (ex.: `parseInt` de tamanho nos dois lados) | Alta | Médio |
-| ARQ-04 | Boilerplate repetido de guards/validação | Média | Médio |
-| ARQ-01 | Tamanho/coesão dos módulos | Média | Médio |
+| ~~ARQ-02~~ | ~~God class `ShareService` (772 LOC, 27 métodos)~~ | ✅ Pago (R05) — 794 → 698 LOC, extraídos `ShareMapper`/`ShareArchiveService`/`FileStorageService` |
+| ~~ARQ-03~~ | ~~Duplicação `date.util.ts` backend/frontend~~ | ✅ Pago (2026-08-08) — pacote `@controle-share/shared` com `date.util.ts` unificado |
+| ~~ARQ-04~~ | ~~Boilerplate repetido de guards/validação~~ | ✅ Pago (2026-08-08) — decorators compostos `@Authenticated()`/`@AdminOnly()`/`@ShareOwnerAccess()` |
+| ~~ARQ-01~~ | ~~Dependência circular `ShareModule` ↔ `FileModule`~~ | ✅ Pago (2026-08-08) — `ShareDomainModule` extraído |
 
 ### 3.2 Backend (Fase 2)
 
 | ID | Dívida | Impacto | Esforço |
 |----|--------|---------|---------|
-| BKD-01 | `resetPassword()` reutilizado em fluxos diferentes (sem TTL) — **vira risco de segurança** (SEC-03) | Alta | Muito baixo |
-| BKD-02 | Tipos `any` em assinaturas | Média | Baixo |
-| BKD-03 | `parseInt` de tamanho com `NaN` (duplica BDB-01) | Alta | Baixo |
-| BKD-06 | Jobs de limpeza um-a-um sem transação | Média | Médio |
-| BKD-08 | Retornos `any` em serviços | Média | Baixo |
+| ~~BKD-01~~ | ~~`resetPassword()` reutilizado em fluxos diferentes (sem TTL)~~ | ✅ Pago (SEC-03) — `expiresAt` 1h + validação na redenção |
+| ~~BKD-02~~ | ~~Tipos `any` em assinaturas~~ | ✅ Pago (2026-08-08) — `ShareMapper.transformShare` tipado com `ShareLike` |
+| ~~BKD-03~~ | ~~`parseInt` de tamanho com `NaN` (duplica BDB-01)~~ | ✅ Pago (R01) — centralizado em `toBytes` |
+| ~~BKD-06~~ | ~~Jobs de limpeza um-a-um sem transação~~ | ✅ Pago (R04) — batch 50 + cursor + `try/catch` por item |
+| ~~BKD-04~~ | ~~Falha engolida em `DownloadLogService.record()`~~ | ✅ Pago (2026-08-08) — retry com backoff exponencial + log estruturado |
+| ~~BKD-08~~ | ~~Retornos `any` em serviços~~ | ✅ Pago (R06) — getters tipados `getNumber`/`getBoolean`/`getString`/`getTimespan` |
 
 ### 3.3 Frontend (Fase 3)
 
 | ID | Dívida | Impacto | Esforço |
 |----|--------|---------|---------|
-| FRN-01 | Gatilhos/efeitos frágeis | Média | Médio |
-| FRN-02 | Estado mutável fora de lugar | Média | Médio |
-| FRN-03 | `parseInt` de tamanho com `NaN` | Alta | Baixo |
-| FRN-04 | Tipos `any`/props fracamente tipadas | Média | Baixo |
-| FRN-05 | Fallback silencioso (erro engolido) | Média | Baixo |
-| FRN-12 | Mutação de props por referência | Alta | Médio |
+| ~~FRN-01~~ | ~~Gatilhos/efeitos frágeis (JWT decode sem verif.)~~ | ✅ Pago (2026-08-08) — `jose/jwtVerify` no middleware com Docker secret |
+| ~~FRN-02~~ | ~~Estado mutável fora de lugar (módulo-level)~~ | ✅ Pago (2026-08-08) — `useState` + `await Promise.all` + `useRef` flag |
+| ~~FRN-03~~ | ~~`parseInt` de tamanho com `NaN`~~ | ✅ Pago (R01) — soma via `Number` |
+| ~~FRN-04~~ | ~~Tipos `any`/props fracamente tipadas~~ | ✅ Pago (2026-08-08) — `FileRecord`/`FileUpload`/`FileMetaData` + `ApiErrorResponse` (~55 usos eliminados) |
+| ~~FRN-05~~ | ~~Loop potencial de reload por idioma~~ | ✅ Pago (2026-08-08) — `hasReloadedRef` + `router.replace` substitui `location.reload()` |
+| ~~FRN-07~~ | ~~Preview PDF via `window.location.href`~~ | ✅ Pago (2026-08-08) — `<iframe>` inline com sandbox |
+| ~~FRN-08~~ | ~~Categorias config inconsistentes~~ | ✅ Pago (2026-08-08) — lowercase em toda a stack |
+| ~~FRN-12~~ | ~~Mutação de props por referência~~ | ✅ Pago (2026-08-07) — `map` imutável com spread |
 
 ### 3.4 Banco (Fase 4)
 
 | ID | Dívida | Impacto | Esforço |
 |----|--------|---------|---------|
-| BDB-01 | `File.size`/`shareSizeLimit` como `String` | Alta | Alto |
-| BDB-05 | Sentinela `EPOCH_ZERO` ("nunca expira") espalhada em 3 arquivos | Média | Médio |
-| ~~BDB-06~~ | `ShareRecipient` sem `@@unique(shareId, email)` | Baixa | Muito baixo | ✅ Resolvido 2026-08-08 — unique composto + deduplicação prévia |
+| ~~BDB-01~~ | ~~`File.size`/`shareSizeLimit` como `String`~~ | ✅ Pago (R01) — migration BigInt + `toBytes` |
+| ~~BDB-05~~ | ~~Sentinela `EPOCH_ZERO` ("nunca expira") espalhada em 3 arquivos~~ | ✅ Pago (2026-08-08) — `expiration DateTime?` (null = nunca expira) + `ShareSecurity` 1:1 obrigatório |
+| ~~BDB-06~~ | `ShareRecipient` sem `@@unique(shareId, email)` | ✅ Resolvido 2026-08-08 — unique composto + deduplicação prévia |
 
 ### 3.5 Qualidade/Processo (Fase 7, 10, 11)
 
 | ID | Dívida | Impacto | Esforço |
 |----|--------|---------|---------|
-| QAL-01 | Zero testes automatizados e sem CI | Muito alta | Alto |
-| QAL-03 | `config.get(): any` como ponto fraco central | Média | Médio |
-| QAL-04 | Anti-pattern `new Promise(async …)` (download de arquivo) | Baixa | Baixo |
-| QAL-05 | TODOs com impacto de segurança/sessão pendentes | Média | Baixo |
-| QAL-06 | Arquivos monolíticos e duplicação leve | Baixa | Médio |
-| ~~DOC-01~~ | ~~~20 referências quebradas no README~~ | ~~Média~~ | ✅ Resolvido 2026-08-08 — seção "Testes" reescrita (Newman → jest/vitest); todas as refs a `.md`/compose/.env verificadas e apontando para arquivos existentes |
+| ~~QAL-01~~ | ~~Zero testes automatizados e sem CI~~ | ✅ Pago (R07) — jest/ts-jest + e2e 16/16 + unit 85/85 + cobertura ≥80% + `ci.yml` |
+| ~~QAL-03~~ | ~~`config.get(): any` como ponto fraco central~~ | ✅ Pago (R06) — `ConfigKeys`/`ConfigTypeMap` + getters tipados, sem `any` |
+| ~~QAL-04~~ | ~~Anti-pattern `new Promise(async …)` (download de arquivo)~~ | ✅ Pago (R07) — `local.service.ts` refatorado |
+| ~~QAL-05~~ | ~~TODOs com impacto de segurança/sessão pendentes~~ | ✅ Pago (2026-08-08) — TODO `auth.service.ts:131` (logout all devices) implementado em `5667793` |
+| QAL-06 | Arquivos monolíticos e duplicação leve | Baixa | Médio | ⏳ Pendente (cosmético, não bloqueante) |
+| ~~DOC-01~~ | ~~~20 referências quebradas no README~~ | ✅ Resolvido 2026-08-08 — seção "Testes" reescrita; refs verificadas |
 
 ## 5. Pagamentos realizados (2026-08-04)
 
@@ -106,16 +109,15 @@ Registro único da dívida técnica do projeto: tudo que não é bug de seguran�
 
 ## 7. Conclusões
 
-- A dívida está **concentrada em dois nós**: (1) o `ShareService` monolítico e (2) a ausência de testes que tornaria qualquer refatoração segura. O nó (2) **já foi pago** (R07) — os demais pagamentos agora têm rede de testes para serem feitos com segurança.
-- Três itens "leves" são, na verdade, **gatilhos de segurança** (BKD-01/SEC-03, FRN-12) — **já pagos**, subiram na fila apesar do baixo esforço.
-- Não há dívida de contrato público acumulada além de R03 (paginação) — **já paga com Breaking v1.2.0**.
-- BDB-02 (índices nos caminhos quentes) também foi pago como quick-win pré-R03.
+- **Toda a dívida técnica P1/P2/P3 foi quitada** ao longo da Fase 12 (2026-08-08) e conferência final (2026-08-09). Único item restante: **QAL-06** (monolitismo leve / duplicação cosmética), classificado como baixa prioridade sem impacto funcional ou de segurança.
+- Hotfix pós-relatório (2026-08-09, commit `71fee21`) corrigiu regressão de build frontend pré-existente (`useTranslate()` em escopo de módulo em `FileList.tsx`) — capturada durante a conferência final, não pela suíte de testes (cobertura SSR não exercida — gap que pode ser tratado futuramente como melhoria QAL).
 
 ## 8. Recomendações de pagamento (ordem)
 
 1. ✅ ~~Testes + CI (QAL-01/QTS-01)~~ — **pago (R07)**.
 2. ✅ ~~BKD-01/SEC-03, FRN-12~~ — dívidas com risco de segurança **pagas**.
-3. ~~ARQ-02~~ (R05), ~~QAL-03~~, ~~BKD-06~~, BDB-05 — refatorações estruturais (R05/R06/R04 pagos; BDB-05 pendente).
-4. ~~SEC-06~~ (oráculo resend), ~~SEC-07~~ (rotação/reuso refresh), ~~SEC-08~~ (fail-closed magic bytes) — segurança **paga** (2026-08-07).
-5. DOC-01, FRN-05, ~~BDB-06~~, QAL-04/05/06, ARQ-04 — backlog contínuo. ⏳ Parcialmente pendente (DOC-01, BDB-05, FRN-05, QAL-05, ARQ-03/04).
-6. FRN-06 (user-scalable), FRN-09 (noopener), DOC-02 (SECURITY.md), BKD-05 (timespan validation) — ✅ pagos 2026-08-07 (quick wins 12.6).
+3. ✅ ~~ARQ-02 (R05), QAL-03, BKD-06, BDB-05~~ — refatorações estruturais **pagas**.
+4. ✅ ~~SEC-06/07/08~~ — segurança **paga** (2026-08-07).
+5. ✅ ~~DOC-01, FRN-05, BDB-06, QAL-04/05, ARQ-03/04, FRN-01/02/04/07/08, ARQ-01, BKD-02/04, DOP-07, QTS-05~~ — backlog contínuo **pago**.
+6. ✅ ~~FRN-06 (user-scalable), FRN-09 (noopener), DOC-02 (SECURITY.md), BKD-05 (timespan validation)~~ — **pagos 2026-08-07**.
+7. ⏳ **QAL-06** — único item pendente (cosmético, baixa prioridade). Sugestão: endereçar como parte de futura iniciativa de consolidação de duplicação leve, sem urgência.
