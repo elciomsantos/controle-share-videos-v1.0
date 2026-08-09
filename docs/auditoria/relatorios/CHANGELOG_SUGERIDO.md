@@ -51,10 +51,11 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 - ✅ **TODO logoutAllDevices** — `POST /api/auth/logoutAll` invalida refresh+loginTokens (commit `5667793`, 2026-08-08).
 - ✅ **Hotfix v1.2.1** — Build frontend `/share/[shareId]/edit` corrigido (commit `71fee21`, 2026-08-09).
 - ✅ **Rotação de JWT secret sem queda de sessão** — `JwtSecretService` + `POST /api/configs/admin/rotateJwtSecret`; tokens anteriores continuam válidos via `kid` + histórico `internal.jwtSecretHistory`; suporte a Docker secret file (`/run/secrets/jwt_secret`) e env `JWT_SECRET` (2026-08-09).
+- ✅ **CI/CD com deploy automatizado** — job `deploy` no `ci.yml` (SSH ao host após CI verde, `needs` + `concurrency` + `environment: production`) + `scripts/deploy/deploy-prod.sh` (backup pré-deploy, fetch/checkout por SHA, build, up, healthcheck e rollback automático); guia em `docs/CI-CD.md` (2026-08-09). Requer secrets `DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_PORT`/`DEPLOY_SSH_KEY` e setup one-time no host.
 
 **Pendente (próximos épicos):**
 - v1.3.0+: **QAL-06** (cosmético — duplicação leve de arquivos monolíticos, baixa prioridade, não bloqueante).
-- Migração SQLite → PostgreSQL; observabilidade; CI/CD com deploy automatizado.
+- Migração SQLite → PostgreSQL; observabilidade (métricas/traces/alertas além do compose monitoring atual); armazenamento S3; reauditoria de segurança trimestral.
 
 ## 3. Versão Sugerida — v1.1.0 (primeira entrega de correções)
 
@@ -145,9 +146,9 @@ Rodada de fixes derivada da consolidação dos relatórios de auditoria (SECURIT
 
 ## 8. Itens Adiados (próximos ciclos)
 - ~~Mascaramento de query strings no proxy quando `includePasswordInShareLink=true` (SEC-05); mover credenciais Newman para env (QTS-05); excluir `secrets/`/`.env*` do docker context (DOP-07).~~ ✅ **Todos pagos** — SEC-05 (filtro `replace pwd REDACTED` nos 3 Caddyfiles, commit `242c231`); QTS-05 (`newman` removido, 2026-08-07); DOP-07 (`.dockerignore` ampliado, commit `5e9b987`).
-- Rotação de `JWT_SECRET` / secret manager.
-- Migração SQLite → PostgreSQL; armazenamento S3; observabilidade.
-- CI/CD com deploy automatizado e reauditoria de segurança trimestral.
+- ~~Rotação de `JWT_SECRET` / secret manager~~ ✅ **Pago 2026-08-09** — `JwtSecretService` + `POST /api/configs/admin/rotateJwtSecret` (seção 27 do PROGRESSO).
+- ~~CI/CD com deploy automatizado~~ ✅ **Pago 2026-08-09** — job `deploy` no `ci.yml` + `scripts/deploy/deploy-prod.sh` (seção 28 do PROGRESSO); reauditoria de segurança trimestral segue como item recorrente.
+- Migração SQLite → PostgreSQL; armazenamento S3; observabilidade (métricas/traces/alertas além do compose monitoring atual).
 - ~~Tornar status check do `frontend` job obrigatório (branch protection)~~ — ⚠️ **Não aplicável**: repo privado na conta GitHub free exige **GitHub Pro** para branch protection/rulesets (403 confirmado em 2026-08-09). Mantido como gate manual enquanto o repo for privado; habilitar se tornar público ou fizer upgrade.
 
 ## 9. Notas
@@ -163,7 +164,7 @@ Rodada de fixes derivada da consolidação dos relatórios de auditoria (SECURIT
 
 - ✅ v1.1.0 (baixo risco, sem breaking), v1.2.0 (dados + performance, 2 breaking), v1.3.0 (manutenibilidade), v1.2.1 (hotfix pós-conferência) e v1.2.2 (correções da auditoria consolidada) **todos aplicados** em `main` com builds e testes OK.
 - v1.2.0 concentra os dois únicos breaking (BigInt, paginação) — exige deploy coordenado e instrução de migração vertical; v1.3.0 é puramente de manutenção, sem mudança de contrato.
-- Após a conferência final de 2026-08-09: backlog tecnológico quitado, restando apenas **QAL-06** (cosmético, baixa prioridade) e os itens adiados da seção 8 (rotação de segredos, PostgreSQL, S3, observabilidade, CI/CD). Branch protection não habilitável em repo privado free (requer GitHub Pro).
+- Após a conferência final de 2026-08-09: backlog tecnológico quitado, restando apenas **QAL-06** (cosmético, baixa prioridade) e os itens adiados da seção 8 (PostgreSQL, S3, observabilidade). **CI/CD com deploy automatizado e rotação de JWT secret foram pagos em 2026-08-09**. Branch protection não habilitável em repo privado free (requer GitHub Pro) — mitigado no deploy pelo gate `needs` dentro do próprio workflow.
 
 ## 12. Recomendações
 

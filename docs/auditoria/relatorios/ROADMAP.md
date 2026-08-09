@@ -66,9 +66,10 @@ Roteiro de evolução organizado em horizontes **curto/médio/longo prazo**, agr
 |------|----------|------------|
 | Decomposição do `ShareService` (R05) | `REFACTORING_PLAN.md`, `ARCHITECTURE_REVIEW.md` | P2 |
 | Rate-limit de `resendVerification` (SEC-06) | `SECURITY_REPORT.md` | P3 |
-| Rotação de `JWT_SECRET` e segredos em secret manager | `SECURITY_REPORT.md`, `ARCHITECTURE_REVIEW.md` | P3 |
+| ~~Rotação de `JWT_SECRET` e segredos em secret manager~~ ✅ Pago 2026-08-09 | `SECURITY_REPORT.md`, `ARCHITECTURE_REVIEW.md` | P3 |
 | Migrar SQLite → banco concorrente (PostgreSQL) quando o volume exigir | `ARCHITECTURE_REVIEW.md` | P3 |
 | Módulo de observabilidade (métricas, traces, alertas) | `ARCHITECTURE_REVIEW.md` | P3 |
+| ~~CI/CD com deploy automatizado~~ ✅ Pago 2026-08-09 (job `deploy` no `ci.yml` + `scripts/deploy/deploy-prod.sh`; guia `docs/CI-CD.md`) | `ROADMAP.md` | P3 |
 | Suporte oficial a multi-instância / armazenamento S3 | `ARCHITECTURE_REVIEW.md` | P3 |
 | Versionamento de API e changelog automatizado | `CHANGELOG_SUGERIDO.md` | P3 |
 

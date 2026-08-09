@@ -829,3 +829,51 @@ Permitir rotacionar o segredo de assinatura JWT **sem derrubar sessões ativas**
 - Segredo via Docker secret file: a API executa **rotação híbrida** (adota o valor do arquivo para o histórico e passa a usar o DB).
 - Criptografia em repouso: definir `JWT_SECRET_ENCRYPTION_KEY` (base64 de 32 bytes) para cifrar `internal.jwtSecret`/`internal.jwtSecretHistory`; sem ela, valores seguem em texto claro (modo legado). ⚠️ Remover a chave depois de usada invalida os tokens (warning no log).
 - Detalhes de todas as correções desta rodada: `docs/auditoria/relatorios/CHANGELOG_CORRECOES.md`.
+
+## 28. CI/CD com deploy automatizado (concluído 2026-08-09)
+
+### Objetivo
+Encerrar o item "CI/CD com deploy automatizado e reauditoria de segurança trimestral" do
+backlog (`CHANGELOG_SUGERIDO.md` §8 / `ROADMAP.md` §6). O CI já existia (R07); o que faltava
+era o **deploy automático** após CI verde.
+
+### Implementação
+- **`.github/workflows/ci.yml`** — novo job `deploy` (linhas 74-113):
+  - `needs: [backend, frontend]` → só roda **depois** que os dois jobs de CI passarem.
+  - `if: github.event_name == 'push' && github.ref == 'refs/heads/main'` → só em push na main.
+  - `concurrency: { group: deploy-prod, cancel-in-progress: false }` → impede deploys simultâneos.
+  - `environment: production` → isolamento de secrets do ambiente.
+  - Conecta via SSH ao host (`DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_PORT`/`DEPLOY_SSH_KEY`),
+    envia `scripts/deploy/deploy-prod.sh` por stdin (o código executado é o do próprio ref)
+    e roda com `TARGET_REF=$GITHUB_SHA`, `RUN_BACKUP=1`.
+  - Topo do workflow ganhou `concurrency: ci-${{ github.ref }}` com `cancel-in-progress: true`
+    para cancelar runs obsoletos do mesmo ref.
+- **`scripts/deploy/deploy-prod.sh`** (novo, 130 LOC, executado no host):
+  1. Backup pré-deploy opcional (`RUN_BACKUP=1` → `scripts/backup.sh`, fail-closed com GPG).
+  2. `git fetch --prune origin` + resolução do `TARGET_REF` (local ou `origin/<ref>`).
+  3. `git checkout --detach <commit>` — deploy imutável pelo SHA que passou no CI.
+  4. `docker compose -f docker-compose.prod.yml build`.
+  5. `docker compose -f docker-compose.prod.yml up -d --remove-orphans`.
+  6. Healthcheck do container backend (60 × 5s até `healthy`).
+  7. **Rollback automático** para o ref anterior em falha de build/up/healthcheck.
+  - Códigos de saída: `0` sucesso, `1` falha sem rollback, `2` rollback executado.
+
+### Documentação
+- **`docs/CI-CD.md`** (novo) — visão geral do pipeline, tabela de secrets, setup one-time
+  do host (usuário `deploy`, chave exclusiva, clone em `/opt/controle-share-videos-v1.0`,
+  pré-requisitos do compose prod, backup GPG), fluxo de ativação, operações manuais e
+  notas de segurança/limitações.
+
+### Validação
+- `bash -n scripts/deploy/deploy-prod.sh` — sintaxe OK.
+- `python3 -c "import yaml; yaml.safe_load(...)"` em `.github/workflows/ci.yml` — YAML OK.
+- Suíte completa (unit 104/104, e2e 16/16, lint, build) não foi afetada — mudanças apenas
+  em workflow e script de deploy.
+
+### Pendências/limitações
+- **Ativação requer setup manual**: secrets `DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_PORT`/
+  `DEPLOY_SSH_KEY` no GitHub + one-time no host (§3-§4 de `docs/CI-CD.md`).
+- `StrictHostKeyChecking=no` no job (runner efêmero, sem known_hosts pré-populado); fixar
+  a fingerprint do host quando migrar para self-hosted runner.
+- Single-host: para multi-réplica evoluir para registry (GHCR) + `docker compose pull`.
+- Reauditoria de segurança trimestral segue como item recorrente do ROADMAP (não é scriptável).

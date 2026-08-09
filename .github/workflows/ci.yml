@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend:
     name: Backend (lint, build, unit, e2e)
@@ -66,3 +70,44 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  deploy:
+    name: Deploy (produção)
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    concurrency:
+      group: deploy-prod
+      cancel-in-progress: false
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          TARGET_REF: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          # Chave de deploy (deploy key) usada só neste job.
+          printf '%s\n' "${DEPLOY_SSH_KEY}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          # Envia o script de deploy (do próprio ref) via stdin para o host.
+          # O código executado é sempre o do commit deployado (checkout do
+          # workflow), não uma cópia pré-existente no host.
+          ssh -i ~/.ssh/deploy_key \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -o ConnectTimeout=20 \
+            -p "${DEPLOY_PORT:-22}" \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "APP_DIR='${APP_DIR:-/opt/controle-share-videos-v1.0}' RUN_BACKUP=1 TARGET_REF='${TARGET_REF}' bash -s" \
+            < scripts/deploy/deploy-prod.sh
