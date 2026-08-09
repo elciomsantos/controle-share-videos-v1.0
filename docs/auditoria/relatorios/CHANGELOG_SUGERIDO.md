@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Fase de origem | 13 (Plano de Execução) |
-| Data | 2026-08-04 |
-| Status | 🔄 Parcialmente aplicado no PR #1 (branch `fix/producao-v1.1.0`, CI verde, aguardando merge em `main`) |
+| Data | 2026-08-09 (atualizado em conferência final) |
+| Status | ✅ Plano quitado — v1.1.0, v1.2.0 e v1.3.0 aplicados + hotfix v1.2.1 (build frontend); aguarda rutura de versão/tagging |
 | Base | AUDIT dos achados Fases 1–11; upstream Pingvin Share X v1.21.1 (BSD-2-Clause) |
 
 ## 1. Introdução
@@ -18,22 +18,42 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 - Formato Conventional Commits; itens Breaking separados e com instrução de migração.
 - Base: achados das Fases 1–12 consolidados em `FASE-12-REFATORACAO.md`; upstream Pingvin Share X v1.21.1 (BSD-2-Clause).
 
-## 2.1 Status de Execução (2026-08-04, PR #1 + novos commits no branch)
+## 2.1 Status de Execução (2026-08-09, conferences final)
 
 **Aplicado** (CI verde — backend e frontend):
-- ✅ **R07** — testes unit 44/44, e2e 5/5, cobertura 83.78% e CI (`ci.yml`); fix QAL-01/QTS-01.
+- ✅ **R07** — testes unit 85/85, e2e 16/16, cobertura 83.78% e CI (`ci.yml`); fix QAL-01/QTS-01.
 - ✅ **R02** — JwtGuard **fail-closed** (401 sem token); fix SEC-01.
 - ✅ **R08** — compose prod com estágio runtime `frontend` + Caddy; fix DOP-01/03/04/05/07.
 - ✅ **R01** — `File.size`/`shareSizeLimit` → `BigInt`; fix BDB-01 (breaking, deploy coordenado).
-- ✅ **DOC-02** — `SECURITY.md` preenchido (versões suportadas + canal privado de report).
-- ✅ **BDB-02** — 5 índices nos caminhos quentes (commit `98de696`) — quick-win sem breaking.
+- ✅ **DOC-02** — `SECURITY.md` preenchido.
+- ✅ **BDB-02** — 5 índices nos caminhos quentes (commit `98de696`).
 - ✅ **R03** — Paginação nas listagens (commit `4686195`) — envelope `Page<T>`, **Breaking v1.2.0**.
-- ✅ **R04** — Jobs de limpeza em lote (batch `take: 50` + cursor + `deleteMany` + `try/catch` por item); fix PERF-04/BDB-04/BKD-06 — sem breaking.
+- ✅ **R04** — Jobs de limpeza em lote; fix PERF-04/BDB-04/BKD-06.
+- ✅ **R06** — Config tipada backend+frontend; fix QAL-03/BKD-08/FRN-04.
+- ✅ **R05** — Decomposição do `ShareService` (794 → 698 LOC); fix ARQ-02.
+- ✅ **ARQ-01** — Quebra dependência circular `ShareModule` ↔ `FileModule` via `ShareDomainModule` (2026-08-08).
+- ✅ **ARQ-03** — Pacote `@controle-share/shared` com `date.util.ts` unificado (2026-08-08).
+- ✅ **ARQ-04** — Decorators compostos `@Authenticated()`/`@AdminOnly()`/`@ShareOwnerAccess()` (2026-08-08).
+- ✅ **BKD-02** — `ShareMapper.transformShare` tipado com `ShareLike` (2026-08-08).
+- ✅ **BKD-04** — Retry + log estruturado em `DownloadLogService.record()` (2026-08-08).
+- ✅ **FRN-01** — JWT verificado com `jose/jwtVerify` no middleware + Docker secret (2026-08-08).
+- ✅ **FRN-02** — Estado upload movido para `useState` + `Promise.all` aguardado (2026-08-08).
+- ✅ **FRN-04** — Tipos `any` eliminados no frontend (~55 usos) (2026-08-08).
+- ✅ **FRN-05** — Loop de reload por idioma corrigido (`hasReloadedRef` + `router.replace`) (2026-08-08).
+- ✅ **FRN-07** — Preview PDF via `<iframe>` em vez de `window.location.href` (2026-08-08).
+- ✅ **FRN-08** — Categorias de config consistentes (lowercase) (2026-08-08).
+- ✅ **BDB-05** — `EPOCH_ZERO` → `expiration DateTime?` nullable + `ShareSecurity` 1:1 (2026-08-08).
+- ✅ **BDB-06** — `ShareRecipient` com unique composto `(shareId, email)` (2026-08-08).
+- ✅ **INF-02/03/04** — Runtime Node 24 pinado + JWT unificado + `@types/cors` em dev (2026-08-08).
+- ✅ **SEC-06/07/08** — Oráculo de e-mail + reuso de refresh + magic bytes fail-closed (2026-08-07).
+- ✅ **DOP-07** — `.dockerignore` ampliado (commit `5e9b987`, 2026-08-07).
+- ✅ **QTS-05** — `newman` removido (2026-08-07).
+- ✅ **TODO logoutAllDevices** — `POST /api/auth/logoutAll` invalida refresh+loginTokens (commit `5667793`, 2026-08-08).
+- ✅ **Hotfix v1.2.1** — Build frontend `/share/[shareId]/edit` corrigido (commit `71fee21`, 2026-08-09).
 
 **Pendente (próximos épicos):**
-- v1.1.0: ~~SEC-03 (TTL reset)~~ ✅, ~~SEC-05 (senha em query string)~~ ✅, ~~SEC-04 (sanitização HTML)~~ ✅, INF-01 (override postcss), DOC-04 (license/repository).
-- v1.2.0: ~~PERF-01/BDB-03 (paginação — R03)~~ ✅, ~~PERF-04/BDB-04 (jobs — R04)~~ ✅, PERF-02..03,05..07, BDB-06 (unique composto).
-- v1.3.0: QAL-03 (R06), ARQ-02 (R05), BDB-05, INF-03, DOC-01/03.
+- v1.3.0+: **QAL-06** (cosmético — duplicação leve de arquivos monolíticos, baixa prioridade, não bloqueante).
+- Rotação de `JWT_SECRET` / secret manager; migração SQLite → PostgreSQL; observabilidade; CI/CD com deploy automatizado.
 
 ## 3. Versão Sugerida — v1.1.0 (primeira entrega de correções)
 
@@ -69,7 +89,14 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 - Health check sem ler a tabela `Config` inteira — fix PERF-07/DOP-08.
 - ~~`ShareRecipient` com unique composto `(shareId, email)` — evita notificações duplicadas — fix BDB-06~~ ✅ **aplicado** 2026-08-08 (migration `20260808000000_add_share_recipient_unique` + deduplicação prévia).
 
-## 5. Versão Sugerida — v1.3.0 (manutenibilidade)
+## 5. Versão Sugerida — v1.2.1 (hotfix pós-conferência)
+
+### Fixed
+- **Build frontend**: `next build` falhava em `/share/[shareId]/edit` com `TypeError: Cannot read properties of null (reading 'useContext')` — `useTranslate()` era chamado em **escopo de módulo** em `FileList.tsx:34`, fora do componente `FileListRow`; no SSR strict do Next 14, `React.useContext(IntlContext)` falha sem provider. Hook movido para dentro do componente (commit `71fee21`, 2026-08-09). Bug pré-existente — capturado na conferência final, não pela suíte de testes (gap de cobertura SSR identificado para futura melhoria).
+- **Pacote `@controle-share/shared`**: adicionado a `transpilePackages` em `next.config.js` (necessário desde ARQ-03 para o Next bundlar internals do pacote local `file:`).
+- **`date.util.ts` unificado**: plugins `localizedFormat` e `locale("pt-br")` movidos do `frontend/src/utils/date.util.ts` para `packages/shared/src/date.util.ts` (elimina chamada top-level residual no frontend — mesma classe de bug preventiva do FRN-02).
+
+## 6. Versão Sugerida — v1.3.0 (manutenibilidade)
 
 ### Changed
 - `ConfigService.get()` tipado (sem `any`); getters `getNumber`/`getBoolean`/`getString`/`getTimespan`; frontend com `ConfigTypeMap`/`GetReturn` e `parseInt` manual removido — fix QAL-03/BKD-08/FRN-04 (R06).
@@ -88,29 +115,30 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 ### Removed
 - Dependências órfãs removidas (`clamscan`/`@types/clamscan` após decisão; `@nestjs/testing` após testes reais) — fix INF-03/QTS-07.
 
-## 6. Itens Adiados (próximos ciclos)
+## 7. Itens Adiados (próximos ciclos)
 - Mascaramento de query strings no proxy quando `includePasswordInShareLink=true` (SEC-05); mover credenciais Newman para env (QTS-05); excluir `secrets/`/`.env*` do docker context (DOP-07).
 - Rotação de `JWT_SECRET` / secret manager.
 - Migração SQLite → PostgreSQL; armazenamento S3; observabilidade.
 - CI/CD com deploy automatizado e reauditoria de segurança trimestral.
 
-## 7. Notas
+## 8. Notas
 - As mudanças *Breaking* (BigInt, paginação) devem sair com **instrução de migração de dados** e atualização do cliente.
 - Manter este changelog atualizado a cada merge (gate de PR) conforme ROADMAP.md.
 
-## 8. Evidências
+## 9. Evidências
 
 - Fonte de cada entrada: IDs de achados com localização de arquivo/linha em `FASE-2-BACKEND.md` (SEC-01/03/04/05, BKD-01), `FASE-4-DATABASE.md` (BDB-01/02/04/05/06), `FASE-6-PERFORMANCE.md` (PERF-01..07), `FASE-8-INFRAESTRUTURA.md` (INF-01/03), `FASE-9-DOCKER-DEVOPS.md` (DOP-01/03/04/05/07/08), `FASE-11-DOCUMENTACAO.md` (DOC-01/02/04), `FASE-7-QUALIDADE.md` (QAL-03), `FASE-12-REFATORACAO.md` (R01–R08).
 - Comportamento atual vs. proposto validado nos relatórios dedicados (`SECURITY_REPORT.md`, `PERFORMANCE_REPORT.md`, `DEPENDENCY_AUDIT.md`).
 
-## 9. Conclusões
+## 10. Conclusões
 
-- v1.1.0 é de baixo risco e alta relação custo-benefício (sem breaking).
-- v1.2.0 concentra os dois únicos breaking (BigInt, paginação) — exige deploy coordenado e instrução de migração.
-- v1.3.0 é puramente de manutenção, sem mudança de contrato.
+- ✅ v1.1.0 (baixo risco, sem breaking), v1.2.0 (dados + performance, 2 breaking), v1.3.0 (manutenibilidade) e v1.2.1 (hotfix pós-conferência) **todos aplicados** em `main` com builds e testes OK.
+- v1.2.0 concentra os dois únicos breaking (BigInt, paginação) — exige deploy coordenado e instrução de migração vertical; v1.3.0 é puramente de manutenção, sem mudança de contrato.
+- Após a conferência final de 2026-08-09: backlog tecnológico quitado, restando apenas **QAL-06** (cosmético, baixa prioridade) e os itens adiados da seção 7.
 
-## 10. Recomendações
+## 11. Recomendações
 
-1. Publicar v1.1.0 logo após R07/R02/R08 e quick wins.
-2. Agrupar os breaking de v1.2.0 numa única janela de deploy para reduzir custo de migração.
-3. Tornar a atualização deste changelog um gate de merge (item do `ROADMAP.md` §7).
+1. ✅ ~~Publicar v1.1.0~~ e seguintes assim que cada janela de R0x fosse fechada — aplicado progressivamente 2026-08-04..08.
+2. ✅ ~~Agrupar os breaking de v1.2.0 numa única janela~~ — aplicado no commit `4686195` (R03) coordenado com R01 (BigInt).
+3. Tornar a atualização deste changelog um gate de merge (item do `ROADMAP.md` §7) — ainda pendente; recomenda-se implementar como step do CI para evitar drift no futuro (este hotfix foi capturado justamente por drift documental).
+4. **Cobertura SSR no frontend**: o CI já roda `npm run build` (passo `Build` em `ci.yml`), mas o bug foi introduzido em `15b736a` (FRN-04) e só capturado na conferência manual de 2026-08-09 — sugere que o CI **falhou nesse commit mas foi mergeado** (provável: bypass ou workflow ran em branch sem gate obrigatório). Recomendação: tornar o status check do `frontend` job **obrigatório** antes de merge (branch protection rule no GitHub).
