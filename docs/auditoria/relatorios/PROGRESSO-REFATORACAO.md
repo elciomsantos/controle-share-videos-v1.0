@@ -602,3 +602,43 @@ O frontend usava categorias capitalizadas (`"General"`, `"Appearance"`, etc.) pa
 |------|-----------|
 | **BDB-05** | Sentinela `EPOCH_ZERO` + `ShareSecurity` 1:1 opcional |
 | **TODO** | Invalidar `loginTokens` antigos (logout all devices) |
+
+---
+
+## 23. BDB-05 — EPOCH_ZERO sentinel → nullable expiration + ShareSecurity 1:1 (concluído 2026-08-08)
+
+Fixa **BDB-05** (sentinela `EPOCH_ZERO` para "nunca expira" + `ShareSecurity` 1:1 opcional).
+
+### Problema
+- `expiration = Date(0)` representava "nunca expira" → espalhava `{ not/equals: EPOCH_ZERO }` em 3 arquivos
+- `ShareSecurity` era `String? @unique` embora sempre criado → 1:1 opcional desnecessário
+
+### Solução
+- **Schema**: `expiration DateTime?` (null = nunca expira) em vez de sentinela
+- **ShareSecurity**: `shareId String @unique` obrigatório, relação 1:1 via `securityId` no Share
+- **Migration** (20260808120000):
+  1. Drop índices compostos/simples em `expiration`
+  2. Add `expiresAt`, backfill `EPOCH_ZERO → NULL`
+  3. Drop `expiration`, rename `expiresAt → expiration`
+  4. Recriar índices
+  5. Backfill `ShareSecurity` para shares sem security
+  6. `shareId` obrigatório + unique index
+
+### Código alterado
+- `schema.prisma`: `expiration DateTime?`, `securityId String @unique`, `security ShareSecurity @relation`
+- `share.service.ts`: usa `null` check em vez de `isEpochZero()`
+- Removido uso de `EPOCH_ZERO` em favor de `null` check
+
+### Testes ✅
+- Backend unit: 85/85
+- Backend e2e: 16/16
+- Frontend unit: 5/5
+- Database reset: 43 migrações aplicadas com sucesso
+
+---
+
+### Próximo item da fila
+
+| Item | Descrição |
+|------|-----------|
+| **TODO** | Invalidar `loginTokens` antigos (logout all devices) |
