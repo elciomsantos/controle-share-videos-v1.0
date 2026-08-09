@@ -31,7 +31,6 @@ const getFileNameOrPath = (file: FileListItem): string => {
   return pathName.replace(/\\/g, "/").replace(/^\//, "");
 };
 
-  const t = useTranslate();
 const FileListRow = ({
   file,
   onRemove,
@@ -43,6 +42,7 @@ const FileListRow = ({
   onRestore?: () => void;
   onEdit?: () => void;
 }) => {
+  const t = useTranslate();
   const uploadable = "uploadingProgress" in file;
   const uploading = uploadable && file.uploadingProgress !== 0;
   const removable = uploadable

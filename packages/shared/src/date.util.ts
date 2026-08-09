@@ -3,11 +3,15 @@ import type { PluginFunc } from "dayjs";
 import duration from "dayjs/plugin/duration";
 import relativeTime from "dayjs/plugin/relativeTime";
 import customParseFormat from "dayjs/plugin/customParseFormat";
+import localizedFormat from "dayjs/plugin/localizedFormat";
+import "dayjs/locale/pt-br";
 import type { DurationUnitType } from "dayjs/plugin/duration";
 
 dayjs.extend(duration as PluginFunc);
 dayjs.extend(relativeTime as PluginFunc);
 dayjs.extend(customParseFormat as PluginFunc);
+dayjs.extend(localizedFormat as PluginFunc);
+dayjs.locale("pt-br");
 
 export { dayjs };
 export { type DurationUnitType };

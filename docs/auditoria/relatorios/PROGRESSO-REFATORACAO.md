@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Plano de referência | `REFACTORING_PLAN.md` |
-| Última atualização | 2026-08-07 |
+| Última atualização | 2026-08-09 |
 | Branch | `main` (PR #1 mergeado em `0bdb1c9`) |
 | Commits | `98de696` (BDB-02), `4686195` (R03 Breaking), `0412c93` (R06), `7729f22` (R05), `165de4a` (SEC-04), `1e6eaa4` (SEC-06/07/08) |
 
@@ -689,3 +689,38 @@ Resolve o último item pendente: **Invalidar `loginTokens` antigos (logout de to
 | **TODO** | ✅ Logout all devices (invalidar loginTokens) |
 
 **Todos os itens P2/P3 do backlog concluídos!**
+
+---
+
+## 25. HOTFIX — Build frontend `/share/[shareId]/edit` (2026-08-09)
+
+Bug descoberto durante a conferência final (seção 24 marcava "todos os itens P2/P3 concluídos" mas o `next build` estava quebrado).
+
+### Sintoma
+```
+TypeError: Cannot read properties of null (reading 'useContext')
+  at useTranslate (.next/server/chunks/403.js:598:69)
+  at <unknown> (.next/server/chunks/316.js:314:88)
+> Build error occurred: Failed to collect page data for /share/[shareId]/edit
+```
+
+### Causa raiz
+Em `frontend/src/components/upload/FileList.tsx:34`, o hook `useTranslate()` estava sendo chamado em **escopo de módulo (top-level)**, fora do componente `FileListRow` — provável erro de indentação/copypaste durante o FRN-04. Como `useTranslate` → `useIntl` → `React.useContext(IntlContext)`, o SSR strict do Next 14 falhava ao coletar page data de qualquer página que importasse `FileList` (upload), incluindo `/share/[shareId]/edit` → `EditableUpload` → `FileList`.
+
+### Correção
+- `FileList.tsx:34` — `const t = useTranslate();` movido para dentro do componente `FileListRow` (primeira linha do corpo)
+- `packages/shared/src/date.util.ts` — plugins `localizedFormat` + `locale("pt-br")` movidos para o pacote compartilhado (única fonte), eliminando a chamada top-level residual no `frontend/src/utils/date.util.ts` (mesma classe de bug que FRN-02 preventiva)
+- `frontend/next.config.js` — adicionado `@controle-share/shared` em `transpilePackages` (necessário desde ARQ-03; sem isto o Next não bundla os internals do pacote local `file:`)
+
+### Validação ✅
+- Backend unit: 85/85
+- Backend e2e: 16/16
+- Backend build + lint: OK (0 erros, 14 warnings)
+- Frontend unit: 5/5
+- Frontend build: **OK** (regressão corrigida)
+- Frontend lint: OK
+
+### Notas
+- Bug **pré-existente** em `52df2f1` (HEAD antes desta fix) — não foi introduzido pelas correções desta sessão; confirmação feita com `git stash` + rebuild no commit anterior
+- Elimina dívida técnica correlata ao FRN-02 (módulo-level state) que não tinha sido capturada porque a suíte de testes do frontend (5 unit) não exerce SSR
+

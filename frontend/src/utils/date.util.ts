@@ -8,12 +8,7 @@ import {
   stringToTimespan,
   timespanToString,
 } from "@controle-share/shared";
-import localizedFormat from "dayjs/plugin/localizedFormat";
-import "dayjs/locale/pt-br";
 import useTranslate from "../hooks/useTranslate.hook";
-
-dayjs.extend(localizedFormat as any);
-dayjs.locale("pt-br");
 
 export {
   dayjs,

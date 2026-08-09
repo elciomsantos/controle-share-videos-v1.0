@@ -12,7 +12,7 @@ const withSerwist = require("@serwist/next").default({
 const apiUrl = process.env.API_URL || "http://localhost:8080";
 
 module.exports = withSerwist({
-  transpilePackages: ["@uiw/react-md-editor", "@uiw/react-markdown-preview"],
+  transpilePackages: ["@uiw/react-md-editor", "@uiw/react-markdown-preview", "@controle-share/shared"],
   output: "standalone",
   images: {
     unoptimized: true,
