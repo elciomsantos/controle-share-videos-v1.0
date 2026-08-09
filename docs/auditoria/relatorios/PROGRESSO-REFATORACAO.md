@@ -514,3 +514,51 @@ useEffect(() => {
 | **FRN-08** | Categorias config inconsistentes |
 | **BDB-05** | Sentinela `EPOCH_ZERO` + `ShareSecurity` 1:1 opcional |
 | **TODO** | Invalidar `loginTokens` antigos (logout all devices) |
+
+---
+
+## 21. FRN-07 — Preview PDF via iframe (concluído 2026-08-08)
+
+Fixa **FRN-07** (Preview de PDF via `window.location.href` perdia o overlay/modal).
+
+### Problema
+O `PdfPreview` usava `window.location.href = /api/shares/...` que navega a página inteira, perdendo o overlay do `FilePreview` (modais, botões, contexto).
+
+### Solução
+- **`PdfPreview`**: substituir `window.location.href` por `<iframe>` inline
+- **Iframe configurado**: `width="100%"`, `height="600px"`, `sandbox="allow-scripts allow-same-origin"`
+- Mantido fallback: se iframe não carregar, o usuário pode usar o botão "View original file" (abre em nova aba)
+
+### Código alterado
+```tsx
+const PdfPreview = () => {
+  const { shareId, fileId } = React.useContext(FilePreviewContext);
+
+  return (
+    <iframe
+      src={`/api/shares/${shareId}/files/${fileId}?download=false`}
+      width="100%"
+      height="600px"
+      style={{ border: "none", borderRadius: 8 }}
+      title="PDF Preview"
+      sandbox="allow-scripts allow-same-origin"
+    />
+  );
+};
+```
+
+### Testes ✅
+- Backend unit: 85/85
+- Backend e2e: 16/16
+- Frontend unit: 5/5
+- TypeScript: OK (compilação OK)
+
+---
+
+### Próximo item da fila (P3)
+
+| Item | Descrição |
+|------|-----------|
+| **FRN-08** | Categorias config inconsistentes |
+| **BDB-05** | Sentinela `EPOCH_ZERO` + `ShareSecurity` 1:1 opcional |
+| **TODO** | Invalidar `loginTokens` antigos (logout all devices) |

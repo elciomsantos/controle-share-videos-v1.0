@@ -2,6 +2,10 @@ import Config, { AdminConfig, GetReturn, UpdateConfig } from "../types/config.ty
 import api from "./api.service";
 import { stringToTimespan } from "../utils/date.util";
 
+/**
+ * Categories recognized by the backend API — must match Prisma seed categories
+ * (see backend/prisma/seed/config.seed.ts). All lowercase.
+ */
 const categories = [
   "general",
   "appearance",

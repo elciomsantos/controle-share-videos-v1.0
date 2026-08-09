@@ -22,14 +22,18 @@ import {
 } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
 
+/**
+ * Category definitions — value is the lowercase key used by the backend API.
+ * Display labels are capitalized via i18n keys.
+ */
 export const categories = [
-  { name: "General", icon: <TbSettings /> },
-  { name: "Appearance", icon: <TbPalette /> },
-  { name: "Email", icon: <TbMail /> },
-  { name: "Share", icon: <TbShare /> },
-  { name: "SMTP", icon: <TbAt /> },
-  { name: "Legal", icon: <TbScale /> },
-  { name: "Cache", icon: <TbServerBolt /> },
+  { name: "general", icon: <TbSettings /> },
+  { name: "appearance", icon: <TbPalette /> },
+  { name: "email", icon: <TbMail /> },
+  { name: "share", icon: <TbShare /> },
+  { name: "smtp", icon: <TbAt /> },
+  { name: "legal", icon: <TbScale /> },
+  { name: "cache", icon: <TbServerBolt /> },
 ];
 
 const ConfigurationTopNav = ({
@@ -73,20 +77,18 @@ const ConfigurationTopNav = ({
         <SegmentedControl
           fullWidth
           data={categories.map((cat) => ({
-            value: cat.name.toLowerCase(),
+            value: cat.name,
             label: (
               <Group gap="xs" justify="center">
                 <ThemeIcon
-                  variant={
-                    categoryId === cat.name.toLowerCase() ? "filled" : "light"
-                  }
+                  variant={categoryId === cat.name ? "filled" : "light"}
                   size="sm"
                   style={{ width: 20, height: 20 }}
                 >
                   {cat.icon}
                 </ThemeIcon>
                 <FormattedMessage
-                  id={`admin.config.category.${cat.name.toLowerCase()}`}
+                  id={`admin.config.category.${cat.name}`}
                 />
               </Group>
             ),
