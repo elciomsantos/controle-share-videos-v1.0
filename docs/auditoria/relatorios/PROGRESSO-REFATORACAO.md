@@ -415,3 +415,51 @@ Fixa **FRN-02** (estado módulo-level + `Promise.all` não aguardado no upload).
 | **FRN-08** | Categorias config inconsistentes |
 | **BDB-05** | Sentinela `EPOCH_ZERO` + `ShareSecurity` 1:1 opcional |
 | **TODO** | Invalidar `loginTokens` antigos (logout all devices) |
+
+---
+
+## 19. FRN-04 — Tipos `any` generalizados frontend (concluído 2026-08-08)
+
+Fixa **FRN-04** (tipos `any` generalizados frontend — ~55 usos).
+
+### Mudanças principais
+
+**Tipos novos/centralizados:**
+- `src/utils/error.util.ts`: `ApiErrorResponse`, `AxiosErrorWithResponse<T>` — tipagem forte para erros de API
+- `src/utils/toast.util.tsx`: `axiosError` aceita `AxiosErrorWithResponse` em vez de `any`
+- `src/utils/file.util.ts`: `FileLike`, `ExistingFileLike` — tipagem para deduplicação de arquivos
+- `src/types/File.type.ts`: `FileRecord`, `FileUpload`, `FileMetaData`, `FileListItem` — hierarquia de tipos de arquivo
+- `src/components/core/TimespanInput.tsx`: props tipadas (removido `[key: string]: any`)
+- `src/components/core/FileSizeInput.tsx`: props tipadas (removido `[key: string]: any`)
+
+**Componentes atualizados:**
+- `FileList.tsx` (share + upload): props tipadas, `FileRecord | FileMetaData`
+- `EditableUpload.tsx`: `FileRecord[]`, `FileUpload[]`, `FileListItem[]`
+- `Dropzone.tsx`: cria `FileUpload[]` com `file: File` original
+- `showFilePreviewModal.tsx`: aceita `FileMetaData | FileRecord`
+- `showTextEditorModal.tsx`: cria `FileUpload` com `File` original
+- `copyFileLink`: aceita `FileMetaData | FileRecord`
+- `shareService.uploadFile`: passa `file.file` (DOM File) para `slice()`
+
+**Correções de tipo:**
+- `FileRecord.size`: `string | bigint` (conversão `Number()` onde necessário)
+- Props tipadas em `TimespanInput`, `FileSizeInput` (sem `[key: string]: any`)
+- Props `isLoading`/`isUploading` opcionais em `FileList` (upload)
+
+### Testes ✅
+- Backend unit: 85/85
+- Backend e2e: 16/16
+- Frontend unit: 5/5
+- TypeScript: OK (build compile OK)
+
+---
+
+### Próximo item da fila (P3)
+
+| Item | Descrição |
+|------|-----------|
+| **FRN-05** | Loop potencial de reload por idioma |
+| **FRN-07** | Preview PDF via `window.location.href` |
+| **FRN-08** | Categorias config inconsistentes |
+| **BDB-05** | Sentinela `EPOCH_ZERO` + `ShareSecurity` 1:1 opcional |
+| **TODO** | Invalidar `loginTokens` antigos (logout all devices) |

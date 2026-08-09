@@ -208,13 +208,20 @@ function App({ Component, pageProps }: AppProps) {
     return () => clearInterval(interval);
   }, []);
 
+  // FRN-05: Fix potential infinite reload loop due to language mismatch
+  // Instead of location.reload(), use router.replace to avoid full page reload
+  // and add a flag to prevent multiple reloads in a single session
+  const hasReloadedRef = useRef(false);
   useEffect(() => {
-    if (!pageProps.language) return;
+    if (!pageProps.language || hasReloadedRef.current) return;
     const cookieLanguage = getCookie("language");
     if (!cookieLanguage) {
       i18nUtil.setLanguageCookie(pageProps.language);
     } else if (pageProps.language !== cookieLanguage) {
-      location.reload();
+      hasReloadedRef.current = true;
+      // Use router.replace instead of location.reload to avoid full page reload
+      // The IntlProvider will update based on the new language prop
+      router.replace(router.asPath, undefined, { scroll: false });
     }
 
     const current = i18nUtil.getLocaleByCode(pageProps.language);
@@ -371,6 +378,6 @@ App.getInitialProps = async ({ ctx }: { ctx: GetServerSidePropsContext }) => {
       ctx.req.cookies["language"] || defaultLanguage || requestLanguage;
   }
   return { pageProps };
-};
+}
 
 export default App;
