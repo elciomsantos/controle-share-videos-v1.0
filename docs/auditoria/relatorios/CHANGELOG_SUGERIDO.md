@@ -4,7 +4,7 @@
 |---|---|
 | Fase de origem | 13 (Plano de Execução) |
 | Data | 2026-08-09 (atualizado em conferência final) |
-| Status | ✅ Plano quitado — v1.1.0, v1.2.0 e v1.3.0 aplicados + hotfix v1.2.1 (build frontend); aguarda rutura de versão/tagging |
+| Status | ✅ Plano quitado — v1.1.0, v1.2.0 e v1.3.0 aplicados + hotfix v1.2.1 (build frontend) + correções v1.2.2 (auditoria consolidada); aguarda rutura de versão/tagging |
 | Base | AUDIT dos achados Fases 1–11; upstream Pingvin Share X v1.21.1 (BSD-2-Clause) |
 
 ## 1. Introdução
@@ -96,7 +96,34 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 - **Pacote `@controle-share/shared`**: adicionado a `transpilePackages` em `next.config.js` (necessário desde ARQ-03 para o Next bundlar internals do pacote local `file:`).
 - **`date.util.ts` unificado**: plugins `localizedFormat` e `locale("pt-br")` movidos do `frontend/src/utils/date.util.ts` para `packages/shared/src/date.util.ts` (elimina chamada top-level residual no frontend — mesma classe de bug preventiva do FRN-02).
 
-## 6. Versão Sugerida — v1.3.0 (manutenibilidade)
+## 6. Versão Sugerida — v1.2.2 (correções da auditoria consolidada)
+
+Rodada de fixes derivada da consolidação dos relatórios de auditoria (SECURITY/PERFORMANCE/ARCHITECTURE/DEPENDENCY) + bug hunt. 2026-08-09.
+
+### Fixed
+- **Closure stale `createdShare!.id`** no upload (`upload/index.tsx`): variável local `createdShareId` capturada logo após o `create()` evita `uploadFile(undefined, ...)` sob concorrência.
+- **`errorToastShown` em escopo de módulo** (`EditableUpload.tsx`) → `useState`, eliminando estado compartilhado entre instâncias.
+- **Hang no `archive.once("drain")`** (`share-archive.service.ts`): `waitIfBackpressure()` só aguarda quando `writableNeedDrain` indica backpressure real.
+- **Schema Prisma ShareSecurity 1:1 inválido** (BDB-05): removida coluna fantasma `securityId` (não existia no banco) e duplicação do campo; `ShareSecurity.shareId` é o único FK. `prisma format/validate/generate` voltam a passar.
+- **Sentinela `EPOCH_ZERO` residual pós-BDB-05**: `jobs.service.ts` (`not: null`), `getSharesByUser` (`equals: null`), `parseExpiration` → `null`, `email.service.ts` e 4 componentes do frontend passam a usar `isEpochZero` (que trata `null`); remove hardcodes `.locale("pt-br")`.
+- **`nanoid` <3.3.17 HIGH** (INF-01 regressão): override `^3.3.17` → `3.3.18`; `npm audit` **0 vulnerabilidades**.
+- **`dayjs.locale("pt-br")` global** em `handleCopyAll` removido (violava o locale resolvido).
+- **`useRef(language)` congelando o idioma** (`_app.tsx`) → `pageProps.language` direto.
+- **`$connect()` no construtor** do `PrismaService` → `OnModuleInit`/`OnModuleDestroy`.
+- **`new Error("share.notEnoughSpace")`** → `BadRequestException(i18n.t(...))` (`share-limit.service.ts`).
+- **`parseInt` sem radix** em `file.controller.ts`/`config.service.ts` → `parseInt(..., 10)`.
+- **Dead code** em `jwt.strategy.ts` removido.
+- **Lint**: 14 warnings de unused imports removidos — **0 warnings** no backend.
+
+### Removed
+- `ShareValidationService.EPOCH_ZERO` (público) e `ShareLimitService.isNeverExpires` (código morto, sem callers).
+
+### Validação
+- Backend: unit 85/85, e2e 16/16, build OK, lint 0 warnings.
+- Frontend: unit 5/5, `next build` OK, lint OK.
+- Prisma `format`/`validate`/`generate` OK; `npm audit` 0 vulnerabilidades.
+
+## 7. Versão Sugerida — v1.3.0 (manutenibilidade)
 
 ### Changed
 - `ConfigService.get()` tipado (sem `any`); getters `getNumber`/`getBoolean`/`getString`/`getTimespan`; frontend com `ConfigTypeMap`/`GetReturn` e `parseInt` manual removido — fix QAL-03/BKD-08/FRN-04 (R06).
@@ -115,28 +142,28 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 ### Removed
 - Dependências órfãs removidas (`clamscan`/`@types/clamscan` após decisão; `@nestjs/testing` após testes reais) — fix INF-03/QTS-07.
 
-## 7. Itens Adiados (próximos ciclos)
+## 8. Itens Adiados (próximos ciclos)
 - Mascaramento de query strings no proxy quando `includePasswordInShareLink=true` (SEC-05); mover credenciais Newman para env (QTS-05); excluir `secrets/`/`.env*` do docker context (DOP-07).
 - Rotação de `JWT_SECRET` / secret manager.
 - Migração SQLite → PostgreSQL; armazenamento S3; observabilidade.
 - CI/CD com deploy automatizado e reauditoria de segurança trimestral.
 
-## 8. Notas
+## 9. Notas
 - As mudanças *Breaking* (BigInt, paginação) devem sair com **instrução de migração de dados** e atualização do cliente.
 - Manter este changelog atualizado a cada merge (gate de PR) conforme ROADMAP.md.
 
-## 9. Evidências
+## 10. Evidências
 
 - Fonte de cada entrada: IDs de achados com localização de arquivo/linha em `FASE-2-BACKEND.md` (SEC-01/03/04/05, BKD-01), `FASE-4-DATABASE.md` (BDB-01/02/04/05/06), `FASE-6-PERFORMANCE.md` (PERF-01..07), `FASE-8-INFRAESTRUTURA.md` (INF-01/03), `FASE-9-DOCKER-DEVOPS.md` (DOP-01/03/04/05/07/08), `FASE-11-DOCUMENTACAO.md` (DOC-01/02/04), `FASE-7-QUALIDADE.md` (QAL-03), `FASE-12-REFATORACAO.md` (R01–R08).
 - Comportamento atual vs. proposto validado nos relatórios dedicados (`SECURITY_REPORT.md`, `PERFORMANCE_REPORT.md`, `DEPENDENCY_AUDIT.md`).
 
-## 10. Conclusões
+## 11. Conclusões
 
-- ✅ v1.1.0 (baixo risco, sem breaking), v1.2.0 (dados + performance, 2 breaking), v1.3.0 (manutenibilidade) e v1.2.1 (hotfix pós-conferência) **todos aplicados** em `main` com builds e testes OK.
+- ✅ v1.1.0 (baixo risco, sem breaking), v1.2.0 (dados + performance, 2 breaking), v1.3.0 (manutenibilidade), v1.2.1 (hotfix pós-conferência) e v1.2.2 (correções da auditoria consolidada) **todos aplicados** em `main` com builds e testes OK.
 - v1.2.0 concentra os dois únicos breaking (BigInt, paginação) — exige deploy coordenado e instrução de migração vertical; v1.3.0 é puramente de manutenção, sem mudança de contrato.
-- Após a conferência final de 2026-08-09: backlog tecnológico quitado, restando apenas **QAL-06** (cosmético, baixa prioridade) e os itens adiados da seção 7.
+- Após a conferência final de 2026-08-09: backlog tecnológico quitado, restando apenas **QAL-06** (cosmético, baixa prioridade) e os itens adiados da seção 8.
 
-## 11. Recomendações
+## 12. Recomendações
 
 1. ✅ ~~Publicar v1.1.0~~ e seguintes assim que cada janela de R0x fosse fechada — aplicado progressivamente 2026-08-04..08.
 2. ✅ ~~Agrupar os breaking de v1.2.0 numa única janela~~ — aplicado no commit `4686195` (R03) coordenado com R01 (BigInt).

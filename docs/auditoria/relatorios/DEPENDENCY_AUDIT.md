@@ -46,6 +46,7 @@ Binários nativos sensíveis à versão do runtime: `better-sqlite3@12.11.1`, `s
 ## 5. Conclusões
 
 - **Zero vulnerabilidades ativas** (INF-01 resolvido 2026-08-07: `postcss` override removido + `npm audit fix` frontend; `newman` removido backend → 14 vulns transitivas eliminadas).
+- **Regressão INF-01 detectada e corrigida 2026-08-09**: `nanoid@3.3.16` (transitiva via `next → postcss`) voltou a ser vulnerável (severidade HIGH, `<3.3.17`); adicionado override `"nanoid": "^3.3.17"` → `3.3.18` no frontend. `npm audit`: **0 vulnerabilidades** (backend e frontend).
 - Superfície de patch desnecessária: ~~`clamscan` morto (removido em 2026-08-07 após decisão formal do ClamAV)~~, duas libs JWT sobrepostas (`jose`×`jwt-decode`), `@types` em runtime.
 - Node não pinado ameaça a reprodutibilidade dos binários nativos (Prisma/better-sqlite3/sharp/argon2).
 
@@ -56,5 +57,6 @@ Binários nativos sensíveis à versão do runtime: `better-sqlite3@12.11.1`, `s
 3. **P2 — INF-02**: ~~adicionar `engines` (`node >=24`) e `.nvmrc` na raiz~~ ✅ **concluído** 2026-08-08 — `engines` em root/`backend/`/`frontend/` + `.nvmrc`.
 5. **P3 — INF-04**: ~~mover `@types` para dev~~ ✅ **concluído** 2026-08-08 — `@types/cors` para `devDependencies`. ~~QTS-07 (`@nestjs/testing` órfão)~~ ✅ Resolvido 2026-08-07.
 6. ~~**P3 — DOC-04**: preencher `license`/`repository`~~ ✅ Resolvido 2026-08-07 (quick wins 12.6).
+7. **P1 — Regressão INF-01 (nanoid)**: ~~`nanoid@3.3.16` transitivo via `postcss` voltou a ser vulnerável~~ ✅ **corrigido 2026-08-09** — override `"nanoid": "^3.3.17"` → `3.3.18`; `npm audit` 0 vulns.
 
 **Ferramenta sugerida para manutenção contínua:** `npm audit` + `renovate`/`dependabot` em PR; pinar runtime via `engines` + imagem Node em `Dockerfile`s.

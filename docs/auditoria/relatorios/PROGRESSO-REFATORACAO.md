@@ -724,3 +724,70 @@ Em `frontend/src/components/upload/FileList.tsx:34`, o hook `useTranslate()` est
 - Bug **pré-existente** em `52df2f1` (HEAD antes desta fix) — não foi introduzido pelas correções desta sessão; confirmação feita com `git stash` + rebuild no commit anterior
 - Elimina dívida técnica correlata ao FRN-02 (módulo-level state) que não tinha sido capturada porque a suíte de testes do frontend (5 unit) não exerce SSR
 
+---
+
+## 26. Rodada de correções da auditoria consolidada (2026-08-09)
+
+Fixes aplicados a partir da consolidação dos relatórios SECURITY_PERFORMANCE_ARCHITECTURE_REVIEW + bug hunt + DEPENDENCY_AUDIT (conferência da seção 24/25). Todos os 6 bugs classificados como alta severidade foram corrigidos.
+
+### Fix #1 — Closure stale `createdShare!.id` (crítico)
+`frontend/src/pages/upload/index.tsx` — a closure de `uploadFiles` capturava `createdShare` (state, que ainda era `null` no momento do upload), fazendo `shareService.uploadFile(undefined, ...)` falhar em NPM de concorrência. Corrigido capturando o `createdShareId` em variável local (`let` no escopo da função) imediatamente após o `create()`. (O commit `ea35b61` anterior usava `result.id`, que estava fora do escopo do `try` — refinado nesta rodada.)
+
+### Fix #2 — `errorToastShown` em escopo de módulo (alto)
+`frontend/src/components/upload/EditableUpload.tsx` — flag `let errorToastShown = false` no **top-level do módulo** (mesma classe de bug do FRN-02): estado compartilhado entre todas as instâncias do componente, causando toast suprimido/sem reset. Migrado para `useState(false)` com dependências corretas (`[uploadingFiles, errorToastShown, t]`).
+
+### Fix #3 — Hang no `archive.once("drain")` (alto)
+`backend/src/share/share-archive.service.ts` — o laço de batch (PERF-03) aguardava incondicionalmente `archive.once("drain")` após cada lote. O evento `"drain"` só é emitido após um `.write()` que retornou `false`; em lotes pequenos sem backpressure o evento nunca dispara e `isZipReady` fica `false` para sempre. Corrigido com `waitIfBackpressure()` que só aguarda quando `writableNeedDrain` indica backpressure real.
+
+### Fix #4 — Schema Prisma ShareSecurity 1:1 inválido (alto) ⚠️ **bug de schema do BDB-05**
+`backend/prisma/schema.prisma` — o BDB-05 adicionou `securityId String @unique` na model `Share` **sem a coluna existir no banco** (a migration `20260808120000` só criou `ShareSecurity.shareId` + backfill + unique index) e duplicou o campo `security`. O schema resultante era inválido: dois lados da relação 1:1 declaravam `references`, e o `prisma generate` nunca havia rodado com o schema "bom". O código compilava porque o client gerado era de um schema anterior.
+- **Correção**: removida a coluna fantasma `securityId`; `Share.security` voltou a ser back-relation simples (`ShareSecurity?`); `ShareSecurity.shareId` permanece como o único FK (`@unique`, `@relation(fields: [shareId], references: [id], onDelete: Cascade)`), alinhado à migration real e ao banco.
+- **Consistência com o banco**: `npx prisma format` + `validate` + `generate` agora passam; banco não precisa de migration nova (schema e DB já coincidiam; apenas o schema estava errado).
+- **Ajustes de código** decorrentes: `share.service.ts` create usa nested `security.create` (back-relation preenche `shareId`), e o upsert de security usa `create: { shareId, ... }` em vez de `share: { connect }`.
+
+### Fix #5 — Sentinela `EPOCH_ZERO` residual (alto) — **bugs reais pós-BDB-05**
+Após o BDB-05 migrar o sentinela para `null` no banco, restavam pontos usando `EPOCH_ZERO`/`.unix() === 0` que quebram com `null`:
+- `backend/src/jobs/jobs.service.ts` — filtro de expiração `{ not: EPOCH_ZERO }` → `{ not: null }` (o `not: EPOCH_ZERO` nunca combinaria `NULL`, vazando shares vencidos)
+- `backend/src/share/share.service.ts` — `getSharesByUser` usava `{ expiration: { equals: EPOCH_ZERO } }` para listar "nunca expira"; com `NULL` no banco esses shares sumiriam da listagem → `{ equals: null }`
+- `backend/src/share/domain/share-validation.service.ts` — `parseExpiration("never")` retornava `EPOCH_ZERO`; agora retorna `null`; `parseExpiration`/`validateExpiration` tipados como `Date | null`
+- `backend/src/email/email.service.ts` — `dayjs(expiration).unix() != 0` → `isEpochZero(expiration)` (com `null`, `dayjs(null).unix()` é `NaN`, o e-mail mostraria data inválida em vez de "nunca expira")
+- Frontend (4 arquivos) — `dayjs(x).unix() === 0` → `isEpochZero(x)`: `showCompletedUploadModal.tsx`, `account/shares.tsx`, `showShareInformationsModal.tsx`, `ManageShareTable.tsx` (sem `isEpochZero(null)` retornaria `true`, os cards "Nunca" mostrariam `Invalid Date`)
+- `packages/shared/src/date.util.ts` — `isEpochZero` agora aceita `null | undefined` (retorna `true`); `parseRelativeDateToAbsolute` retorna `Date | null` para `"never"`
+- Removidos: `ShareValidationService.EPOCH_ZERO` público e `ShareLimitService.isNeverExpires` (código morto), hardcodes `.locale("pt-br")` em `DownloadLogsTable.tsx`/`account/shares.tsx`/`ManageShareTable.tsx`/`showShareInformationsModal.tsx` (agora respeitam o locale global resolvido no `_app.tsx`)
+
+### Fix #6 — `nanoid` <3.3.17 HIGH (INF-01 regressão) (alto)
+`frontend/package.json` — `nanoid@3.3.16` (via `next → postcss`) sem fix de alta severidade. Adicionado override `"nanoid": "^3.3.17"` → `3.3.18`. `npm audit`: **0 vulnerabilidades** (backend e frontend).
+
+### Fix #7 — `dayjs.locale("pt-br")` global dentro de event handler (médio)
+`showCompletedUploadModal.tsx` — `dayjs.locale("pt-br")` no `handleCopyAll` sobrescrevia o locale global resolvido, forçando pt-br mesmo com outro idioma selecionado. Removido (o global já é definido corretamente no `_app.tsx`).
+
+### Fix #8 — `useRef(language)` congelando o idioma (médio)
+`frontend/src/pages/_app.tsx` — `const language = useRef(pageProps.language)` travava `dayjs.locale`, `IntlProvider.messages` e `locale` no idioma inicial; trocas de idioma via cookie/reload não eram refletidas. Substituído por `pageProps.language` direto (valores já re-renderizam com a prop).
+
+### Fix #9 — `$connect()` no construtor do PrismaService (médio)
+`backend/src/prisma/prisma.service.ts` — `super.$connect().then(...)` no construtor era fire-and-forget (unhandled rejection em falha). Substituído por `OnModuleInit` (`await this.$connect()`) + `OnModuleDestroy` (`await this.$disconnect()`), seguindo o lifecycle do NestJS.
+
+### Fix #10 — `new Error("share.notEnoughSpace")` → `HttpException` (médio)
+`backend/src/share/domain/share-limit.service.ts` — `throw new Error(...)` viraria 500 com corpo não traduzido. Corrigido para `BadRequestException(this.i18n.t("share.notEnoughSpace"))`, seguindo o padrão de `file-storage.service.ts`.
+
+### Fix #11 — `parseInt()` sem radix (médio)
+`file.controller.ts` e `config.service.ts` — `parseInt(chunkIndex)`, `parseInt(totalChunks)`, `parseInt(value)` → `parseInt(..., 10)` (radix explícito, evita parsing octal/legado em strict mode).
+
+### Fix #12 — Dead code em `jwt.strategy.ts` (baixo)
+`backend/src/auth/strategy/jwt.strategy.ts` — `config.getString("internal.jwtSecret");` como statement solto (o valor era lido de novo no `super()`). Removido.
+
+### Fix #13 — Lint: 14 warnings de unused imports (baixo)
+Removidos imports não usados em `guards.decorator.ts`, `file.controller.ts`, `share-domain.module.ts`, `share-token.service.ts`, `share.controller.ts`, `user.controller.ts`, `auth-share.e2e-spec.ts` (incl. `authed`/`signIn`/`accessToken` sem uso). **Lint backend: 0 erros, 0 warnings** (antes 14 warnings).
+
+### Validação final ✅
+- Backend: unit **85/85**, e2e **16/16**, `nest build` OK, `tsc --noEmit` OK, lint **0 warnings**
+- Frontend: unit **5/5**, `next build` OK, lint OK
+- Prisma: `format`/`validate` OK, `generate` OK (client regenerado)
+- `npm audit`: **0 vulnerabilidades** (backend e frontend)
+- Shared package: rebuild `npm run build` aplicado
+
+### Notas
+- O bug do schema (Fix #4) era real e bloqueava qualquer geração de migration futura — estava "escondido" porque o client Prisma gerado em `node_modules`/`generated` era de um schema anterior válido.
+- A bateria unit/e2e não cobre o cenário `.unix() === 0` com `null`; o bug do frontend (Fix #5) foi detectado por análise empírica (`dayjs(null).unix()` → `NaN`) e coberto por conferência manual.
+
+

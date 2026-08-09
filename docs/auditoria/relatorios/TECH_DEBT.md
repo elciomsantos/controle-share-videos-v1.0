@@ -4,7 +4,7 @@
 |---|---|
 | Fase de origem | 7 (Qualidade) + contribuições de 1, 2, 3, 4, 11 |
 | Data | 2026-08-09 (atualizado em conferência final) |
-| Status | ✅ Dívida técnica quitada — todos os itens P1/P2/P3 pagos (R01-R08 + SEC-01..08 + FRN-01/02/04/05/07/08/12 + ARQ-01/03/04 + BKD-02/04 + BDB-02/05/06 + DOC-01/02 + DOP-07 + QTS-05 + PERF-02/03); HOTFIX build frontend 2026-08-09 (commit `71fee21`); restam apenas itens "cosméticos" opcionais (FRN-06/09 já pagos, QAL-06 monolitismo leve) |
+| Status | ✅ Dívida técnica quitada — todos os itens P1/P2/P3 pagos (R01-R08 + SEC-01..08 + FRN-01/02/04/05/07/08/12 + ARQ-01/03/04 + BKD-02/04 + BDB-02/05/06 + DOC-01/02 + DOP-07 + QTS-05 + PERF-02/03); HOTFIX build frontend 2026-08-09 (commit `71fee21`); **rodada de correções da auditoria consolidada 2026-08-09** (13 fixes: schema Prisma BDB-05, sentinela EPOCH_ZERO residual, closure stale, drain hang, nanoid vuln, lint 0 warnings, etc.); restam apenas itens "cosméticos" opcionais (FRN-06/09 já pagos, QAL-06 monolitismo leve) |
 
 ## 1. Introdução
 
@@ -103,14 +103,15 @@ Registro único da dívida técnica do projeto: tudo que não é bug de seguran�
 ## 6. Quadrante Urgência × Evolução
 
 - **Urgente pagar agora** (bloqueia segurança/evolução): ~~QAL-01 (testes)~~✅, ~~BKD-01/SEC-03 (reset TTL)~~✅, ~~FRN-12 (mutação de props)~~✅, ~~BDB-01 (String→BigInt)~~✅.
-- **Pagar em breve** (facilita features): BDB-05 (nullable `expiresAt`), DOC-01 (README).
-- **Pagas recentemente**: ~~BDB-02~~ (índices), ~~PERF-01/BDB-03~~ (paginação R03), ~~BKD-06/BDB-04/PERF-04~~ (jobs em lote R04), ~~QAL-03/BKD-08/FRN-04~~ (config tipada R06), ~~ARQ-02~~ (split ShareService R05), ~~SEC-03/BKD-01~~ (TTL reset), ~~SEC-05~~ (token via body), ~~FRN-12~~ (mutação por referência), ~~SEC-04~~ (sanitização HTML e-mail), ~~SEC-06~~ (oráculo resend), ~~SEC-07~~ (rotação/reuso refresh), ~~SEC-08~~ (fail-closed magic bytes).
+- **Pagar em breve** (facilita features): DOC-01 (README).
+- **Pagas recentemente**: ~~BDB-05~~ (nullable `expiresAt` + schema 1:1 corrigido 2026-08-09), ~~BDB-02~~ (índices), ~~PERF-01/BDB-03~~ (paginação R03), ~~BKD-06/BDB-04/PERF-04~~ (jobs em lote R04), ~~QAL-03/BKD-08/FRN-04~~ (config tipada R06), ~~ARQ-02~~ (split ShareService R05), ~~SEC-03/BKD-01~~ (TTL reset), ~~SEC-05~~ (token via body), ~~FRN-12~~ (mutação por referência), ~~SEC-04~~ (sanitização HTML e-mail), ~~SEC-06~~ (oráculo resend), ~~SEC-07~~ (rotação/reuso refresh), ~~SEC-08~~ (fail-closed magic bytes).
 - **Baixa prioridade** (cosmético/semântico): FRN-05, FRN-02, ~~BDB-06~~, QAL-06, ARQ-04.
 
 ## 7. Conclusões
 
 - **Toda a dívida técnica P1/P2/P3 foi quitada** ao longo da Fase 12 (2026-08-08) e conferência final (2026-08-09). Único item restante: **QAL-06** (monolitismo leve / duplicação cosmética), classificado como baixa prioridade sem impacto funcional ou de segurança.
 - Hotfix pós-relatório (2026-08-09, commit `71fee21`) corrigiu regressão de build frontend pré-existente (`useTranslate()` em escopo de módulo em `FileList.tsx`) — capturada durante a conferência final, não pela suíte de testes (cobertura SSR não exercida — gap que pode ser tratado futuramente como melhoria QAL).
+- **Rodada de correções da auditoria consolidada (2026-08-09)**: 13 fixes aplicados, incluindo a **correção do schema Prisma do BDB-05** (a coluna `securityId` nunca existiu no banco — o schema tinha campo fantasma + relação 1:1 duplicada; `prisma format/validate/generate` voltaram a passar) e a **eliminação completa do sentinela `EPOCH_ZERO` residual** do código de negócio (jobs, `getSharesByUser`, `parseExpiration`, e-mails e 4 componentes do frontend usavam `.unix() === 0`/`EPOCH_ZERO`, quebrando com o novo `null` pós-BDB-05). Detalhes na seção 26 do `PROGRESSO-REFATORACAO.md`.
 
 ## 8. Recomendações de pagamento (ordem)
 

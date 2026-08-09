@@ -37,7 +37,7 @@ Consolidação dos achados de performance da Fase 6 (`PERF-01` a `PERF-07`) com 
 
 - ~~**O gargalo dominante é a falta de paginação**: `getShares()`/`getSharesByUser()` materializam todas as linhas com todas as relações.~~ ✅ Resolvido 2026-08-07 (R03 — paginação com `take`/`skip`/`count`).
 - ~~Download de vídeo (caso de uso central do produto — "share de vídeos") não suporta Range requests, o que quebra seek/streaming progressivo no player.~~ ✅ Resolvido 2026-08-08 (PERF-06: negociação `Range`/`206` no preview, `416` para ranges insatisfazíveis).
-- ~~E-mails sequenciais e streams de ZIP simultâneos são correções baratas e de alto impacto em latência/estabilidade.~~ ✅ Resolvidos 2026-08-08 (PERF-02: `Promise.allSettled`; PERF-03: lotes de 16 com `drain` + nível 6).
+- ~~E-mails sequenciais e streams de ZIP simultâneos são correções baratas e de alto impacto em latência/estabilidade.~~ ✅ Resolvidos 2026-08-08 (PERF-02: `Promise.allSettled`; PERF-03: lotes de 16 com `drain` + nível 6). **Correção pós-implantação 2026-08-09**: o `await archive.once("drain")` incondicional do PERF-03 pendurava o ZIP em lotes sem backpressure (o evento só é emitido após `.write()` retornar `false`); agora `waitIfBackpressure()` só aguarda quando `writableNeedDrain` indica backpressure real (`share-archive.service.ts`).
 - ~~Jobs de limpeza rodam minuto a minuto varrendo a tabela toda sem índice em `expiration` (BDB-02) nem limite por execução.~~ ✅ Resolvidos (BDB-02: índices 2026-08-04; PERF-04: batch 50 + try/catch 2026-08-07).
 - ~~`fs` síncrono e healthcheck lendo `Config` inteira são ruído de baixo custo de correção.~~ ✅ Resolvidos (PERF-05: async `fs/promises`; PERF-07/DOP-08: `SELECT 1`).
 

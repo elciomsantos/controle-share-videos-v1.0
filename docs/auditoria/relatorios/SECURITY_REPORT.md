@@ -66,6 +66,7 @@ Relatório dedicado de segurança consolidando os achados da Fase 5 (`SEC-01` a 
 - A superfície de tokens (~~reset sem expiração~~ ✅, ~~senha em query string~~ ✅, ~~refresh sem reuse-detection~~ ✅) está **sanada**.
 - ClamAV existia como "decisão" conflitante (README × `Visao-geral` × código). **Resolvido em 26/07/2026 por decisão formal** (`docs/Padronizacao-07-clamav.md`): integração **rejeitada** — uploads só do owner/operador autenticado, somente mídia de vídeo (não-vetor de execução), destinatários só baixam, overhead de ~1-2 GB RAM + cold start 5-15 min do daemon, incompatível com deploy air-gapped. Código `clamscan`, dependência `clamscan@2.4.0` e daemon `clamav/clamav` **removidos** do repositório e dos compose files.
 - ~~A correção de `postcss` está **bloqueada por config própria** (override pinado em versão vulnerável).~~ ✅ INF-01 resolvido 2026-08-07.
+- **Regressão INF-01 (nanoid) corrigida 2026-08-09**: `nanoid@3.3.16` (transitiva via `next → postcss`) tinha severidade HIGH (`<3.3.17`); override `"nanoid": "^3.3.17"` → `3.3.18`. `npm audit`: **0 vulnerabilidades**.
 
 ## 5. Recomendações (prioridade de execução)
 
@@ -73,7 +74,7 @@ Relatório dedicado de segurança consolidando os achados da Fase 5 (`SEC-01` a 
 2. **P0 — BDB-01**: migrar tamanhos para `BigInt` (fecha `NaN` de cota). Requer deploy coordenado.
 3. **P1 — SEC-03**: expirar token de reset (TTL + `expiresAt`); corrigir `BKD-01`. ✅ **pago** — TTL 1h validado na redenção.
 4. **P1 — SEC-05**: política de compartilhamento sem senha em query string (usar campo POST / header). ✅ **pago (2026-08-07)** — token via POST `/shares/:id/token` com senha no body; `includePasswordInShareLink=false` default; Caddy mascara `?pwd=...` em access logs em todos os 3 Caddyfiles (2026-08-08).
-5. **P1 — INF-01**: remover override de `postcss` para 8.5.22+ e rodar `npm audit fix`. ✅ **pago** — `postcss ^8.5.22`.
+5. **P1 — INF-01**: remover override de `postcss` para 8.5.22+ e rodar `npm audit fix`. ✅ **pago** — `postcss ^8.5.22`. **Regressão nanoid corrigida 2026-08-09** — override `nanoid ^3.3.17` → `3.3.18`, 0 vulns.
 6. **P1 — DOC-02**: preencher `SECURITY.md` (versões suportadas + canal de report). ✅ **pago**.
 7. **P2 — SEC-04**: sanitizar HTML em e-mails (`sanitize-html` ou só texto). ✅ **pago (2026-08-07)** — `escapeHtml` + `escapeUserInput`.
 8. **P2 — SEC-02/QAL-02**: ~~decidir ClamAV (implementar scan real no upload ou remover deps e docs)~~ — **ENCERRADO por decisão formal** (26/07/2026) que rejeita a integração; código, dep `clamscan` e daemon removidos. Alinhamento documental feito. Nenhuma ação técnica restante.
