@@ -147,6 +147,7 @@ services:
 networks:
   app-network:
     driver: bridge
+    name: controle-share-videos-app
     # Internal network - no external access except via Caddy
     internal: false
 

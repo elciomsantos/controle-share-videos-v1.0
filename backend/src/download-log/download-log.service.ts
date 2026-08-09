@@ -1,11 +1,13 @@
 import {
   BadRequestException,
   Injectable,
+  Optional,
 } from "@nestjs/common";
 import { RequestContextLogger } from "../common/request-context/request-context";
 import { getRequestContext } from "../common/request-context/request-context";
 import { Prisma } from "../../prisma/generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { MetricsService } from "../metrics/metrics.service";
 
 export type DownloadLogEvent =
   | "download"
@@ -33,7 +35,10 @@ export interface DownloadLogEntry {
 export class DownloadLogService {
   private readonly logger = new RequestContextLogger(DownloadLogService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Optional() private metrics?: MetricsService,
+  ) {}
 
   async record(entry: DownloadLogEntry): Promise<void> {
     const maxRetries = 2;
@@ -58,6 +63,7 @@ export class DownloadLogService {
               entry.requestId ?? getRequestContext()?.requestId ?? null,
           },
         });
+        this.metrics?.incAppEvent(entry.event ?? "download", entry.success);
         return;
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "unknown error";

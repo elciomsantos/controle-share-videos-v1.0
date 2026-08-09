@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import { RequestContextLogger } from "../common/request-context/request-context";
 import { Prisma, Share, User, ShareSecurity } from "../../prisma/generated/prisma/client";
@@ -25,6 +26,7 @@ import { FileStorageService } from "./file-storage.service";
 import { ShareValidationService } from "./domain/share-validation.service";
 import { ShareTokenService } from "./domain/share-token.service";
 import { ShareLimitService } from "./domain/share-limit.service";
+import { MetricsService } from "../metrics/metrics.service";
 
 @Injectable()
 export class ShareService {
@@ -43,6 +45,7 @@ export class ShareService {
     private tokenService: ShareTokenService,
     private limitService: ShareLimitService,
     private config: ConfigService,
+    @Optional() private metrics?: MetricsService,
   ) {}
 
   async create(share: CreateShareDTO, user?: User) {
@@ -102,6 +105,8 @@ export class ShareService {
       },
       include: { files: true, recipients: true, creator: true, security: true },
     });
+
+    this.metrics?.incSharesCreated();
 
     return { ...shareTuple, generatedPassword };
   }

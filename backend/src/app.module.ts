@@ -16,6 +16,7 @@ import { DownloadLogModule } from "./download-log/download-log.module";
 import { EmailModule } from "./email/email.module";
 import { FileModule } from "./file/file.module";
 import { JobsModule } from "./jobs/jobs.module";
+import { MetricsModule } from "./metrics/metrics.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { ShareModule } from "./share/share.module";
 import { SystemModule } from "./system/system.module";
@@ -50,6 +51,7 @@ const i18nPath = existsSync(join(__dirname, "../i18n"))
     ScheduleModule.forRoot(),
     AppCacheModule,
     DownloadLogModule,
+    MetricsModule,
     I18nModule.forRoot({
       fallbackLanguage: "pt-BR",
       loaderOptions: {

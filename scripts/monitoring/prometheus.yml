@@ -9,15 +9,16 @@ rule_files:
   - alerts.yml
 
 scrape_configs:
-  - job_name: 'caddy'
-    static_configs:
-      - targets: ['caddy:2019']
-    metrics_path: '/metrics'
-
+  # Caddy metrics were intentionally NOT scraped: the metrics endpoint lives on
+  # the admin API, and Caddyfile.prod sets `admin off` as an INFRA hardening
+  # measure (admin API can mutate config). Backend HTTP metrics cover the app.
   - job_name: 'backend'
     static_configs:
       - targets: ['backend:8080']
-    metrics_path: '/api/health'
+    # NestJS exposes Prometheus text metrics here (prom-client). The previous
+    # config scraped /api/health, which returns plain "OK"/"ERROR" — not a
+    # valid Prometheus exposition, so the target always failed to parse.
+    metrics_path: '/api/metrics'
 
   - job_name: 'node'
     static_configs:

@@ -2,12 +2,14 @@ import {
   BadRequestException,
   Injectable,
   Logger,
+  Optional,
 } from "@nestjs/common";
 import * as crypto from "crypto";
 import * as fs from "fs";
 import { I18nContext } from "nestjs-i18n";
 import { ConfigService } from "./config.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { MetricsService } from "../metrics/metrics.service";
 import {
   decryptSecret,
   encryptSecret,
@@ -45,6 +47,7 @@ export class JwtSecretService {
   constructor(
     private config: ConfigService,
     private prisma: PrismaService,
+    @Optional() private metrics?: MetricsService,
   ) {}
 
   /**
@@ -179,6 +182,7 @@ export class JwtSecretService {
 
       await this.config.reload();
       this.invalidateCache();
+      this.metrics?.incJwtRotation();
 
       this.logger.log(
         `JWT secret rotated by ${actor}${ip ? ` from ${ip}` : ""}; ` +

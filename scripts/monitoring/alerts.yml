@@ -17,16 +17,6 @@ groups:
           summary: "Backend is down"
           description: "NestJS app backend has been unreachable by Prometheus for {{ $value }}s (instance {{ $labels.instance }})."
 
-      - alert: CaddyDown
-        expr: up{job="caddy"} == 0
-        for: 2m
-        labels:
-          severity: critical
-          service: caddy
-        annotations:
-          summary: "Caddy reverse-proxy is down"
-          description: "Caddy has been unreachable by Prometheus for {{ $value }}s (instance {{ $labels.instance }})."
-
       - alert: NodeExporterDown
         expr: up{job="node"} == 0
         for: 5m
@@ -80,26 +70,27 @@ groups:
     interval: 30s
     rules:
       - alert: High5xxRate
-        # Caddy exposes per-status error counters when the metrics endpoint is
-        # enabled. Alert when sustained 5xx rate exceeds 1 req/sec for 5 min.
-        expr: sum(rate(caddy_http_request_errors_total[5m])) by (status) > 1
+        # Backend exports per-status counters (http_requests_total{status}).
+        # Caddy's metrics endpoint was dropped because it requires enabling the
+        # admin API (admin off is a deliberate INFRA hardening).
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) by (status) > 1
         for: 5m
         labels:
           severity: warning
-          service: caddy
+          service: backend
         annotations:
           summary: "Elevated HTTP 5xx rate"
-          description: "Caddy is serving status {{ $labels.status }} at {{ $value }} req/s for 5 minutes."
+          description: "Backend is serving status {{ $labels.status }} at {{ $value }} req/s for 5 minutes."
 
       - alert: HighLatencyP99
-        expr: histogram_quantile(0.99, sum(rate(caddy_http_request_duration_seconds_bucket[5m])) by (le)) > 2
+        expr: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 2
         for: 10m
         labels:
           severity: warning
-          service: caddy
+          service: backend
         annotations:
           summary: "High p99 latency"
-          description: "Caddy p99 latency is above 2s for 10 minutes. Current: {{ $value }}s."
+          description: "Backend p99 latency is above 2s for 10 minutes. Current: {{ $value }}s."
 
       - alert: SqliteIntegrityFailure
         # Exported by the verify-db textfile exporter (scripts/monitoring/).

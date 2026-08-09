@@ -5,6 +5,9 @@ services:
     restart: unless-stopped
     networks:
       - monitoring-network
+      # GAP-08: Prometheus must reach the app services (backend:8080, caddy:2019)
+      # which live on the app network — attach both networks.
+      - app-network
     ports:
       - "9090:9090"
     volumes:
@@ -128,6 +131,11 @@ networks:
   monitoring-network:
     driver: bridge
     name: controle-share-videos-monitoring
+  # External network owned by docker-compose.prod.yml — where backend and
+  # caddy run. Prometheus joins it to scrape them by service name.
+  app-network:
+    external: true
+    name: controle-share-videos-app
 
 # All persistent data lives on the RAID6 disk via bind mounts:
 #   /srv/controle-share-videos/monitoring/prometheus
