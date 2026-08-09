@@ -227,6 +227,13 @@ export class AuthController {
     });
   }
 
+  @Post("logoutAll")
+  @Authenticated()
+  @HttpCode(204)
+  async logoutAllDevices(@GetUser() user: User) {
+    await this.authService.logoutAllDevices(user.id);
+  }
+
   @Post("totp/enable")
   @Authenticated()
   async enableTotp(@GetUser() user: User, @Body() body: EnableTotpDTO) {

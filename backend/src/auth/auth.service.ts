@@ -309,6 +309,17 @@ export class AuthService {
     }
   }
 
+  async logoutAllDevices(userId: string) {
+    await this.prisma.refreshToken.deleteMany({
+      where: { userId },
+    });
+
+    await this.prisma.loginToken.updateMany({
+      where: { userId, used: false },
+      data: { used: true },
+    });
+  }
+
   async refreshAccessToken(refreshToken: string) {
     const refreshTokenMetaData = await this.prisma.refreshToken.findUnique({
       where: { token: refreshToken },
