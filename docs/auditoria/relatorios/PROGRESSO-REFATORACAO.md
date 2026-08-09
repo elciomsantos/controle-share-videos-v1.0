@@ -642,3 +642,50 @@ Fixa **BDB-05** (sentinela `EPOCH_ZERO` para "nunca expira" + `ShareSecurity` 1:
 | Item | Descrição |
 |------|-----------|
 | **TODO** | Invalidar `loginTokens` antigos (logout all devices) |
+
+---
+
+## 24. TODO — Invalidar `loginTokens` antigos / Logout all devices (concluído 2026-08-08)
+
+Resolve o último item pendente: **Invalidar `loginTokens` antigos (logout de todos os dispositivos)**.
+
+### Implementação
+- **`auth.service.ts`**: novo método `logoutAllDevices(userId: string)`
+  - `prisma.refreshToken.deleteMany({ where: { userId } })` — invalida todas as sessões (refresh tokens)
+  - `prisma.loginToken.updateMany({ where: { userId, used: false }, data: { used: true } })` — marca todos login tokens não usados como usados (logout de todos devices)
+- **`auth.controller.ts`**: novo endpoint `POST /api/auth/logoutAll`
+  - Decorator `@Authenticated()` — requer JWT válido
+  - Retorna `204 No Content`
+
+### Segurança
+- Apenas o próprio usuário autenticado pode invocar (usa `@GetUser()` + `@Authenticated()`)
+- Invalida refresh tokens (sessões longas) e login tokens (sessões curtas/TOTP)
+- Não remove tokens já usados (já consumidos)
+
+### Testes ✅
+- Backend unit: 85/85
+- Backend e2e: 16/16
+- Frontend unit: 5/5
+- Build: OK
+
+---
+
+### Status Final
+| Item | Status |
+|------|--------|
+| **ARQ-01** | ✅ Dependência circular ShareModule ↔ FileModule |
+| **ARQ-03** | ✅ date.util.ts unificado (pacote shared) |
+| **ARQ-04** | ✅ Decorators compostos para guards |
+| **BKD-02** | ✅ Tipos `any` no ShareMapper |
+| **BKD-04** | ✅ Retry + log estruturado DownloadLogService |
+| **FRN-01** | ✅ JWT verification no middleware (jose/jwtVerify) |
+| **FRN-02** | ✅ Estado upload useState + Promise.all aguardado |
+| **FRN-04** | ✅ Tipos `any` frontend eliminados |
+| **FRN-05** | ✅ Loop reload idioma → router.replace + flag |
+| **FRN-07** | ✅ Preview PDF via iframe |
+| **FRN-08** | ✅ Categorias config lowercase consistentes |
+| **BKD-04** | ✅ DownloadLog retry + log estruturado |
+| **BDB-05** | ✅ EPOCH_ZERO → nullable expiration + ShareSecurity 1:1 |
+| **TODO** | ✅ Logout all devices (invalidar loginTokens) |
+
+**Todos os itens P2/P3 do backlog concluídos!**
