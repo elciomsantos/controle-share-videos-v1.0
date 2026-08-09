@@ -790,4 +790,9 @@ Removidos imports não usados em `guards.decorator.ts`, `file.controller.ts`, `s
 - O bug do schema (Fix #4) era real e bloqueava qualquer geração de migration futura — estava "escondido" porque o client Prisma gerado em `node_modules`/`generated` era de um schema anterior válido.
 - A bateria unit/e2e não cobre o cenário `.unix() === 0` com `null`; o bug do frontend (Fix #5) foi detectado por análise empírica (`dayjs(null).unix()` → `NaN`) e coberto por conferência manual.
 
+### Conferência 2026-08-09 (pós-push) — itens baratos e branch protection
+- Verificados **SEC-05** (filtro `replace pwd REDACTED` nos 3 Caddyfiles, commit `242c231`), **QTS-05** (`newman` removido) e **DOP-07** (`.dockerignore` com `**/secrets/`/`.env*`, commit `5e9b987`) — todos **já pagos**; apenas CHANGELOG desatualizado, corrigido nesta rodada.
+- **Branch protection** (status check do job `frontend` obrigatório): ⚠️ **não aplicável** — repo privado em conta GitHub free exige **GitHub Pro** para branch protection/rulesets (403 confirmado via API). Registrado como recomendação condicionada a upgrade ou tornar o repo público.
+- Docs sincronizados: `CHANGELOG_SUGERIDO.md` (seção 8 Itens Adiados, Conclusões, Recomendação 4).
+
 

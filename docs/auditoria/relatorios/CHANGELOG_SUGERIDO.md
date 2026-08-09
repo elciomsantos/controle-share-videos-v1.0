@@ -143,10 +143,11 @@ Rodada de fixes derivada da consolidação dos relatórios de auditoria (SECURIT
 - Dependências órfãs removidas (`clamscan`/`@types/clamscan` após decisão; `@nestjs/testing` após testes reais) — fix INF-03/QTS-07.
 
 ## 8. Itens Adiados (próximos ciclos)
-- Mascaramento de query strings no proxy quando `includePasswordInShareLink=true` (SEC-05); mover credenciais Newman para env (QTS-05); excluir `secrets/`/`.env*` do docker context (DOP-07).
+- ~~Mascaramento de query strings no proxy quando `includePasswordInShareLink=true` (SEC-05); mover credenciais Newman para env (QTS-05); excluir `secrets/`/`.env*` do docker context (DOP-07).~~ ✅ **Todos pagos** — SEC-05 (filtro `replace pwd REDACTED` nos 3 Caddyfiles, commit `242c231`); QTS-05 (`newman` removido, 2026-08-07); DOP-07 (`.dockerignore` ampliado, commit `5e9b987`).
 - Rotação de `JWT_SECRET` / secret manager.
 - Migração SQLite → PostgreSQL; armazenamento S3; observabilidade.
 - CI/CD com deploy automatizado e reauditoria de segurança trimestral.
+- ~~Tornar status check do `frontend` job obrigatório (branch protection)~~ — ⚠️ **Não aplicável**: repo privado na conta GitHub free exige **GitHub Pro** para branch protection/rulesets (403 confirmado em 2026-08-09). Mantido como gate manual enquanto o repo for privado; habilitar se tornar público ou fizer upgrade.
 
 ## 9. Notas
 - As mudanças *Breaking* (BigInt, paginação) devem sair com **instrução de migração de dados** e atualização do cliente.
@@ -161,11 +162,11 @@ Rodada de fixes derivada da consolidação dos relatórios de auditoria (SECURIT
 
 - ✅ v1.1.0 (baixo risco, sem breaking), v1.2.0 (dados + performance, 2 breaking), v1.3.0 (manutenibilidade), v1.2.1 (hotfix pós-conferência) e v1.2.2 (correções da auditoria consolidada) **todos aplicados** em `main` com builds e testes OK.
 - v1.2.0 concentra os dois únicos breaking (BigInt, paginação) — exige deploy coordenado e instrução de migração vertical; v1.3.0 é puramente de manutenção, sem mudança de contrato.
-- Após a conferência final de 2026-08-09: backlog tecnológico quitado, restando apenas **QAL-06** (cosmético, baixa prioridade) e os itens adiados da seção 8.
+- Após a conferência final de 2026-08-09: backlog tecnológico quitado, restando apenas **QAL-06** (cosmético, baixa prioridade) e os itens adiados da seção 8 (rotação de segredos, PostgreSQL, S3, observabilidade, CI/CD). Branch protection não habilitável em repo privado free (requer GitHub Pro).
 
 ## 12. Recomendações
 
 1. ✅ ~~Publicar v1.1.0~~ e seguintes assim que cada janela de R0x fosse fechada — aplicado progressivamente 2026-08-04..08.
 2. ✅ ~~Agrupar os breaking de v1.2.0 numa única janela~~ — aplicado no commit `4686195` (R03) coordenado com R01 (BigInt).
 3. Tornar a atualização deste changelog um gate de merge (item do `ROADMAP.md` §7) — ainda pendente; recomenda-se implementar como step do CI para evitar drift no futuro (este hotfix foi capturado justamente por drift documental).
-4. **Cobertura SSR no frontend**: o CI já roda `npm run build` (passo `Build` em `ci.yml`), mas o bug foi introduzido em `15b736a` (FRN-04) e só capturado na conferência manual de 2026-08-09 — sugere que o CI **falhou nesse commit mas foi mergeado** (provável: bypass ou workflow ran em branch sem gate obrigatório). Recomendação: tornar o status check do `frontend` job **obrigatório** antes de merge (branch protection rule no GitHub).
+4. **Cobertura SSR no frontend**: o CI já roda `npm run build` (passo `Build` em `ci.yml`), mas o bug foi introduzido em `15b736a` (FRN-04) e só capturado na conferência manual de 2026-08-09 — sugere que o CI **falhou nesse commit mas foi mergeado** (provável: bypass ou workflow ran em branch sem gate obrigatório). Recomendação: tornar o status check do `frontend` job **obrigatório** antes de merge (branch protection rule no GitHub) — ⚠️ **bloqueado 2026-08-09**: repo privado em conta free não permite branch protection/rulesets (exige GitHub Pro); mantido como recomendação até upgrade ou repo público.
