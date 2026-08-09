@@ -463,3 +463,54 @@ Fixa **FRN-04** (tipos `any` generalizados frontend — ~55 usos).
 | **FRN-08** | Categorias config inconsistentes |
 | **BDB-05** | Sentinela `EPOCH_ZERO` + `ShareSecurity` 1:1 opcional |
 | **TODO** | Invalidar `loginTokens` antigos (logout all devices) |
+
+---
+
+## 20. FRN-05 — Loop potencial de reload por idioma (concluído 2026-08-08)
+
+Fixa **FRN-05** (loop potencial de reload por idioma em `_app.tsx`).
+
+### Problema
+O `useEffect` que sincronizava o idioma fazia `location.reload()` quando `pageProps.language !== cookieLanguage`. Isso causava loop infinito:
+1. Página carrega com idioma A
+2. Cookie tem idioma B → `location.reload()`
+3. Página recarrega, busca config novamente
+4. Se API retorna idioma diferente ou cookie não setado → reload novamente → loop infinito
+
+### Solução
+- **`hasReloadedRef`**: flag para impedir múltiplos reloads na mesma sessão
+- **`router.replace(router.asPath, undefined, { scroll: false })`**: substitui `location.reload()` — evita full page reload, mantém estado do React
+- O `IntlProvider` recebe o novo `pageProps.language` via props e atualiza a UI sem full reload
+
+### Código alterado
+```tsx
+const hasReloadedRef = useRef(false);
+useEffect(() => {
+  if (!pageProps.language || hasReloadedRef.current) return;
+  const cookieLanguage = getCookie("language");
+  if (!cookieLanguage) {
+    i18nUtil.setLanguageCookie(pageProps.language);
+  } else if (pageProps.language !== cookieLanguage) {
+    hasReloadedRef.current = true;
+    router.replace(router.asPath, undefined, { scroll: false });
+  }
+  // ...
+}, [pageProps.language]);
+```
+
+### Testes ✅
+- Backend unit: 85/85
+- Backend e2e: 16/16
+- Frontend unit: 5/5
+- TypeScript: OK (compilação OK)
+
+---
+
+### Próximo item da fila (P3)
+
+| Item | Descrição |
+|------|-----------|
+| **FRN-07** | Preview PDF via `window.location.href` |
+| **FRN-08** | Categorias config inconsistentes |
+| **BDB-05** | Sentinela `EPOCH_ZERO` + `ShareSecurity` 1:1 opcional |
+| **TODO** | Invalidar `loginTokens` antigos (logout all devices) |

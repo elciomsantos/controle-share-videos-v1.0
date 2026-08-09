@@ -54,7 +54,7 @@ const useViewLimitModal = (): ((error: string | undefined) => void) => {
       "/img/images/fechado-down.png",
     );
   };
-};
+}
 
 /**
  * Notify the backend that a media playback has started. Returns true if the
@@ -82,7 +82,7 @@ const useRecordPlayView = (
     },
     [shareId, onError],
   );
-};
+}
 
 /**
  * Probe the file endpoint with a HEAD-style GET request before mounting a
@@ -144,7 +144,7 @@ const useFileProbe = (
   }, [shareId, fileId]);
 
   return allowed;
-};
+}
 
 const FilePreview = ({
   shareId,
@@ -186,7 +186,7 @@ const FilePreview = ({
       </Button>
     </Stack>
   );
-};
+}
 
 const FileDecider = () => {
   const { mimeType, setIsNotSupported } = React.useContext(FilePreviewContext);
@@ -205,7 +205,7 @@ const FileDecider = () => {
     setIsNotSupported(true);
     return null;
   }
-};
+}
 
 const AudioPreview = () => {
   const { shareId, fileId, setIsNotSupported } =
@@ -224,9 +224,6 @@ const AudioPreview = () => {
           controls
           style={{ width: "100%" }}
           onPlay={async () => {
-            // Pause immediately; resume only after backend allows. The
-            // recordingRef guard prevents the programmatic play() (resume)
-            // from re-entering this handler and looping POST /view requests.
             const a = audioRef.current;
             if (!a || recordingRef.current) return;
             recordingRef.current = true;
@@ -247,7 +244,7 @@ const AudioPreview = () => {
       </Stack>
     </Center>
   );
-};
+}
 
 const VideoPreview = () => {
   const { shareId, fileId, fileDescription, setIsNotSupported } =
@@ -267,9 +264,6 @@ const VideoPreview = () => {
         width="100%"
         controls
         onPlay={async () => {
-          // Pause immediately while we POST /view; resume on success.
-          // On 403 (limit exceeded) we leave the video paused and the modal
-          // shows the limit-exceeded message.
           const v = videoRef.current;
           if (!v || recordingRef.current) return;
           recordingRef.current = true;
@@ -277,9 +271,6 @@ const VideoPreview = () => {
           await recordView(() => {
             v.play().catch(() => setIsNotSupported(true));
           });
-          // Allow future plays to be recorded again. The onPlay re-triggered
-          // by the resume above fires within this window and is safely
-          // ignored by the guard.
           window.setTimeout(() => {
             recordingRef.current = false;
           }, 2000);
@@ -316,7 +307,7 @@ const VideoPreview = () => {
       )}
     </Box>
   );
-};
+}
 
 const ImagePreview = () => {
   const { shareId, fileId, setIsNotSupported } =
@@ -331,7 +322,7 @@ const ImagePreview = () => {
       onError={() => setIsNotSupported(true)}
     />
   );
-};
+}
 
 const TextPreview = () => {
   const { shareId, fileId } = React.useContext(FilePreviewContext);
@@ -345,15 +336,24 @@ const TextPreview = () => {
   }, [shareId, fileId]);
 
   return <MarkdownRenderer forceBlock>{text}</MarkdownRenderer>;
-};
+}
 
 const PdfPreview = () => {
   const { shareId, fileId } = React.useContext(FilePreviewContext);
-  if (typeof window !== "undefined") {
-    window.location.href = `/api/shares/${shareId}/files/${fileId}?download=false`;
-  }
-  return null;
-};
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <iframe
+      src={`/api/shares/${shareId}/files/${fileId}?download=false`}
+      width="100%"
+      height="600px"
+      style={{ border: "none", borderRadius: 8 }}
+      title="PDF Preview"
+      onLoad={() => setLoaded(true)}
+      sandbox="allow-scripts allow-same-origin"
+    />
+  );
+}
 
 const UnSupportedFile = () => {
   return (
@@ -368,6 +368,6 @@ const UnSupportedFile = () => {
       </Stack>
     </Center>
   );
-};
+}
 
 export default FilePreview;
