@@ -1,14 +1,14 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
+import { I18nService } from "nestjs-i18n";
 import { ConfigService } from "../../config/config.service";
 import { PrismaService } from "../../prisma/prisma.service";
-import { EPOCH_ZERO, isEpochZero } from "../../utils/date.util";
-import dayjs from "dayjs";
 
 @Injectable()
 export class ShareLimitService {
   constructor(
     private config: ConfigService,
     private prisma: PrismaService,
+    private readonly i18n: I18nService,
   ) {}
 
   async checkShareSizeLimit(shareId: string, additionalSize: number): Promise<void> {
@@ -26,16 +26,12 @@ export class ShareLimitService {
     const effectiveLimit = Math.min(maxShareSize, maxFileSize);
 
     if (totalSize + additionalSize > effectiveLimit) {
-      throw new Error("share.notEnoughSpace");
+      throw new BadRequestException(this.i18n.t("share.notEnoughSpace"));
     }
   }
 
   getMaxExpiration(): { value: number; unit: string } {
     return this.config.getTimespan("share.maxExpiration");
-  }
-
-  isNeverExpires(expiration: Date): boolean {
-    return isEpochZero(expiration);
   }
 
   getZipLimits() {

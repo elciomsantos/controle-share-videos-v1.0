@@ -13,7 +13,7 @@ import {
 import { User } from "../../prisma/generated/prisma/client";
 import { Response } from "express";
 import { GetUser } from "../auth/decorator/getUser.decorator";
-import { Authenticated, AdminOnly, Public } from "../auth/decorator/guards.decorator";
+import { Authenticated, AdminOnly } from "../auth/decorator/guards.decorator";
 import { ConfigService } from "../config/config.service";
 import { CreateUserDTO } from "./dto/createUser.dto";
 import { UpdateOwnUserDTO } from "./dto/updateOwnUser.dto";

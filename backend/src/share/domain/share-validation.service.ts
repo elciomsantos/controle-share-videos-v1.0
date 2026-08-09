@@ -2,13 +2,11 @@ import { Injectable, BadRequestException, NotFoundException, ForbiddenException 
 import { PrismaService } from "../../prisma/prisma.service";
 import { I18nService } from "nestjs-i18n";
 import { ConfigService } from "../../config/config.service";
-import { EPOCH_ZERO, isEpochZero, parseRelativeDateToAbsolute, Timespan } from "../../utils/date.util";
+import { isEpochZero, parseRelativeDateToAbsolute, Timespan } from "../../utils/date.util";
 import dayjs from "dayjs";
 
 @Injectable()
 export class ShareValidationService {
-  public readonly EPOCH_ZERO = EPOCH_ZERO;
-
   constructor(
     private prisma: PrismaService,
     private i18n: I18nService,
@@ -37,23 +35,25 @@ export class ShareValidationService {
     return share;
   }
 
-  validateExpiration(expiration: Date, isAdmin = false) {
+  validateExpiration(expiration: Date | null, isAdmin = false) {
     if (!isAdmin) {
       const maxExpiration: Timespan = this.config.getTimespan("share.maxExpiration");
       const expiresNever = isEpochZero(expiration);
 
-      if (
-        maxExpiration.value !== 0 &&
-        (expiresNever ||
-          expiration > dayjs().add(maxExpiration.value, maxExpiration.unit).toDate())
-      ) {
-        throw new BadRequestException(this.i18n.t("share.maxExpirationExceeded"));
+      if (maxExpiration.value !== 0) {
+        const exceeded =
+          expiresNever ||
+          (expiration !== null &&
+            expiration > dayjs().add(maxExpiration.value, maxExpiration.unit).toDate());
+        if (exceeded) {
+          throw new BadRequestException(this.i18n.t("share.maxExpirationExceeded"));
+        }
       }
     }
   }
 
-  parseExpiration(expiration: string): Date {
-    if (expiration === "never") return EPOCH_ZERO;
+  parseExpiration(expiration: string): Date | null {
+    if (expiration === "never") return null;
 
     if (
       /^\d+-(minute|hour|day|week|month|year|minutes|hours|days|weeks|months|years)$/.test(

@@ -12,7 +12,7 @@ import {
 } from "@mantine/core";
 import { useClipboard } from "@mantine/hooks";
 import { useModals } from "@mantine/modals";
-import { dayjs } from "../../utils/date.util";
+import { dayjs, isEpochZero } from "../../utils/date.util";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -126,10 +126,10 @@ const MyShares = () => {
                     )}
                   </td>
                   <td>
-                    {dayjs(share.expiration).unix() === 0 ? (
+                    {isEpochZero(share.expiration) ? (
                       <FormattedMessage id="account.shares.table.expiry-never" />
                     ) : (
-                      dayjs(share.expiration).locale("pt-br").format("LLL")
+                      dayjs(share.expiration).format("LLL")
                     )}
                   </td>
                   <td>

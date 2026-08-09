@@ -1,6 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { NestExpressApplication } from "@nestjs/platform-express";
-import { ThrottlerGuard, ThrottlerModule, ThrottlerStorage } from "@nestjs/throttler";
+import { ThrottlerStorage } from "@nestjs/throttler";
 import request from "supertest";
 import * as argon from "argon2";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
@@ -8,7 +8,6 @@ import { PrismaClient } from "../prisma/generated/prisma/client";
 import { AppModule } from "../src/app.module";
 import { configureApp } from "../src/main";
 import { ConfigService } from "../src/config/config.service";
-import { EPOCH_ZERO } from "../src/utils/date.util";
 
 type Agent = ReturnType<typeof request.agent>;
 
@@ -310,16 +309,11 @@ describe("Auth + Share (e2e)", () => {
     it("POST /api/shares/:id/token validates password and issues a share token", async () => {
       const server = agent();
       const token = await getCsrf(server);
-      const signIn = await server
+      await server
         .post("/api/auth/signIn")
         .set("x-csrf-token", token)
         .send({ email, password })
         .expect(200);
-      const accessToken = signIn.body.accessToken as string;
-      const authed = () =>
-        server
-          .set("Authorization", `Bearer ${accessToken}`)
-          .set("x-csrf-token", token);
 
       const plainPassword = "share-pass-123";
       const hashedPassword = await argon.hash(plainPassword, {

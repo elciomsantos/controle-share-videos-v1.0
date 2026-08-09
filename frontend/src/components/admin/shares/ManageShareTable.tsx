@@ -8,7 +8,7 @@ import {
 } from "@mantine/core";
 import { useClipboard } from "@mantine/hooks";
 import { useModals } from "@mantine/modals";
-import { dayjs } from "../../../utils/date.util";
+import { dayjs, isEpochZero } from "../../../utils/date.util";
 import { TbInfoCircle, TbLink, TbTrash } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
 import useConfig from "../../../hooks/config.hook";
@@ -98,17 +98,16 @@ const ManageShareTable = ({
                   </td>
                   <td>{byteToHumanSizeString(share.size)}</td>
                   <td>
-                    {dayjs(share.expiration).unix() === 0
+                    {isEpochZero(share.expiration)
                       ? "Never"
-                      : dayjs(share.expiration).locale("pt-br").format("LLL")}
+                      : dayjs(share.expiration).format("LLL")}
                   </td>
                   {fileRetentionEnabled ? (
                     <td>
-                      {dayjs(share.expiration).unix() === 0 ||
+                      {isEpochZero(share.expiration) ||
                       fileRetentionPeriod.value === -1
                         ? "Never"
                         : dayjs(share.expiration)
-                            .locale("pt-br")
                             .add(
                               fileRetentionPeriod.value,
                               fileRetentionPeriod.unit,

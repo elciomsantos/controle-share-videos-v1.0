@@ -87,7 +87,6 @@ const DownloadLogsTable = ({
                   <tr key={log.id}>
                     <td>
                       {dayjs(log.createdAt)
-                        .locale("pt-br")
                         .format("LLL")}
                     </td>
                     <td>{log.shareId}</td>

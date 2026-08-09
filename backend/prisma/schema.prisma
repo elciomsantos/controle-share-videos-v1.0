@@ -13,12 +13,12 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  username String  @unique
-  email    String  @unique
-  password String?
-  isAdmin  Boolean @default(false)
-  role     String  @default("operador")
-  shareSizeLimit BigInt?
+  username           String  @unique
+  email              String  @unique
+  password           String?
+  isAdmin            Boolean @default(false)
+  role               String  @default("operador")
+  shareSizeLimit     BigInt?
   passwordMustChange Boolean @default(false)
 
   shares        Share[]
@@ -72,29 +72,27 @@ model ResetPasswordToken {
 }
 
 model Share {
-  id        String   @id @default(uuid())
-  createdAt DateTime @default(now())
+  id        String    @id @default(uuid())
+  createdAt DateTime  @default(now())
   updatedAt DateTime? @updatedAt
 
   name          String?
-  uploadLocked  Boolean  @default(false)
-  isZipReady    Boolean  @default(false)
-  views         Int      @default(0)
-  downloads     Int      @default(0)
+  uploadLocked  Boolean   @default(false)
+  isZipReady    Boolean   @default(false)
+  views         Int       @default(0)
+  downloads     Int       @default(0)
   expiration    DateTime?
   description   String?
   removedReason String?
 
   creatorId String?
-  creator   User?  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  creator   User?   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
 
-  securityId String   @unique
-  security   ShareSecurity  @relation(fields: [securityId], references: [id], onDelete: Cascade)
+  security ShareSecurity?
 
-  security   ShareSecurity  @relation(fields: [securityId], references: [id], onDelete: Cascade)
-  recipients ShareRecipient[]
-  files      File[]
-  storageProvider String @default("LOCAL")
+  recipients      ShareRecipient[]
+  files           File[]
+  storageProvider String           @default("LOCAL")
 
   // BDB-02: orderBy expiration desc (getShares, getSharesByUser) e
   // where expiration { lt / gt } (jobs.deleteExpiredShares).
@@ -140,7 +138,7 @@ model ShareSecurity {
   maxViews     Int?
   maxDownloads Int?
 
-  shareId String   @unique
+  shareId String @unique
   share   Share  @relation(fields: [shareId], references: [id], onDelete: Cascade)
 }
 
@@ -175,8 +173,8 @@ model DownloadLog {
 
   userAgent String?
 
-  success  Boolean
-  reason   String?
+  success Boolean
+  reason  String?
 
   event String @default("download")
 

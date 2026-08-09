@@ -16,11 +16,10 @@ import contentDisposition from "content-disposition";
 import { Request, Response } from "express";
 import { DownloadLogService } from "../download-log/download-log.service";
 import { User } from "../../prisma/generated/prisma/client";
-import { Public, Authenticated } from "../auth/decorator/guards.decorator";
+import { Public } from "../auth/decorator/guards.decorator";
 import { StrictShareOwnerAccess, SharePublicAccess } from "../share/decorator/share-guards.decorator";
 import { FileService } from "./file.service";
 import { DownloadLimitGuard } from "./guard/downloadLimit.guard";
-import { FileSecurityGuard } from "./guard/fileSecurity.guard";
 import mime from "mime-types";
 import range from "range-parser";
 import { HttpStatus } from "@nestjs/common";
@@ -67,12 +66,12 @@ export class FileController {
 
     const result = await this.fileService.create(
       body,
-      { index: parseInt(chunkIndex), total: parseInt(totalChunks) },
+      { index: parseInt(chunkIndex, 10), total: parseInt(totalChunks, 10) },
       { id, name, description },
       shareId,
     );
 
-    if (parseInt(chunkIndex) === parseInt(totalChunks) - 1) {
+    if (parseInt(chunkIndex, 10) === parseInt(totalChunks, 10) - 1) {
       let fileSize: string | null = null;
       try {
         const meta = await this.fileService.getFileMetaData(shareId, id);

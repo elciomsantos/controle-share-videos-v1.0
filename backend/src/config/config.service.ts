@@ -196,7 +196,7 @@ export class ConfigService extends EventEmitter {
     const value = configVariable.value ?? configVariable.defaultValue;
 
     if (configVariable.type == "number" || configVariable.type == "filesize")
-      return parseInt(value) as unknown as GetReturn<K>;
+      return parseInt(value, 10) as unknown as GetReturn<K>;
     if (configVariable.type == "boolean")
       return (value == "true") as unknown as GetReturn<K>;
     if (configVariable.type == "string" || configVariable.type == "text")

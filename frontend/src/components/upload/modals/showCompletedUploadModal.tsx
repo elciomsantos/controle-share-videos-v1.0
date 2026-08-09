@@ -2,7 +2,7 @@ import { Button, Stack, Text, Collapse, useComputedColorScheme, useMantineTheme,
 import { useModals } from "@mantine/modals";
 type ModalsContextProps = ReturnType<typeof useModals>;
 import { useState } from "react";
-import { dayjs } from "../../../utils/date.util";
+import { dayjs, isEpochZero } from "../../../utils/date.util";
 import { useRouter } from "next/router";
 import { FormattedMessage } from "react-intl";
 import useTranslate, {
@@ -59,11 +59,10 @@ const Body = ({
   const link = baseUrl;
 
   const handleCopyAll = async () => {
-    dayjs.locale("pt-br");
     const text = [
       `Link: ${link}`,
       generatedPassword ? `Senha: ${generatedPassword}` : null,
-      dayjs(share.expiration).unix() === 0
+      isEpochZero(share.expiration)
         ? `Expira em: Nunca`
         : `Expira em: ${dayjs(share.expiration).format("LLL")}`,
       share.maxViews ? `Limite de visualizacoes: ${share.maxViews}` : null,
@@ -102,7 +101,7 @@ const Body = ({
       )}
 
       <Text size="xs" style={{ color: theme.colors.gray[6] }}>
-        {dayjs(share.expiration).unix() === 0
+        {isEpochZero(share.expiration)
           ? t("upload.modal.completed.never-expires")
           : t("upload.modal.completed.expires-on", {
               expiration: dayjs(share.expiration).format("LLL"),

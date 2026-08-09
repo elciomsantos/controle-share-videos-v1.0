@@ -2,7 +2,6 @@ import { applyDecorators, UseGuards } from "@nestjs/common";
 import { JwtGuard } from "../guard/jwt.guard";
 import { RolesGuard } from "../guard/roles.guard";
 import { Roles } from "./roles.decorator";
-import { Public } from "./public.decorator";
 
 /**
  * Endpoint que requer autenticação (JWT válido)

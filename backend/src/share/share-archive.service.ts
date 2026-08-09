@@ -86,6 +86,19 @@ export class ShareArchiveService {
     // one ReadStream per file up front. Bounded concurrent open descriptors
     // avoid EMFILE and CPU/memory spikes on huge shares; archiver consumes each
     // batch (emitting "drain") before the next batch is opened.
+    // Only await "drain" when the archiver actually reports backpressure —
+    // otherwise `archive.once("drain")` hangs forever (the "drain" event is
+    // only emitted after a `false`-returning `.write()` call, and a small
+    // first batch with no backpressure would never fire it, leaving
+    // `isZipReady` stuck on false forever).
+    const waitIfBackpressure = (): Promise<void> => {
+      const ws = archive as unknown as {
+        writableNeedDrain?: boolean;
+        once(event: "drain", cb: () => void): unknown;
+      };
+      if (!ws.writableNeedDrain) return Promise.resolve();
+      return new Promise<void>((resolve) => ws.once("drain", resolve));
+    };
     const BATCH_SIZE = 16;
     for (let i = 0; i < files.length; i += BATCH_SIZE) {
       const batch = files.slice(i, i + BATCH_SIZE);
@@ -94,7 +107,7 @@ export class ShareArchiveService {
           name: file.name,
         });
       }
-      await new Promise<void>((resolve) => archive.once("drain", resolve));
+      await waitIfBackpressure();
     }
 
     archive.pipe(writeStream);

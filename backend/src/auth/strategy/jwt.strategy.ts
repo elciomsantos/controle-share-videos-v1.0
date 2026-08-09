@@ -11,7 +11,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     config: ConfigService,
     private prisma: PrismaService,
   ) {
-    config.getString("internal.jwtSecret");
     super({
       jwtFromRequest: JwtStrategy.extractJWT,
       secretOrKey: config.getString("internal.jwtSecret"),

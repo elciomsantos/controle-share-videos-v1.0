@@ -84,12 +84,15 @@ const Upload = ({
     setisUploading(true);
     setErrorToastShown(false);
 
+    let createdShareId: string;
+
     try {
       const totalSize = filesToUpload.reduce((acc, file) => acc + Number(file.size), 0);
       const result = await shareService.create({
         ...share,
         size: totalSize,
       });
+      createdShareId = result.id;
       setCreatedShare(result);
       setPendingGeneratedPassword((result as any).generatedPassword);
     } catch (e) {
@@ -125,7 +128,7 @@ const Upload = ({
           try {
             await shareService
               .uploadFile(
-                createdShare!.id,
+                createdShareId,
                 blob,
                 {
                   id: fileId,

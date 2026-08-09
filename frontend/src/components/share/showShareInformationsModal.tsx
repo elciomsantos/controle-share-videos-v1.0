@@ -15,7 +15,7 @@ import {
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useModals } from "@mantine/modals";
-import { dayjs } from "../../utils/date.util";
+import { dayjs, isEpochZero } from "../../utils/date.util";
 import { FormattedMessage } from "react-intl";
 import * as yup from "yup";
 import { translateOutsideContext } from "../../hooks/useTranslate.hook";
@@ -95,13 +95,10 @@ const Body = ({
   const formattedMaxShareSize = byteToHumanSizeString(resolvedMaxShareSize);
   const shareSizeProgress = shareSizeRatio * 100;
 
-  const formattedCreatedAt = dayjs(currentShare.createdAt)
-    .locale("pt-br")
-    .format("LLL");
-  const formattedExpiration =
-    dayjs(currentShare.expiration).unix() === 0
-      ? "Never"
-      : dayjs(currentShare.expiration).locale("pt-br").format("LLL");
+  const formattedCreatedAt = dayjs(currentShare.createdAt).format("LLL");
+  const formattedExpiration = isEpochZero(currentShare.expiration)
+    ? "Never"
+    : dayjs(currentShare.expiration).format("LLL");
 
   if (isEditing) {
     return (
@@ -209,7 +206,7 @@ const EditShareBody = ({
 }) => {
   const t = translateOutsideContext();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const isPermanentShare = dayjs(share.expiration).unix() === 0;
+  const isPermanentShare = isEpochZero(share.expiration);
   const security = share.security ?? {
     passwordProtected: false,
     maxViews: undefined,

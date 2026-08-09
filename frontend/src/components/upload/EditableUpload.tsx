@@ -18,7 +18,6 @@ import { getNormalizedFileName, filterDuplicateFiles } from "../../utils/file.ut
 
 const promiseLimit = pLimit(3);
 const EDITABLE_ERROR_TOAST_ID = "editable-upload-error-toast";
-let errorToastShown = false;
 
 const EditableUpload = ({
   maxShareSize,
@@ -40,6 +39,7 @@ const EditableUpload = ({
     useState<Array<FileRecord & { deleted?: boolean }>>(savedFiles);
   const [uploadingFiles, setUploadingFiles] = useState<FileUpload[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [errorToastShown, setErrorToastShown] = useState(false);
 
   const existingAndUploadedFiles: FileListItem[] = useMemo(
     () => [...uploadingFiles, ...existingFiles],
@@ -239,13 +239,13 @@ const EditableUpload = ({
           withCloseButton: true,
           autoClose: false,
         });
+        setErrorToastShown(true);
       }
-      errorToastShown = true;
     } else {
       notifications.hide(EDITABLE_ERROR_TOAST_ID);
-      errorToastShown = false;
+      if (errorToastShown) setErrorToastShown(false);
     }
-  }, [uploadingFiles]);
+  }, [uploadingFiles, errorToastShown, t]);
 
   return (
     <>

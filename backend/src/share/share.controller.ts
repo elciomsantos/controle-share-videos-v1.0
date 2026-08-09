@@ -18,7 +18,7 @@ import { Request, Response } from "express";
 import dayjs from "dayjs";
 import { GetUser } from "../auth/decorator/getUser.decorator";
 import { Public } from "../auth/decorator/public.decorator";
-import { AdminOnly, AdminOrAuditor, Authenticated } from "../auth/decorator/guards.decorator";
+import { AdminOrAuditor, Authenticated } from "../auth/decorator/guards.decorator";
 import { AdminShareDTO } from "./dto/adminShare.dto";
 import { CreateShareDTO } from "./dto/createShare.dto";
 import { MyShareDTO } from "./dto/myShare.dto";
@@ -83,7 +83,7 @@ export class ShareController {
   })
   @Public()
   @SharePublicAccess()
-  async get(@Param("id") id: string, @Req() req: Request) {
+  async get(@Param("id") id: string, @Req() _req: Request) {
     return new ShareDTO().from(await this.shareService.get(id));
   }
 

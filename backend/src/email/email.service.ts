@@ -11,6 +11,7 @@ import "dayjs/locale/pt-br";
 import nodemailer from "nodemailer";
 import { I18nService } from "nestjs-i18n";
 import { ConfigService } from "../config/config.service";
+import { isEpochZero } from "../utils/date.util";
 import { escapeHtml } from "../common/sanitize";
 
 dayjs.extend(relativeTime as PluginFunc);
@@ -115,9 +116,9 @@ export class EmailService {
         )
         .replaceAll(
           "{expires}",
-          dayjs(expiration).unix() != 0
-            ? dayjs(expiration).locale(locale).fromNow()
-            : this.i18n.t("email.shareRecipientsExpiresNeverFallback"),
+          isEpochZero(expiration)
+            ? this.i18n.t("email.shareRecipientsExpiresNeverFallback")
+            : dayjs(expiration).locale(locale).fromNow(),
         ),
     );
   }

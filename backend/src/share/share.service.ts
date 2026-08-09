@@ -90,7 +90,9 @@ export class ShareService {
         ...shareData,
         expiration: expirationDate,
         creator: { connect: user ? { id: user.id } : undefined },
-        security: { create: share.security },
+        security: share.security
+          ? { create: { password: share.security.password, maxViews: share.security.maxViews, maxDownloads: share.security.maxDownloads } }
+          : undefined,
         recipients: {
           create: share.recipients
             ? [...new Set(share.recipients)].map((email) => ({ email }))
@@ -98,6 +100,7 @@ export class ShareService {
         },
         storageProvider: "LOCAL",
       },
+      include: { files: true, recipients: true, creator: true, security: true },
     });
 
     return { ...shareTuple, generatedPassword };
@@ -150,7 +153,7 @@ export class ShareService {
           share.id,
           share.creator ?? undefined,
           share.description ?? undefined,
-          share.expiration,
+          share.expiration ?? undefined,
         ),
       ),
     );
@@ -214,7 +217,7 @@ export class ShareService {
       uploadLocked: true,
       OR: [
         { expiration: { gt: new Date() } },
-        { expiration: { equals: this.validationService.EPOCH_ZERO } },
+        { expiration: { equals: null } },
       ],
     };
 
@@ -335,7 +338,7 @@ export class ShareService {
     const isUpdaterAdmin = user?.isAdmin === true;
     this.validationService.validateCreatorAccess(currentShare, isUpdaterAdmin, "update");
 
-    let expirationDate: Date | undefined;
+    let expirationDate: Date | null | undefined;
     if (body.expiration !== undefined) {
       expirationDate = this.validationService.parseExpiration(body.expiration);
       this.validationService.validateExpiration(expirationDate, isUpdaterAdmin);
@@ -387,7 +390,7 @@ export class ShareService {
     await this.prisma.shareSecurity.upsert({
       where: { shareId },
       create: {
-        share: { connect: { id: shareId } },
+        shareId,
         password: nextPassword,
         maxViews: nextMaxViews,
         maxDownloads: nextMaxDownloads,

@@ -18,8 +18,8 @@ export { type DurationUnitType };
 
 export const EPOCH_ZERO = new Date(0);
 
-export function parseRelativeDateToAbsolute(relativeDate: string) {
-  if (relativeDate == "never") return EPOCH_ZERO;
+export function parseRelativeDateToAbsolute(relativeDate: string): Date | null {
+  if (relativeDate == "never") return null;
 
   return dayjs()
     .add(
@@ -29,7 +29,14 @@ export function parseRelativeDateToAbsolute(relativeDate: string) {
     .toDate();
 }
 
-export function isEpochZero(date: Date | string | number) {
+/**
+ * Returns true when the date represents "never expires". After BDB-05, the
+ * canonical sentinel is `null` in the database; the legacy `EPOCH_ZERO`
+ * (`new Date(0)`) is kept for backwards compatibility with migrations and
+ * any rows that still use it.
+ */
+export function isEpochZero(date: Date | string | number | null | undefined) {
+  if (date === null || date === undefined) return true;
   return dayjs(date).isSame(dayjs(0));
 }
 

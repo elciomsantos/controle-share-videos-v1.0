@@ -1,10 +1,13 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { PrismaClient } from "../../prisma/generated/prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { DATABASE_URL } from "../constants";
 
 @Injectable()
-export class PrismaService extends PrismaClient {
+export class PrismaService
+  extends PrismaClient
+  implements OnModuleInit, OnModuleDestroy
+{
   private readonly logger = new Logger(PrismaService.name);
 
   constructor() {
@@ -12,6 +15,15 @@ export class PrismaService extends PrismaClient {
       url: DATABASE_URL,
     });
     super({ adapter });
-    super.$connect().then(() => this.logger.log("Connected to the database"));
+  }
+
+  async onModuleInit() {
+    await this.$connect();
+    this.logger.log("Connected to the database");
+  }
+
+  async onModuleDestroy() {
+    await this.$disconnect();
+    this.logger.log("Disconnected from the database");
   }
 }

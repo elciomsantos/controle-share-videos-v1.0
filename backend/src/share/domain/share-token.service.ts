@@ -4,7 +4,7 @@ import { ConfigService } from "../../config/config.service";
 import * as crypto from "crypto";
 import dayjs from "dayjs";
 import { Share, ShareSecurity } from "../../../prisma/generated/prisma/client";
-import { EPOCH_ZERO, isEpochZero } from "../../utils/date.util";
+import { isEpochZero } from "../../utils/date.util";
 
 @Injectable()
 export class ShareTokenService {

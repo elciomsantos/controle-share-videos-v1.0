@@ -5,7 +5,6 @@ import dayjs from "dayjs";
 import { FileService } from "../file/file.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ConfigService } from "../config/config.service";
-import { EPOCH_ZERO } from "../utils/date.util";
 import { SHARE_DIRECTORY } from "../constants";
 
 @Injectable()
@@ -38,10 +37,12 @@ export class JobsService {
     while (true) {
       const batch = await this.prisma.share.findMany({
         where: {
-          // We want to remove only shares that have an expiration date + retention period less than the current date, but not 0
+          // We want to remove only shares that have an actual expiration date
+          // (not null, which represents "never expires" — see BDB-05) and
+          // whose retention period has elapsed.
           AND: [
             { expiration: { lt: thresholdDate } },
-            { expiration: { not: EPOCH_ZERO } },
+            { expiration: { not: null } },
           ],
           id: lastId ? { gt: lastId } : undefined,
         },
