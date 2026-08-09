@@ -81,14 +81,17 @@ model Share {
   isZipReady    Boolean  @default(false)
   views         Int      @default(0)
   downloads     Int      @default(0)
-  expiration    DateTime
+  expiration    DateTime?
   description   String?
   removedReason String?
 
   creatorId String?
   creator   User?  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
 
-  security   ShareSecurity?
+  securityId String   @unique
+  security   ShareSecurity  @relation(fields: [securityId], references: [id], onDelete: Cascade)
+
+  security   ShareSecurity  @relation(fields: [securityId], references: [id], onDelete: Cascade)
   recipients ShareRecipient[]
   files      File[]
   storageProvider String @default("LOCAL")
@@ -137,8 +140,8 @@ model ShareSecurity {
   maxViews     Int?
   maxDownloads Int?
 
-  shareId String? @unique
-  share   Share?  @relation(fields: [shareId], references: [id], onDelete: Cascade)
+  shareId String   @unique
+  share   Share  @relation(fields: [shareId], references: [id], onDelete: Cascade)
 }
 
 model Config {
