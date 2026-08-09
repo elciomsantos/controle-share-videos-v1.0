@@ -93,8 +93,9 @@ groups:
           description: "Backend p99 latency is above 2s for 10 minutes. Current: {{ $value }}s."
 
       - alert: SqliteIntegrityFailure
-        # Exported by the verify-db textfile exporter (scripts/monitoring/).
-        # 0 means OK, >0 means PRAGMA integrity_check raised a problem.
+        # Exported by the backend (MetricsService) at GET /api/metrics — the
+        # PRAGMA integrity_check gauge from backend/src/metrics/. 0 means OK,
+        # >0 means the integrity check raised a problem.
         expr: sqlite_integrity_check_failed > 0
         for: 1m
         labels:
@@ -102,4 +103,4 @@ groups:
           service: sqlite
         annotations:
           summary: "SQLite integrity check failed"
-          description: "verify-db reported a failing PRAGMA integrity_check on the share database. Restore from backup immediately."
+          description: "Backend reported a failing PRAGMA integrity_check on the share database. Restore from backup immediately."

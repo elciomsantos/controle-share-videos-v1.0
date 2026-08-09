@@ -144,11 +144,32 @@ Rodada de fixes derivada da consolidação dos relatórios de auditoria (SECURIT
 ### Removed
 - Dependências órfãs removidas (`clamscan`/`@types/clamscan` após decisão; `@nestjs/testing` após testes reais) — fix INF-03/QTS-07.
 
+## 7.1 Versão Sugerida — v1.2.3 (observabilidade corrigida)
+
+Rodada de correção do stack de monitoramento. 2026-08-09.
+
+### Added
+- **Métricas no backend via prom-client** (`backend/src/metrics/`): `GET /api/metrics` em texto Prometheus. Inclui `http_requests_total`/`http_request_duration_seconds` por rota e status (interceptor global), contadores de negócio (`shares_created_total`, `app_events_total`, `jwt_rotations_total`), gauge `sqlite_integrity_check_failed` (executado no boot) e métricas default do Node.js (`nodejs_eventloop_lag_seconds`, heap, etc.).
+- `better-sqlite3` como dependência direta (binding nativo verificado) para o check de integridade.
+- **Rede do app com nome fixo** (`controle-share-videos-app`) e Prometheus anexado a ela para alcançar `backend:8080`.
+
+### Changed
+- **`prometheus.yml`**: scrape do backend passou de `/api/health` (resposta `OK`, não é formato Prometheus válido → target sempre falhava) para `/api/metrics`.
+- **`alerts.yml`/dashboard**: alertas e painéis de 5xx/latência baseados em `caddy_http_*` migraram para as métricas do backend (`http_requests_total{status=~"5.."}`, `http_request_duration_seconds_bucket`).
+
+### Removed
+- **Job/alerta `CaddyDown`** (e scrape `caddy:2019`): as métricas do Caddy vivem na admin API, desligada por hardening (`admin off` em `Caddyfile.prod`) — expô-la para scrape seria abrir a API de mutação de config na rede.
+
+### Validação
+- Backend: unit 109/109 (5 novos em `metrics.service.spec.ts`), build OK, lint 0 warnings.
+- `docker compose config` OK (prod e monitoring); `promtool check config`/`check rules` OK (9 regras).
+
 ## 8. Itens Adiados (próximos ciclos)
 - ~~Mascaramento de query strings no proxy quando `includePasswordInShareLink=true` (SEC-05); mover credenciais Newman para env (QTS-05); excluir `secrets/`/`.env*` do docker context (DOP-07).~~ ✅ **Todos pagos** — SEC-05 (filtro `replace pwd REDACTED` nos 3 Caddyfiles, commit `242c231`); QTS-05 (`newman` removido, 2026-08-07); DOP-07 (`.dockerignore` ampliado, commit `5e9b987`).
 - ~~Rotação de `JWT_SECRET` / secret manager~~ ✅ **Pago 2026-08-09** — `JwtSecretService` + `POST /api/configs/admin/rotateJwtSecret` (seção 27 do PROGRESSO).
 - ~~CI/CD com deploy automatizado~~ ✅ **Pago 2026-08-09** — job `deploy` no `ci.yml` + `scripts/deploy/deploy-prod.sh` (seção 28 do PROGRESSO); reauditoria de segurança trimestral segue como item recorrente.
-- Migração SQLite → PostgreSQL; armazenamento S3; observabilidade (métricas/traces/alertas além do compose monitoring atual).
+- ~~Observabilidade~~ ✅ **Parcial 2026-08-09 (v1.2.3)** — backend exporta métricas próprias via prom-client em `GET /api/metrics` (`backend/src/metrics/`), o scrape Prometheus deixou de apontar para `/api/health` e o job/alerta `CaddyDown` foi removido (métricas do Caddy exigiriam habilitar a admin API, `admin off` por hardening). Restam traces (OpenTelemetry) e alertmanager como item futuro.
+- Migração SQLite → PostgreSQL; armazenamento S3.
 - ~~Tornar status check do `frontend` job obrigatório (branch protection)~~ — ⚠️ **Não aplicável**: repo privado na conta GitHub free exige **GitHub Pro** para branch protection/rulesets (403 confirmado em 2026-08-09). Mantido como gate manual enquanto o repo for privado; habilitar se tornar público ou fizer upgrade.
 
 ## 9. Notas
@@ -162,9 +183,9 @@ Rodada de fixes derivada da consolidação dos relatórios de auditoria (SECURIT
 
 ## 11. Conclusões
 
-- ✅ v1.1.0 (baixo risco, sem breaking), v1.2.0 (dados + performance, 2 breaking), v1.3.0 (manutenibilidade), v1.2.1 (hotfix pós-conferência) e v1.2.2 (correções da auditoria consolidada) **todos aplicados** em `main` com builds e testes OK.
+- ✅ v1.1.0 (baixo risco, sem breaking), v1.2.0 (dados + performance, 2 breaking), v1.3.0 (manutenibilidade), v1.2.1 (hotfix pós-conferência), v1.2.2 (correções da auditoria consolidada) e v1.2.3 (observabilidade) **todos aplicados** em `main` com builds e testes OK.
 - v1.2.0 concentra os dois únicos breaking (BigInt, paginação) — exige deploy coordenado e instrução de migração vertical; v1.3.0 é puramente de manutenção, sem mudança de contrato.
-- Após a conferência final de 2026-08-09: backlog tecnológico quitado, restando apenas **QAL-06** (cosmético, baixa prioridade) e os itens adiados da seção 8 (PostgreSQL, S3, observabilidade). **CI/CD com deploy automatizado e rotação de JWT secret foram pagos em 2026-08-09**. Branch protection não habilitável em repo privado free (requer GitHub Pro) — mitigado no deploy pelo gate `needs` dentro do próprio workflow.
+- Após a conferência final de 2026-08-09: backlog tecnológico quitado, restando apenas **QAL-06** (cosmético, baixa prioridade) e os itens adiados da seção 8 (PostgreSQL, S3, traces/alertmanager). **CI/CD com deploy automatizado, rotação de JWT secret e métricas de observabilidade foram pagos em 2026-08-09**. Branch protection não habilitável em repo privado free (requer GitHub Pro) — mitigado no deploy pelo gate `needs` dentro do próprio workflow.
 
 ## 12. Recomendações
 
