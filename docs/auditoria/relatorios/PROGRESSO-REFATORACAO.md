@@ -562,3 +562,43 @@ const PdfPreview = () => {
 | **FRN-08** | Categorias config inconsistentes |
 | **BDB-05** | Sentinela `EPOCH_ZERO` + `ShareSecurity` 1:1 opcional |
 | **TODO** | Invalidar `loginTokens` antigos (logout all devices) |
+
+---
+
+## 22. FRN-08 — Categorias config consistentes (lowercase) (concluído 2026-08-08)
+
+Fixa **FRN-08** (categorias de config inconsistentes: page capitalizada vs. serviço minúsculo).
+
+### Problema
+O frontend usava categorias capitalizadas (`"General"`, `"Appearance"`, etc.) para display mas convertia para lowercase ao chamar a API. O backend seed usa lowercase (`"general"`, `"appearance"`, etc.). A inconsistência causava conversões desnecessárias e potencial de bugs.
+
+### Solução
+- **`ConfigurationTopNav.tsx`**: categorias agora usam valores lowercase (`"general"`, `"appearance"`, `"email"`, `"share"`, `"smtp"`, `"legal"`, `"cache"`)
+- Removido `.toLowerCase()` em comparisons (`categoryId === cat.name`) e onChange handlers
+- **`config.service.ts`**: array `categories` já era lowercase (confirmado)
+- Backend Prisma seed já usa lowercase — agora consistente em toda a stack
+
+### Código alterado
+```tsx
+// Antes
+{ name: "General", icon: <TbSettings /> }
+// Depois
+{ name: "general", icon: <TbSettings /> }
+
+// Removido: cat.name.toLowerCase() → usa cat.name diretamente
+```
+
+### Testes ✅
+- Backend unit: 85/85
+- Backend e2e: 16/16
+- Frontend unit: 5/5
+- TypeScript: OK (compilação OK)
+
+---
+
+### Próximo item da fila (P3)
+
+| Item | Descrição |
+|------|-----------|
+| **BDB-05** | Sentinela `EPOCH_ZERO` + `ShareSecurity` 1:1 opcional |
+| **TODO** | Invalidar `loginTokens` antigos (logout all devices) |
