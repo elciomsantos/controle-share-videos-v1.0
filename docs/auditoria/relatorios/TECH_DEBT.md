@@ -4,7 +4,7 @@
 |---|---|
 | Fase de origem | 7 (Qualidade) + contribuições de 1, 2, 3, 4, 11 |
 | Data | 2026-08-09 (atualizado em conferência final) |
-| Status | ✅ Dívida técnica quitada — todos os itens P1/P2/P3 pagos (R01-R08 + SEC-01..08 + FRN-01/02/04/05/07/08/12 + ARQ-01/03/04 + BKD-02/04 + BDB-02/05/06 + DOC-01/02 + DOP-07 + QTS-05 + PERF-02/03); HOTFIX build frontend 2026-08-09 (commit `71fee21`); **rodada de correções da auditoria consolidada 2026-08-09** (13 fixes: schema Prisma BDB-05, sentinela EPOCH_ZERO residual, closure stale, drain hang, nanoid vuln, lint 0 warnings, etc.); restam apenas itens "cosméticos" opcionais (FRN-06/09 já pagos, QAL-06 monolitismo leve) |
+| Status | ✅ Dívida técnica quitada — todos os itens P1/P2/P3 pagos (R01-R08 + SEC-01..08 + FRN-01/02/04/05/07/08/12 + ARQ-01/03/04 + BKD-02/04 + BDB-02/05/06 + DOC-01/02 + DOP-07 + QTS-05 + PERF-02/03); HOTFIX build frontend 2026-08-09 (commit `71fee21`); **rodada de correções da auditoria consolidada 2026-08-09** (13 fixes: schema Prisma BDB-05, sentinela EPOCH_ZERO residual, closure stale, drain hang, nanoid vuln, lint 0 warnings, etc.); **QAL-06 pago 2026-08-10** (decomposição de monólitos frontend + unificação de `pLimit`) |
 
 ## 1. Introdução
 
@@ -73,7 +73,7 @@ Registro único da dívida técnica do projeto: tudo que não é bug de seguran�
 | ~~QAL-03~~ | ~~`config.get(): any` como ponto fraco central~~ | ✅ Pago (R06) — `ConfigKeys`/`ConfigTypeMap` + getters tipados, sem `any` |
 | ~~QAL-04~~ | ~~Anti-pattern `new Promise(async …)` (download de arquivo)~~ | ✅ Pago (R07) — `local.service.ts` refatorado |
 | ~~QAL-05~~ | ~~TODOs com impacto de segurança/sessão pendentes~~ | ✅ Pago (2026-08-08) — TODO `auth.service.ts:131` (logout all devices) implementado em `5667793` |
-| QAL-06 | Arquivos monolíticos e duplicação leve | Baixa | Médio | ⏳ Pendente (cosmético, não bloqueante) |
+| ~~QAL-06~~ | Arquivos monolíticos e duplicação leve | ✅ Pago 2026-08-10 — `showCreateUploadModal.tsx` 751→46 (bodies em `CreateUploadModalBody.tsx` 341 + `SimplifiedCreateUploadModal.tsx` 172, seções do accordion em `sections/`); `showShareInformationsModal.tsx` 398→36 (`EditShareBody.tsx` 227 + `ShareInformationsBody.tsx` 151); `pLimit(3)` duplicado unificado em `utils/concurrency.ts:createUploadLimiter`; helpers `generateShareId`/`generateAvailableLink`/`generateRandomPassword` em `utils/shareId.util.ts` |
 | ~~DOC-01~~ | ~~~20 referências quebradas no README~~ | ✅ Resolvido 2026-08-08 — seção "Testes" reescrita; refs verificadas |
 
 ## 5. Pagamentos realizados (2026-08-04)
@@ -109,7 +109,7 @@ Registro único da dívida técnica do projeto: tudo que não é bug de seguran�
 
 ## 7. Conclusões
 
-- **Toda a dívida técnica P1/P2/P3 foi quitada** ao longo da Fase 12 (2026-08-08) e conferência final (2026-08-09). Único item restante: **QAL-06** (monolitismo leve / duplicação cosmética), classificado como baixa prioridade sem impacto funcional ou de segurança.
+- **Toda a dívida técnica P1/P2/P3 foi quitada** ao longo da Fase 12 (2026-08-08) e conferência final (2026-08-09). O último item cosmético **QAL-06** (monolitismo leve/duplicação de `pLimit` no frontend) foi pago em **2026-08-10** — nenhuma pendência restante.
 - Hotfix pós-relatório (2026-08-09, commit `71fee21`) corrigiu regressão de build frontend pré-existente (`useTranslate()` em escopo de módulo em `FileList.tsx`) — capturada durante a conferência final, não pela suíte de testes (cobertura SSR não exercida — gap que pode ser tratado futuramente como melhoria QAL).
 - **Rodada de correções da auditoria consolidada (2026-08-09)**: 13 fixes aplicados, incluindo a **correção do schema Prisma do BDB-05** (a coluna `securityId` nunca existiu no banco — o schema tinha campo fantasma + relação 1:1 duplicada; `prisma format/validate/generate` voltaram a passar) e a **eliminação completa do sentinela `EPOCH_ZERO` residual** do código de negócio (jobs, `getSharesByUser`, `parseExpiration`, e-mails e 4 componentes do frontend usavam `.unix() === 0`/`EPOCH_ZERO`, quebrando com o novo `null` pós-BDB-05). Detalhes na seção 26 do `PROGRESSO-REFATORACAO.md`.
 - **Rotação de `JWT_SECRET` sem queda de sessão (2026-08-09)**: `JwtSecretService` + `POST /api/configs/admin/rotateJwtSecret`; tokens assinados com `kid` no header e verificação por histórico `internal.jwtSecretHistory` (janela de retenção de ~13 meses). Precedência de segredo: env `JWT_SECRET` → Docker secret file (com rotação híbrida via API) → DB; segredos em repouso cifrados (AES-256-GCM) quando a chave está configurada. Encerra o item "Rotação de `JWT_SECRET` / secret manager" que estava no backlog de próximos épicos. Detalhes em `docs/auditoria/relatorios/CHANGELOG_CORRECOES.md`.
@@ -122,4 +122,4 @@ Registro único da dívida técnica do projeto: tudo que não é bug de seguran�
 4. ✅ ~~SEC-06/07/08~~ — segurança **paga** (2026-08-07).
 5. ✅ ~~DOC-01, FRN-05, BDB-06, QAL-04/05, ARQ-03/04, FRN-01/02/04/07/08, ARQ-01, BKD-02/04, DOP-07, QTS-05~~ — backlog contínuo **pago**.
 6. ✅ ~~FRN-06 (user-scalable), FRN-09 (noopener), DOC-02 (SECURITY.md), BKD-05 (timespan validation)~~ — **pagos 2026-08-07**.
-7. ⏳ **QAL-06** — único item pendente (cosmético, baixa prioridade). Sugestão: endereçar como parte de futura iniciativa de consolidação de duplicação leve, sem urgência.
+7. ✅ ~~**QAL-06**~~ — único item pendente (cosmético) — **pago 2026-08-10**: decomposição dos monólitos `showCreateUploadModal.tsx` (751→46 LOC) e `showShareInformationsModal.tsx` (398→36 LOC) em bodies/seções dedicados; `pLimit(3)` duplicado unificado em `utils/concurrency.ts`; helpers de shareId/senha em `utils/shareId.util.ts`. Sem mudança funcional — apenas reorganização; validação frontend `tsc`+lint 0 erros + unit 5/5 + `next build` OK.

@@ -877,3 +877,30 @@ era o **deploy automático** após CI verde.
   a fingerprint do host quando migrar para self-hosted runner.
 - Single-host: para multi-réplica evoluir para registry (GHCR) + `docker compose pull`.
 - Reauditoria de segurança trimestral segue como item recorrente do ROADMAP (não é scriptável).
+
+---
+
+## 29. QAL-06 — Decomposição de monólitos frontend + unificação de `pLimit` (concluído 2026-08-10)
+
+Fixa **QAL-06** (duplicação leve e arquivos monolíticos no frontend), o último item pendente do `TECH_DEBT.md`. Sem mudança funcional — apenas reorganização.
+
+### Duplicação `pLimit(3)` unificada
+- **`frontend/src/utils/concurrency.ts`** (novo) — `UPLOAD_CONCURRENCY = 3` + `createUploadLimiter()`. Elimina o `const promiseLimit = pLimit(3)` duplicado em `EditableUpload.tsx` e `upload/index.tsx` (agora consomem `createUploadLimiter()`).
+
+### `showCreateUploadModal.tsx` 751 → 46 LOC
+- **`utils/shareId.util.ts`** (novo) — helpers extraídos: `generateShareId`, `generateAvailableLink`, `generateRandomPassword`.
+- **`CreateUploadModalBody.tsx`** (novo, 341 LOC) — body completo do modal (form + validação + accordion).
+- **`SimplifiedCreateUploadModal.tsx`** (novo, 172 LOC) — variante simplificada.
+- **`CreateUploadForm.ts`** (novo) — tipos `CreateUploadFormValues`/`CreateUploadForm` compartilhados.
+- **`sections/`** (novos) — `ExpirationFields.tsx` (98), `FileDescriptionFields.tsx` (49, reutilizado também no simplified), `RecipientsField.tsx` (27), `SecurityFields.tsx` (92).
+- `showCreateUploadModal.tsx` permanece como dispatcher (~46 LOC); o tipo `CreateUploadModalOptions` foi extraído e exportado do Body (novo campo `simplified`).
+
+### `showShareInformationsModal.tsx` 398 → 36 LOC
+- **`EditShareBody.tsx`** (novo, 227 LOC) — formulário de edição (inclui `formatDateTimeLocal`).
+- **`ShareInformationsBody.tsx`** (novo, 151 LOC) — exibição somente-leitura + toggle QR + delegação para edição.
+- `showShareInformationsModal.tsx` permanece como dispatcher (~36 LOC).
+
+### Testes ✅
+- Frontend: `tsc --noEmit` 0 erros; `eslint` 0 erros, 0 warnings; unit **5/5**; `next build` OK.
+- Backend: sem alterações nesta rodada (não tocado).
+- Já não existem componentes do frontend acima de ~400 LOC (maiores: `showCreateUploadModalBody` refatorado para 341, `AdminConfigInput.tsx` 327, `Header.tsx` 327).

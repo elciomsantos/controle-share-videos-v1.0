@@ -3,7 +3,6 @@ import { useModals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import { AxiosError } from "axios";
 import { useRouter } from "next/router";
-import pLimit from "p-limit";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FormattedMessage } from "react-intl";
 import Dropzone from "../../components/upload/Dropzone";
@@ -15,8 +14,9 @@ import shareService from "../../services/share.service";
 import { FileListItem, FileMetaData, FileUpload, FileRecord } from "../../types/File.type";
 import toast from "../../utils/toast.util";
 import { getNormalizedFileName, filterDuplicateFiles } from "../../utils/file.util";
+import { createUploadLimiter } from "../../utils/concurrency";
 
-const promiseLimit = pLimit(3);
+const promiseLimit = createUploadLimiter();
 const EDITABLE_ERROR_TOAST_ID = "editable-upload-error-toast";
 
 const EditableUpload = ({

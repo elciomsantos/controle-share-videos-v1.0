@@ -1,7 +1,6 @@
 import { useModals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import { AxiosError } from "axios";
-import pLimit from "p-limit";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Meta from "../../components/Meta";
 import Dropzone from "../../components/upload/Dropzone";
@@ -20,8 +19,9 @@ import toast from "../../utils/toast.util";
 import { useRouter } from "next/router";
 import { getNormalizedFileName, filterDuplicateFiles } from "../../utils/file.util";
 import isAdminOrAuditor from "../../utils/userRole.util";
+import { createUploadLimiter } from "../../utils/concurrency";
 
-const promiseLimit = pLimit(3);
+const promiseLimit = createUploadLimiter();
 const UPLOAD_ERROR_TOAST_ID = "upload-error-toast";
 
 const Upload = ({

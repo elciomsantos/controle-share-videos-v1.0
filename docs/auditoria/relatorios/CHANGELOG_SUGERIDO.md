@@ -4,7 +4,7 @@
 |---|---|
 | Fase de origem | 13 (Plano de Execução) |
 | Data | 2026-08-09 (atualizado em conferência final) |
-| Status | ✅ Plano quitado — v1.1.0, v1.2.0 e v1.3.0 aplicados + hotfix v1.2.1 (build frontend) + correções v1.2.2 (auditoria consolidada); aguarda rutura de versão/tagging |
+| Status | ✅ Plano quitado — v1.1.0, v1.2.0 e v1.3.0 aplicados + hotfix v1.2.1 (build frontend) + correções v1.2.2 (auditoria consolidada) + v1.2.3 (observabilidade) + QAL-06 (2026-08-10); aguarda rutura de versão/tagging |
 | Base | AUDIT dos achados Fases 1–11; upstream Pingvin Share X v1.21.1 (BSD-2-Clause) |
 
 ## 1. Introdução
@@ -52,9 +52,10 @@ Changelog **proposto** organizado em versões sugeridas conforme o roadmap de ex
 - ✅ **Hotfix v1.2.1** — Build frontend `/share/[shareId]/edit` corrigido (commit `71fee21`, 2026-08-09).
 - ✅ **Rotação de JWT secret sem queda de sessão** — `JwtSecretService` + `POST /api/configs/admin/rotateJwtSecret`; tokens anteriores continuam válidos via `kid` + histórico `internal.jwtSecretHistory`; suporte a Docker secret file (`/run/secrets/jwt_secret`) e env `JWT_SECRET` (2026-08-09).
 - ✅ **CI/CD com deploy automatizado** — job `deploy` no `ci.yml` (SSH ao host após CI verde, `needs` + `concurrency` + `environment: production`) + `scripts/deploy/deploy-prod.sh` (backup pré-deploy, fetch/checkout por SHA, build, up, healthcheck e rollback automático); guia em `docs/CI-CD.md` (2026-08-09). Requer secrets `DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_PORT`/`DEPLOY_SSH_KEY` e setup one-time no host.
+- ✅ **QAL-06** — decomposição de monólitos do frontend + unificação do `pLimit(3)` duplicado (2026-08-10). Detalhes na seção 8.
 
 **Pendente (próximos épicos):**
-- v1.3.0+: **QAL-06** (cosmético — duplicação leve de arquivos monolíticos, baixa prioridade, não bloqueante).
+- ~~QAL-06 (cosmético)~~ ✅ **Pago 2026-08-10**.
 - Migração SQLite → PostgreSQL; observabilidade (métricas/traces/alertas além do compose monitoring atual); armazenamento S3; reauditoria de segurança trimestral.
 
 ## 3. Versão Sugerida — v1.1.0 (primeira entrega de correções)
@@ -170,6 +171,7 @@ Rodada de correção do stack de monitoramento. 2026-08-09.
 - ~~CI/CD com deploy automatizado~~ ✅ **Pago 2026-08-09** — job `deploy` no `ci.yml` + `scripts/deploy/deploy-prod.sh` (seção 28 do PROGRESSO); reauditoria de segurança trimestral segue como item recorrente.
 - ~~Observabilidade~~ ✅ **Parcial 2026-08-09 (v1.2.3)** — backend exporta métricas próprias via prom-client em `GET /api/metrics` (`backend/src/metrics/`), o scrape Prometheus deixou de apontar para `/api/health` e o job/alerta `CaddyDown` foi removido (métricas do Caddy exigiriam habilitar a admin API, `admin off` por hardening). Restam traces (OpenTelemetry) e alertmanager como item futuro.
 - Migração SQLite → PostgreSQL; armazenamento S3.
+- ~~**QAL-06** (monólitos frontend / duplicação leve)~~ ✅ **Pago 2026-08-10** — sem breaking, sem mudança funcional: `showCreateUploadModal.tsx` 751→46 + `showShareInformationsModal.tsx` 398→36 (bodies/seções extraídos); `pLimit(3)` duplicado unificado em `frontend/src/utils/concurrency.ts`; helpers `generateShareId`/`generateAvailableLink`/`generateRandomPassword` em `utils/shareId.util.ts`. Validação: `tsc` 0 erros, lint 0 erros/warnings, unit 5/5, `next build` OK.
 - ~~Tornar status check do `frontend` job obrigatório (branch protection)~~ — ⚠️ **Não aplicável**: repo privado na conta GitHub free exige **GitHub Pro** para branch protection/rulesets (403 confirmado em 2026-08-09). Mantido como gate manual enquanto o repo for privado; habilitar se tornar público ou fizer upgrade.
 
 ## 9. Notas
@@ -185,7 +187,7 @@ Rodada de correção do stack de monitoramento. 2026-08-09.
 
 - ✅ v1.1.0 (baixo risco, sem breaking), v1.2.0 (dados + performance, 2 breaking), v1.3.0 (manutenibilidade), v1.2.1 (hotfix pós-conferência), v1.2.2 (correções da auditoria consolidada) e v1.2.3 (observabilidade) **todos aplicados** em `main` com builds e testes OK.
 - v1.2.0 concentra os dois únicos breaking (BigInt, paginação) — exige deploy coordenado e instrução de migração vertical; v1.3.0 é puramente de manutenção, sem mudança de contrato.
-- Após a conferência final de 2026-08-09: backlog tecnológico quitado, restando apenas **QAL-06** (cosmético, baixa prioridade) e os itens adiados da seção 8 (PostgreSQL, S3, traces/alertmanager). **CI/CD com deploy automatizado, rotação de JWT secret e métricas de observabilidade foram pagos em 2026-08-09**. Branch protection não habilitável em repo privado free (requer GitHub Pro) — mitigado no deploy pelo gate `needs` dentro do próprio workflow.
+- Após a conferência final de 2026-08-09: backlog tecnológico quitado, restando apenas **QAL-06** (cosmético, baixa prioridade) e os itens adiados da seção 8 (PostgreSQL, S3, traces/alertmanager). **CI/CD com deploy automatizado, rotação de JWT secret e métricas de observabilidade foram pagos em 2026-08-09**. **QAL-06 pago em 2026-08-10** — toda a dívida técnica (TECH_DEBT) está quitada; restam apenas itens de produto/infra da seção 8 (PostgreSQL, S3, traces/alertmanager). Branch protection não habilitável em repo privado free (requer GitHub Pro) — mitigado no deploy pelo gate `needs` dentro do próprio workflow.
 
 ## 12. Recomendações
 
