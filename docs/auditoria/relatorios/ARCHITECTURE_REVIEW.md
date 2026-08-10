@@ -1,89 +1,199 @@
-# ARCHITECTURE_REVIEW.md — Controle Share Videos v1.0
+# ARCHITECTURE REVIEW — Controle Share Videos v1.0
 
-| Campo | Valor |
-|---|---|
-| Fase de origem | 1 (Arquitetural) + 0 (Descoberta) + contribuições de 2–11 |
-| Data | 2026-08-04 |
-| Status | ✅ Revisão entregue (recomendações pendentes — Fase 13) |
+> **Fase 2**: Revisão arquitetural
+> **Data**: 2026-08-10
+> **Auditor**: Opencode (agente automatizado)
+> **Referência**: `backend/src/`, `frontend/src/`, `packages/shared/`
 
-## 1. Introdução
+---
 
-Revisão da arquitetura do **Controle Share Videos v1.0** — fork do Pingvin Share X (v1.21.1) focado em compartilhamento de vídeos, com backend NestJS + Prisma/SQLite e frontend Next.js + Mantine. Este documento descreve a arquitetura atual, suas fortalezas, os pontos de atrito e o alvo de evolução.
-
-## 2. Metodologia
-
-- Leitura estrutural do monorepo (`backend/`, `frontend/`, `docker-compose*`, `reverse-proxy/`).
-- Mapeamento de módulos, cadeia de guards, camadas e fluxo de dados.
-- Cruzamento com os achados das Fases 2–11 para separar "limitações de design" de "falhas pontuais".
-
-## 3. Arquitetura Atual (Fase 0 — Descoberta)
-
-- **Monorepo**: `backend/` (NestJS 11, Prisma 7.9/SQLite via better-sqlite3) e `frontend/` (Next.js 16.2, Pages Router, Mantine 9).
-- **Backend modular** por feature (auth, share, file, user, config, jobs, mail) com controllers/services/DTOs.
-- **Cadeia de guards** global via `APP_GUARD`: Throttler → JWT → Roles → PasswordMustChange.
-- **Prisma** como única camada de persistência; SQLite em arquivo único (`data/controle-videos.db`).
-- **AsyncLocalStorage** para correlation ID (logs com contexto por requisição).
-- **Deploy**: Docker Compose (base + prod) com Caddy 2.9 (reverse-proxy/TLS), multi-stage, non-root (UID 1002), volume `backend-data`.
-- **Pipelines de features**: upload por chunks com `.tmp-chunk`, ZIP on-the-fly, expiração por cron (`@nestjs/schedule`), stream de download, e-mail de convite.
-
-## 4. Fortalezas Arquiteturais (não são achados)
-
-- Separação em módulos de feature e injeção de dependência consistente.
-- Pipeline de guards composível (`strictShareOwner`, `shareSecurity`, `downloadLimit`, `shareTokenSecurity`) bem segmentado.
-- Design seguro de física de arquivos: gravação em `.tmp-chunk` antes de commit, non-root no container.
-- Trilha de auditoria imutável (`DownloadLog`) com índices e contadores atômicos (`increment`).
-- Config centralizada e em memória (`CONFIG_VARIABLES`) com reload controlado.
-- Migrations versionadas com backfills.
-
-## 5. Pontos de Atrito (resumo dos achados por camada)
-
-| Camada | Atrito | Achados |
-|--------|--------|---------|
-| Autenticação | Guard global fail-open; tokens sem TTL/reuse-detection | SEC-01, SEC-03, SEC-07 |
-| Share | God class `ShareService` (772 LOC) concentra orquestração+mapeamento+a-dados | ARQ-02 |
-| Dados | `File.size` String; sentinela `EPOCH_ZERO`; índices faltantes | BDB-01/02/05 |
-| Performance | Listagens sem paginação; ZIP com N streams; e-mail sequencial | PERF-01/02/03 |
-| Frontend | Duas libs JWT; estado mutável; `parseInt` de tamanho | FRN-01/02/03, INF-03 |
-| Processo | Zero testes/CI; refs de docs quebradas; SECURITY stub | QAL-01, DOC-01/02 |
-
-## 6. Evidências
-
-- **Fontes primárias:** `FASE-0-DESCOBERTA.md` (estrutura/stack), `FASE-1-ARQUITETURAL.md` (ARQ-*), `FASE-2-BACKEND.md` (guards, resetPassword), `FASE-3-FRONTEND.md` (libs JWT, estado), `FASE-4-DATABASE.md` (BDB-*), `FASE-6-PERFORMANCE.md` (PERF-*), `FASE-7-QUALIDADE.md` (QAL-*), `FASE-12-REFATORACAO.md` (consolidado).
-- **Contagens:** 15 módulos backend + cadeia `APP_GUARD` (Throttler→JWT→Roles→PasswordMustChange) verificada em `app.module.ts`; `ShareService` 772 LOC / 27 métodos (métrica de acoplamento); 2 libs JWT no frontend; guards `strictShareOwner`/`shareSecurity`/`downloadLimit`/`shareTokenSecurity` confirmados.
-- **Cruzamento:** pontos de atrito mapeados por camada (seção 5) derivam de achados com evidência de arquivo/linha em cada fase; nada é inferência sem fonte.
-
-## 7. Arquitetura-Alvo (evolução incremental)
+## 1. Visão Arquitetural
 
 ```
-presentation  (controllers/pages — thin, validação por guard/pipes)
-      │
-services     (orquestração fina — ShareService enxuto)
-      │
-domain       (ShareMapper, ShareArchiveService, FileStorageService — novos)
-      │
-persistence  (Prisma, índices, tipos numéricos — BigInt)
-      │
-cross        (ConfigService tipado, AsyncLocalStorage, jobs em lote)
+┌──────────────────────────────────────────────────────────────┐
+│                    Caddy (Reverse Proxy)                     │
+│           TLS, HSTS, filtro pwd=, rate limit edge            │
+└──────────────┬───────────────────────────────┬───────────────┘
+               │                                │
+   ┌───────────▼───────────┐         ┌──────────▼──────────────┐
+   │   Backend (NestJS 11) │         │  Frontend (Next.js 16)   │
+   │                       │         │                          │
+   │  • Guards globais     │◄─JWT───►│  • middleware.ts (jose)  │
+   │    (Throttler, Jwt,   │         │  • pages router           │
+   │     Roles, PwdChange)  │         │  • Mantine 9             │
+   │  • Auth: argon2,       │         │  • concurrency.ts         │
+   │    rotação JWT híbrida │         │  • shareId.util.ts       │
+   │  • Share: descomposto  │         └──────────────────────────┘
+   │    (R05)               │
+   │  • Jobs: batching (R04)│
+   │  • Config: tipado (R06) │
+   └───────────┬───────────┘
+               │
+   ┌───────────▼───────────┐
+   │   SQLite (Prisma 6)    │
+   │   10 models, WAL mode  │
+   └───────────────────────┘
 ```
 
-Princípios-alvo:
-1. **Fail-closed** por padrão (guards); público explícito via `@Public()`.
-2. **Serviços pequenos** com responsabilidade única (decompor `ShareService`).
-3. **Tipos fortes** (sem `any`, `config.get(): any` → getters tipados).
-4. **Testabilidade** como critério de aceitação de mudança.
-5. **Contratos explícitos** (paginação, BigInt serializado) versionados e documentados.
+---
 
-## 8. Conclusões
+## 2. Camadas do Backend (NestJS)
 
-- A arquitetura é **fundamentalmente sólida** (modular, guards bem segmentados, física de arquivos segura) — os problemas estão em **instâncias de design** (fail-open, String para tamanho, god class, sem testes), não no esqueleto.
-- A evolução deve ser **incremental e preservando APIs**: nenhuma reescrita verde é justificada.
-- Prioridade de mudanças arquiteturais: (1) fail-closed, (2) tipos numéricos, (3) paginação, (4) decomposição do `ShareService`, (5) tipagem de config — ver `REFACTORING_PLAN.md` (R02, R01, R03, R05, R06).
+### 2.1 Guards Globais
+- **ThrottlerGuard** — rate limiting global
+- **JwtGuard** (fail-closed) — negação por padrão se token inválido/ausente
+- **RolesGuard** — RBAC com papéis ADMIN, AUDITOR, OPERATOR, USER
+- **PasswordMustChangeGuard** — força troca de senha no primeiro acesso
 
-## 9. Recomendações
+### 2.2 Decorators de Autorização
+- `@Public()` — rota pública (bypassa JWT)
+- `@Authenticated()` — qualquer usuário autenticado
+- `@AdminOnly()` — somente ADMIN
+- `@AdminOrAuditor()` — ADMIN ou AUDITOR
+- `@OperatorOrAbove()` — OPERATOR, AUDITOR ou ADMIN
 
-1. **Fail-closed primeiro (R02):** trocar o fallback anônimo do guard global por `UnauthorizedException`, com rotas públicas explícitas via `@Public()`.
-2. **Tipos numéricos (R01):** `File.size`/`shareSizeLimit` → `BigInt`, com `CAST`/backfill e deploy coordenado backend+frontend.
-3. **Contratos explícitos (R03):** envelope paginado `Page<T>` nas listagens; documentar como breaking no changelog.
-4. **Decomposição (R05):** extrair `ShareMapper`/`ShareArchiveService`/`FileStorageService` do `ShareService` — somente após a rede de testes (R07).
-5. **Config tipada (R06):** substituir `get(): any` por `getNumber`/`getBoolean`/`getString` com `ConfigKeys`.
-6. **Gate de arquitetura:** nova mudança só entra com teste + revisão de coesão (evitar crescimento do god class); reauditar a cada 3 meses.
+### 2.3 Módulos Principais
+| Módulo | Responsabilidade | Refatoração |
+|---|---|---|
+| `auth/` | Login, refresh, logout, verificação JWT | R01 pendente |
+| `config/` | ConfigService tipado, JwtSecretService (rotação) | R06 ✅ |
+| `share/` | CRUD de shares, arquivamento, storage | R05 ✅ |
+| `jobs/` | Limpeza de shares expirados, batching | R04 ✅ |
+| `upload/` | Upload de arquivos | R02 pendente |
+
+---
+
+## 3. Rotação JWT Híbrida
+
+**Arquivo**: `backend/src/config/jwt-secret.service.ts`
+
+A rotação JWT usa estratégia **híbrida (kid + timeline)**:
+1. Cada chave possui um `kid` (key id) único
+2. Token inclui `kid` no header para identificação
+3. Backend mantém `Map<kid, secret>` em cache para verificação rápida
+4. Rotação por timeline (expiração configurada)
+5. Mutex protege o estado durante rotação
+6. Segredos armazenados com AES-256-GCM
+
+**Veredito**: Implementação sólida e defensável. A rotação híbrida permite descontinuar chaves antigas sem invalidar tokens em circulação.
+
+---
+
+## 4. Decomposição do ShareService (R05)
+
+**Antes**: `ShareService` monolítico com lógica de CRUD + mapping + arquivamento + storage.
+
+**Depois** (R05 ✅):
+- `ShareService` — orquestração e CRUD
+- `ShareMapper` — transformação DTO ↔ Entity
+- `ShareArchiveService` — arquivamento e expiração
+- `FileStorageService` — abstração de filesystem/storage
+
+**Veredito**: Separação de responsabilidades bem definida. Reduz acoplamento e facilita testes.
+
+---
+
+## 5. Frontend
+
+### 5.1 Middleware JWT
+**Arquivo**: `frontend/src/middleware.ts`
+- Usa `jose` para verificação JWT no edge
+- Rotas públicas mapeadas explicitamente (`/login`, `/`, `/api/...`)
+- Demais rotas exigem token válido
+
+### 5.2 Concorrência de Upload
+**Arquivo**: `frontend/src/utils/concurrency.ts`
+- `UPLOAD_CONCURRENCY = 3` (máx. 3 uploads paralelos por usuário)
+- `createUploadLimiter()` — factory de rate limiter
+
+### 5.3 Geração de IDs
+**Arquivo**: `frontend/src/utils/shareId.util.ts`
+- `generateShareId()` — ID do share
+- `generateAvailableLink()` — link único
+- `generateRandomPassword()` — senha aleatória para share
+
+### 5.4 `_app.tsx`
+- `pageProps.language` consumido diretamente, **sem `useRef(language)`** (QAL-06 ✅)
+
+---
+
+## 6. Monorepo
+
+- `packages/shared` — tipos e constantes compartilhadas entre backend e frontend via pnpm workspaces
+- Evita duplicação de tipos TypeScript e garante consistência de contratos
+
+---
+
+## 7. Fluxo de Dados
+
+```
+1. Usuário → Frontend (Next.js)
+2. Frontend → Caddy (TLS, HSTS, filtro pwd=)
+3. Caddy → Backend (NestJS)
+4. Backend → Guards (Throttler → Jwt → Roles → PwdChange)
+5. Backend → Service (Share/Auth/Jobs/Upload)
+6. Service → Prisma → SQLite
+7. Resposta → Frontend (JSON)
+8. Jobs assíncronos → Limpeza de shares expirados (batching R04)
+```
+
+---
+
+## 8. Achados Arquiteturais
+
+| ID | Achado | Severidade | Status |
+|---|---|---|---|
+| A-01 | AuthService não decomposto (R01 pendente) | Média | Dívida |
+| A-02 | UploadRepository não extraído (R02 pendente) | Média | Dívida |
+| A-03 | ConfigService tipado (R06) | — | ✅ OK |
+| A-04 | ShareService decomposto (R05) | — | ✅ OK |
+| A-05 | Jobs com batching (R04) | — | ✅ OK |
+| A-06 | SQLite sem replica/failover | Alta | Aceito com monitoramento |
+
+### A-01: AuthService monolítico (R01 pendente)
+- **Problema**: AuthService concentra login, refresh, logout, verificação, rotação
+- **Evidência**: `backend/src/auth/service/auth.service.ts` (não decomposto)
+- **Risco**: Dificuldade de manutenção e testes isolados
+- **Prioridade**: Média (funcionando, mas debt técnico)
+- **Recomendação**: Decompor em `LoginService`, `TokenService`, `RefreshService`, `VerificationService`
+
+### A-02: UploadRepository não extraído (R02 pendente)
+- **Problema**: Lógica de upload acoplada a controller/service
+- **Evidência**: Upload sem camada repository isolada
+- **Risco**: Dificulta troca de storage (ex: S3 no futuro)
+- **Prioridade**: Média
+- **Recomendação**: Extrair `UploadRepository` para abstração de storage
+
+### A-06: SQLite em produção
+- **Problema**: Banco single-file sem replica/failover
+- **Evidência**: `docker-compose.prod.yml` usa SQLite volume
+- **Risco**: Single point of failure, limite de concorrência (single-writer)
+- **Causa**: Decisão de design para simplicidade inicial
+- **Prioridade**: Alta (mas aceita com monitoramento)
+- **Recomendação**: Documentar limitação, planejar migração para PostgreSQL (ROADMAP)
+
+---
+
+## 9. Conformidade com Princípios
+
+| Princípio | Status | Observação |
+|---|---|---|
+| Single Responsibility | ✅ | Após R05; pendente R01/R02 |
+| Dependency Injection | ✅ | NestJS padrão |
+| Fail-closed | ✅ | JwtGuard |
+| Least Privilege | ✅ | RBAC fino, non-root container |
+| Separation of Concerns | ✅ | Guards, Services, Repos |
+| DRY (shared types) | ✅ | packages/shared |
+| Defense in Depth | ✅ | Edge + App + DB guards |
+
+---
+
+## 10. Veredito Arquitetural
+
+**Nota**: 7.5/10
+
+Arquitetura sólida e defensável com separação clara de responsabilidades (após R05), guards globais bem encadeados, rotação JWT híbrida madura e monorepo consistente. Dívidas R01/R02 são conhecidas e documentadas. SQLite é limitação aceitável para escala atual desde que monitorada.
+
+---
+
+*Fim do ARCHITECTURE_REVIEW.md*
