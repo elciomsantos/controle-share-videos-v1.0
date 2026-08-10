@@ -27,6 +27,11 @@ services:
       # API_URL: used by next.config.js rewrites() and middleware (server-side
       # inside the container). Backend listens on :8080 internally.
       - API_URL=http://localhost:8080
+      # JWT_SECRET: shared signing key for the Next.js middleware and the
+      # backend. MUST match the backend's signing secret or the middleware
+      # treats every user as unauthenticated (login "loop"). Provided via
+      # .env.local (gitignored) or the host environment.
+      - JWT_SECRET=${JWT_SECRET}
       - ADMIN_EMAIL=admin@empresa.local
       - ADMIN_USERNAME=admin
       # ADMIN_PASSWORD must be provided via .env.local (gitignored) or the host
