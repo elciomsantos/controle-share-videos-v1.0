@@ -47,13 +47,38 @@ api.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-// On 403 csrf_invalid, refresh the token once and retry the original request.
+// On 401 from an authenticated endpoint, refresh the access token once and
+// retry the original request. Needed because `access_token` is httpOnly, so the
+// client cannot read its `exp` and the proactive refresh in _app never fires —
+// without this, every session dies silently after the 15-minute token lifetime.
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const original = error.config as
-      | (InternalAxiosRequestConfig & { _csrfRetried?: boolean })
+      | (InternalAxiosRequestConfig & {
+          _csrfRetried?: boolean;
+          _authRetried?: boolean;
+        })
       | undefined;
+    const status = error.response?.status;
+    const failedUrl = (original?.url ?? "").replace(/^\//, "");
+    const isAuthRoute = /^auth\//.test(failedUrl);
+
+    if (
+      status === 401 &&
+      !isAuthRoute &&
+      original &&
+      !original._authRetried
+    ) {
+      original._authRetried = true;
+      try {
+        await api.post("/auth/token");
+        return api.request(original);
+      } catch {
+        // Refresh failed; fall through and reject with the original error.
+      }
+    }
+
     if (
       error.response?.status === 403 &&
       (error.response.data as { message?: string } | undefined)?.message ===
