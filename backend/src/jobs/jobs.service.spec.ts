@@ -3,7 +3,7 @@ import { JobsService } from "./jobs.service";
 import { FileService } from "../file/file.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ConfigService } from "../config/config.service";
-import * as fs from "fs";
+import type { IUploadRepository } from "../storage/upload-repository.interface";
 
 describe("JobsService", () => {
   let prisma: {
@@ -12,6 +12,7 @@ describe("JobsService", () => {
   };
   let fileService: { deleteAllFiles: jest.Mock };
   let configServer: { getTimespan: jest.Mock; getNumber: jest.Mock };
+  let repository: jest.Mocked<IUploadRepository>;
   let service: JobsService;
 
   beforeEach(() => {
@@ -23,10 +24,17 @@ describe("JobsService", () => {
     };
     fileService = { deleteAllFiles: jest.fn() };
     configServer = { getTimespan: jest.fn(), getNumber: jest.fn() };
+    repository = {
+      listShareDirectories: jest.fn(),
+      listDirectory: jest.fn(),
+      statFile: jest.fn(),
+      unlinkIfExists: jest.fn(),
+    } as unknown as jest.Mocked<IUploadRepository>;
     service = new JobsService(
       prisma as unknown as PrismaService,
       fileService as unknown as FileService,
       configServer as unknown as ConfigService,
+      repository,
     );
   });
 
@@ -119,70 +127,81 @@ describe("JobsService", () => {
   });
 
   describe("deleteTemporaryFiles", () => {
-    const mockDir = (name: string) => ({
-      name,
-      isDirectory: () => true,
-    }) as unknown as import("fs").Dirent;
+    const mockDir = (name: string) => ({ name, isDirectory: true });
 
     beforeEach(() => {
-      jest.spyOn(fs.promises, "readdir").mockReset();
-      jest.spyOn(fs.promises, "stat").mockReset();
-      jest.spyOn(fs.promises, "rm").mockReset();
+      repository.listShareDirectories.mockReset();
+      repository.listDirectory.mockReset();
+      repository.statFile.mockReset();
+      repository.unlinkIfExists.mockReset();
     });
 
     it("deleta arquivos .tmp-chunk com mtime > 1 dia", async () => {
       const oldDate = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
-      (fs.promises.readdir as jest.Mock)
-        .mockResolvedValueOnce([mockDir("share1"), mockDir("share2")])
-        .mockResolvedValueOnce(["file1.tmp-chunk", "normal.txt"])
-        .mockResolvedValueOnce(["file2.tmp-chunk"]);
-      (fs.promises.stat as jest.Mock).mockImplementation(async () => ({
+      repository.listShareDirectories.mockResolvedValueOnce([
+        mockDir("share1"),
+        mockDir("share2"),
+      ] as never);
+      repository.listDirectory.mockResolvedValueOnce([
+        "file1.tmp-chunk",
+        "normal.txt",
+      ]);
+      repository.listDirectory.mockResolvedValueOnce(["file2.tmp-chunk"]);
+      repository.statFile.mockImplementation(async () => ({
+        size: 0,
         mtime: oldDate,
       }));
-      (fs.promises.rm as jest.Mock).mockResolvedValue(undefined);
+      repository.unlinkIfExists.mockResolvedValue(undefined);
 
       await service.deleteTemporaryFiles();
 
-      expect(fs.promises.rm).toHaveBeenCalledTimes(2);
+      expect(repository.unlinkIfExists).toHaveBeenCalledTimes(2);
     });
 
     it("não deleta arquivos mais novos que 1 dia", async () => {
       const recentDate = new Date();
-      (fs.promises.readdir as jest.Mock)
-        .mockResolvedValueOnce([mockDir("share1")])
-        .mockResolvedValueOnce(["recent.tmp-chunk"]);
-      (fs.promises.stat as jest.Mock).mockImplementation(async () => ({
+      repository.listShareDirectories.mockResolvedValueOnce([
+        mockDir("share1"),
+      ] as never);
+      repository.listDirectory.mockResolvedValueOnce(["recent.tmp-chunk"]);
+      repository.statFile.mockImplementation(async () => ({
+        size: 0,
         mtime: recentDate,
       }));
-      (fs.promises.rm as jest.Mock).mockResolvedValue(undefined);
+      repository.unlinkIfExists.mockResolvedValue(undefined);
 
       await service.deleteTemporaryFiles();
 
-      expect(fs.promises.rm).not.toHaveBeenCalled();
+      expect(repository.unlinkIfExists).not.toHaveBeenCalled();
     });
 
     it("isola falha: erro de leitura em um share não interrompe", async () => {
       const oldDate = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
-      (fs.promises.readdir as jest.Mock)
-        .mockResolvedValueOnce([mockDir("bad"), mockDir("good")])
-        .mockRejectedValueOnce(new Error("permission denied"))
-        .mockResolvedValueOnce(["ok.tmp-chunk"]);
-      (fs.promises.stat as jest.Mock).mockImplementation(async () => ({
+      repository.listShareDirectories.mockResolvedValueOnce([
+        mockDir("bad"),
+        mockDir("good"),
+      ] as never);
+      repository.listDirectory.mockRejectedValueOnce(
+        new Error("permission denied"),
+      );
+      repository.listDirectory.mockResolvedValueOnce(["ok.tmp-chunk"]);
+      repository.statFile.mockImplementation(async () => ({
+        size: 0,
         mtime: oldDate,
       }));
-      (fs.promises.rm as jest.Mock).mockResolvedValue(undefined);
+      repository.unlinkIfExists.mockResolvedValue(undefined);
 
       await expect(service.deleteTemporaryFiles()).resolves.toBeUndefined();
-      expect(fs.promises.rm).toHaveBeenCalledTimes(1);
+      expect(repository.unlinkIfExists).toHaveBeenCalledTimes(1);
     });
 
-    it("retorna cedo se readdir do SHARE_DIRECTORY falha", async () => {
-      (fs.promises.readdir as jest.Mock).mockRejectedValueOnce(
+    it("retorna cedo se listShareDirectories falha", async () => {
+      repository.listShareDirectories.mockRejectedValueOnce(
         new Error("ENOENT"),
       );
 
       await expect(service.deleteTemporaryFiles()).resolves.toBeUndefined();
-      expect(fs.promises.stat).not.toHaveBeenCalled();
+      expect(repository.statFile).not.toHaveBeenCalled();
     });
   });
 });

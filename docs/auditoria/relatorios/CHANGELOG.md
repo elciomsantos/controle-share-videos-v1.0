@@ -32,13 +32,13 @@ Auditoria completa do estado atual do Controle Share Videos v1.0 (fork de Pingvi
 
 #### ⚠️ Pendências (com plano de remediação em v1.1)
 - **R01**: AuthService não decomposto (monolítico) — REFACTORING_PLAN
-- **R02**: UploadRepository não extraído — REFACTORING_PLAN
 - **D02**: Sem testes E2E — REFACTORING_PLAN H-04
 - **D05**: Backup sem restore test automatizado — REFACTORING_PLAN H-02
 
-#### ✅ Quick wins executados (2026-08-11)
+#### ✅ Correções v1.1 executadas (2026-08-11)
 - **S-05/D04**: CSP header adicionado no Caddy (H-01) — validado com `caddy validate`
 - **D03**: Branch `fix/producao-v1.1.0` verificada (100% mergeada em main) e removida do remoto (H-03)
+- **R02**: `IUploadRepository` extraída — camada `backend/src/storage/` com `FilesystemUploadRepository`; `LocalFileService`, `ShareArchiveService`, `JobsService` e `FileStorageService` agora injetam a interface (sem `fs`/`SHARE_DIRECTORY` direto)
 
 #### 📋 Limitações Aceitas
 - **A-06/D01**: SQLite em produção (single-writer, sem replica) — Aceito com monitoramento Prometheus + ROADMAP PostgreSQL em v1.3
@@ -51,6 +51,7 @@ Auditoria completa do estado atual do Controle Share Videos v1.0 (fork de Pingvi
 - `31221f2` — CI/CD deploy SSH
 
 ### Refatorações Concluídas
+- ✅ R02 — Extrair UploadRepository (`IUploadRepository` + `FilesystemUploadRepository`)
 - ✅ R03 — Tipagem de controllers
 - ✅ R04 — Batching de jobs
 - ✅ R05 — Decomposição ShareService
@@ -58,7 +59,6 @@ Auditoria completa do estado atual do Controle Share Videos v1.0 (fork de Pingvi
 
 ### Refatorações Pendentes
 - ⏳ R01 — Decompor AuthService (ETA: Sprint 2 v1.1)
-- ⏳ R02 — Extrair UploadRepository (ETA: Sprint 1 v1.1)
 
 ### Artefatos gerados nesta auditoria (13/13)
 1. ✅ DISCOVERY.md

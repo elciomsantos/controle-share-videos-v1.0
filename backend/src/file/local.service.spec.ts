@@ -4,45 +4,14 @@ import { ConfigService } from "../config/config.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { I18nService } from "nestjs-i18n";
 import { fileTypeFromBuffer } from "file-type";
-import * as fs from "fs/promises";
-import { createReadStream } from "fs";
-
-jest.mock("fs/promises", () => ({
-  stat: jest.fn(),
-  statfs: jest.fn(),
-  appendFile: jest.fn(),
-  rename: jest.fn(),
-  unlink: jest.fn(),
-  open: jest.fn(),
-  read: jest.fn(),
-  close: jest.fn(),
-}));
+import { Readable } from "stream";
+import type { IUploadRepository } from "../storage/upload-repository.interface";
 
 jest.mock("file-type", () => ({
   fileTypeFromBuffer: jest.fn(),
 }));
 
-jest.mock("fs", () => {
-  const { Readable } = jest.requireActual("stream");
-  return {
-    ...jest.requireActual("fs"),
-    createReadStream: jest.fn((_path: string, _opts?: { start?: number; end?: number }) => {
-      return new Readable({
-        read() {
-          const length = _opts?.end !== undefined && _opts.start !== undefined
-            ? _opts.end - _opts.start + 1
-            : 100;
-          this.push(Buffer.alloc(length));
-          this.push(null);
-        },
-      });
-    }),
-  };
-});
-
-const fsMock = fs as unknown as Record<string, jest.Mock>;
 const fileTypeMock = fileTypeFromBuffer as unknown as jest.Mock;
-const createReadStreamMock = createReadStream as unknown as jest.Mock;
 
 describe("LocalFileService (SEC-08)", () => {
   let prisma: {
@@ -55,12 +24,20 @@ describe("LocalFileService (SEC-08)", () => {
     getNumber: jest.Mock;
   };
   let i18n: { t: jest.Mock };
+  let repository: jest.Mocked<IUploadRepository>;
   let service: LocalFileService;
+
+  const mockReadStream = () =>
+    new Readable({
+      read() {
+        this.push(Buffer.alloc(100));
+        this.push(null);
+      },
+    });
 
   beforeEach(() => {
     fileTypeMock.mockReset();
     fileTypeMock.mockResolvedValue(undefined);
-    createReadStreamMock.mockClear();
     prisma = {
       share: { findUnique: jest.fn() },
       file: { create: jest.fn(), findUnique: jest.fn() },
@@ -80,10 +57,26 @@ describe("LocalFileService (SEC-08)", () => {
     i18n = {
       t: jest.fn((key: string) => `t:${key}`),
     };
+    repository = {
+      statFile: jest.fn(),
+      availableSpaceBytes: jest.fn(),
+      appendBuffer: jest.fn(),
+      moveFile: jest.fn(),
+      readSample: jest.fn(),
+      createReadStream: jest.fn(mockReadStream),
+      createWriteStream: jest.fn(),
+      unlinkIfExists: jest.fn(),
+      removeShareDirectory: jest.fn(),
+      createShareDirectory: jest.fn(),
+      listShareDirectories: jest.fn(),
+      listDirectory: jest.fn(),
+    } as unknown as jest.Mocked<IUploadRepository>;
+
     service = new LocalFileService(
       prisma as unknown as PrismaService,
       config as unknown as ConfigService,
       i18n as unknown as I18nService,
+      repository,
     );
 
     prisma.share.findUnique.mockResolvedValue({
@@ -92,20 +85,12 @@ describe("LocalFileService (SEC-08)", () => {
       files: [],
       creator: { shareSizeLimit: null },
     });
-    fsMock.stat.mockResolvedValue({ size: 0 } as never);
-    fsMock.statfs.mockResolvedValue({
-      bavail: 1000000,
-      bsize: 4096,
-    } as never);
-    fsMock.appendFile.mockResolvedValue(undefined);
-    fsMock.rename.mockResolvedValue(undefined);
-    fsMock.unlink.mockResolvedValue(undefined);
-    fsMock.open.mockResolvedValue({
-      read: jest.fn((sample: Buffer) => ({
-        bytesRead: sample.byteLength,
-      })),
-      close: jest.fn().mockResolvedValue(undefined),
-    } as never);
+    repository.statFile.mockResolvedValue({ size: 0, mtime: new Date() } as never);
+    repository.availableSpaceBytes.mockResolvedValue(1000000 * 4096);
+    repository.appendBuffer.mockResolvedValue(undefined);
+    repository.moveFile.mockResolvedValue(undefined);
+    repository.readSample.mockResolvedValue(Buffer.alloc(0));
+    repository.unlinkIfExists.mockResolvedValue(undefined);
     prisma.file.create.mockResolvedValue({ id: "f1" });
   });
 
@@ -120,7 +105,7 @@ describe("LocalFileService (SEC-08)", () => {
       service.create("Zm9v", { index: 0, total: 1 }, { id: "a82eb345-ab84-4fa4-b71a-cbfe89592b9c", name: "doc.txt" }, "s1"),
     ).rejects.toBeInstanceOf(BadRequestException);
 
-    expect(fsMock.unlink).toHaveBeenCalled();
+    expect(repository.unlinkIfExists).toHaveBeenCalled();
     expect(prisma.file.create).not.toHaveBeenCalled();
   });
 
@@ -163,20 +148,20 @@ describe("LocalFileService (SEC-08)", () => {
     it("repassa o parâmetro de range para o createReadStream (stream parcial)", async () => {
       await service.get("s1", "f1", { start: 100, end: 499 });
 
-      expect(createReadStreamMock).toHaveBeenCalledTimes(1);
-      expect(createReadStreamMock).toHaveBeenCalledWith(
-        expect.stringContaining("/s1/f1"),
-        { start: 100, end: 499 },
-      );
+      expect(repository.createReadStream).toHaveBeenCalledTimes(1);
+      expect(repository.createReadStream).toHaveBeenCalledWith("s1/f1", {
+        start: 100,
+        end: 499,
+      });
     });
 
     it("chama createReadStream sem range quando nenhum é fornecido", async () => {
       await service.get("s1", "f1");
 
-      expect(createReadStreamMock).toHaveBeenCalledWith(
-        expect.stringContaining("/s1/f1"),
-        { start: undefined, end: undefined },
-      );
+      expect(repository.createReadStream).toHaveBeenCalledWith("s1/f1", {
+        start: undefined,
+        end: undefined,
+      });
     });
 
     it("retorna o metadata com size como string e o stream da faixa solicitada", async () => {

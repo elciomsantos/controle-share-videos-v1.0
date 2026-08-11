@@ -1,11 +1,13 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
-import { promises as fsp, type Dirent } from "fs";
 import dayjs from "dayjs";
 import { FileService } from "../file/file.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ConfigService } from "../config/config.service";
-import { SHARE_DIRECTORY } from "../constants";
+import {
+  IUploadRepository,
+  type IUploadRepository as IUploadRepositoryType,
+} from "../storage/upload-repository.interface";
 
 @Injectable()
 export class JobsService {
@@ -15,6 +17,8 @@ export class JobsService {
     private prisma: PrismaService,
     private fileService: FileService,
     private configServer: ConfigService,
+    @Inject(IUploadRepository)
+    private readonly repository: IUploadRepositoryType,
   ) {}
 
   @Cron("* * * * *")
@@ -120,40 +124,42 @@ export class JobsService {
   async deleteTemporaryFiles() {
     let filesDeleted = 0;
 
-    let shareDirectories: Dirent[];
+    let shareDirectories = [];
     try {
-      shareDirectories = (await fsp.readdir(SHARE_DIRECTORY, {
-        withFileTypes: true,
-      })).filter((dirent) => dirent.isDirectory());
+      shareDirectories = (await this.repository.listShareDirectories()).filter(
+        (dirent) => dirent.isDirectory,
+      );
     } catch (err) {
       this.logger.error(
-        `Falha ao ler diretório de shares ${SHARE_DIRECTORY}: ${err instanceof Error ? err.stack : String(err)}`,
+        `Falha ao ler diretório de shares: ${err instanceof Error ? err.stack : String(err)}`,
       );
       return;
     }
 
     for (const shareDirectory of shareDirectories) {
       try {
-        const entries = await fsp.readdir(`${SHARE_DIRECTORY}/${shareDirectory.name}`);
+        const entries = await this.repository.listDirectory(
+          shareDirectory.name,
+        );
         const temporaryFiles = entries.filter((file) =>
           file.endsWith(".tmp-chunk"),
         );
 
         for (const file of temporaryFiles) {
-          const filePath = `${SHARE_DIRECTORY}/${shareDirectory.name}/${file}`;
+          const relativePath = `${shareDirectory.name}/${file}`;
           try {
-            const stats = await fsp.stat(filePath);
+            const stats = await this.repository.statFile(relativePath);
             const isOlderThanOneDay = dayjs(stats.mtime)
               .add(1, "day")
               .isBefore(dayjs());
 
             if (isOlderThanOneDay) {
-              await fsp.rm(filePath);
+              await this.repository.unlinkIfExists(relativePath);
               filesDeleted++;
             }
           } catch (err) {
             this.logger.error(
-              `Falha ao processar arquivo temporário ${filePath}: ${err instanceof Error ? err.stack : String(err)}`,
+              `Falha ao processar arquivo temporário ${relativePath}: ${err instanceof Error ? err.stack : String(err)}`,
             );
           }
         }

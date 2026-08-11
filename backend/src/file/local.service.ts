@@ -2,13 +2,12 @@ import {
   BadRequestException,
   HttpException,
   HttpStatus,
+  Inject,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
 } from "@nestjs/common";
 import * as crypto from "crypto";
-import { createReadStream } from "fs";
-import * as fs from "fs/promises";
 import { fileTypeFromBuffer } from "file-type";
 import mime from "mime-types";
 import { I18nService } from "nestjs-i18n";
@@ -16,10 +15,13 @@ import { ConfigService } from "../config/config.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { RequestContextLogger } from "../common/request-context/request-context";
 import { validate as isValidUUID } from "uuid";
-import { SHARE_DIRECTORY } from "../constants";
 import { Readable } from "stream";
 import { createZipStream } from "../common/zip";
 import { toBytes } from "../share/dto/share.dto";
+import {
+  IUploadRepository,
+  type IUploadRepository as IUploadRepositoryType,
+} from "../storage/upload-repository.interface";
 
 @Injectable()
 export class LocalFileService {
@@ -29,6 +31,8 @@ export class LocalFileService {
     private prisma: PrismaService,
     private config: ConfigService,
     private readonly i18n: I18nService,
+    @Inject(IUploadRepository)
+    private readonly repository: IUploadRepositoryType,
   ) {}
 
   async create(
@@ -90,7 +94,7 @@ export class LocalFileService {
     let diskFileSize: number;
     try {
       diskFileSize = (
-        await fs.stat(`${SHARE_DIRECTORY}/${shareId}/${file.id}.tmp-chunk`)
+        await this.repository.statFile(`${shareId}/${file.id}.tmp-chunk`)
       ).size;
     } catch {
       diskFileSize = 0;
@@ -110,8 +114,7 @@ export class LocalFileService {
     const buffer = Buffer.from(data, "base64");
 
     // Check if there is enough space on the server
-    const space = await fs.statfs(SHARE_DIRECTORY);
-    const availableSpace = space.bavail * space.bsize;
+    const availableSpace = await this.repository.availableSpaceBytes();
     if (availableSpace < buffer.byteLength) {
       throw new InternalServerErrorException(
         this.i18n.t("file.notEnoughSpace"),
@@ -149,19 +152,19 @@ export class LocalFileService {
       );
     }
 
-    await fs.appendFile(
-      `${SHARE_DIRECTORY}/${shareId}/${file.id}.tmp-chunk`,
+    await this.repository.appendBuffer(
+      `${shareId}/${file.id}.tmp-chunk`,
       buffer,
     );
 
     const isLastChunk = chunk.index == chunk.total - 1;
     if (isLastChunk) {
-      await fs.rename(
-        `${SHARE_DIRECTORY}/${shareId}/${file.id}.tmp-chunk`,
-        `${SHARE_DIRECTORY}/${shareId}/${file.id}`,
+      await this.repository.moveFile(
+        `${shareId}/${file.id}.tmp-chunk`,
+        `${shareId}/${file.id}`,
       );
       const fileSize = (
-        await fs.stat(`${SHARE_DIRECTORY}/${shareId}/${file.id}`)
+        await this.repository.statFile(`${shareId}/${file.id}`)
       ).size;
 
       // GAP-01: validate real magic bytes against the declared extension to
@@ -171,20 +174,15 @@ export class LocalFileService {
       // determine a type (very small / unknown formats) to avoid blocking
       // legitimate uploads — the extension allowlist already filters by ext.
       try {
-        const sampleFd = await fs.open(
-          `${SHARE_DIRECTORY}/${shareId}/${file.id}`,
-          "r",
+        const sample = await this.repository.readSample(
+          `${shareId}/${file.id}`,
+          Math.min(65536, fileSize),
         );
-        const sample = Buffer.alloc(Math.min(65536, fileSize));
-        await sampleFd.read(sample, 0, sample.byteLength, 0);
-        await sampleFd.close();
         const detected = await fileTypeFromBuffer(sample);
         if (detected) {
           if (!this.extensionMatchesType(ext, detected.ext)) {
             // Roll back the rename so the malicious file isn't kept on disk.
-            await fs
-              .unlink(`${SHARE_DIRECTORY}/${shareId}/${file.id}`)
-              .catch(() => undefined);
+            await this.repository.unlinkIfExists(`${shareId}/${file.id}`);
             throw new BadRequestException(
               `File content does not match its extension "${ext}" (detected ${detected.ext}). Upload rejected.`,
             );
@@ -198,9 +196,7 @@ export class LocalFileService {
         this.logger.error(
           `Magic-byte detection failed for file ${file.id}: ${e}`,
         );
-        await fs
-          .unlink(`${SHARE_DIRECTORY}/${shareId}/${file.id}`)
-          .catch(() => undefined);
+        await this.repository.unlinkIfExists(`${shareId}/${file.id}`);
         throw new BadRequestException(this.i18n.t("file.typeUnverified"));
       }
 
@@ -291,7 +287,7 @@ export class LocalFileService {
     if (!fileMetaData)
       throw new NotFoundException(this.i18n.t("file.notFound"));
 
-    const file = createReadStream(`${SHARE_DIRECTORY}/${shareId}/${fileId}`, {
+    const file = this.repository.createReadStream(`${shareId}/${fileId}`, {
       // PERF-06: HTTP Range (206) support — serve only the requested byte
       // window for video previews / seek or partial-download resumption.
       start: range?.start,
@@ -327,22 +323,19 @@ export class LocalFileService {
     if (!fileMetaData)
       throw new NotFoundException(this.i18n.t("file.notFound"));
 
-    await fs.unlink(`${SHARE_DIRECTORY}/${shareId}/${fileId}`);
+    await this.repository.unlinkIfExists(`${shareId}/${fileId}`);
 
     await this.prisma.file.delete({ where: { id: fileId } });
   }
 
   async deleteAllFiles(shareId: string) {
-    await fs.rm(`${SHARE_DIRECTORY}/${shareId}`, {
-      recursive: true,
-      force: true,
-    });
+    await this.repository.removeShareDirectory(shareId);
   }
 
   async getZip(shareId: string): Promise<Readable> {
     return new Promise((resolve, reject) => {
-      const zipStream = createReadStream(
-        `${SHARE_DIRECTORY}/${shareId}/archive.zip`,
+      const zipStream = this.repository.createReadStream(
+        `${shareId}/archive.zip`,
       );
 
       zipStream.on("error", (err) => {
@@ -396,7 +389,7 @@ export class LocalFileService {
           });
 
           archive.append(
-            createReadStream(`${SHARE_DIRECTORY}/${shareId}/${fileId}`),
+            this.repository.createReadStream(`${shareId}/${fileId}`),
             { name: entryName },
           );
 

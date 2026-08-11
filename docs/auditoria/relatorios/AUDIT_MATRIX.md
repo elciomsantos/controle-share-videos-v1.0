@@ -12,7 +12,7 @@
 | ID | Problema | Evidência | Causa | Risco | Prioridade | Recomendação | Status | Artefato |
 |---|---|---|---|---|---|---|---|---|
 | **A-01** | AuthService monolítico | `backend/src/auth/service/auth.service.ts` | Refatoração R01 não executada | Manutenção difícil, testes isolados | Média | Decompor em Login/Token/Refresh/Verification | **Pendente** | TECH_DEBT, REFACTORING_PLAN |
-| **A-02** | UploadRepository não extraído | Upload module sem camada repo | Refatoração R02 não executada | Troca de storage difícil | Média | Extrair `IUploadRepository` | **Pendente** | TECH_DEBT, REFACTORING_PLAN |
+| **A-02** | UploadRepository não extraído | Upload module sem camada repo | Refatoração R02 não executada | Troca de storage difícil | Média | Extrair `IUploadRepository` | ✅ Resolvido (R02) | TECH_DEBT, REFACTORING_PLAN |
 | **A-03** | ConfigService tipado (R06) | `backend/src/config/config.service.ts` | — | — | — | — | ✅ OK | ARCHITECTURE_REVIEW |
 | **A-04** | ShareService decomposto (R05) | `backend/src/share/share.service.ts` | — | — | — | — | ✅ OK | ARCHITECTURE_REVIEW |
 | **A-05** | Jobs batching (R04) | `backend/src/jobs/jobs.service.ts` | — | — | — | — | ✅ OK | ARCHITECTURE_REVIEW, PERFORMANCE |
@@ -37,29 +37,29 @@
 
 | Dimensão | Achados | OK | Pendentes | Aceitos |
 |---|---|---|---|---|
-| Arquitetura | 6 | 3 (A-03, A-04, A-05) | 2 (A-01, A-02) | 1 (A-06 SQLite) |
+| Arquitetura | 6 | 4 (A-03, A-04, A-05) + A-02 | 1 (A-01) | 1 (A-06 SQLite) |
 | Segurança | 6 | 4 (S-02, S-03, S-04) + S-05 | 2 (S-01, S-06) | — |
 | Performance | 2 | 1 (P-01) | 1 (P-03) | — |
 | DevOps | 5 | 2 (D-03, D-04) | 2 (D-02, D-05) | 1 (D-01 SQLite) |
-| **TOTAL** | **19** | **10** | **7** | **2** |
+| **TOTAL** | **19** | **11** | **6** | **2** |
 
 ---
 
 ## Resumo de Prioridades
 
 - **Alta (aceita com monitoramento)**: A-06/D01 (SQLite)
-- **Média**: A-01, A-02, D02
+- **Média**: A-01, D02
 - **Baixa**: S-01, S-06, P-03, D05
-- **Resolvidos (H-01/H-03)**: S-05/D04 (CSP), D03 (branch)
+- **Resolvidos**: A-02/R02 (UploadRepository), S-05/D04 (CSP), D03 (branch)
 
 ---
 
 ## Veredito Geral
 
-**10/19 OK** + **2 aceitos com monitoramento** = **12/19 verde/aceito**
-**7 pendentes** (média ou baixa prioridade)
+**11/19 OK** + **2 aceitos com monitoramento** = **13/19 verde/aceito**
+**6 pendentes** (média ou baixa prioridade)
 
-**Atualizado após quick wins (H-01 CSP + H-03 branch)**.
+**Atualizado após v1.1**: H-01 (CSP), H-03 (branch) e R02 (UploadRepository) resolvidos.
 
 **Go-live**: Aprovado com condições. Pendências devem ser endereçadas em v1.1 (4 semanas).
 

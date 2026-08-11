@@ -4,6 +4,7 @@ import { DownloadLogModule } from "../download-log/download-log.module";
 import { EmailModule } from "../email/email.module";
 import { FileModule } from "../file/file.module";
 import { SystemModule } from "../system/system.module";
+import { StorageModule } from "../storage/storage.module";
 import { ShareDomainModule } from "./domain/share-domain.module";
 import { ShareController } from "./share.controller";
 import { ShareService } from "./share.service";
@@ -19,6 +20,7 @@ import { FileStorageService } from "./file-storage.service";
     forwardRef(() => DownloadLogModule),
     SystemModule,
     ShareDomainModule,
+    StorageModule,
   ],
   controllers: [ShareController],
   providers: [ShareService, ShareMapper, ShareArchiveService, FileStorageService],

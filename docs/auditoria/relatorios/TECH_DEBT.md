@@ -11,7 +11,7 @@
 | ID | Descrição | Severidade | Status |
 |---|---|---|---|
 | R01 | Decompor AuthService | Média | **Pendente** |
-| R02 | Extrair UploadRepository | Média | **Pendente** |
+| R02 | Extrair UploadRepository | Média | ✅ Concluída |
 | R03 | Tipagem de controllers | — | ✅ Concluída |
 | R04 | Batching de jobs | — | ✅ Concluída |
 | R05 | Decompor ShareService | — | ✅ Concluída |
@@ -34,13 +34,13 @@
 - **Esforço estimado**: 3-5 dias
 - **Plano**: ver `REFACTORING_PLAN.md`
 
-### R02 — Extrair UploadRepository (Pendente)
-- **Arquivo**: Upload module sem camada repository isolada
+### R02 — Extrair UploadRepository (Concluída ✅)
+- **Arquivo**: `backend/src/storage/` (nova camada)
 - **Problema**: Lógica de storage acoplada ao controller/service
 - **Impacto**: Dificulta troca de storage (S3, backblaze, etc) e testes
 - **Severidade**: Média
 - **Esforço estimado**: 2-3 dias
-- **Plano**: ver `REFACTORING_PLAN.md`
+- **Solução aplicada**: Interface `IUploadRepository` (token `Symbol`) + `FilesystemUploadRepository` em `backend/src/storage/`. `StorageModule` injeta via DI. `LocalFileService`, `ShareArchiveService`, `JobsService` e `FileStorageService` agora dependem da interface, sem acesso direto a `fs`/`SHARE_DIRECTORY`. Trocar para S3 = criar `S3UploadRepository` + swap do provider.
 
 ### D01 — SQLite em produção (Aceita)
 - **Problema**: Single file, single writer, sem replica/failover
@@ -74,16 +74,16 @@
 
 ```
 ALTA (aceita):     D01 (SQLite)
-MÉDIA:             R01, R02, D02
+MÉDIA:             R01, D02
 BAIXA:             D05
-RESOLVIDAS:        D03 (branch), D04 (CSP H-01)
+RESOLVIDAS:        R02 (UploadRepository), D03 (branch), D04 (CSP H-01)
 ```
 
 ---
 
 ## 4. Recomendação
 
-As dívidas de severidade Média restantes (R01, R02) podem ser endereçadas no ciclo v1.1. D01 (SQLite) é aceita com monitoramento e documentação. D02 (E2E) é recommendation de hardening. **D03 e D04 já foram resolvidas** (quick wins): branch removida e CSP ativo no Caddy.
+A dívida de severidade Média restante (R01 — AuthService) pode ser endereçada no próximo ciclo v1.1. D01 (SQLite) é aceita com monitoramento e documentação. D02 (E2E) é recommendation de hardening. **R02 (UploadRepository), D03 (branch) e D04 (CSP) já foram resolvidas**.
 
 **Nenhuma dívida bloqueia produção desde que explicitamente aceita com plano de remediação**.
 

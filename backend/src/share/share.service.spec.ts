@@ -9,22 +9,12 @@ import { ConfigService } from "../config/config.service";
 import { SystemService } from "../system/system.service";
 import { I18nService } from "nestjs-i18n";
 import { createZipStream } from "../common/zip";
-import { SHARE_DIRECTORY } from "../constants";
-import * as fs from "fs";
+import type { IUploadRepository } from "../storage/upload-repository.interface";
 import { File, ShareSecurity, ShareRecipient } from "../../prisma/generated/prisma/client";
 
 jest.mock("../common/zip", () => ({
   createZipStream: jest.fn(),
 }));
-
-jest.mock("fs", () => ({
-  ...jest.requireActual("fs"),
-  createWriteStream: jest.fn(),
-  createReadStream: jest.fn(() => new PassThrough()),
-  mkdirSync: jest.fn(),
-}));
-
-const mkdirSyncMock = fs.mkdirSync as unknown as jest.Mock;
 
 describe("ShareMapper", () => {
   let mapper: ShareMapper;
@@ -66,16 +56,20 @@ describe("ShareMapper", () => {
 describe("FileStorageService", () => {
   let systemService: { getSystemInfo: jest.Mock };
   let i18n: { t: jest.Mock };
+  let repository: jest.Mocked<IUploadRepository>;
   let service: FileStorageService;
 
   beforeEach(() => {
     systemService = { getSystemInfo: jest.fn() };
     i18n = { t: jest.fn((key: string) => key) };
+    repository = {
+      createShareDirectory: jest.fn(),
+    } as unknown as jest.Mocked<IUploadRepository>;
     service = new FileStorageService(
       systemService as unknown as SystemService,
       i18n as unknown as I18nService,
+      repository,
     );
-    mkdirSyncMock.mockClear();
   });
 
   it("não lança quando há espaço suficiente", async () => {
@@ -92,23 +86,21 @@ describe("FileStorageService", () => {
     );
   });
 
-  it("cria o diretório do share", () => {
+  it("cria o diretório do share via repositório", () => {
     service.createShareDirectory("abc");
 
-    expect(mkdirSyncMock).toHaveBeenCalledWith(`${SHARE_DIRECTORY}/abc`, {
-      recursive: true,
-    });
+    expect(repository.createShareDirectory).toHaveBeenCalledWith("abc");
   });
 });
 
 describe("ShareArchiveService", () => {
   let prisma: { file: { findMany: jest.Mock } };
   let config: { getNumber: jest.Mock };
+  let repository: jest.Mocked<IUploadRepository>;
   let service: ShareArchiveService;
   let writeStream: EventEmitter & { destroy: jest.Mock };
 
   const createZipStreamMock = jest.mocked(createZipStream);
-  const createWriteStreamMock = fs.createWriteStream as unknown as jest.Mock;
 
   function makeArchive() {
     const listeners: Record<string, ((...args: unknown[]) => void)[]> = {};
@@ -147,19 +139,24 @@ describe("ShareArchiveService", () => {
   beforeEach(() => {
     prisma = { file: { findMany: jest.fn() } };
     config = { getNumber: jest.fn() };
+    repository = {
+      createWriteStream: jest.fn(),
+      createReadStream: jest.fn(() => new PassThrough()),
+    } as unknown as jest.Mocked<IUploadRepository>;
     service = new ShareArchiveService(
       prisma as unknown as PrismaService,
       config as unknown as ConfigService,
+      repository,
     );
     writeStream = new EventEmitter() as EventEmitter & { destroy: jest.Mock };
     writeStream.destroy = jest.fn();
-    createWriteStreamMock.mockReturnValue(
-      writeStream as unknown as fs.WriteStream,
+    repository.createWriteStream.mockReturnValue(
+      writeStream as unknown as ReturnType<IUploadRepository["createWriteStream"]>,
     );
   });
 
   afterEach(() => {
-    createWriteStreamMock.mockClear();
+    repository.createWriteStream.mockClear();
     createZipStreamMock.mockReset();
   });
 

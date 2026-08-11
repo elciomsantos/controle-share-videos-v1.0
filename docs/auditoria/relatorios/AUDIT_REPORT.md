@@ -20,7 +20,7 @@
 | **Decisão** | ✅ **APROVADO PARA PRODUÇÃO COM CONDIÇÕES** |
 | **Riscos bloqueantes** | 0 |
 | **Riscos aceitos com monitoramento** | 1 (SQLite) |
-| **Pendências com plano v1.1** | 4 (média/baixa) — 2 já resolvidas |
+| **Pendências com plano v1.1** | 3 (média/baixa) — 3 já resolvidas (R02, CSP, branch) |
 | **Artefatos gerados** | 13/13 |
 
 ---
@@ -48,7 +48,7 @@
 | Dependências (Fase 10) | 8.5 | ✅ | DEPENDENCY_AUDIT.md |
 | Testes (Fase 12) | 7.0 | Unit OK, sem E2E | TEST_PLAN.md |
 | Roadmap (Fase 14) | — | 5 versões planejadas | ROADMAP.md |
-| Matriz (Fase 16) | — | 12 OK + 1 aceito + 7 pendentes | AUDIT_MATRIX.md |
+| Matriz (Fase 16) | — | 11 OK + 2 aceitos + 6 pendentes | AUDIT_MATRIX.md |
 | Evidências (Fase 16b) | — | 23 evidências reproduzíveis | EVIDENCE_INDEX.md |
 | Mudanças (Fase 17) | — | Estado atual documentado | CHANGELOG.md |
 
@@ -62,13 +62,13 @@ A-03 ConfigService tipado (R06) · A-04 ShareService decomposto (R05) · A-05 Jo
 ### 📋 Aceito com Monitoramento (1)
 - **A-06/D01**: SQLite em produção — single-writer, sem replica; mitigado por WAL + batching R04 + Prometheus
 
-### ⚠️ Pendentes com Plano v1.1 (4)
+### ⚠️ Pendentes com Plano v1.1 (3)
 - **A-01/R01**: AuthService monolítico → decompor em 4 services (REFACTORING_PLAN, ~5-7 dias)
-- **A-02/R02**: UploadRepository não extraído → interface `IUploadRepository` (REFACTORING_PLAN, ~2-3 dias)
 - **D02**: Sem testes E2E → Playwright no CI (REFACTORING_PLAN H-04, 3-5 dias)
 - **D05**: Backup sem restore test → job de validação (REFACTORING_PLAN H-02, 1-2 dias)
 
-### ✅ Resolvidos após auditoria (quick wins, 2026-08-11)
+### ✅ Resolvidos após auditoria (v1.1, 2026-08-11)
+- **A-02/R02**: `IUploadRepository` extraída + `FilesystemUploadRepository` (storage desacoplado)
 - **S-05/D04**: CSP adicionado no Caddyfile.prod (H-01) — validado com `caddy validate`
 - **D03**: Branch `fix/producao-v1.1.0` 100% mergeada em main, removida do remoto (H-03)
 
@@ -152,7 +152,7 @@ A-03 ConfigService tipado (R06) · A-04 ShareService decomposto (R05) · A-05 Jo
 4. Adicionar `pnpm audit --prod` como step blocking no CI
 
 ### Pós-Go-Live (v1.1 — 4 semanas)
-5. Executar R02 (UploadRepository) — Sprint 1
+5. ~~Executar R02 (UploadRepository)~~ — **Concluído (2026-08-11)**
 6. ~~Adicionar CSP no Caddy (H-01)~~ — **Concluído (2026-08-11)**
 7. Executar R01 (AuthService decomposition) — Sprint 2
 8. Setup Playwright E2E (H-04) — Sprint 3

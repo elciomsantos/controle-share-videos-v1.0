@@ -1,24 +1,28 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   InternalServerErrorException,
 } from "@nestjs/common";
 import { ConfigService } from "../config/config.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { SHARE_DIRECTORY } from "../constants";
 import { createZipStream } from "../common/zip";
 import { toBytes } from "./dto/share.dto";
-import * as fs from "fs";
+import {
+  IUploadRepository,
+  type IUploadRepository as IUploadRepositoryType,
+} from "../storage/upload-repository.interface";
 
 @Injectable()
 export class ShareArchiveService {
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
+    @Inject(IUploadRepository)
+    private readonly repository: IUploadRepositoryType,
   ) {}
 
   async createZip(shareId: string) {
-    const path = `${SHARE_DIRECTORY}/${shareId}`;
 
     // GAP-04: zip-bomb protection — limits are now admin-configurable via
     // share.zipMaxFiles / share.zipMaxTotalSize / share.zipMaxRatio.
@@ -48,7 +52,7 @@ export class ShareArchiveService {
     const archive = await createZipStream({
       zlib: { level: this.config.getNumber("share.zipCompressionLevel") },
     });
-    const writeStream = fs.createWriteStream(`${path}/archive.zip`);
+    const writeStream = this.repository.createWriteStream(`${shareId}/archive.zip`);
 
     // Abort the stream if the consumed output exceeds totalSize * MAX_RATIO,
     // which would indicate a zip-bomb attempt (small input -> huge output).
@@ -103,9 +107,10 @@ export class ShareArchiveService {
     for (let i = 0; i < files.length; i += BATCH_SIZE) {
       const batch = files.slice(i, i + BATCH_SIZE);
       for (const file of batch) {
-        archive.append(fs.createReadStream(`${path}/${file.id}`), {
-          name: file.name,
-        });
+        archive.append(
+          this.repository.createReadStream(`${shareId}/${file.id}`),
+          { name: file.name },
+        );
       }
       await waitIfBackpressure();
     }

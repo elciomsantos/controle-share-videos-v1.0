@@ -11,7 +11,7 @@
 
 | Item | Esforço | Sprint |
 |---|---|---|
-| R02 — UploadRepository | 2-3 dias | 1 |
+| ~~R02 — UploadRepository~~ | ~~2-3 dias~~ | ✅ Concluído (2026-08-11) |
 | ~~H-01 — CSP no Caddy~~ | ~~0.5 dia~~ | ✅ Concluído (2026-08-11) |
 | R01 — AuthService decomposition | 5-7 dias | 2 |
 | ~~H-03 — Sync branch `fix/producao-v1.1.0`~~ | ~~0.5 dia~~ | ✅ Concluído (2026-08-11) |

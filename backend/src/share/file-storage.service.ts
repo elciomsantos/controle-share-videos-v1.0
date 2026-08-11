@@ -1,14 +1,18 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable } from "@nestjs/common";
 import { I18nService } from "nestjs-i18n";
 import { SystemService } from "../system/system.service";
-import { SHARE_DIRECTORY } from "../constants";
-import * as fs from "fs";
+import {
+  IUploadRepository,
+  type IUploadRepository as IUploadRepositoryType,
+} from "../storage/upload-repository.interface";
 
 @Injectable()
 export class FileStorageService {
   constructor(
     private systemService: SystemService,
     private readonly i18n: I18nService,
+    @Inject(IUploadRepository)
+    private readonly repository: IUploadRepositoryType,
   ) {}
 
   async ensureSpaceAvailable(size: number) {
@@ -19,8 +23,6 @@ export class FileStorageService {
   }
 
   createShareDirectory(shareId: string) {
-    fs.mkdirSync(`${SHARE_DIRECTORY}/${shareId}`, {
-      recursive: true,
-    });
+    this.repository.createShareDirectory(shareId);
   }
 }

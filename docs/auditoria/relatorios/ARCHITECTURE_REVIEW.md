@@ -59,7 +59,7 @@
 | `config/` | ConfigService tipado, JwtSecretService (rotação) | R06 ✅ |
 | `share/` | CRUD de shares, arquivamento, storage | R05 ✅ |
 | `jobs/` | Limpeza de shares expirados, batching | R04 ✅ |
-| `upload/` | Upload de arquivos | R02 pendente |
+| `upload/` | Upload de arquivos | R02 ✅ |
 
 ---
 
@@ -144,7 +144,7 @@ A rotação JWT usa estratégia **híbrida (kid + timeline)**:
 | ID | Achado | Severidade | Status |
 |---|---|---|---|
 | A-01 | AuthService não decomposto (R01 pendente) | Média | Dívida |
-| A-02 | UploadRepository não extraído (R02 pendente) | Média | Dívida |
+| A-02 | UploadRepository não extraído (R02) | Média | ✅ OK |
 | A-03 | ConfigService tipado (R06) | — | ✅ OK |
 | A-04 | ShareService decomposto (R05) | — | ✅ OK |
 | A-05 | Jobs com batching (R04) | — | ✅ OK |
@@ -157,12 +157,9 @@ A rotação JWT usa estratégia **híbrida (kid + timeline)**:
 - **Prioridade**: Média (funcionando, mas debt técnico)
 - **Recomendação**: Decompor em `LoginService`, `TokenService`, `RefreshService`, `VerificationService`
 
-### A-02: UploadRepository não extraído (R02 pendente)
-- **Problema**: Lógica de upload acoplada a controller/service
-- **Evidência**: Upload sem camada repository isolada
-- **Risco**: Dificulta troca de storage (ex: S3 no futuro)
-- **Prioridade**: Média
-- **Recomendação**: Extrair `UploadRepository` para abstração de storage
+### A-02: UploadRepository extraído (R02 ✅)
+- **Solução**: Interface `IUploadRepository` + `FilesystemUploadRepository` criadas em `backend/src/storage/`. `LocalFileService`, `ShareArchiveService`, `JobsService` e `FileStorageService` injetam a interface via `StorageModule` (token `Symbol`), sem acesso direto a `fs`/`SHARE_DIRECTORY`.
+- **Benefício**: Trocar para S3/MinIO = criar `S3UploadRepository` + swap do provider; nenhuma regra de negócio muda.
 
 ### A-06: SQLite em produção
 - **Problema**: Banco single-file sem replica/failover
