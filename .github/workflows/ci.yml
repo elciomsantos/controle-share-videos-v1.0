@@ -29,6 +29,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build @controle-share/shared
+        working-directory: packages/shared
+        run: |
+          npm ci
+          npm run build
+
       - name: Lint
         run: npm run lint
 
@@ -61,6 +67,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Build @controle-share/shared
+        working-directory: packages/shared
+        run: |
+          npm ci
+          npm run build
 
       - name: Lint
         run: npm run lint
