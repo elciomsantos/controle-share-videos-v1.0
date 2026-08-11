@@ -36,6 +36,13 @@ https://{$DOMAIN} {
         Permissions-Policy "geolocation=(), camera=(), microphone=()"
         # Remove server header
         -Server
+        # Content-Security-Policy (D04/S-05). Defense-in-depth against XSS:
+        # the app is fully same-origin (Next.js + API via reverse proxy), so a
+        # strict allow-list is safe. 'unsafe-inline' for style-src is required
+        # by Mantine's runtime CSS-in-JS. media-src/blob allow <video>/<audio>
+        # streaming; worker-src 'self' permits the Serwist service worker;
+        # frame-src 'self' permits the same-origin PDF <iframe> preview.
+        Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; media-src 'self' blob:; frame-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
     }
 
     # Rate limiting at the edge (INFRA-HIGH-01)

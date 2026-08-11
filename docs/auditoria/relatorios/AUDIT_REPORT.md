@@ -20,7 +20,7 @@
 | **Decisão** | ✅ **APROVADO PARA PRODUÇÃO COM CONDIÇÕES** |
 | **Riscos bloqueantes** | 0 |
 | **Riscos aceitos com monitoramento** | 1 (SQLite) |
-| **Pendências com plano v1.1** | 7 (média/baixa) |
+| **Pendências com plano v1.1** | 4 (média/baixa) — 2 já resolvidas |
 | **Artefatos gerados** | 13/13 |
 
 ---
@@ -62,13 +62,15 @@ A-03 ConfigService tipado (R06) · A-04 ShareService decomposto (R05) · A-05 Jo
 ### 📋 Aceito com Monitoramento (1)
 - **A-06/D01**: SQLite em produção — single-writer, sem replica; mitigado por WAL + batching R04 + Prometheus
 
-### ⚠️ Pendentes com Plano v1.1 (6)
+### ⚠️ Pendentes com Plano v1.1 (4)
 - **A-01/R01**: AuthService monolítico → decompor em 4 services (REFACTORING_PLAN, ~5-7 dias)
 - **A-02/R02**: UploadRepository não extraído → interface `IUploadRepository` (REFACTORING_PLAN, ~2-3 dias)
-- **S-05/D04**: Caddy sem CSP → adicionar header CSP (REFACTORING_PLAN H-01, 0.5 dia)
 - **D02**: Sem testes E2E → Playwright no CI (REFACTORING_PLAN H-04, 3-5 dias)
-- **D03**: Branch `fix/producao-v1.1.0` divergente → sync ou delete (REFACTORING_PLAN H-03, 0.5 dia)
 - **D05**: Backup sem restore test → job de validação (REFACTORING_PLAN H-02, 1-2 dias)
+
+### ✅ Resolvidos após auditoria (quick wins, 2026-08-11)
+- **S-05/D04**: CSP adicionado no Caddyfile.prod (H-01) — validado com `caddy validate`
+- **D03**: Branch `fix/producao-v1.1.0` 100% mergeada em main, removida do remoto (H-03)
 
 ### 🔍 Pendências Baixa Prioridade (3)
 - **S-01**: Caddy/monitoring via env_file (não Docker Secrets)
@@ -151,10 +153,10 @@ A-03 ConfigService tipado (R06) · A-04 ShareService decomposto (R05) · A-05 Jo
 
 ### Pós-Go-Live (v1.1 — 4 semanas)
 5. Executar R02 (UploadRepository) — Sprint 1
-6. Adicionar CSP no Caddy (H-01) — Sprint 1
+6. ~~Adicionar CSP no Caddy (H-01)~~ — **Concluído (2026-08-11)**
 7. Executar R01 (AuthService decomposition) — Sprint 2
 8. Setup Playwright E2E (H-04) — Sprint 3
-9. Sync/delete branch divergente (H-03) — Sprint 3
+9. ~~Sync/delete branch divergente (H-03)~~ — **Concluído (2026-08-11)**
 10. Restore test automatizado (H-02) — Sprint 4
 
 ### Horizonte 6-12 meses

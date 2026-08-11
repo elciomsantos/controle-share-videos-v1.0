@@ -33,10 +33,12 @@ Auditoria completa do estado atual do Controle Share Videos v1.0 (fork de Pingvi
 #### ⚠️ Pendências (com plano de remediação em v1.1)
 - **R01**: AuthService não decomposto (monolítico) — REFACTORING_PLAN
 - **R02**: UploadRepository não extraído — REFACTORING_PLAN
-- **S-05/D04**: Caddy sem CSP header — REFACTORING_PLAN H-01
 - **D02**: Sem testes E2E — REFACTORING_PLAN H-04
-- **D03**: Branch `fix/producao-v1.1.0` divergente — REFACTORING_PLAN H-03
 - **D05**: Backup sem restore test automatizado — REFACTORING_PLAN H-02
+
+#### ✅ Quick wins executados (2026-08-11)
+- **S-05/D04**: CSP header adicionado no Caddy (H-01) — validado com `caddy validate`
+- **D03**: Branch `fix/producao-v1.1.0` verificada (100% mergeada em main) e removida do remoto (H-03)
 
 #### 📋 Limitações Aceitas
 - **A-06/D01**: SQLite em produção (single-writer, sem replica) — Aceito com monitoramento Prometheus + ROADMAP PostgreSQL em v1.3

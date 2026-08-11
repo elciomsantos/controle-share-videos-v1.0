@@ -18,8 +18,8 @@
 | R06 | ConfigService tipado | — | ✅ Concluída |
 | D01 | SQLite em produção | Alta (aceita) | Limitação documentada |
 | D02 | Sem testes E2E | Média | Pendente |
-| D03 | Branch `fix/producao-v1.1.0` não mergeada | Média | Sincronizar |
-| D04 | Caddy sem CSP | Média | Pendente |
+| D03 | Branch `fix/producao-v1.1.0` não mergeada | Média | ✅ Resolvida (100% mergeada em main, branch removida) |
+| D04 | Caddy sem CSP | Média | ✅ Resolvida (H-01: CSP adicionado no Caddyfile.prod) |
 | D05 | Backup sem restore test | Baixa | Pendente |
 
 ---
@@ -54,14 +54,15 @@
 - **Severidade**: Média
 - **Recomendação**: Adicionar Playwright no CI para fluxos críticos (login, upload, share)
 
-### D03 — Branch `fix/producao-v1.1.0` não mergeada
+### D03 — Branch `fix/producao-v1.1.0` não mergeada ✅
 - **Problema**: Refatorações R03-R06 em branch remota não mergeada em `main`
 - **Evidência**: `remotes/origin/fix/producao-v1.1.0` divergente
-- **Ação**: Verificar se trabalho de R03-R06 já está em main (se sim, branch pode ser deletada)
-- **Severidade**: Média
+- **Ação**: Verificado — **todos os commits da branch já estão em main** (0 commits pendentes; merge-base = tip da branch). Branch removida do remoto (H-03).
+- **Severidade**: Média — **Resolvida**
 
-### D04 — Caddy sem CSP
-- Ver `SECURITY_REPORT.md` S-05
+### D04 — Caddy sem CSP ✅
+- **Ação**: CSP estrito adicionado no `header` do `reverse-proxy/Caddyfile.prod` (H-01), cobrindo `default-src 'self'`, `script-src 'self'`, `style-src 'self' 'unsafe-inline'` (Mantine), `media-src 'self' blob:`, `frame-src 'self'` (PDF iframe), `worker-src 'self' blob:` (Serwist) e `object-src 'none'`. Validado com `caddy validate` (config válida).
+- **Severidade**: Média — **Resolvida**
 
 ### D05 — Backup sem restore test
 - **Problema**: `scripts/backup/` gera backup mas sem script de restore automatizado para validação
@@ -73,15 +74,16 @@
 
 ```
 ALTA (aceita):     D01 (SQLite)
-MÉDIA:             R01, R02, D02, D03, D04
+MÉDIA:             R01, R02, D02
 BAIXA:             D05
+RESOLVIDAS:        D03 (branch), D04 (CSP H-01)
 ```
 
 ---
 
 ## 4. Recomendação
 
-As dívidas de severidade Média (R01, R02) podem ser endereçadas no ciclo v1.1. D01 (SQLite) é aceita com monitoramento e documentação. D02 (E2E) e D04 (CSP) são recommendations de hardening.
+As dívidas de severidade Média restantes (R01, R02) podem ser endereçadas no ciclo v1.1. D01 (SQLite) é aceita com monitoramento e documentação. D02 (E2E) é recommendation de hardening. **D03 e D04 já foram resolvidas** (quick wins): branch removida e CSP ativo no Caddy.
 
 **Nenhuma dívida bloqueia produção desde que explicitamente aceita com plano de remediação**.
 

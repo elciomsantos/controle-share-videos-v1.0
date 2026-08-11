@@ -21,14 +21,14 @@
 | **S-02** | JWT fail-closed + rotação híbrida | `jwt.guard.ts`, `jwt-secret.service.ts` | — | — | — | — | ✅ OK | SECURITY_REPORT |
 | **S-03** | RBAC fino com 4 papéis e decorators | `guards.decorator.ts` | — | — | — | — | ✅ OK | SECURITY_REPORT |
 | **S-04** | Middleware frontend jose | `frontend/src/middleware.ts` | — | — | — | — | ✅ OK | SECURITY_REPORT |
-| **S-05** | Caddy sem CSP header | `reverse-proxy/Caddyfile.prod` | Omissão | XSS não mitigado por CSP | Média | Adicionar diretiva CSP | Pendente | SECURITY_REPORT, REFACTORING_PLAN H-01 |
+| **S-05** | Caddy sem CSP header | `reverse-proxy/Caddyfile.prod` | Omissão | XSS não mitigado por CSP | Média | Adicionar diretiva CSP | ✅ Resolvido (H-01) | SECURITY_REPORT, REFACTORING_PLAN H-01 |
 | **S-06** | Caddy sem rate limit edge | `Caddyfile.prod` | Omissão | DDoS volumétrico | Baixa | Avaliar caddy-ratelimit plugin | Pendente | SECURITY_REPORT |
 | **P-01** | Upload concorrente limitado | `frontend/src/utils/concurrency.ts` | — | — | — | — | ✅ OK | PERFORMANCE |
 | **P-03** | Sem cache Redis | Sem Redis no compose | Decisão de design | Queries repetidas | Média-Baixa | Avaliar Redis se crescimento | Pendente | PERFORMANCE, ROADMAP |
 | **D-01** | SQLite em produção | — | Decisão de design | SPOF | Alta (aceita) | Monitorar + documentar | **Aceito** | TECH_DEBT, ROADMAP |
 | **D-02** | Sem testes E2E | CI só roda unit/integration | Omissão | Regressões E2E | Média | Adicionar Playwright | Pendente | TEST_PLAN, REFACTORING_PLAN H-04 |
-| **D-03** | Branch `fix/producao-v1.1.0` divergente | `git branch -a` | Trabalho paralelo não sync | Confusão de main verdade | Média | Verificar e sync/deletar | Pendente | TECH_DEBT, REFACTORING_PLAN H-03 |
-| **D-04** | Caddy sem CSP | = S-05 | — | — | — | — | Pendente | SECURITY_REPORT |
+| **D-03** | Branch `fix/producao-v1.1.0` divergente | `git branch -a` | Trabalho paralelo não sync | Confusão de main verdade | Média | Verificar e sync/deletar | ✅ Resolvido (H-03) | TECH_DEBT, REFACTORING_PLAN H-03 |
+| **D-04** | Caddy sem CSP | = S-05 | — | — | — | — | ✅ Resolvido (H-01) | SECURITY_REPORT |
 | **D-05** | Backup sem restore test | `scripts/backup/` | Omissão | Backup inválido não detectado | Baixa | Job de restore test | Pendente | TECH_DEBT, REFACTORING_PLAN H-02 |
 
 ---
@@ -37,26 +37,29 @@
 
 | Dimensão | Achados | OK | Pendentes | Aceitos |
 |---|---|---|---|---|
-| Arquitetura | 6 | 4 | 2 (R01, R02) | — |
-| Segurança | 6 | 4 | 2 | — |
-| Performance | 2 | 1 | 1 | — |
-| DevOps | 5 | 3 | 2 | 1 (SQLite) |
-| **TOTAL** | **19** | **12** | **7** | **1** |
+| Arquitetura | 6 | 3 (A-03, A-04, A-05) | 2 (A-01, A-02) | 1 (A-06 SQLite) |
+| Segurança | 6 | 4 (S-02, S-03, S-04) + S-05 | 2 (S-01, S-06) | — |
+| Performance | 2 | 1 (P-01) | 1 (P-03) | — |
+| DevOps | 5 | 2 (D-03, D-04) | 2 (D-02, D-05) | 1 (D-01 SQLite) |
+| **TOTAL** | **19** | **10** | **7** | **2** |
 
 ---
 
 ## Resumo de Prioridades
 
 - **Alta (aceita com monitoramento)**: A-06/D01 (SQLite)
-- **Média**: A-01, A-02, S-05/D04, D02, D03
+- **Média**: A-01, A-02, D02
 - **Baixa**: S-01, S-06, P-03, D05
+- **Resolvidos (H-01/H-03)**: S-05/D04 (CSP), D03 (branch)
 
 ---
 
 ## Veredito Geral
 
-**12/19 OK** + **1 aceito com monitoramento** = **13/19 verde/aceito**
+**10/19 OK** + **2 aceitos com monitoramento** = **12/19 verde/aceito**
 **7 pendentes** (média ou baixa prioridade)
+
+**Atualizado após quick wins (H-01 CSP + H-03 branch)**.
 
 **Go-live**: Aprovado com condições. Pendências devem ser endereçadas em v1.1 (4 semanas).
 
