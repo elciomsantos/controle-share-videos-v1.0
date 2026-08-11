@@ -125,13 +125,14 @@ backend/src/upload/
 
 ## 5. Critérios de Aceite Gerais v1.1
 
-- [ ] R01 e R02 concluídos
-- [ ] CSP ativo no Caddy
-- [ ] Branches sincronizadas
+- [x] R01 concluído (AuthService → Login/Token/Refresh/Verification, 2026-08-11)
+- [x] R02 concluído (UploadRepository, 2026-08-11)
+- [x] CSP ativo no Caddy (H-01)
+- [x] Branches sincronizadas (H-03)
 - [ ] E2E básicos (login, upload, share) no CI
 - [ ] Restore test documentado e automatizado
-- [ ] Sem regressão em testes existentes
-- [ ] Lint pass ✅
+- [x] Sem regressão em testes existentes (unit 140 + e2e 16 verdes)
+- [x] Lint pass ✅
 
 ---
 

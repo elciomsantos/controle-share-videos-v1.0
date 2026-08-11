@@ -10,7 +10,7 @@
 
 | ID | Descrição | Severidade | Status |
 |---|---|---|---|
-| R01 | Decompor AuthService | Média | **Pendente** |
+| R01 | Decompor AuthService | Média | ✅ Concluída |
 | R02 | Extrair UploadRepository | Média | ✅ Concluída |
 | R03 | Tipagem de controllers | — | ✅ Concluída |
 | R04 | Batching de jobs | — | ✅ Concluída |
@@ -26,12 +26,13 @@
 
 ## 2. Dívidas Detalhadas
 
-### R01 — Decompor AuthService (Pendente)
-- **Arquivo**: `backend/src/auth/service/auth.service.ts`
-- **Problema**: AuthService concentra login, refresh, logout, verificação, rotação
+### R01 — Decompor AuthService (Concluída ✅)
+- **Arquivos**: `backend/src/auth/auth.service.ts` (orquestrador) + `backend/src/auth/service/{login,token,refresh,verification}.service.ts`
+- **Problema**: AuthService concentrava login, refresh, logout, verificação, rotação
 - **Impacto**: Dificuldade de testes isolados, manutenção complexa, violação de SRP
 - **Severidade**: Média — funcionando, mas obstáculo para evolução
 - **Esforço estimado**: 3-5 dias
+- **Solução aplicada**: AuthService virou orquestrador fino. `LoginService` (credenciais + sessão inicial), `TokenService` (emissão access/refresh/login + cookies), `RefreshService` (rotação SEC-07, signOut, logoutAllDevices) e `VerificationService` (ativação de conta + reset de senha). API pública preservada (controller/authTotp unchanged), `AuthTotpService` passou a injetar `LoginService`/`TokenService`. 4 specs isolados novos (+31 testes, 109→140).
 - **Plano**: ver `REFACTORING_PLAN.md`
 
 ### R02 — Extrair UploadRepository (Concluída ✅)
@@ -74,16 +75,16 @@
 
 ```
 ALTA (aceita):     D01 (SQLite)
-MÉDIA:             R01, D02
+MÉDIA:             D02
 BAIXA:             D05
-RESOLVIDAS:        R02 (UploadRepository), D03 (branch), D04 (CSP H-01)
+RESOLVIDAS:        R01 (AuthService), R02 (UploadRepository), D03 (branch), D04 (CSP H-01)
 ```
 
 ---
 
 ## 4. Recomendação
 
-A dívida de severidade Média restante (R01 — AuthService) pode ser endereçada no próximo ciclo v1.1. D01 (SQLite) é aceita com monitoramento e documentação. D02 (E2E) é recommendation de hardening. **R02 (UploadRepository), D03 (branch) e D04 (CSP) já foram resolvidas**.
+A dívida de severidade Média restante é apenas D02 (E2E, hardening). D01 (SQLite) é aceita com monitoramento e documentação. **R01 (AuthService), R02 (UploadRepository), D03 (branch) e D04 (CSP) já foram resolvidas**.
 
 **Nenhuma dívida bloqueia produção desde que explicitamente aceita com plano de remediação**.
 

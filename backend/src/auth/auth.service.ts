@@ -1,12 +1,9 @@
 import {
-  BadRequestException,
   ForbiddenException,
   Injectable,
-  UnauthorizedException,
 } from "@nestjs/common";
 import { RequestContextLogger } from "../common/request-context/request-context";
 import { DuplicatedFieldException } from "../common/duplicated-field.exception";
-import { JwtService } from "@nestjs/jwt";
 import { Prisma, User } from "../../prisma/generated/prisma/client";
 import argon from "argon2";
 import { Request, Response } from "express";
@@ -14,21 +11,32 @@ import dayjs from "dayjs";
 import { I18nService } from "nestjs-i18n";
 import { ARGON2_OPTIONS } from "../constants";
 import { ConfigService } from "../config/config.service";
-import { JwtSecretService } from "../config/jwt-secret.service";
 import { EmailService } from "../email/email.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuthRegisterDTO } from "./dto/authRegister.dto";
 import { AuthSignInDTO } from "./dto/authSignIn.dto";
+import { LoginService } from "./service/login.service";
+import { TokenService } from "./service/token.service";
+import { RefreshService } from "./service/refresh.service";
+import { VerificationService } from "./service/verification.service";
 
+/**
+ * AuthService — orquestrador da autenticação. Delega credenciais, tokens,
+ * sessões e verificação para serviços isolados (Login/Token/Refresh/
+ * Verification). Mantém somente o registro (signUp) e troca de senha (que
+ * combinam duas dessas responsabilidades).
+ */
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
-    private jwtService: JwtService,
     private config: ConfigService,
-    private jwtSecret: JwtSecretService,
     private emailService: EmailService,
     private readonly i18n: I18nService,
+    private readonly loginService: LoginService,
+    private readonly tokenService: TokenService,
+    private readonly refreshService: RefreshService,
+    private readonly verificationService: VerificationService,
   ) {}
   private readonly logger = new RequestContextLogger(AuthService.name);
 
@@ -73,14 +81,17 @@ export class AuthService {
           return { verificationRequired: true };
         }
 
-        const { refreshToken, refreshTokenId } = await this.createRefreshToken(
+        const refreshToken = await this.tokenService.createRefreshToken(
           user.id,
           tx,
         );
-        const accessToken = await this.createAccessToken(user, refreshTokenId);
+        const accessToken = this.tokenService.signAccessToken(
+          user,
+          refreshToken.id,
+        );
 
         this.logger.log(`User ${user.email} signed up from IP ${ip}`);
-        return { accessToken, refreshToken, user };
+        return { accessToken, refreshToken: refreshToken.token, user };
       });
     } catch (e) {
       if (
@@ -98,168 +109,37 @@ export class AuthService {
     }
   }
 
+  /** Delega ao LoginService (verificação de credenciais + sessão inicial). */
   async signIn(dto: AuthSignInDTO, ip: string) {
-    if (!dto.email && !dto.username) {
-      throw new BadRequestException(
-        this.i18n.t("auth.emailOrUsernameRequired"),
-      );
-    }
-
-    const email = dto.email?.toLowerCase().trim();
-    const user = await this.prisma.user.findFirst({
-      where: {
-        OR: [{ email }, { username: dto.username }],
-      },
-    });
-
-    if (user?.password && (await argon.verify(user.password, dto.password))) {
-      if (!user.isActivated) {
-        throw new UnauthorizedException(
-          this.i18n.t("auth.accountNotActivated"),
-        );
-      }
-      this.logger.log(
-        `Successful password login for user ${user.email} from IP ${ip}`,
-      );
-      return this.generateToken(user);
-    }
-
-    this.logger.debug(
-      `Failed login attempt for user ${dto.email || dto.username} from IP ${ip}`,
-    );
-    throw new UnauthorizedException(this.i18n.t("auth.wrongCredentials"));
+    return this.loginService.signIn(dto, ip);
   }
 
+  /** Delega ao LoginService (emissão de sessão para usuário autenticado). */
   async generateToken(user: User) {
-    // Check if the user has TOTP enabled
-    if (user.totpVerified) {
-      const loginToken = await this.createLoginToken(user.id);
-
-      return { loginToken };
-    }
-
-    const { refreshToken, refreshTokenId } = await this.createRefreshToken(
-      user.id,
-    );
-    const accessToken = await this.createAccessToken(user, refreshTokenId);
-
-    return { accessToken, refreshToken };
+    return this.loginService.generateToken(user);
   }
 
-  async requestResetPassword(emailInput: string) {
-    const email = emailInput.toLowerCase().trim();
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-      include: { resetPasswordToken: true },
-    });
-
-    if (!user) return;
-
-    await this.prisma.$transaction(async (tx) => {
-      // Delete old reset password token
-      if (user.resetPasswordToken) {
-        await tx.resetPasswordToken.delete({
-          where: { token: user.resetPasswordToken.token },
-        });
-      }
-
-      const { token } = await tx.resetPasswordToken.create({
-        data: {
-          expiresAt: dayjs().add(1, "hour").toDate(),
-          user: { connect: { id: user.id } },
-        },
-      });
-
-      await this.emailService.sendResetPasswordEmail(user.email, token);
-    });
+  async requestResetPassword(email: string) {
+    return this.verificationService.requestResetPassword(email);
   }
 
   async resetPassword(token: string, newPassword: string) {
-    const user = await this.prisma.user.findFirst({
-      where: { resetPasswordToken: { token } },
-      include: { resetPasswordToken: true },
-    });
-
-    if (!user)
-      throw new BadRequestException(this.i18n.t("auth.tokenInvalidOrExpired"));
-
-    // SEC-03/BKD-01: enforce the token TTL on redemption, not only on cleanup
-    // jobs — a leaked token must not be usable beyond expiresAt.
-    if (dayjs().isAfter(user.resetPasswordToken?.expiresAt)) {
-      await this.prisma.resetPasswordToken.delete({
-        where: { token },
-      });
-      throw new BadRequestException(this.i18n.t("auth.tokenInvalidOrExpired"));
-    }
-
-    const newPasswordHash = await argon.hash(newPassword, ARGON2_OPTIONS);
-
-    await this.prisma.resetPasswordToken.delete({
-      where: { token },
-    });
-
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { password: newPasswordHash },
-    });
+    return this.verificationService.resetPassword(token, newPassword);
   }
 
   async verifyAccount(token: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { activationToken: token },
-    });
-
-    if (
-      !user ||
-      (user.activationTokenExpiresAt &&
-        user.activationTokenExpiresAt < new Date())
-    ) {
-      throw new BadRequestException(this.i18n.t("auth.tokenInvalidOrExpired"));
-    }
-
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        isActivated: true,
-        activationToken: null,
-        activationTokenExpiresAt: null,
-      },
-    });
+    return this.verificationService.verifyAccount(token);
   }
 
-  async resendVerification(emailInput: string) {
-    const email = emailInput.toLowerCase().trim();
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-    });
-
-    // SEC-06: identical response for unknown and already-activated emails so
-    // the endpoint can't be used as an account-enumeration oracle. A new token
-    // is only sent to pending users.
-    if (!user || user.isActivated) return;
-
-    const activationToken = crypto.randomUUID();
-    const activationTokenExpiresAt = dayjs().add(1, "day").toDate();
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.user.update({
-        where: { id: user.id },
-        data: {
-          activationToken,
-          activationTokenExpiresAt,
-        },
-      });
-
-      await this.emailService.sendVerificationEmail(
-        user.email,
-        activationToken,
-      );
-    });
+  async resendVerification(email: string) {
+    return this.verificationService.resendVerification(email);
   }
 
   async updatePassword(user: User, newPassword: string, oldPassword?: string) {
-    const isPasswordValid =
-      !user.password || (await argon.verify(user.password, oldPassword ?? ""));
+    const isPasswordValid = await this.loginService.verifyPassword(
+      user,
+      oldPassword ?? "",
+    );
 
     if (!isPasswordValid)
       throw new ForbiddenException(this.i18n.t("auth.invalidPassword"));
@@ -276,202 +156,57 @@ export class AuthService {
     });
 
     this.logger.log(`Password changed for user ${user.email}`);
-    return this.createRefreshToken(user.id);
+    const refreshToken = await this.tokenService.createRefreshToken(user.id);
+    return { refreshTokenId: refreshToken.id, refreshToken: refreshToken.token };
   }
 
+  /** Back-compat: delega emissão de access token ao TokenService. */
   async createAccessToken(user: User, refreshTokenId: string) {
-    const secret = this.jwtSecret.getCurrentSecret();
-    return this.jwtService.sign(
-      {
-        sub: user.id,
-        email: user.email,
-        role: user.role,
-        isAdmin: user.isAdmin,
-        refreshTokenId,
-      },
-      {
-        expiresIn: "15min",
-        secret,
-        keyid: this.jwtSecret.getKid(secret),
-      },
-    );
+    return this.tokenService.signAccessToken(user, refreshTokenId);
   }
 
   async signOut(accessToken: string) {
-    const { refreshTokenId } =
-      (this.jwtService.decode(accessToken) as {
-        refreshTokenId: string;
-      }) || {};
-
-    if (refreshTokenId) {
-      await this.prisma.refreshToken
-        .delete({ where: { id: refreshTokenId } })
-        .catch((e) => {
-          // Ignore error if refresh token doesn't exist
-          if (e.code != "P2025") throw e;
-        });
-    }
+    return this.refreshService.signOut(accessToken);
   }
 
   async logoutAllDevices(userId: string) {
-    await this.prisma.refreshToken.deleteMany({
-      where: { userId },
-    });
-
-    await this.prisma.loginToken.updateMany({
-      where: { userId, used: false },
-      data: { used: true },
-    });
+    return this.refreshService.logoutAllDevices(userId);
   }
 
   async refreshAccessToken(refreshToken: string) {
-    const refreshTokenMetaData = await this.prisma.refreshToken.findUnique({
-      where: { token: refreshToken },
-      include: { user: true },
-    });
-
-    if (!refreshTokenMetaData || refreshTokenMetaData.expiresAt < new Date())
-      throw new UnauthorizedException();
-
-    // SEC-07: atomic rotation + reuse detection. delete+create happen inside a
-    // transaction; deleteMany reports the count so a replayed token (already
-    // consumed by a previous rotation) is detected and the whole family is
-    // revoked. The revocation commits (it's returned from the tx) before the
-    // UnauthorizedException is raised, so it persists across the throw.
-    try {
-      const outcome = await this.prisma.$transaction(async (tx) => {
-        const { count } = await tx.refreshToken.deleteMany({
-          where: { id: refreshTokenMetaData.id },
-        });
-
-        if (count === 0) {
-          // Reuse detected — a rotated token was presented again. Revoke every
-          // session token for the user before refusing.
-          await tx.refreshToken.deleteMany({
-            where: { userId: refreshTokenMetaData.user.id },
-          });
-          return { reuse: true } as const;
-        }
-
-        const newRefreshToken = await this.createRefreshToken(
-          refreshTokenMetaData.user.id,
-          tx,
-        );
-
-        const accessToken = await this.createAccessToken(
-          refreshTokenMetaData.user,
-          newRefreshToken.refreshTokenId,
-        );
-
-        return {
-          reuse: false,
-          accessToken,
-          ...newRefreshToken,
-        } as const;
-      });
-
-      if (outcome.reuse) {
-        this.logger.warn(
-          `Reuse of refresh token detected for user ${refreshTokenMetaData.user.email}; all sessions revoked`,
-        );
-        throw new UnauthorizedException();
-      }
-
-      const { accessToken, refreshToken: newToken, refreshTokenId } = outcome;
-      return { accessToken, refreshToken: newToken, refreshTokenId };
-    } catch (e) {
-      if (e instanceof UnauthorizedException) throw e;
-      throw new UnauthorizedException();
-    }
+    return this.refreshService.refreshAccessToken(refreshToken);
   }
 
-  async createRefreshToken(
-    userId: string,
-    tx?: Prisma.TransactionClient,
-  ) {
-    const prisma = tx || this.prisma;
-    const sessionDuration = this.config.getTimespan("general.sessionDuration");
-    const { id, token } = await prisma.refreshToken.create({
-      data: {
-        userId,
-        expiresAt: dayjs()
-          .add(sessionDuration.value, sessionDuration.unit)
-          .toDate(),
-      },
-    });
-
-    return { refreshTokenId: id, refreshToken: token };
+  /** Back-compat: delega criação de refresh token ao TokenService. */
+  createRefreshToken(userId: string, tx?: Prisma.TransactionClient) {
+    return this.tokenService.createRefreshToken(userId, tx);
   }
 
+  /** Back-compat: delega criação de login token ao TokenService. */
   async createLoginToken(userId: string) {
-    return this.prisma.$transaction(async (tx) => {
-      await tx.loginToken.updateMany({
-        where: { userId, used: false },
-        data: { used: true },
-      });
-
-      const loginToken = (
-        await tx.loginToken.create({
-          data: { userId, expiresAt: dayjs().add(5, "minutes").toDate() },
-        })
-      ).token;
-
-      return loginToken;
-    });
+    return this.tokenService.createLoginToken(userId);
   }
 
+  /** Back-compat: delega escrita de cookies ao TokenService. */
   addTokensToResponse(
     response: Response,
     refreshToken?: string,
     accessToken?: string,
   ) {
-    const isSecure = this.config.getBoolean("general.secureCookies");
-    if (accessToken)
-      response.cookie("access_token", accessToken, {
-        httpOnly: true,
-        sameSite: "strict",
-        secure: isSecure,
-        maxAge: 1000 * 60 * 60 * 24 * 30 * 3, // 3 months
-      });
-    if (refreshToken) {
-      const now = dayjs();
-      const sessionDuration = this.config.getTimespan("general.sessionDuration");
-      const maxAge = dayjs(now)
-        .add(sessionDuration.value, sessionDuration.unit)
-        .diff(now);
-      response.cookie("refresh_token", refreshToken, {
-        path: "/api/auth/token",
-        httpOnly: true,
-        sameSite: "strict",
-        secure: isSecure,
-        maxAge,
-      });
-    }
+    return this.tokenService.addTokensToResponse(
+      response,
+      refreshToken,
+      accessToken,
+    );
   }
 
-  /**
-   * Returns the user id if the user is logged in, null otherwise.
-   * Resolves the exact secret that signed the token by its kid (rotation-aware)
-   * in O(1) instead of trying every verification secret.
-   */
+  /** Back-compat: delega leitura do usuário corrente ao TokenService. */
   async getIdOfCurrentUser(request: Request): Promise<string | null> {
-    if (!request.cookies.access_token) return null;
-    const secret =
-      this.jwtSecret.resolveSecretForToken(request.cookies.access_token) ??
-      this.jwtSecret.getCurrentSecret();
-    try {
-      const payload = await this.jwtService.verifyAsync(
-        request.cookies.access_token,
-        { secret, algorithms: ["HS256", "HS512"] },
-      );
-      return payload.sub;
-    } catch {
-      return null;
-    }
+    return this.tokenService.getUserIdFromRequest(request);
   }
 
+  /** Back-compat: delega verificação de senha ao LoginService. */
   async verifyPassword(user: User, password: string) {
-    if (!user.password) return false;
-    return argon.verify(user.password, password);
+    return this.loginService.verifyPassword(user, password);
   }
 }

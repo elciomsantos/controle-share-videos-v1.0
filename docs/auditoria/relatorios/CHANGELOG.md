@@ -31,7 +31,6 @@ Auditoria completa do estado atual do Controle Share Videos v1.0 (fork de Pingvi
 - `pnpm audit` limpo (0 CVE)
 
 #### ⚠️ Pendências (com plano de remediação em v1.1)
-- **R01**: AuthService não decomposto (monolítico) — REFACTORING_PLAN
 - **D02**: Sem testes E2E — REFACTORING_PLAN H-04
 - **D05**: Backup sem restore test automatizado — REFACTORING_PLAN H-02
 
@@ -39,6 +38,7 @@ Auditoria completa do estado atual do Controle Share Videos v1.0 (fork de Pingvi
 - **S-05/D04**: CSP header adicionado no Caddy (H-01) — validado com `caddy validate`
 - **D03**: Branch `fix/producao-v1.1.0` verificada (100% mergeada em main) e removida do remoto (H-03)
 - **R02**: `IUploadRepository` extraída — camada `backend/src/storage/` com `FilesystemUploadRepository`; `LocalFileService`, `ShareArchiveService`, `JobsService` e `FileStorageService` agora injetam a interface (sem `fs`/`SHARE_DIRECTORY` direto)
+- **R01**: `AuthService` decomposto em `LoginService`, `TokenService`, `RefreshService` e `VerificationService` (`backend/src/auth/service/`); AuthService virou orquestrador fino e `AuthTotpService` passou a injetar os services isolados. 4 specs novos (+31 testes, 109→140). Sem regressão (build, lint, unit e e2e verdes)
 
 #### 📋 Limitações Aceitas
 - **A-06/D01**: SQLite em produção (single-writer, sem replica) — Aceito com monitoramento Prometheus + ROADMAP PostgreSQL em v1.3
@@ -51,6 +51,7 @@ Auditoria completa do estado atual do Controle Share Videos v1.0 (fork de Pingvi
 - `31221f2` — CI/CD deploy SSH
 
 ### Refatorações Concluídas
+- ✅ R01 — Decompor AuthService (`LoginService`/`TokenService`/`RefreshService`/`VerificationService`)
 - ✅ R02 — Extrair UploadRepository (`IUploadRepository` + `FilesystemUploadRepository`)
 - ✅ R03 — Tipagem de controllers
 - ✅ R04 — Batching de jobs
@@ -58,7 +59,7 @@ Auditoria completa do estado atual do Controle Share Videos v1.0 (fork de Pingvi
 - ✅ R06 — ConfigService tipado
 
 ### Refatorações Pendentes
-- ⏳ R01 — Decompor AuthService (ETA: Sprint 2 v1.1)
+- (nenhuma — R01..R06 concluídas)
 
 ### Artefatos gerados nesta auditoria (13/13)
 1. ✅ DISCOVERY.md

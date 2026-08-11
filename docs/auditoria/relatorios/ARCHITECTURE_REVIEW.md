@@ -55,7 +55,7 @@
 ### 2.3 Módulos Principais
 | Módulo | Responsabilidade | Refatoração |
 |---|---|---|
-| `auth/` | Login, refresh, logout, verificação JWT | R01 pendente |
+| `auth/` | Login, refresh, logout, verificação JWT | R01 ✅ (Login/Token/Refresh/Verification) |
 | `config/` | ConfigService tipado, JwtSecretService (rotação) | R06 ✅ |
 | `share/` | CRUD de shares, arquivamento, storage | R05 ✅ |
 | `jobs/` | Limpeza de shares expirados, batching | R04 ✅ |
@@ -143,19 +143,17 @@ A rotação JWT usa estratégia **híbrida (kid + timeline)**:
 
 | ID | Achado | Severidade | Status |
 |---|---|---|---|
-| A-01 | AuthService não decomposto (R01 pendente) | Média | Dívida |
+| A-01 | AuthService decomposto (R01) | Média | ✅ OK |
 | A-02 | UploadRepository não extraído (R02) | Média | ✅ OK |
 | A-03 | ConfigService tipado (R06) | — | ✅ OK |
 | A-04 | ShareService decomposto (R05) | — | ✅ OK |
 | A-05 | Jobs com batching (R04) | — | ✅ OK |
 | A-06 | SQLite sem replica/failover | Alta | Aceito com monitoramento |
 
-### A-01: AuthService monolítico (R01 pendente)
-- **Problema**: AuthService concentra login, refresh, logout, verificação, rotação
-- **Evidência**: `backend/src/auth/service/auth.service.ts` (não decomposto)
-- **Risco**: Dificuldade de manutenção e testes isolados
-- **Prioridade**: Média (funcionando, mas debt técnico)
-- **Recomendação**: Decompor em `LoginService`, `TokenService`, `RefreshService`, `VerificationService`
+### A-01: AuthService decomposto (R01 ✅)
+- **Solução**: `AuthService` virou orquestrador fino; extraídos `LoginService` (credenciais + sessão inicial), `TokenService` (emissão de access/refresh/login + cookies), `RefreshService` (rotação SEC-07, signOut, logoutAllDevices) e `VerificationService` (ativação de conta + reset de senha) em `backend/src/auth/service/`.
+- **Benefício**: Cada serviço testável isoladamente com mock de Prisma; `TokenService` não depende de banco para assinar access token. 4 specs isolados novos (+31 testes, 109→140).
+- **Prioridade**: Média (resolvida)
 
 ### A-02: UploadRepository extraído (R02 ✅)
 - **Solução**: Interface `IUploadRepository` + `FilesystemUploadRepository` criadas em `backend/src/storage/`. `LocalFileService`, `ShareArchiveService`, `JobsService` e `FileStorageService` injetam a interface via `StorageModule` (token `Symbol`), sem acesso direto a `fs`/`SHARE_DIRECTORY`.
@@ -175,7 +173,7 @@ A rotação JWT usa estratégia **híbrida (kid + timeline)**:
 
 | Princípio | Status | Observação |
 |---|---|---|
-| Single Responsibility | ✅ | Após R05; pendente R01/R02 |
+| Single Responsibility | ✅ | Após R05; R01 e R02 resolvidos |
 | Dependency Injection | ✅ | NestJS padrão |
 | Fail-closed | ✅ | JwtGuard |
 | Least Privilege | ✅ | RBAC fino, non-root container |
@@ -189,7 +187,7 @@ A rotação JWT usa estratégia **híbrida (kid + timeline)**:
 
 **Nota**: 7.5/10
 
-Arquitetura sólida e defensável com separação clara de responsabilidades (após R05), guards globais bem encadeados, rotação JWT híbrida madura e monorepo consistente. Dívidas R01/R02 são conhecidas e documentadas. SQLite é limitação aceitável para escala atual desde que monitorada.
+Arquitetura sólida e defensável com separação clara de responsabilidades (R05, R01 e R02 resolvidos), guards globais bem encadeados, rotação JWT híbrida madura e monorepo consistente. SQLite é limitação aceitável para escala atual desde que monitorada.
 
 ---
 

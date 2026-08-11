@@ -62,12 +62,12 @@ A-03 ConfigService tipado (R06) · A-04 ShareService decomposto (R05) · A-05 Jo
 ### 📋 Aceito com Monitoramento (1)
 - **A-06/D01**: SQLite em produção — single-writer, sem replica; mitigado por WAL + batching R04 + Prometheus
 
-### ⚠️ Pendentes com Plano v1.1 (3)
-- **A-01/R01**: AuthService monolítico → decompor em 4 services (REFACTORING_PLAN, ~5-7 dias)
+### ⚠️ Pendentes com Plano v1.1 (2)
 - **D02**: Sem testes E2E → Playwright no CI (REFACTORING_PLAN H-04, 3-5 dias)
 - **D05**: Backup sem restore test → job de validação (REFACTORING_PLAN H-02, 1-2 dias)
 
 ### ✅ Resolvidos após auditoria (v1.1, 2026-08-11)
+- **A-01/R01**: AuthService decomposto em `LoginService`/`TokenService`/`RefreshService`/`VerificationService` (REFACTORING_PLAN, ~5-7 dias)
 - **A-02/R02**: `IUploadRepository` extraída + `FilesystemUploadRepository` (storage desacoplado)
 - **S-05/D04**: CSP adicionado no Caddyfile.prod (H-01) — validado com `caddy validate`
 - **D03**: Branch `fix/producao-v1.1.0` 100% mergeada em main, removida do remoto (H-03)
@@ -154,7 +154,7 @@ A-03 ConfigService tipado (R06) · A-04 ShareService decomposto (R05) · A-05 Jo
 ### Pós-Go-Live (v1.1 — 4 semanas)
 5. ~~Executar R02 (UploadRepository)~~ — **Concluído (2026-08-11)**
 6. ~~Adicionar CSP no Caddy (H-01)~~ — **Concluído (2026-08-11)**
-7. Executar R01 (AuthService decomposition) — Sprint 2
+7. ~~Executar R01 (AuthService decomposition)~~ — **Concluído (2026-08-11)**
 8. Setup Playwright E2E (H-04) — Sprint 3
 9. ~~Sync/delete branch divergente (H-03)~~ — **Concluído (2026-08-11)**
 10. Restore test automatizado (H-02) — Sprint 4
@@ -169,7 +169,7 @@ A-03 ConfigService tipado (R06) · A-04 ShareService decomposto (R05) · A-05 Jo
 
 ## 9. Conclusão
 
-O sistema está **técnica e operacionalmente pronto para produção** com as condições documentadas. Não há riscos bloqueantes. As pendências (R01, R02, CSP, E2E) são dívidas explicitamente aceitas com plano de remediação em v1.1. A arquitetura é defensável, a segurança é acima da média (8.5/10) e o pipeline de deploy/observabilidade é maduro.
+O sistema está **técnica e operacionalmente pronto para produção** com as condições documentadas. Não há riscos bloqueantes. R01 (AuthService), R02 (UploadRepository), CSP e sync de branch já foram resolvidos em v1.1; restam apenas os hardenings D02 (E2E) e D05 (restore test). A arquitetura é defensável, a segurança é acima da média (8.5/10) e o pipeline de deploy/observabilidade é maduro.
 
 A auditoria completa (13 artefatos) está em `docs/auditoria/relatorios/` e fornece rastreabilidade ponta-a-ponta de cada decisão.
 

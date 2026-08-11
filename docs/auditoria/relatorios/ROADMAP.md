@@ -13,7 +13,7 @@
 |---|---|---|
 | ~~R02 — UploadRepository~~ | ~~2-3 dias~~ | ✅ Concluído (2026-08-11) |
 | ~~H-01 — CSP no Caddy~~ | ~~0.5 dia~~ | ✅ Concluído (2026-08-11) |
-| R01 — AuthService decomposition | 5-7 dias | 2 |
+| ~~R01 — AuthService decomposition~~ | ~~5-7 dias~~ | ✅ Concluído (2026-08-11) |
 | ~~H-03 — Sync branch `fix/producao-v1.1.0`~~ | ~~0.5 dia~~ | ✅ Concluído (2026-08-11) |
 | H-04 — Playwright E2E setup | 3-5 dias | 3 |
 | H-02 — Restore test automatizado | 1-2 dias | 4 |
@@ -72,7 +72,7 @@
 | Marco | Versão | ETA |
 |---|---|---|
 | Go-live v1.0 | v1.0 | Imediato (com condições) |
-| R01+R02+E2E+CSP | v1.1 | +4 semanas |
+| R01+R02+E2E+CSP | v1.1 | +4 semanas (R01, R02 e CSP ✅ 2026-08-11) |
 | Alertas + tracing | v1.2 | +8-10 semanas |
 | Redis/PostgreSQL | v1.3 | +14-16 semanas |
 | S3 storage | v1.4 | +18-20 semanas |
@@ -81,7 +81,7 @@
 
 ## 8. Notas
 
-- v1.0 go-live **não depende** de R01/R02 — dívidas aceitas com plano de remediação
+- v1.0 go-live **não dependia** de R01/R02 — dívidas aceitas; R01/R02 já resolvidas em v1.1
 - Migração PostgreSQL (v1.3) só recomendada se métricas de SQLite em produção indicarem contenção
 - S3 storage (v1.4) só acionado se volume de arquivos > 100GB
 

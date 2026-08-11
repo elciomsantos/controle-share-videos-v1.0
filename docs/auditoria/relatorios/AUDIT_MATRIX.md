@@ -11,7 +11,7 @@
 
 | ID | Problema | Evidência | Causa | Risco | Prioridade | Recomendação | Status | Artefato |
 |---|---|---|---|---|---|---|---|---|
-| **A-01** | AuthService monolítico | `backend/src/auth/service/auth.service.ts` | Refatoração R01 não executada | Manutenção difícil, testes isolados | Média | Decompor em Login/Token/Refresh/Verification | **Pendente** | TECH_DEBT, REFACTORING_PLAN |
+| **A-01** | AuthService monolítico | `backend/src/auth/service/{login,token,refresh,verification}.service.ts` | Refatoração R01 executada | Manutenção difícil, testes isolados | Média | Decompor em Login/Token/Refresh/Verification | ✅ Resolvido (R01) | TECH_DEBT, REFACTORING_PLAN |
 | **A-02** | UploadRepository não extraído | Upload module sem camada repo | Refatoração R02 não executada | Troca de storage difícil | Média | Extrair `IUploadRepository` | ✅ Resolvido (R02) | TECH_DEBT, REFACTORING_PLAN |
 | **A-03** | ConfigService tipado (R06) | `backend/src/config/config.service.ts` | — | — | — | — | ✅ OK | ARCHITECTURE_REVIEW |
 | **A-04** | ShareService decomposto (R05) | `backend/src/share/share.service.ts` | — | — | — | — | ✅ OK | ARCHITECTURE_REVIEW |
@@ -37,20 +37,20 @@
 
 | Dimensão | Achados | OK | Pendentes | Aceitos |
 |---|---|---|---|---|
-| Arquitetura | 6 | 4 (A-03, A-04, A-05) + A-02 | 1 (A-01) | 1 (A-06 SQLite) |
+| Arquitetura | 6 | 5 (A-01, A-03, A-04, A-05) + A-02 | 0 | 1 (A-06 SQLite) |
 | Segurança | 6 | 4 (S-02, S-03, S-04) + S-05 | 2 (S-01, S-06) | — |
 | Performance | 2 | 1 (P-01) | 1 (P-03) | — |
 | DevOps | 5 | 2 (D-03, D-04) | 2 (D-02, D-05) | 1 (D-01 SQLite) |
-| **TOTAL** | **19** | **11** | **6** | **2** |
+| **TOTAL** | **19** | **12** | **5** | **2** |
 
 ---
 
 ## Resumo de Prioridades
 
 - **Alta (aceita com monitoramento)**: A-06/D01 (SQLite)
-- **Média**: A-01, D02
+- **Média**: D02
 - **Baixa**: S-01, S-06, P-03, D05
-- **Resolvidos**: A-02/R02 (UploadRepository), S-05/D04 (CSP), D03 (branch)
+- **Resolvidos**: A-01/R01 (AuthService), A-02/R02 (UploadRepository), S-05/D04 (CSP), D03 (branch)
 
 ---
 

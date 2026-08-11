@@ -9,6 +9,10 @@ import { UserModule } from "../user/user.module";
 import { RolesGuard } from "./guard/roles.guard";
 import { PasswordMustChangeGuard } from "./guard/passwordMustChange.guard";
 import { JwtGuard } from "./guard/jwt.guard";
+import { LoginService } from "./service/login.service";
+import { TokenService } from "./service/token.service";
+import { RefreshService } from "./service/refresh.service";
+import { VerificationService } from "./service/verification.service";
 
 @Module({
   imports: [
@@ -19,7 +23,18 @@ import { JwtGuard } from "./guard/jwt.guard";
     UserModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuthTotpService, JwtStrategy, JwtGuard, RolesGuard, PasswordMustChangeGuard],
+  providers: [
+    AuthService,
+    AuthTotpService,
+    LoginService,
+    TokenService,
+    RefreshService,
+    VerificationService,
+    JwtStrategy,
+    JwtGuard,
+    RolesGuard,
+    PasswordMustChangeGuard,
+  ],
   exports: [AuthService, JwtGuard, RolesGuard, PasswordMustChangeGuard],
 })
 export class AuthModule {}

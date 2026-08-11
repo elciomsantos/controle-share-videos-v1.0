@@ -145,8 +145,8 @@ Os 11 artefatos de auditoria anteriores (AUDIT_REPORT, SECURITY_REPORT, PERFORMA
 
 | ID | Descrição | Status |
 |---|---|---|
-| R01 | Decompor AuthService | **Pendente** |
-| R02 | Extrair UploadRepository | **Pendente** |
+| R01 | Decompor AuthService | ✅ Concluída |
+| R02 | Extrair UploadRepository | ✅ Concluída |
 | R03 | Tipagem de controllers | ✅ Concluída |
 | R04 | Batching de jobs | ✅ Concluída |
 | R05 | Decompor ShareService (ShareMapper, ShareArchiveService, FileStorageService) | ✅ Concluída |
@@ -157,7 +157,7 @@ Os 11 artefatos de auditoria anteriores (AUDIT_REPORT, SECURITY_REPORT, PERFORMA
 ## 7. Pontos de Atenção Identificados na Descoberta
 
 1. **SQLite em produção** — banco single-file, sem replica/failover; funciona para escala baixa/média
-2. **R01 e R02 pendentes** — AuthService e UploadRepository não decompostos (dívida técnica)
+2. **R01 e R02** — AuthService e UploadRepository já decompostos (resolvidos em v1.1, 2026-08-11)
 3. **Branch `fix/producao-v1.1.0` não mergeada** — trabalho de refatoração paralelo
 4. **Sem testes E2E** — apenas unit/integration testes no CI
 5. **Backup SQLite sem validação de restore automatizada**

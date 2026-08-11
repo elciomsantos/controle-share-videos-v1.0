@@ -17,7 +17,8 @@ import qrcode from "qrcode-svg";
 import { I18nService } from "nestjs-i18n";
 import { ConfigService } from "../config/config.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { AuthService } from "./auth.service";
+import { LoginService } from "./service/login.service";
+import { TokenService } from "./service/token.service";
 import { AuthSignInTotpDTO } from "./dto/authSignInTotp.dto";
 
 const legacyGuardrails = createGuardrails({
@@ -29,7 +30,8 @@ export class AuthTotpService {
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
-    private authService: AuthService,
+    private loginService: LoginService,
+    private tokenService: TokenService,
     private readonly i18n: I18nService,
   ) {}
   private readonly logger = new RequestContextLogger(AuthTotpService.name);
@@ -81,19 +83,20 @@ export class AuthTotpService {
       data: { used: true },
     });
 
-    const { refreshToken, refreshTokenId } =
-      await this.authService.createRefreshToken(token.user.id);
-    const accessToken = await this.authService.createAccessToken(
+    const refreshToken = await this.tokenService.createRefreshToken(
+      token.user.id,
+    );
+    const accessToken = this.tokenService.signAccessToken(
       token.user,
-      refreshTokenId,
+      refreshToken.id,
     );
 
     this.logger.log(`TOTP sign-in success for user ${token.user.email} from IP ${this.clientIp()}`);
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken: refreshToken.token };
   }
 
   async enableTotp(user: User, password: string) {
-    if (!(await this.authService.verifyPassword(user, password)))
+    if (!(await this.loginService.verifyPassword(user, password)))
       throw new ForbiddenException(this.i18n.t("auth.invalidPassword"));
 
     const result = await this.prisma.user.findUnique({
@@ -138,7 +141,7 @@ export class AuthTotpService {
   }
 
   async verifyTotp(user: User, password: string, code: string) {
-    if (!(await this.authService.verifyPassword(user, password)))
+    if (!(await this.loginService.verifyPassword(user, password)))
       throw new ForbiddenException(this.i18n.t("auth.invalidPassword"));
 
     const totpResult = await this.prisma.user.findUnique({
@@ -172,7 +175,7 @@ export class AuthTotpService {
   }
 
   async disableTotp(user: User, password: string, code: string) {
-    if (!(await this.authService.verifyPassword(user, password)))
+    if (!(await this.loginService.verifyPassword(user, password)))
       throw new ForbiddenException(this.i18n.t("auth.invalidPassword"));
 
     const disableResult = await this.prisma.user.findUnique({

@@ -113,9 +113,9 @@
 
 ## Evidências de Pendências
 
-### E-P01: AuthService não decomposto (R01)
+### E-P01: AuthService decomposto (R01 ✅)
 - **Comando**: `ls backend/src/auth/service/`
-- **Resultado**: ⚠️ Apenas `auth.service.ts` (monolítico)
+- **Resultado**: ✅ `login.service.ts`, `token.service.ts`, `refresh.service.ts`, `verification.service.ts` (AuthService orquestrador em `auth.service.ts`)
 
 ### E-P02: UploadRepository não extraído (R02)
 - **Comando**: `ls backend/src/upload/`
