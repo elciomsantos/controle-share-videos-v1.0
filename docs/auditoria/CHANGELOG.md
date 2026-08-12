@@ -18,7 +18,7 @@ Auditoria completa do estado atual do Controle Share Videos v1.0 (fork de Pingvi
 - Backend NestJS 11 + Prisma 6 + SQLite com 10 models validados
 - JWT com rotação híbrida (kid + timeline + mutex + AES-256-GCM)
 - Guards globais fail-closed: ThrottlerGuard, JwtGuard, RolesGuard, PasswordMustChangeGuard
-- RBAC fino com 4 papéis (ADMIN, AUDITOR, OPERATOR, USER) e decorators semânticos
+- RBAC fino com 3 papéis (`admin`, `auditor`, `operador`) e decorators semânticos
 - Frontend Next.js 16 + Mantine 9 com middleware jose para JWT
 - Upload concorrente limitado (QAL-06: UPLOAD_CONCURRENCY=3)
 - Decomposição ShareService (R05 ✅): ShareMapper + ShareArchiveService + FileStorageService
