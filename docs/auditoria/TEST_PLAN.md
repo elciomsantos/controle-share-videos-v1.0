@@ -40,10 +40,10 @@ pnpm --filter frontend test  # ✅ passing
 
 ## 3. Gaps Identificados
 
-### T-01: Sem testes E2E (D02)
-- **Cobertura atual**: apenas unit/integration
+### T-01: Sem testes E2E (D02) ✅ Resolvido (H-04)
+- **Cobertura atual**: suíte Playwright em `e2e/` — auth (login válido, senha inválida, proteção de rota), share (download individual, download-all) e upload (criação de compartilhamento), rodando contra backend/frontend bootados pelo harness em portas dedicadas
 - **Risco**: regressões em fluxos ponta-a-ponta não detectadas
-- **Recomendação**: Adicionar Playwright para fluxos críticos:
+- **Recomendação**: Playwright integrado ao CI (job `e2e` no ci.yml); deploy depende do job. Expansão futura para os fluxos:
   1. Login → Landing
   2. Upload → Share generation
   3. Share access → Download

@@ -71,14 +71,8 @@ echo "Backup name:     ${BACKUP_NAME}"
 # echo "Syncing to off-site storage..."
 # rsync -avz --delete "${BACKUP_DIR}/" user@remote-host:/path/to/backups/
 
-# --- Restore instructions (manual) ------------------------------------------
-# cat << 'RESTORE'
-# Decrypt (if encrypted):
-#   gpg --decrypt backup.db.gz.gpg > backup.db.gz
-# Verify signature (if signed only):
-#   gpg --verify backup.db.gz.sig backup.db.gz
-# Decompress:
-#   gunzip backup.db.gz
-# Restore:
-#   sqlite3 /opt/app/backend/data/controle-videos.db ".restore 'backup.db'"
-# RESTORE
+# --- Restore -----------------------------------------------------------------
+# Procedimento completo de restore e validação:
+#   docs/operacional/BACKUP_RESTORE.md  (§4 Restore Manual)
+# Validação automatizada da integridade do backup (restore test):
+#   scripts/restore-test.sh

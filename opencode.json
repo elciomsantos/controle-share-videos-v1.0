@@ -32,11 +32,12 @@
     "filesystem": {
       "type": "local",
       "enabled": true,
+      "timeout": 60000,
       "command": [
-        "/home/suricato/.nvm/versions/node/v24.18.0/bin/npx",
+        "npx",
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "/home/suricato/projects"
+        "/home/urubu/projects"
       ]
     },
 
@@ -70,15 +71,6 @@
       "type": "remote",
       "enabled": true,
       "url": "https://mcp.context7.com/mcp"
-    },
-
-    "openrouter": {
-      "type": "remote",
-      "enabled": true,
-      "url": "https://mcp.openrouter.ai/mcp",
-      "headers": {
-        "Authorization": "Bearer {env:OPENROUTER_API_KEY}"
-      }
     },
 
     "git": {

@@ -31,14 +31,16 @@ Auditoria completa do estado atual do Controle Share Videos v1.0 (fork de Pingvi
 - `pnpm audit` limpo (0 CVE)
 
 #### ⚠️ Pendências (com plano de remediação em v1.1)
-- **D02**: Sem testes E2E — REFACTORING_PLAN H-04
-- **D05**: Backup sem restore test automatizado — REFACTORING_PLAN H-02
+- **D02**: Sem testes E2E — **Resolvido (H-04)**: Playwright integrado ao CI
+- **D05**: Backup sem restore test automatizado — **Resolvido (H-02)**: criado `scripts/restore-test.sh` (restaura backup mais recente em DB temporário, valida integrity_check + schema + counts), procedimento e cron documentados em `docs/operacional/BACKUP_RESTORE.md`
 
-#### ✅ Correções v1.1 executadas (2026-08-11)
+#### ✅ Correções v1.1 executadas (2026-08-11/12)
 - **S-05/D04**: CSP header adicionado no Caddy (H-01) — validado com `caddy validate`
 - **D03**: Branch `fix/producao-v1.1.0` verificada (100% mergeada em main) e removida do remoto (H-03)
 - **R02**: `IUploadRepository` extraída — camada `backend/src/storage/` com `FilesystemUploadRepository`; `LocalFileService`, `ShareArchiveService`, `JobsService` e `FileStorageService` agora injetam a interface (sem `fs`/`SHARE_DIRECTORY` direto)
 - **R01**: `AuthService` decomposto em `LoginService`, `TokenService`, `RefreshService` e `VerificationService` (`backend/src/auth/service/`); AuthService virou orquestrador fino e `AuthTotpService` passou a injetar os services isolados. 4 specs novos (+31 testes, 109→140). Sem regressão (build, lint, unit e e2e verdes)
+- **D02**: Playwright E2E integrado ao CI (H-04) — job `e2e` no ci.yml boota backend/frontend de teste, instala chromium e roda a suíte (`e2e/`); deploy depende do job E2E
+- **H-02**: `scripts/restore-test.sh` criado (restore test automatizado, D05) — valida backup mais recente em DB temporário (GPG/assinatura/gzip, integrity_check, schema e counts); documentação em `docs/operacional/BACKUP_RESTORE.md`
 
 #### 📋 Limitações Aceitas
 - **A-06/D01**: SQLite em produção (single-writer, sem replica) — Aceito com monitoramento Prometheus + ROADMAP PostgreSQL em v1.3
