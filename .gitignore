@@ -90,3 +90,7 @@ secrets/
 # Playwright MCP artifacts (temp)
 .playwright-mcp/
 .manual.md
+
+# Playwright E2E artifacts (traces, videos, screenshots, report)
+/e2e/test-results/
+/e2e/playwright-report/
