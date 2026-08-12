@@ -1,20 +1,23 @@
 import {
   ActionIcon,
+  Badge,
   Box,
   Container,
   Group,
+  Paper,
   Text,
   Title,
   useComputedColorScheme,
   useMantineTheme,
 } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import { useModals } from "@mantine/modals";
 import { GetServerSidePropsContext } from "next";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { FormattedMessage } from "react-intl";
-import { TbEdit, TbPlusMinus } from "react-icons/tb";
+import { TbEdit, TbPlusMinus, TbShieldLock } from "react-icons/tb";
 import Meta from "../../../components/Meta";
 import DownloadAllButton from "../../../components/share/DownloadAllButton";
 import FileList from "../../../components/share/FileList";
@@ -47,9 +50,12 @@ const Share = ({ shareId }: { shareId: string }) => {
   const { user } = useUser();
   const config = useConfig();
   const t = useTranslate();
+  const isMobile = useMediaQuery("(max-width: 575px)");
 
   const isDark = colorScheme === "dark";
   const primary = theme.colors[theme.primaryColor];
+  const surfaceColor = isDark ? theme.colors.dark[6] : theme.white;
+  const borderColor = isDark ? theme.colors.dark[4] : theme.colors.gray[2];
 
   const heroBackground = isDark
     ? `radial-gradient(800px 420px at 85% -10%, ${primary[8]}40, transparent 60%), ${theme.colors.dark[7]}`
@@ -185,17 +191,54 @@ const Share = ({ shareId }: { shareId: string }) => {
   }, []);
 
   return (
-    <Box
-      style={{
-        background: heroBackground,
-        minHeight: "100vh",
-      }}
-    >
-      <Container size="md" py="xl">
-        <Meta
-          title={t("share.title", { shareId: share?.name || shareId })}
-          description={t("share.description")}
-        />
+    <Container size="lg" py={48}>
+      <Meta
+        title={t("share.title", { shareId: share?.name || shareId })}
+        description={t("share.description")}
+      />
+
+      <Paper
+        radius="lg"
+        p={{ base: "xl", md: 56 }}
+        style={{
+          background: heroBackground,
+          border: `1px solid ${borderColor}`,
+        }}
+      >
+        <Box mb="xl" style={{ textAlign: "center" }}>
+          <Badge
+            variant="light"
+            size="lg"
+            radius="xl"
+            tt="none"
+            leftSection={<TbShieldLock size={14} />}
+          >
+            {config.get("general.appName")}
+          </Badge>
+          <Title
+            order={1}
+            style={{
+              color: isDark ? theme.white : theme.black,
+              fontSize: isMobile ? 30 : 42,
+              lineHeight: 1.15,
+              fontWeight: 900,
+              marginTop: theme.spacing.md,
+            }}
+          >
+            <FormattedMessage id="home.title" />
+          </Title>
+          <Text c="dimmed" mt="md" size="lg" style={{ marginLeft: "auto", marginRight: "auto", maxWidth: 480 }}>
+            <FormattedMessage id="home.description" />
+          </Text>
+          <Text
+            mt="md"
+            size="md"
+            fw={600}
+            style={{ color: isDark ? primary[3] : primary[7] }}
+          >
+            <FormattedMessage id="home.subtitle" />
+          </Text>
+        </Box>
 
         <Group justify="space-between" mb="lg">
           <Box style={{ maxWidth: "70%" }}>
@@ -255,8 +298,8 @@ const Share = ({ shareId }: { shareId: string }) => {
           isLoading={!share}
           recipientId={recipientId}
         />
-      </Container>
-    </Box>
+      </Paper>
+    </Container>
   );
 };
 
