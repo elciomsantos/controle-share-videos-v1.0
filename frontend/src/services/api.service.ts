@@ -24,6 +24,36 @@ const fetchCsrfToken = async (): Promise<string> => {
   return csrfFetchPromise;
 };
 
+// Dedup global de refresh do access token.
+//
+// O `refresh_token` é de uso único (rotação + detecção de reuso SEC-07). Se
+// várias requisições recebem 401 ao mesmo tempo (ex.: vários `refreshUser()`
+// disparados por páginas/componentes em paralelo), cada uma delas chamava
+// `/auth/token` com o MESMO cookie de refresh — a primeira rotacionava o token
+// e as demais, ao apresentar o token já consumido, acionavam a detecção de
+// reuso que REVOGA todas as sessões do usuário. A partir daí tudo passa a
+// retornar 401 até o usuário refazer login.
+//
+// A solução é compartilhar UMA promise de refresh: a primeira chamada inicia o
+// refresh e as concorrentes apenas aguardam o mesmo resultado, reenviando a
+// requisição original depois — com o novo `access_token` cookie já aplicado.
+let refreshPromise: Promise<boolean> | null = null;
+
+async function refreshAccessToken(): Promise<boolean> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    try {
+      await api.post("/auth/token");
+      return true;
+    } catch {
+      return false;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+  return refreshPromise;
+}
+
 const api = axios.create({
   baseURL: "/api",
   withCredentials: true,
@@ -72,7 +102,11 @@ api.interceptors.response.use(
     ) {
       original._authRetried = true;
       try {
-        await api.post("/auth/token");
+        // Refresh compartilhado: garante que apenas UMA chamada `/auth/token`
+        // rode por vez, mesmo com vários 401 concorrentes (evita o reuso do
+        // refresh token de uso único que revogaria a sessão toda).
+        const refreshed = await refreshAccessToken();
+        if (!refreshed) return Promise.reject(error);
         return api.request(original);
       } catch {
         // Refresh failed; fall through and reject with the original error.
@@ -88,8 +122,13 @@ api.interceptors.response.use(
       !original._csrfRetried
     ) {
       original._csrfRetried = true;
+      // Invalida apenas o token cacheado. NÃO zerar o csrfFetchPromise: se
+      // outro 403 csrf_invalid concorrente já disparou um refetch, ele é
+      // reaproveitado — o backend rotaciona o cookie CSRF a cada GET
+      // /api/auth/csrf-token, então vários refetches em paralelo rotacionam o
+      // cookie repetidamente e invalidam o token uns dos outros (flakiness em
+      // rajcadas de mutating requests simultâneos).
       csrfToken = null;
-      csrfFetchPromise = null;
       try {
         const token = await fetchCsrfToken();
         original.headers![CSRF_HEADER] = token;

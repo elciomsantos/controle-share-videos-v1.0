@@ -113,6 +113,7 @@ const EditableUpload = ({
                 },
                 chunkIndex,
                 chunks,
+                (progress) => setFileProgress(progress),
               )
               .then((response) => {
                 fileId = response.id;
@@ -262,7 +263,7 @@ const EditableUpload = ({
         isUploading={isUploading}
       />
       {existingAndUploadedFiles.length > 0 && (
-        <FileList files={existingAndUploadedFiles} setFiles={setFiles} isLoading={isUploading} />
+        <FileList files={existingAndUploadedFiles} setFiles={setFiles} />
       )}
     </>
   );

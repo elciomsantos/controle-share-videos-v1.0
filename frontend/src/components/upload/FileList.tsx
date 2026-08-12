@@ -92,14 +92,10 @@ const FileListRow = ({
   );
 };
 
-const FileList = ({ isUploading,
-  files,
-  setFiles,
-  isLoading,
-}: {
+const FileList = ({ files, setFiles, isLoading }: {
   files: (FileListItem | FileUpload)[];
   setFiles: (files: FileListItem[] | FileUpload[]) => void;
-  isLoading?: boolean; isUploading?: boolean;
+  isLoading?: boolean;
 }) => {
   const modals = useModals();
   const t = useTranslate();
@@ -117,7 +113,10 @@ const FileList = ({ isUploading,
     showTextEditorModal(idx, files, setFiles, "", modals);
   };
 
-  if (isLoading || isUploading) {
+  // A lista fica visível durante o upload para exibir o progresso por arquivo
+  // (UploadProgressIndicator); o placeholder só é usado enquanto os arquivos
+  // existentes estão sendo carregados do servidor.
+  if (isLoading) {
     return (
       <Box style={{ minHeight: 200 }}>
         <div style={{ display: "flex", justifyContent: "center", marginTop: 50 }}>

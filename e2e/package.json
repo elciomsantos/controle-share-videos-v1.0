@@ -1,0 +1,16 @@
+{
+  "name": "controle-share-videos-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Suíte de testes E2E (Playwright) do Controle Share Videos — boota backend + frontend de teste herdeticamente.",
+  "scripts": {
+    "e2e": "playwright test",
+    "e2e:e2e": "playwright test",
+    "e2e:headed": "playwright test --headed",
+    "e2e:setup": "playwright install --with-deps chromium",
+    "e2e:build-frontend": "cd ../frontend && API_URL=http://localhost:8181 node_modules/.bin/next build --webpack"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  }
+}

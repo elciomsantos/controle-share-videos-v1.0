@@ -1,48 +1,169 @@
+# =============================================================================
+# docker-compose.local.yml — Ambiente local para testes das correções v1.1
+# (R01: AuthService decomposto, R02: UploadRepository, CSP, etc.)
+#
+# Diferente do compose.local anterior (single-container), este overlay separa
+# backend, frontend e caddy em containers distintos — espelha a topologia de
+# produção (docker-compose.prod.yml) para validar o R01 (LoginService,
+# TokenService, RefreshService, VerificationService) e a rotação JWT híbrida
+# no mesmo arranjo que roda em prod, mas sem TLS/Let's Encrypt.
+#
+# Uso:
+#   1. cp .env.local.example .env.local && editor .env.local
+#   2. docker compose --env-file .env.local -f docker-compose.local.yml up --build
+#      (ou: docker compose -f docker-compose.local.yml --env-file .env.local up)
+#   3. Acesse http://localhost:3000
+#
+# Variáveis obrigatórias em .env.local:
+#   ADMIN_PASSWORD  — senha do admin bootstrap (gerar: openssl rand -base64 32)
+#   JWT_SECRET      — segredo de assinatura JWT (shared backend↔frontend)
+#
+# Variáveis opcionais (com defaults):
+#   ADMIN_EMAIL=admin@empresa.local
+#   ADMIN_USERNAME=admin
+# =============================================================================
+
 services:
-  controle-share-videos-v1.0:
-    container_name: controle-share-videos-v1.0
-    build: .
+  # ---------------------------------------------------------------------------
+  # Backend — NestJS + Prisma + SQLite
+  # Roda migrations, seeds (config + admin user) e inicia o servidor.
+  # R01: LoginService/TokenService/RefreshService/VerificationService são
+  # resolvidos via DI pelo AuthModule — nenhuma config extra é necessária.
+  # ---------------------------------------------------------------------------
+  backend:
+    container_name: controle-videos-local-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: backend-runner
     restart: unless-stopped
     networks:
-      - app-network
-    ports:
-      - "8090:8080"
-      - "3000:3000"
-      - "3333:3333"
-    env_file:
-      # Contains ADMIN_PASSWORD and other local secrets. Ignored by git.
-      # Generate with: openssl rand -base64 32
-      - path: .env.local
-        required: false
+      - local-network
+    # backend-runner tem USER appuser (UID 1001) embutido, mas o volume nomeado
+    # /opt/app/backend/data é inicializado como root no primeiro boot. Rodar
+    # como root aqui é pragmático para teste LOCAL; em produção o stage runner
+    # (create-user.sh) faz o chown 1002:1002 antes de iniciar os serviços.
+    user: "0:0"
+    healthcheck:
+      # wget vem no Alpine base; curl não está disponível no stage backend-runner
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
     environment:
-      - TRUST_PROXY=false
-      - NODE_ENV=docker
+      - NODE_ENV=production
+      - TRUST_PROXY=true
       - BACKEND_PORT=8080
-      # IMPORTANT: do NOT set CADDY_DISABLED=true here. The dev/local single
-      # container relies on the bundled Caddy (reverse-proxy/Caddyfile) on
-      # :3000 as the unified entrypoint — it proxies /api/* to the NestJS
-      # backend (:8080) and everything else to the Next.js standalone (:3333).
-      # CADDY_DISABLED=true is for production (docker-compose.prod.yml) where
-      # an external caddy:2.9-alpine container handles TLS+proxy instead.
-      # API_URL: used by next.config.js rewrites() and middleware (server-side
-      # inside the container). Backend listens on :8080 internally.
-      - API_URL=http://localhost:8080
-      # JWT_SECRET: shared signing key for the Next.js middleware and the
-      # backend. MUST match the backend's signing secret or the middleware
-      # treats every user as unauthenticated (login "loop"). Provided via
-      # .env.local (gitignored) or the host environment.
-      - JWT_SECRET=${JWT_SECRET}
-      - ADMIN_EMAIL=admin@empresa.local
-      - ADMIN_USERNAME=admin
-      # ADMIN_PASSWORD must be provided via .env.local (gitignored) or the host
-      # environment. Do NOT hardcode credentials in version control.
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD is required. Create .env.local with openssl rand -base64 32 or pass via env.}
+      - DATABASE_URL=file:/opt/app/backend/data/controle-videos.db
+      # JWT_SECRET — shared entre backend (assina) e frontend middleware (verifica).
+      # Sem isto o middleware jose trata todo request como não-autenticado.
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required. Set it in .env.local.}
+      # Admin bootstrap (user.seed.ts) — idempotente (cria ou atualiza).
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@empresa.local}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD is required. Set it in .env.local.}
+      # CORS para acesso direto ao backend (debug, Swagger).
+      - CORS_ORIGIN=http://localhost:3000,http://localhost:3333,http://localhost:8080
+      # Swagger habilitado em ambiente local para inspecionar rotas de auth
+      # (signIn, token refresh, totp, etc.) e validar o R01.
+      - SWAGGER_ENABLED=true
     volumes:
-      - "./data:/opt/app/backend/data:rw,z"
-      - "./data/images:/opt/app/frontend/public/img:rw,z"
-#      - "./config.yaml:/opt/app/config.yaml"
+      - backend-data:/opt/app/backend/data
+    # O entrypoint do Dockerfile (create-user.sh) espera ser root; o stage
+    # backend-runner não define ENTRYPOINT/CMD, então sobrescrevemos o command
+    # para rodar migrations + seed + main diretamente.
+    entrypoint: [""]
+    command: >
+      sh -c "
+        mkdir -p /opt/app/backend/data &&
+        cd /opt/app/backend &&
+        export DATABASE_URL=file:./data/controle-videos.db &&
+        ./node_modules/.bin/prisma migrate deploy &&
+        node dist/prisma/seed/config.seed.js &&
+        node dist/prisma/seed/user.seed.js &&
+        node dist/src/main
+      "
+
+  # ---------------------------------------------------------------------------
+  # Frontend — Next.js standalone (server.js)
+  # O middleware jose verifica o JWT usando JWT_SECRET; sem ele, toda rota
+  # protegida redireciona para /auth/signIn (loop de login).
+  # ---------------------------------------------------------------------------
+  frontend:
+    container_name: controle-videos-local-frontend
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend-runner
+      args:
+        - API_URL=http://backend:8080
+    restart: unless-stopped
+    networks:
+      - local-network
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    # O stage frontend-runner guarda as imagens default em /tmp/img (o mesmo
+    # comportamento do entrypoint.sh de produção); copiamos para o diretório
+    # servido (que é o volume montado) antes de subir o server.
+    command: >
+      sh -c "
+        cp -a /tmp/img/. /opt/app/frontend/public/img 2>/dev/null || true &&
+        cd /opt/app/frontend && PORT=3333 HOSTNAME=0.0.0.0 node server.js
+      "
+    environment:
+      - NODE_ENV=production
+      - PORT=3333
+      - HOSTNAME=0.0.0.0
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required. Set it in .env.local.}
+      # API_URL aponta para o backend na rede interna do compose. Também
+      # passado como --build-arg para os rewrites (next.config.js).
+      - API_URL=http://backend:8080
+    volumes:
+      - backend-images:/opt/app/frontend/public/img
+
+  # ---------------------------------------------------------------------------
+  # Caddy — reverse proxy local (sem TLS)
+  # Unifica a entrada em :3000 → /api/* vai para backend:8080, resto para
+  # frontend:3333. Espelha o Caddyfile local (reverse-proxy/Caddyfile) mas
+  # roda em container separado para validar a topologia de produção.
+  # ---------------------------------------------------------------------------
+  caddy:
+    container_name: controle-videos-local-caddy
+    image: caddy:2.9-alpine
+    restart: unless-stopped
+    networks:
+      - local-network
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    volumes:
+      - ./reverse-proxy/Caddyfile.local:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
 
 networks:
-  app-network:
+  local-network:
     driver: bridge
-    name: controle-share-videos-network-local
+    name: controle-videos-local
+
+volumes:
+  backend-data:
+    name: controle-videos-local-backend-data
+  backend-images:
+    name: controle-videos-local-images
+  caddy-data:
+    name: controle-videos-local-caddy-data
+  caddy-config:
+    name: controle-videos-local-caddy-config

@@ -186,6 +186,7 @@ const uploadFile = async (
   },
   chunkIndex: number,
   totalChunks: number,
+  onProgress?: (progress: number) => void,
 ): Promise<FileUploadResponse> => {
   if (!isValidId(shareId)) throw new Error("Invalid Share ID");
   return (
@@ -198,6 +199,20 @@ const uploadFile = async (
         chunkIndex,
         totalChunks,
       },
+      // Progresso byte-level do chunk atual (requer XHR; desabilita o
+      // retry automático do axios ao enviar, que quebraria o chunking).
+      onUploadProgress: onProgress
+        ? (e) => {
+            if (!e.total) return;
+            const chunkFraction = e.loaded / e.total;
+            onProgress(
+              Math.min(
+                99.9,
+                ((chunkIndex + chunkFraction) / totalChunks) * 100,
+              ),
+            );
+          }
+        : undefined,
     })
   ).data;
 };

@@ -1,10 +1,33 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "lsp": true,
+
   "experimental": {
     "mcp_timeout": 60000
   },
-  
+
+  "provider": {
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama Local",
+      "options": {
+        "baseURL": "http://127.0.0.1:11434/v1",
+        "apiKey": "{env:OLLAMA_API_KEY}"
+      },
+      "models": {
+        "qwen3:8b": {
+          "name": "Qwen 3 8B"
+        },
+        "llama3.2:3b": {
+          "name": "Llama 3.2 3B"
+        },
+        "qwen3.5:latest": {
+          "name": "Qwen 3.5"
+        }
+      }
+    }
+  },
+
   "mcp": {
     "filesystem": {
       "type": "local",
@@ -24,8 +47,9 @@
         "uvx",
         "--from",
         "mcp-server-fetch",
-        "--with", "mcp<2",
-        "mcp-server-fetch" 
+        "--with",
+        "mcp<2",
+        "mcp-server-fetch"
       ]
     },
 
@@ -60,13 +84,13 @@
     "git": {
       "type": "local",
       "enabled": true,
-      "command": [ 
+      "command": [
         "uvx",
         "--from",
         "mcp-server-git",
         "--with",
         "mcp<2",
-        "mcp-server-git" 
+        "mcp-server-git"
       ]
     },
 

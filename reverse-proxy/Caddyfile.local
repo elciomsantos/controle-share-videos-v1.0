@@ -1,0 +1,45 @@
+:3000 {
+	# Security headers
+	header {
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Cross-Origin-Opener-Policy "same-origin"
+		Cross-Origin-Resource-Policy "same-origin"
+		Cross-Origin-Embedder-Policy "require-corp"
+		Permissions-Policy "geolocation=(), camera=(), microphone=()"
+		-Server
+	}
+
+	# Logs (SEC-05): mascara senha em query string (?pwd=...) nos access logs,
+	# caso share.includePasswordInShareLink=true. O filtro redige apenas o valor.
+	log {
+		output stdout
+		format filter {
+			request>uri query {
+				replace pwd REDACTED
+			}
+			wrap json
+		}
+	}
+
+	# Health check
+	@health path /api/health
+	handle @health {
+		respond "OK" 200
+	}
+
+	# Reverse proxy for /api → backend container (service name na rede Docker)
+	reverse_proxy /api/* http://backend:8080 {
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Real-IP {remote_host}
+	}
+
+	# Reverse proxy for all other requests → frontend container
+	reverse_proxy http://frontend:3333 {
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Real-IP {remote_host}
+	}
+}

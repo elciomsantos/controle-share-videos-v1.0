@@ -95,6 +95,11 @@ const Upload = ({
       createdShareId = result.id;
       setCreatedShare(result);
       setPendingGeneratedPassword((result as any).generatedPassword);
+      // Fecha o modal de criação para que o usuário veja o progresso por
+      // arquivo na página (FileList com UploadProgressIndicator) durante o
+      // upload. Sem isto o modal ficava aberto até o completeShare e o
+      // usuário não tinha nenhum feedback do estado do carregamento.
+      modals.closeAll();
     } catch (e) {
       toast.axiosError(e);
       setisUploading(false);
@@ -137,6 +142,7 @@ const Upload = ({
                 },
                 chunkIndex,
                 chunks,
+                (progress) => setFileProgress(progress),
               )
               .then((response) => {
                 fileId = response.id;
@@ -310,7 +316,6 @@ const Upload = ({
         <FileList
           files={files}
           setFiles={(newFiles) => setFiles(newFiles as FileUpload[])}
-          isUploading={isUploading}
         />
       )}
     </div>
