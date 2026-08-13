@@ -272,6 +272,59 @@ Configurações → Geral), para links de share/email usarem a URL correta.
 > sensíveis**. Para exposição pública real, prefira um domínio (modos 6.1
 > No-IP ou domínio próprio).
 
+### 6.3 Acesso por IP via WSL2 (Windows + Docker no WSL2)
+
+Ambiente de **teste/desenvolvimento** em que o Docker roda nativo dentro do
+WSL2 (modo NAT) e o Windows expõe as portas na LAN via `netsh portproxy`.
+
+**Topologia:** `Windows IP da LAN (ex: 192.168.0.200)` → portproxy →
+`IP do WSL2 (172.30.x.y, muda a cada boot)` → `container Caddy :3000`.
+
+> O IP do WSL2 **muda a cada reinício** do WSL — por isso os scripts usam
+> `wsl.exe hostname -I` para descobrir o IP atual dinamicamente (não
+> hardcodam o IP).
+
+**Scripts utilitários (`scripts/wsl2/`):**
+
+| Script | Função |
+|---|---|
+| `apply-portproxy.ps1` | Descobre o IP do WSL2, cria portproxy `0.0.0.0:3000/3333/8090 → <IP-WSL2>`, garante regras de firewall inbound e testa. **Rode como Administrador.** |
+| `clear-portproxy.ps1` | Remove as regras portproxy (limpeza). |
+| `fix-wsl-restart.ps1` | One-shot pós-reboot: `wsl --shutdown` → boot da distro → inicia Docker → `compose up -d` → chama `apply-portproxy.ps1`. **Rode como Administrador.** |
+
+**Como usar (PowerShell como Administrador):**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\wsl2\apply-portproxy.ps1
+# ou, para reinício completo (computador reiniciou / IP do WSL2 mudou):
+powershell -ExecutionPolicy Bypass -File scripts\wsl2\fix-wsl-restart.ps1
+```
+
+Se a máquina não usa os defaults (distro Debian, usuário `urubu`, caminho
+`/home/urubu/projects/controle-share-videos-v1.0`), passe os parâmetros:
+
+```powershell
+.\scripts\wsl2\fix-wsl-restart.ps1 -Distro Ubuntu -User nome \
+  -ProjectPath /home/nome/projects/controle-share-videos-v1.0
+```
+
+**Passo a passo (primeira vez):**
+
+1. Suba a stack no WSL2: `docker compose -f docker-compose.local.yml --env-file .env.local up -d --build`
+2. No Windows, rode `apply-portproxy.ps1` como Administrador.
+3. Teste pelo Windows: `http://localhost:3000` e por outro PC da LAN: `http://<IP-da-LAN-do-Windows>:3000`.
+4. Defina `general.appUrl = http://<IP-da-LAN-do-Windows>:3000` (Administração → Configurações → Geral), para links de share/email usarem a URL correta (usado em `docker-compose.local.yml`).
+
+> **Portas mapeadas:** 3000 (Caddy → app), 3333 (frontend interno),
+> 8090 (backend interno) — as duas últimas são utilitárias (debug).
+
+> **Troubleshooting:** se `localhost:3000` responde mas `http://<IP-LAN>:3000`
+> dá timeout e os containers estão `healthy`, verifique o **iptables do Docker
+> no WSL2**: a rede bridge pode ter perdido as regras `FORWARD ACCEPT` (política
+> `DROP`). Recrie a rede: `docker compose -f docker-compose.local.yml down && up -d`
+> (volumes nomeados preservam os dados). Sintoma: containers saudáveis entre si
+> não se comunicam, mas host→container funciona.
+
 ---
 
 ## 7. Swagger (apenas em desenvolvimento)

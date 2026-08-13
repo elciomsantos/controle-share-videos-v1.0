@@ -365,6 +365,20 @@ O serviço `caddy` monta `Caddyfile.${CADDYFILE:-prod}` em
 Exemplo — acesso por IP: `CADDYFILE=ip docker compose up -d --build` (veja
 `docs/operacional/DEPLOY.md` §6.2).
 
+### Acesso por IP via WSL2 (Windows + Docker no WSL2)
+
+Se o Docker roda dentro do WSL2 (modo NAT), use os scripts de
+`scripts/wsl2/` para expor as portas na LAN do Windows (portproxy dinâmico):
+
+```powershell
+# PowerShell como ADMINISTRADOR
+powershell -ExecutionPolicy Bypass -File scripts\wsl2\apply-portproxy.ps1
+# Reinício completo pós-reboot (boot WSL + Docker + compose + portproxy):
+powershell -ExecutionPolicy Bypass -File scripts\wsl2\fix-wsl-restart.ps1
+```
+
+Detalhes em `docs/operacional/DEPLOY.md` §6.3.
+
 ---
 
 ## Documentação
