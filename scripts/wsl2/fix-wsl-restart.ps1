@@ -15,7 +15,8 @@
 #   4) docker compose up -d (compose local)
 #   5) Roda apply-portproxy.ps1 (portproxy dinamico + firewall) para o IP
 #      atual do WSL2
-#   6) Mostra o status final dos containers
+#   6) Garante o override do hostname NO-IP no hosts do Windows (NAT loopback)
+#   7) Mostra o status final dos containers
 #
 # Se a config da sua maquina difere dos defaults, passe os parametros:
 #   .\fix-wsl-restart.ps1 -Distro Debian -User urubu `
@@ -28,7 +29,10 @@ param(
     [string]$ProjectPath = "/home/urubu/projects/controle-share-videos-v1.0",
     [string]$ComposeFile = "docker-compose.local.yml",
     [string]$EnvFile     = ".env.local",
-    [switch]$SkipPortProxy
+    [string]$Hostname = "gmlondrina-share.ddns.net",
+    [string]$LanIP    = "192.168.0.200",
+    [switch]$SkipPortProxy,
+    [switch]$SkipHostsOverride
 )
 
 $ErrorActionPreference = 'Continue'
@@ -71,6 +75,25 @@ if (-not $SkipPortProxy) {
         & $applyScript
     } else {
         Write-Host "apply-portproxy.ps1 nao encontrado em $PSScriptRoot" -ForegroundColor Yellow
+    }
+}
+
+if (-not $SkipHostsOverride) {
+    Log "garantindo override de hosts: $Hostname -> $LanIP"
+    $hostsPath = "$env:SystemRoot\System32\drivers\etc\hosts"
+    $entry = "$LanIP`t$Hostname"
+
+    if (Test-Path $hostsPath) {
+        $content = Get-Content $hostsPath -Raw
+        if ($content -match [regex]::Escape($Hostname)) {
+            Write-Host "Override ja existe em hosts: $entry" -ForegroundColor DarkGray
+        } else {
+            Add-Content -Path $hostsPath -Value "`n# Controle Share Videos (override NO-IP para uso na LAN)`n$entry" -Encoding ascii
+            Write-Host "Override adicionado ao hosts: $entry" -ForegroundColor Green
+        }
+        ipconfig /flushdns | Out-Null
+    } else {
+        Write-Host "hosts nao encontrado em $hostsPath" -ForegroundColor Yellow
     }
 }
 

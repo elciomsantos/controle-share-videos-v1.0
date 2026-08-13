@@ -17,6 +17,7 @@ import useTranslate, {
 } from "../../hooks/useTranslate.hook";
 import authService from "../../services/auth.service";
 import toast from "../../utils/toast.util";
+import { copyToClipboard } from "../../utils/clipboard.util";
 
 type ModalsContextProps = ReturnType<typeof useModals>;
 
@@ -98,7 +99,7 @@ const CreateEnableTotpModal = ({
           <Tooltip label={t("common.button.clickToCopy")}>
             <Button
               onClick={() => {
-                navigator.clipboard.writeText(options.secret);
+                copyToClipboard(options.secret);
                 toast.success(t("common.notify.copied"));
               }}
             >

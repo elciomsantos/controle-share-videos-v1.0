@@ -18,6 +18,7 @@ import useTranslate from "../../../hooks/useTranslate.hook";
 import userService from "../../../services/user.service";
 import { getApiErrorField, getApiErrorMessage } from "../../../utils/error.util";
 import toast from "../../../utils/toast.util";
+import { copyToClipboard } from "../../../utils/clipboard.util";
 
 type ModalsContextProps = ReturnType<typeof useModals>;
 
@@ -150,7 +151,7 @@ const Body = ({
                       </div>
                       <Button
                         onClick={() => {
-                          navigator.clipboard.writeText(result.temporaryPassword);
+                          copyToClipboard(result.temporaryPassword);
                           toast.success(t("common.notify.copied"));
                         }}
                       >

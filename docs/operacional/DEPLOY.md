@@ -290,7 +290,20 @@ WSL2 (modo NAT) e o Windows expõe as portas na LAN via `netsh portproxy`.
 |---|---|
 | `apply-portproxy.ps1` | Descobre o IP do WSL2, cria portproxy `0.0.0.0:3000/3333/8090 → <IP-WSL2>`, garante regras de firewall inbound e testa. **Rode como Administrador.** |
 | `clear-portproxy.ps1` | Remove as regras portproxy (limpeza). |
-| `fix-wsl-restart.ps1` | One-shot pós-reboot: `wsl --shutdown` → boot da distro → inicia Docker → `compose up -d` → chama `apply-portproxy.ps1`. **Rode como Administrador.** |
+| `fix-wsl-restart.ps1` | One-shot pós-reboot: `wsl --shutdown` → boot da distro → inicia Docker → `compose up -d` → chama `apply-portproxy.ps1` → garante o override de `Hostname` no `hosts` do Windows. **Rode como Administrador.** |
+
+#### Domínio NO-IP + NAT loopback
+
+Para expor pelo domínio dinâmico (ex.: NO-IP), o roteador precisa **encaminhar a porta 3000**
+para o IP LAN do Windows (`192.168.0.200`) e, para acesso **de dentro da própria LAN**, é
+necessário **NAT loopback/hairpin** no roteador. Sem ele, `http://<dominio>:3000` trava quando
+acessado de dentro da mesma rede (o roteador não redireciona o próprio IP público de volta).
+
+Se o roteador não suporta NAT loopback, o `fix-wsl-restart.ps1` adiciona automaticamente o
+override no arquivo `hosts` do Windows (`<IP-LAN>  <dominio>`), fazendo o domínio resolver
+para o IP local. Isso só vale **dentro da LAN**; fora dela o domínio aponta direto para o IP
+público. Parâmetros do script: `-Hostname` (default `gmlondrina-share.ddns.net`) e `-LanIP`
+(default `192.168.0.200`); use `-SkipHostsOverride` para desativar.
 
 **Como usar (PowerShell como Administrador):**
 
@@ -313,7 +326,7 @@ Se a máquina não usa os defaults (distro Debian, usuário `urubu`, caminho
 1. Suba a stack no WSL2: `docker compose -f docker-compose.local.yml --env-file .env.local up -d --build`
 2. No Windows, rode `apply-portproxy.ps1` como Administrador.
 3. Teste pelo Windows: `http://localhost:3000` e por outro PC da LAN: `http://<IP-da-LAN-do-Windows>:3000`.
-4. Defina `general.appUrl = http://<IP-da-LAN-do-Windows>:3000` (Administração → Configurações → Geral), para links de share/email usarem a URL correta (usado em `docker-compose.local.yml`).
+4. Defina `general.appUrl` para a URL usada nos links de share/email: `http://<IP-da-LAN-do-Windows>:3000` localmente, ou `http://<dominio-noip>:3000` se usar domínio NO-IP (Administração → Configurações → Geral; no banco, tabela `Config`, `UPDATE "Config" SET value='http://...' WHERE name='appUrl';` + **reinicie o backend** — o config é carregado em memória no boot).
 5. **`general.secureCookies` deve ser `false` em acesso HTTP por IP.** O default é `true`, e o navegador **não envia cookies `Secure`** em origem HTTP não confiável (IP ≠ `localhost`/HTTPS) — isso quebra CSRF e sessão: `signIn` → `403 csrf_invalid`, `/api/auth/token` → `403`, `/api/users/me` → `401`. No banco (tabela `Config`), `UPDATE "Config" SET value='false' WHERE name='secureCookies';` e **reinicie o backend** (o config é carregado em memória no boot). Após isso, `Set-Cookie` sai sem `Secure` e o login funciona.
 
 > O aviso `Cross-Origin-Opener-Policy header has been ignored` no console é

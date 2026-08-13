@@ -12,6 +12,7 @@ import { CompletedShare } from "../../../types/share.type";
 import CopyTextField from "../CopyTextField";
 import QRCode from "../../share/QRCode";
 import toast from "../../../utils/toast.util";
+import { copyToClipboard } from "../../../utils/clipboard.util";
 
 const showCompletedUploadModal = (
   modals: ModalsContextProps,
@@ -72,8 +73,9 @@ const Body = ({
       .join("\n");
 
     try {
-      await navigator.clipboard.writeText(text);
-      toast.success(t("upload.modal.completed.copy-all.success"));
+      const ok = await copyToClipboard(text);
+      if (ok) toast.success(t("upload.modal.completed.copy-all.success"));
+      else toast.error(t("upload.modal.completed.copy-all.error"));
     } catch {
       toast.error(t("upload.modal.completed.copy-all.error"));
     }
