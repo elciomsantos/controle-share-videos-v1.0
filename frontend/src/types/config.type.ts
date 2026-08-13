@@ -8,12 +8,6 @@ type Config = {
 import { Timespan } from "./timespan.type";
 
 /**
- * Runtime value type produced by `configService.get` per config variable type.
- * Mirrors `backend/src/config/config.service.ts` (R06 / QAL-03).
- */
-export type ConfigValue = string | number | boolean | Timespan;
-
-/**
  * Typed config keys — aligned with `prisma/seed/config.seed.ts`. Each key maps
  * to the runtime value type `configService.get` returns, so frontend consumers
  * get compile-time checking instead of `any` (R06).
@@ -113,11 +107,6 @@ export type AdminConfigGroupedByCategory = {
       category: string;
     },
   ];
-};
-
-export type ConfigVariablesCategory = {
-  category: string;
-  count: number;
 };
 
 export type ConfigHook = {

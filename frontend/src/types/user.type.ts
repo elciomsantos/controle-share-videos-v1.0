@@ -29,19 +29,6 @@ export type UpdateUser = {
   isActivated?: boolean;
 };
 
-export type CreateUserResponse = {
-  id: string;
-  username: string;
-  email: string;
-  isAdmin: boolean;
-  role: string;
-  isActivated: boolean;
-  totpVerified: boolean;
-  hasPassword: boolean;
-  shareSizeLimit?: string;
-  temporaryPassword?: string;
-};
-
 export type UpdateCurrentUser = {
   username?: string;
   email?: string;

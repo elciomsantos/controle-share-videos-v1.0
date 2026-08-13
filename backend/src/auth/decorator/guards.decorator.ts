@@ -29,14 +29,6 @@ export const AdminOrAuditor = () => applyDecorators(
 );
 
 /**
- * Endpoint para operador ou acima
- */
-export const OperatorOrAbove = () => applyDecorators(
-  UseGuards(JwtGuard, RolesGuard),
-  Roles('admin', 'operador'),
-);
-
-/**
  * Re-export para conveniência
  */
 export { Public } from "./public.decorator";

@@ -17,13 +17,6 @@ import { YamlConfig } from "../../prisma/seed/config.seed";
 import { ARGON2_OPTIONS, CONFIG_FILE } from "../constants";
 
 /**
- * Runtime value type produced by `ConfigService.get` per config variable type.
- * `number`/`filesize` parse to number, `boolean` to boolean, `timespan` to
- * `Timespan`, everything else stays a string.
- */
-export type ConfigValue = string | number | boolean | Timespan;
-
-/**
  * Typed config keys — single source of truth aligned with
  * `prisma/seed/config.seed.ts`. Each key maps to the runtime value type
  * `ConfigService.get` returns, so consumers get compile-time checking instead
