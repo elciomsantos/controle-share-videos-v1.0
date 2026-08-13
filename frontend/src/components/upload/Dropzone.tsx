@@ -1,5 +1,5 @@
 import { Button, Center, Text, useMantineTheme } from "@mantine/core";
-import React, { useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { FormattedMessage } from "react-intl";
 import useTranslate from "../../hooks/useTranslate.hook";
 import { FileUpload } from "../../types/File.type";
@@ -23,10 +23,17 @@ const Dropzone = ({
   const theme = useMantineTheme();
   const folderInputRef = useRef<HTMLInputElement>(null);
 
-  const isFolderUploadSupported =
-    typeof window !== "undefined" &&
-    typeof HTMLInputElement !== "undefined" &&
-    "webkitdirectory" in HTMLInputElement.prototype;
+  // Detectado no efeito (não no render) para evitar hydration mismatch:
+  // no SSR `window` não existe e o botão sumiria no HTML do servidor,
+  // reaparecendo no cliente — o que dispara o React error #418.
+  const [isFolderUploadSupported, setIsFolderUploadSupported] = useState(false);
+
+  useEffect(() => {
+    setIsFolderUploadSupported(
+      typeof HTMLInputElement !== "undefined" &&
+        "webkitdirectory" in HTMLInputElement.prototype,
+    );
+  }, []);
 
   const handleFolderSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const filesList = event.target.files;
