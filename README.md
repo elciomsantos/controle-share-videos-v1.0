@@ -17,6 +17,8 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 > **Documentação:** ver `docs/Visao-geral.md` (visão arquitetural),
 > `docs/operacional/DEPLOY.md` (guia de implantação),
 > `docs/auditoria/AUDIT_REPORT.md` (auditoria completa).
+> Para implantar do zero em um servidor Linux, siga a seção
+> **"Implantação em servidor Linux (passo a passo)"** abaixo.
 
 ---
 
@@ -177,6 +179,153 @@ npm run test:unit      # vitest run (mesma coisa)
 ```
 
 Requisitos: backend precisa do `prisma generate` antes do primeiro run (Postinstall automático em `npm install`); e2e usa DB efêmero próprio. Para detalhes de cobertura e critérios ver `docs/auditoria/TEST_PLAN.md`.
+
+---
+
+## Implantação em servidor Linux (passo a passo)
+
+Guia do zero até o sistema no ar em um servidor Ubuntu/Debian. **Não é
+necessário instalar Node.js, npm, Prisma ou SQLite no host** — tudo roda
+dentro de containers Docker.
+
+### 1. Pré-requisitos do servidor
+
+- Ubuntu 22.04/24.04 ou Debian 12 (64-bit)
+- 2 GB RAM, 2 vCPU, 20 GB de disco (mínimo recomendado)
+- Portas **80** e **443** livres (Caddy escuta ambas)
+- Domínio com DNS **A/AAAA apontando para o IP** do servidor (necessário para
+  o certificado TLS automático do Let's Encrypt)
+- E-mail válido para o Let's Encrypt (`ACME_EMAIL`)
+
+### 2. Conectar e atualizar o sistema
+
+```bash
+ssh usuario@seu-servidor
+sudo apt-get update && sudo apt-get upgrade -y
+```
+
+### 3. Instalar Docker Engine + Docker Compose v2 (Ubuntu)
+
+```bash
+# Dependências do apt
+sudo apt-get install -y ca-certificates curl
+
+# Adicionar o repositório oficial do Docker
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+| sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Instalar Docker Engine + Compose plugin
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+> **Debian:** troque `ubuntu` por `debian` nas duas linhas do repositório
+> (`/etc/apt/keyrings/docker.asc` e `download.docker.com/linux/debian`).
+
+Verifique a instalação:
+
+```bash
+docker --version
+docker compose version
+sudo systemctl enable --now docker
+```
+
+Para usar Docker **sem sudo** (opcional, faça logout/login após executar):
+
+```bash
+sudo usermod -aG docker "$USER"
+```
+
+### 4. Abrir as portas no firewall (se usar `ufw`)
+
+```bash
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable   # confirme quando perguntar
+```
+
+### 5. Clonar o repositório
+
+```bash
+sudo apt-get install -y git
+git clone https://github.com/elciomsantos/controle-share-videos-v1.0.git
+cd controle-share-videos-v1.0
+```
+
+### 6. Criar o `.env` de produção
+
+O `docker-compose.yml` exige as variáveis `DOMAIN`, `ACME_EMAIL`,
+`ADMIN_EMAIL`, `ADMIN_PASSWORD` e `JWT_SECRET` (via env ou `.env`).
+
+```bash
+cat > .env <<'EOF'
+DOMAIN=seu-dominio.com.br
+ACME_EMAIL=voce@email.com.br
+ADMIN_EMAIL=admin@empresa.local
+ADMIN_PASSWORD=<cole a saída de: openssl rand -base64 32>
+JWT_SECRET=<cole a saída de: openssl rand -base64 32>
+EOF
+chmod 600 .env
+```
+
+Para gerar os segredos:
+
+```bash
+openssl rand -base64 32
+```
+
+> ⚠️ **`JWT_SECRET`**: se mudar após o sistema em produção, todas as sessões
+> ativas são invalidadas. Programe rotações em janela de manutenção.
+
+### 7. Subir a stack (build das imagens na 1ª vez: ~3–5 min)
+
+```bash
+docker compose up -d --build
+```
+
+Acompanhe a subida:
+
+```bash
+docker compose logs -f backend frontend caddy
+# Ctrl+C apenas para de acompanhar; os containers continuam rodando
+```
+
+### 8. Verificar a saúde
+
+```bash
+docker ps --filter name=controle-share-videos --format "{{.Names}}: {{.Status}}"
+# Esperado: todos (healthy)
+
+docker exec controle-share-videos-backend curl -fs http://127.0.0.1:8080/api/health
+# Esperado: OK
+```
+
+### 9. Acessar e primeiros passos
+
+1. Acesse **https://seu-dominio.com.br**
+2. Faça login com `ADMIN_EMAIL` / `ADMIN_PASSWORD`
+3. No primeiro login, a troca de senha é **obrigatória** (`passwordMustChange`)
+4. Em `Administração → Configurações`, ajuste `general.appName`,
+   `general.appUrl`, `share.maxExpiration`, `share.defaultExpiration`
+5. Crie usuários dos papéis `operador` / `auditor`
+6. (Opcional) Configure SMTP em `Administração → Configurações → smtp`
+
+### 10. Atualizar o sistema (upgrades)
+
+```bash
+cd controle-share-videos-v1.0
+git pull --ff-only origin main
+docker compose up -d --build
+# Migrações do Prisma são aplicadas automaticamente no boot do backend
+```
+
+> **Antes de atualizar, faça backup** — ver
+> `docs/operacional/BACKUP_RESTORE.md` (backup diário + restore test).
+> Rollback e resolução de incidentes em `docs/operacional/RUNBOOKS.md`.
 
 ---
 
