@@ -13,6 +13,13 @@ module.exports = {
     "src/config/config.service.ts",
     "src/auth/guard/jwt.guard.ts",
     "src/share/dto/share.dto.ts",
+    "src/share/share.service.ts",
+    "src/share/share.mapper.ts",
+    "src/share/file-storage.service.ts",
+    "src/share/share-archive.service.ts",
+    "src/share/domain/share-validation.service.ts",
+    "src/share/domain/share-token.service.ts",
+    "src/share/domain/share-limit.service.ts",
   ],
   coverageDirectory: "./coverage",
   coverageThreshold: {

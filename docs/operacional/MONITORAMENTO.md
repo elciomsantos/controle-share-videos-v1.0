@@ -26,7 +26,7 @@ Implementado em `backend/src/app.controller.ts:10-20`:
 
 > O healthcheck é **stateless** e não valida Redis, SMTP ou filesystem de
 > uploads. Falhas nesses subsistemas aparecem nos logs (ver §2) e na UI de
-> "Administração → Saude".
+> "Administração → Configurações" (ex: SMTP).
 
 ### 1.2 Como verificar manualmente
 
@@ -97,7 +97,7 @@ docker logs -f controle-share-videos-frontend
 | `SQLITE_BUSY` / `database is locked` | DB contensão | RUNBOOKS §1 |
 | `PrismaClientInitializationError` | DB indisponível | RUNBOOKS §1 |
 | `UnhandledAsyncError` | Erro não capturado | RUNBOOKS §2 |
-| `Complete share failed` / `removeShare error` | Upload/limpeza | RUNBOOKS §3 |
+| `Failed to create zip for share` / `Failed to send completion email` | Upload/limpeza | RUNBOOKS §3 |
 | `429` em massa no Caddy | Rate limit edge | Revisar `Caddyfile.prod` |
 | `EACCES` / `EROFS` nos uploads | Permissão do volume | RUNBOOKS §4 |
 | `JWTSECRET not configured` | Secret faltante | Revalidar `.env` `JWT_SECRET` |
@@ -110,7 +110,8 @@ com Alertmanager e tracing OTel. Para subir:
 
 ```bash
 docker compose -f docker-compose.monitoring.yml up -d
-# Grafana em http://localhost:3001 (admin/admin)
+# Grafana em http://localhost:3001 (usuário admin; senha gerada por
+# scripts/provision/grafana-secret.sh — nunca "admin/admin")
 
 # Subir o stack de produção + monitoramento:
 docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d --build

@@ -33,7 +33,8 @@ docker exec controle-share-videos-backend ls -la /opt/app/backend/data/
 3. **Se persistir** — pare backend + Caddy, faça checkpoint manual:
    ```bash
    docker compose stop backend caddy
-   docker exec controle-share-videos-backend sh -c 'sqlite3 /opt/app/backend/data/controle-videos.db "PRAGMA wal_checkpoint(TRUNCATE);"'
+   docker exec controle-share-videos-backend node -e \
+     "require('better-sqlite3')('/opt/app/backend/data/controle-videos.db').pragma('wal_checkpoint(TRUNCATE)')"
    docker compose start backend caddy
    ```
 4. **Último recurso** — restore do backup mais recente (ver BACKUP_RESTORE.md §4).
@@ -87,14 +88,15 @@ docker exec controle-share-videos-backend curl -fs http://127.0.0.1:8080/api/hea
 
 ---
 
-## 3. Job de limpeza falhou (`deleteExpiredShares` / `deleteOrphanFiles`)
+## 3. Job de limpeza falhou (`deleteExpiredShares` / `deleteTemporaryFiles`)
 
-**Sintoma:** Logs mostram erro em `JobsService.deleteExpiredShares` ou
-`JobsService.deleteOrphanFiles` (cron `@Cron` a cada minuto/hora).
+**Sintoma:** Logs mostram erro em `JobsService.deleteExpiredShares` (cron
+`@Cron` a cada minuto) ou `JobsService.deleteTemporaryFiles` (cron diário,
+limpa `.tmp-chunk` órfãos com mais de 1 dia).
 
 **Diagnóstico:**
 ```bash
-docker logs controle-share-videos-backend 2>&1 | grep -iE "deleteExpiredShares|deleteOrphanFiles|cleanup|cleanOrphan" | tail -20
+docker logs controle-share-videos-backend 2>&1 | grep -iE "deleteExpiredShares|deleteTemporaryFiles|temporary files|cleanup" | tail -20
 ```
 
 **Causas comuns:**
@@ -109,7 +111,7 @@ docker logs controle-share-videos-backend 2>&1 | grep -iE "deleteExpiredShares|d
 
 **Validação:**
 ```bash
-# Aguardar próximo ciclo (1 min para deleteExpiredShares, 6h para deleteOrphanFiles)
+# Aguardar próximo ciclo (1 min para deleteExpiredShares, 24h para deleteTemporaryFiles)
 # Verificar logs novamente — deve não aparecer erro
 ```
 
@@ -290,16 +292,16 @@ docker exec controle-share-videos-backend env | grep -i smtp
 **Configuração (via UI: Administração → Configurações → smtp):**
 | Campo | Obrigatório | Exemplo |
 |---|---|---|
+| `smtp.enabled` | ✅ | `true` |
 | `smtp.host` | ✅ | `smtp.gmail.com` |
 | `smtp.port` | ✅ | `587` (STARTTLS) ou `465` (SSL) |
-| `smtp.secure` | ✅ | `false` (587) / `true` (465) |
-| `smtp.auth.user` | ✅ | `usuario@dominio.com` |
-| `smtp.auth.pass` | ✅ | `app-password` (NÃO a senha da conta) |
-| `email.from` | ✅ | `Controle Share <no-reply@dominio.com>` |
+| `smtp.username` | ✅ | `usuario@dominio.com` |
+| `smtp.password` | ✅ | `app-password` (NÃO a senha da conta) |
+| `smtp.email` | ✅ | `Controle Share <no-reply@dominio.com>` |
 
 **Problemas comuns:**
-- Gmail: usar **App Password** (não a senha da conta) + `port 587` + `secure=false`.
-- Porta 465 com SSL: `secure=true`.
+- Gmail: usar **App Password** (não a senha da conta) + `smtp.port 587`.
+- Porta 465 com SSL: `smtp.port=465`.
 - Firewall bloqueia porta de saída → `telnet smtp.host 587` do host.
 
 ---

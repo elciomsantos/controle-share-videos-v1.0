@@ -1,6 +1,6 @@
 # DEPLOY — Controle Share Videos
 
-> Guia de implantação em produção. Coberto por `docs/auditoria/AUDIT_REPORT.md` (nota 9.0/10).
+> Guia de implantação em produção. Coberto por `docs/auditoria/AUDIT_REPORT.md` (nota 7.5/10).
 > Versão do documento: 1.0 · Atualizado em 2026-08-12
 
 ---

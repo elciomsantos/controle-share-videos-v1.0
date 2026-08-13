@@ -3,7 +3,7 @@
 > **Fase 12**: Cobertura e plano de testes
 > **Data**: 2026-08-10
 > **Auditor**: Opencode (agente automatizado)
-> **Ferramenta**: Vitest (backend + frontend)
+> **Ferramenta**: Jest (backend) + Vitest (frontend)
 
 ---
 
@@ -11,19 +11,20 @@
 
 | Camada | Runner | Configuração |
 |---|---|---|
-| Backend | Vitest | `backend/vitest.config.ts` |
+| Backend | Jest | `backend/jest.config.js` |
 | Frontend | Vitest | `frontend/vitest.config.ts` |
-| E2E | _Não implementado_ | Recomendado Playwright |
+| E2E | Jest (efêmero) | `backend/test/jest-e2e.json` |
 
 ---
 
 ## 2. Cobertura Atual
 
 ### Backend
-- **Unit tests**: serviços isolados (Share, Auth, Jobs, Config)
+- **Unit tests**: serviços isolados (Share, ShareService + domínio, Auth, Jobs, Config)
 - **Integration tests**: controllers + Prisma (test DB SQLite in-memory)
 - **Guard tests**: JwtGuard, RolesGuard, ThrottlerGuard
 - **Decorators test**: @Public, @Authenticated, @AdminOnly
+- **Cobertura (jest, `collectCoverageFrom`)**: `ShareService` 94% lines, `ShareMapper` 100%, `FileStorageService` 100%, `ShareArchiveService` 96%, `ShareTokenService` 96%, `ShareValidationService` 100%, `ShareLimitService` 100%, `JwtGuard` 100%, `ConfigService` 79%, `ShareDTO` 78% — agregado 91% lines
 
 ### Frontend
 - **Unit tests**: utils (concurrency.ts, shareId.util.ts)
@@ -86,9 +87,9 @@ pnpm --filter frontend test  # ✅ passing
 
 | Métrica | Atual | Alvo v1.1 |
 |---|---|---|
-| Backend unit coverage | ~70% (estimado) | 80% |
+| Backend unit coverage | ~91% (agregado jest, 2026-08-13) | 80% |
 | Frontend unit coverage | ~60% (estimado) | 70% |
-| E2E fluxos cobertos | 0 | 5 |
+| E2E fluxos cobertos | 3 suítes (auth, share, upload) | 5 |
 | Smoke load test | Nenhum | 1 |
 | CI running time | ~2 min | < 10 min |
 
