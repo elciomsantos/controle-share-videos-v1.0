@@ -14,7 +14,11 @@
 
 Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-BR. Fork independente do Pingvin Share X v1.21.1, adaptado para upload exclusivamente pelo dono autenticado e armazenamento apenas local (servidor Ubuntu).
 
-> **Documentação:** ver `docs/Visao-geral.md` (visão arquitetural), `docs/PLANO-IMPLANTACAO.md` (plano de implantação) e `docs/auditoria-final.md` (auditoria completa).
+> **Documentação:** ver `docs/Visao-geral.md` (visão arquitetural),
+> `docs/operacional/DEPLOY.md` (guia de implantação),
+> `docs/auditoria/AUDIT_REPORT.md` (auditoria completa).
+
+---
 
 ## Funcionalidades
 
@@ -66,12 +70,14 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 - Cron jobs de limpeza (shares expirados, arquivos temporários, tokens, usuários não ativados)
 - PT-BR como único idioma ativo
 
+---
+
 ## Setup
 
 ### Requisitos
 
-- **Docker Engine + Docker Compose v2** (recomendado) — ou
-- **Node.js ≥ 24** + npm (setup manual) + **OpenSSL** (para gerar senhas)
+- **Docker Engine ≥ 24 + Docker Compose v2** (recomendado) — ou
+- **Node.js ≥ 24** + npm (setup manual) + **OpenSSL** (para gerar segredos)
 
 ### Docker (recomendado)
 
@@ -111,10 +117,11 @@ O `docker-compose.yml` (padrão) sobe os serviços `backend`, `frontend` e `cadd
 ```bash
 DOMAIN=seu-dominio.com ACME_EMAIL=voce@email.com \
 ADMIN_EMAIL=admin@email.com ADMIN_PASSWORD=$(openssl rand -base64 32) \
+JWT_SECRET=$(openssl rand -base64 32) \
 docker compose up -d --build
 ```
 
-Requer as variáveis `DOMAIN`, `ACME_EMAIL`, `ADMIN_EMAIL` e `ADMIN_PASSWORD` (env ou `.env`). Não há mais secrets em arquivos — credenciais entram via variáveis de ambiente.
+Requer as variáveis `DOMAIN`, `ACME_EMAIL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` e `JWT_SECRET` (env ou `.env`). Não há mais secrets em arquivos — credenciais entram via variáveis de ambiente.
 
 Para produção com Docker Swarm/secrets externos e dados em RAID6 (`/srv`):
 
@@ -122,7 +129,7 @@ Para produção com Docker Swarm/secrets externos e dados em RAID6 (`/srv`):
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-> Guia completo em `docs/PLANO-IMPLANTACAO.md` e `docs/conf-dominio.md`.
+> Guia completo em `docs/operacional/DEPLOY.md` e `docs/auditoria/ROADMAP.md`.
 
 ### Setup manual (desenvolvimento)
 
@@ -169,30 +176,68 @@ npm run test           # vitest run
 npm run test:unit      # vitest run (mesma coisa)
 ```
 
-Requisitos: backend precisa do `prisma generate` antes do primeiro run (Postinstall automático em `npm install`); e2e usa DB efêmero próprio. Para detalhes de cobertura e critérios ver `docs/auditoria/relatorios/TEST_PLAN.md`.
+Requisitos: backend precisa do `prisma generate` antes do primeiro run (Postinstall automático em `npm install`); e2e usa DB efêmero próprio. Para detalhes de cobertura e critérios ver `docs/auditoria/TEST_PLAN.md`.
+
+---
 
 ## Docker Compose (variantes)
 
 | Arquivo | Uso |
-|---------|-----|
-| `docker-compose.yml` | Produção padrão (backend, frontend, caddy; admin e TLS via variáveis de ambiente — `DOMAIN`, `ACME_EMAIL`, `ADMIN_*`) |
+|---|---|
+| `docker-compose.yml` | Produção padrão (backend, frontend, caddy; admin e TLS via variáveis de ambiente — `DOMAIN`, `ACME_EMAIL`, `ADMIN_*`, `JWT_SECRET`) |
 | `docker-compose.local.yml` | Ambiente de teste local — container único (backend + frontend + Caddy) com `.env.local` |
 | `docker-compose.prod.yml` | Produção com secrets externos (Docker Swarm), TLS via Caddy 2.9 e dados em RAID6 (`/srv/controle-share-videos`) |
 | `docker-compose.monitoring.yml` | Observabilidade (prometheus, grafana, loki, promtail) |
+
+---
 
 ## Documentação
 
 ### Arquitetura e implantação
 
 - `docs/Visao-geral.md` — visão arquitetural completa
-- `docs/PLANO-IMPLANTACAO.md` — plano de implantação (modelo final de produção)
-- `docs/conf-dominio.md` — configuração de domínio gratuito No-IP com IP fixo
+- `docs/operacional/DEPLOY.md` — guia de implantação (modelo final de produção)
+- `docs/operacional/MONITORAMENTO.md` — healthchecks, logs, alertas
+- `docs/operacional/BACKUP_RESTORE.md` — procedimentos de backup/restauração
+- `docs/operacional/RUNBOOKS.md` — resposta a incidentes
 
 ### Auditoria e análise
 
-- `docs/auditoria-final.md` — resumo executivo da auditoria
-- `docs/auditoria/Especificacao-final.md` — especificação da auditoria (14 fases)
-- `docs/auditoria/FASE-0-DESCOBERTA.md` … `docs/auditoria/FASE-12-REFATORACAO.md` — relatórios por fase
-- `docs/auditoria/relatorios/AUDIT_REPORT.md` — relatório final consolidado
-- `docs/auditoria/relatorios/CHANGELOG_CORRECOES.md` — registro das correções aplicadas (rotação de segredo JWT e pendências de segurança/performance)
-- `docs/auditoria/relatorios/` — demais relatórios: `SECURITY_REPORT`, `PERFORMANCE_REPORT`, `DEPENDENCY_AUDIT`, `TECH_DEBT`, `TEST_PLAN`, `ARCHITECTURE_REVIEW`, `REFACTORING_PLAN`, `ROADMAP`, `CHANGELOG_SUGERIDO`
+- `docs/auditoria/AUDIT_REPORT.md` — relatório final consolidado (nota 9.0/10)
+- `docs/auditoria/SECURITY_REPORT.md` — segurança (9.0/10, OWASP A05 ✅)
+- `docs/auditoria/PERFORMANCE_REPORT.md` — performance
+- `docs/auditoria/DEPENDENCY_AUDIT.md` — dependências (8.5/10)
+- `docs/auditoria/TECH_DEBT.md` — dívida técnica
+- `docs/auditoria/TEST_PLAN.md` — plano de testes
+- `docs/auditoria/ARCHITECTURE_REVIEW.md` — revisão arquitetural
+- `docs/auditoria/REFACTORING_PLAN.md` — plano de refatoração
+- `docs/auditoria/ROADMAP.md` — roadmap pós-v1.0 (v1.1–v2.0)
+- `docs/auditoria/CHANGELOG.md` — changelog da auditoria
+- `docs/auditoria/AUDIT_MATRIX.md` — matriz de achados (19/19 verde/aceito)
+- `docs/auditoria/DISCOVERY.md` — descoberta inicial
+- `docs/auditoria/EVIDENCE_INDEX.md` — índice de evidências
+
+---
+
+## Segurança — Hardening e Limitações Conhecidas
+
+| Item | Status | Detalhes |
+|---|---|---|
+| CSP | ✅ Ativo | `Caddyfile.prod` — `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' ...` (H-01 / S-05) |
+| Rate limit edge | ✅ Ativo | Caddy: 100 req/10s (dynamic), 10 req/60s (auth endpoints) |
+| Security headers | ✅ Ativo | HSTS preload, X-Frame-Options DENY, X-Content-Type-Options nosniff, COOP/COEP/CORP, Permissions-Policy |
+| Secrets | ✅ Docker secrets | `docker-compose.prod.yml` — `*_FILE` vars + secrets externos; `docker-compose.yml` — variáveis `.env` |
+| JWT rotation | ✅ Suportado | Troca de `JWT_SECRET` invalida sessões (previsto); rotação planejada em janela de manutenção |
+| SQLite | ⚠️ Monitorado | Produção pequena (≤ 500 users simultâneos); migração PostgreSQL em v1.3 se necessário |
+| Redis cache | 📦 Backlog v1.3 | Backend já tem `@keyv/redis` + fallback in-memory; ativar = subir Redis + flag |
+| S3/MinIO storage | 📦 Backlog v1.4 | `S3UploadRepository` interface pronta (R02); acionar se > 100 GB uploads |
+| Auditoria de views/downloads | ✅ Completa | Dashboard `/admin/download-logs` com filtros e paginação |
+| Swagger | 🔒 Dev only | Habilitado apenas em `docker-compose.local.yml` (`SWAGGER_ENABLED=true`) |
+
+> Ver `docs/auditoria/SECURITY_REPORT.md` e `docs/auditoria/AUDIT_REPORT.md` para detalhes técnicos e evidências.
+
+---
+
+## Licença
+
+MIT — ver `LICENSE`.

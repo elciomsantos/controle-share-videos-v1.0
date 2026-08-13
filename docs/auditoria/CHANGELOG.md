@@ -43,6 +43,7 @@ Auditoria completa do estado atual do Controle Share Videos v1.0 (fork de Pingvi
 - **S-01**: Docker Secrets aplicado a todos os serviços (backend, frontend, caddy, grafana) — nenhum `env_file` remanescente
 - **S-06**: `rate_limit` no Caddyfile.prod — zona `dynamic` (100 req/10s) + zona `auth` (10 req/60s)
 - **H-02**: `scripts/restore-test.sh` criado (restore test automatizado, D05) — valida backup mais recente em DB temporário (GPG/assinatura/gzip, integrity_check, schema e counts); documentação em `docs/operacional/BACKUP_RESTORE.md`
+- **Docs v1.1**: `docs/operacional/DEPLOY.md`, `MONITORAMENTO.md`, `RUNBOOKS.md` criados; `BACKUP_RESTORE.md` revisado; `README.md` hardenado (referências corrigidas, seção Segurança/Limitações) — fecha item "Docs operacional + README hardening" do ROADMAP
 
 #### 📋 Limitações Aceitas
 - **A-06/D01**: SQLite em produção (single-writer, sem replica) — Aceito com monitoramento Prometheus + ROADMAP PostgreSQL em v1.3
