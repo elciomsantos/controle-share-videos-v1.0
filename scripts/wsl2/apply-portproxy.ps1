@@ -22,7 +22,9 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\wsl2\apply-portproxy.ps1
 # ============================================================================
 
-$ports = @(3000, 3333, 8090)
+# Portas expostas: 80/443 (HTTPS, modo prod com Let's Encrypt) e 3000/3333/8090
+# (modo local/debug). 80/443 sao as portas padrao - acesso por dominio.
+$ports = @(80, 443, 3000, 3333, 8090)
 
 # Descobre o IP atual do WSL2 (primeiro IP da saida de `wsl hostname -I`).
 $wslIP = (wsl.exe hostname -I).Trim().Split(' ')[0]
@@ -66,14 +68,16 @@ Write-Host ""
 Write-Host "=== Teste via Windows (localhost) ===" -ForegroundColor Cyan
 foreach ($port in $ports) {
     try {
-        $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 -Uri "http://localhost:$port/api/health" -ErrorAction Stop
-        Write-Host "  http://localhost:$port/api/health -> $($r.StatusCode)" -ForegroundColor Green
+        $uri = if ($port -in 80, 443) { "http://localhost:$port/api/health" } else { "http://localhost:$port/api/health" }
+        $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 -Uri $uri -ErrorAction Stop
+        Write-Host "  $uri -> $($r.StatusCode)" -ForegroundColor Green
     } catch {
         try {
-            $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 -Uri "http://localhost:$port/" -ErrorAction Stop
-            Write-Host "  http://localhost:$port/ -> $($r.StatusCode)" -ForegroundColor Green
+            $uri2 = if ($port -eq 443) { "https://localhost/" } else { "http://localhost:$port/" }
+            $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 5 -Uri $uri2 -ErrorAction Stop
+            Write-Host "  $uri2 -> $($r.StatusCode)" -ForegroundColor Green
         } catch {
-            Write-Host "  http://localhost:$port -> FALHOU: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "  http(s)://localhost:$port -> FALHOU: $($_.Exception.Message)" -ForegroundColor Yellow
         }
     }
 }

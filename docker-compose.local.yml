@@ -64,7 +64,7 @@ services:
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD is required. Set it in .env.local.}
       # CORS para acesso direto ao backend (debug, Swagger).
-      - CORS_ORIGIN=http://localhost:3000,http://localhost:3333,http://localhost:8080
+      - CORS_ORIGIN=http://localhost:${FRONTEND_PORT:-3000}
       # Swagger habilitado em ambiente local para inspecionar rotas de auth
       # (signIn, token refresh, totp, etc.) e validar o R01.
       - SWAGGER_ENABLED=true
@@ -132,17 +132,19 @@ services:
   # ---------------------------------------------------------------------------
   # Caddy — reverse proxy local (sem TLS)
   # Unifica a entrada em :3000 → /api/* vai para backend:8080, resto para
-  # frontend:3333. Espelha o Caddyfile local (reverse-proxy/Caddyfile) mas
-  # roda em container separado para validar a topologia de produção.
+  # frontend:3333. Espelha o Caddyfile local (reverse-proxy/Caddyfile.local)
+  # mas roda em container separado para validar a topologia de produção.
   # ---------------------------------------------------------------------------
   caddy:
     container_name: controle-videos-local-caddy
-    image: caddy:2.9-alpine
+    build:
+      context: ./reverse-proxy
+      dockerfile: Dockerfile
     restart: unless-stopped
     networks:
       - local-network
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
       backend:
         condition: service_healthy
