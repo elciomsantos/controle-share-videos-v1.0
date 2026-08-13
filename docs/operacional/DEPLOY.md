@@ -41,6 +41,33 @@ ss -ltnp 'sport = :80 or sport = :443'   # deve virar vazio
 
 > Detalhes de cada variante em `README.md` → "Docker Compose (variantes)".
 
+### 2.1 Selecionar o Caddyfile (`CADDYFILE`)
+
+O serviço `caddy` do compose monta o arquivo `Caddyfile.${CADDYFILE:-prod}`
+em `/etc/caddy/Caddyfile`. Assim, sem editar o compose, você escolhe o modo:
+
+| `CADDYFILE` | Arquivo | Uso | Porta |
+|---|---|---|---|
+| `prod` (default) | `Caddyfile.prod` | TLS Let's Encrypt (domínio No-IP ou próprio) | 80/443 |
+| `ip` | `Caddyfile.ip` | Acesso por IP — HTTP (`:80`) ou `tls internal` (`:443`) | 80/443 |
+| `local` | `Caddyfile.local` | Homologação/LAN sem TLS | 3000 |
+
+Exemplos:
+
+```bash
+# Produção com domínio (default; ou exporte CADDYFILE=prod)
+docker compose up -d --build
+
+# Acesso por IP (HTTP, sem certificado)
+CADDYFILE=ip docker compose up -d --build
+
+# Homologação local
+CADDYFILE=local docker compose up -d --build
+```
+
+> No modo `ip` e `local` os secrets/variáveis `DOMAIN`/`ACME_EMAIL` não são
+> usados pelo Caddyfile — podem ficar vazios (apenas avisos no boot).
+
 ---
 
 ## 3. Variáveis de ambiente
@@ -206,8 +233,44 @@ docker compose up -d   # Caddy re-emitirá certificado para o novo domínio
 ```
 
 > Em homologação sem TLS, use `reverse-proxy/Caddyfile.local` (porta 3000,
-> sem HTTPS, sem rate limit). Em proxy reverso atrás de outro TLS terminator
-> (ex: Cloudflare, nginx externo), use `reverse-proxy/Caddyfile.trust-proxy`.
+> sem HTTPS, sem rate limit) — basta `CADDYFILE=local`. Em proxy reverso atrás
+> de outro TLS terminator (ex: Cloudflare, nginx externo), use
+> `reverse-proxy/Caddyfile.trust-proxy`.
+
+### 6.2 Acesso por IP (sem domínio)
+
+> ⚠️ **Let's Encrypt não emite certificado para IP nu** — o `Caddyfile.prod`
+> (`https://{$DOMAIN}` + `tls {$ACME_EMAIL}`) falha se `DOMAIN` for um IP.
+> Use `CADDYFILE=ip` (arquivo `reverse-proxy/Caddyfile.ip`), que traz duas
+> variantes:
+
+- **C1 — HTTP puro (`:80`)** — padrão do arquivo. Para uso externo/LAN sem
+  certificado. `general.appUrl = http://<ip-publico>`.
+- **C2 — TLS autoassinado (`:443`, `tls internal`)** — bloco comentado no
+  arquivo; descomente para HTTPS por IP (navegador exibirá aviso de
+  certificado não confiável).
+
+**Configuração para o modo IP (`docker-compose.yml`):**
+
+```bash
+cat > .env <<'EOF'
+CADDYFILE=ip
+ADMIN_EMAIL=admin@empresa.local
+ADMIN_PASSWORD=<openssl rand -base64 32>
+JWT_SECRET=<openssl rand -base64 32>
+# Substitua pelo IP público fixo (ou IP da LAN, se for uso interno):
+CORS_ORIGIN=http://192.168.1.50
+API_URL=http://192.168.1.50/api
+EOF
+docker compose up -d --build
+```
+
+Depois defina `general.appUrl = http://192.168.1.50` (Administração →
+Configurações → Geral), para links de share/email usarem a URL correta.
+
+> Sem criptografia em trânsito (C1) — **não usar em produção com dados
+> sensíveis**. Para exposição pública real, prefira um domínio (modos 6.1
+> No-IP ou domínio próprio).
 
 ---
 

@@ -31,8 +31,9 @@ services:
       - NODE_ENV=production
       - BACKEND_PORT=8080
       - DATABASE_URL=file:/opt/app/backend/data/controle-videos.db
-      # CORS origin must be set explicitly for production (MED-02)
-      - CORS_ORIGIN=https://${DOMAIN}
+      # CORS origin must be set explicitly for production (MED-02). Defaults
+      # to https://<DOMAIN>; override with CORS_ORIGIN=http://<ip> for IP access.
+      - CORS_ORIGIN=${CORS_ORIGIN:-https://${DOMAIN}}
       # Admin bootstrap user (seeded by user.seed.ts). No Docker secrets —
       # pass via env (e.g. .env file or `docker compose run -e`). Do NOT
       # hardcode credentials in version control.
@@ -65,7 +66,7 @@ services:
       - NODE_ENV=production
       - PORT=3333
       - HOSTNAME=0.0.0.0
-      - API_URL=https://${DOMAIN}/api
+      - API_URL=${API_URL:-https://${DOMAIN}/api}
     volumes:
       - frontend-images:/opt/app/frontend/public/img
 
@@ -85,7 +86,9 @@ services:
       - DOMAIN=${DOMAIN}
       - ACME_EMAIL=${ACME_EMAIL}
     volumes:
-      - ./reverse-proxy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      # CADDYFILE seleciona a config do Caddy: prod (TLS Let's Encrypt,
+      # default) | ip (HTTP/IP, Caddyfile.ip) | local (homologação, porta 3000).
+      - ./reverse-proxy/Caddyfile.${CADDYFILE:-prod}:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
     depends_on:

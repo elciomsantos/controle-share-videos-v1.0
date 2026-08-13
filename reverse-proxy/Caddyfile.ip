@@ -1,0 +1,141 @@
+# Caddyfile.ip — acesso externo por IP (sem domínio)
+#
+# Let's Encrypt NÃO emite certificado para IP nu, então este Caddyfile
+# não usa `tls {$ACME_EMAIL}` nem `https://{$DOMAIN}` (ver PLANO-IMPLANTACAO.md §2.1-C).
+#
+# Duas variantes (escolha UMA descomentando):
+#   C1 — HTTP puro na porta 80 (recomendado para homologação/LAN)
+#   C2 — TLS autoassinado na porta 443 (certificado gerado pelo Caddy)
+#
+# Uso (modo C1):
+#   docker compose -f docker-compose.yml --env-file ... up -d caddy \
+#     -v ./reverse-proxy/Caddyfile.ip:/etc/caddy/Caddyfile:ro
+# ou monte o arquivo como /etc/caddy/Caddyfile no serviço caddy.
+# Ajuste general.appUrl = http://<ip-público> (ou https://<ip-público> no modo C2).
+
+# ============================ C1: HTTP puro =============================
+http://:80 {
+	# Security headers (mesmos do Caddyfile.prod, exceto HSTS — só serve em TLS)
+	header {
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Cross-Origin-Opener-Policy "same-origin"
+		Cross-Origin-Resource-Policy "same-origin"
+		Cross-Origin-Embedder-Policy "require-corp"
+		Permissions-Policy "geolocation=(), camera=(), microphone=()"
+		-Server
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; media-src 'self' blob:; frame-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+	}
+
+	# Rate limiting no edge (INFRA-HIGH-01)
+	rate_limit {
+		zone dynamic {
+			key {remote_host}
+			events 100
+			window 10s
+		}
+		zone auth {
+			match {
+				path /api/auth/signIn /api/auth/signUp /api/auth/token /api/auth/resetPassword* /api/auth/verify* /api/auth/totp/*
+			}
+			key {remote_host}
+			events 10
+			window 60s
+		}
+	}
+
+	# API routes
+	handle /api/* {
+		reverse_proxy backend:8080 {
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Real-IP {remote_host}
+		}
+	}
+
+	# Frontend routes
+	handle {
+		reverse_proxy frontend:3333 {
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Real-IP {remote_host}
+		}
+	}
+
+	# Logs (SEC-05): mascara senha em query string (?pwd=...) nos access logs
+	log {
+		output stdout
+		format filter {
+			request>uri query {
+				replace pwd REDACTED
+			}
+			wrap json
+		}
+	}
+}
+
+# ==================== C2: TLS autoassinado (ALTERNATIVA) =====================
+# Descomente o bloco abaixo e comente o bloco C1 para usar HTTPS por IP.
+# O navegador exibirá aviso de certificado não confiável (autoassinado).
+#
+# :443 {
+# 	tls internal
+#
+# 	# Security headers (com HSTS — agora há TLS)
+# 	header {
+# 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+# 		X-Frame-Options "DENY"
+# 		X-Content-Type-Options "nosniff"
+# 		Referrer-Policy "strict-origin-when-cross-origin"
+# 		Cross-Origin-Opener-Policy "same-origin"
+# 		Cross-Origin-Resource-Policy "same-origin"
+# 		Cross-Origin-Embedder-Policy "require-corp"
+# 		Permissions-Policy "geolocation=(), camera=(), microphone=()"
+# 		-Server
+# 		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; media-src 'self' blob:; frame-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+# 	}
+#
+# 	# Rate limiting no edge (INFRA-HIGH-01)
+# 	rate_limit {
+# 		zone dynamic {
+# 			key {remote_host}
+# 			events 100
+# 			window 10s
+# 		}
+# 		zone auth {
+# 			match {
+# 				path /api/auth/signIn /api/auth/signUp /api/auth/token /api/auth/resetPassword* /api/auth/verify* /api/auth/totp/*
+# 			}
+# 			key {remote_host}
+# 			events 10
+# 			window 60s
+# 		}
+# 	}
+#
+# 	handle /api/* {
+# 		reverse_proxy backend:8080 {
+# 			header_up X-Forwarded-For {remote_host}
+# 			header_up X-Forwarded-Proto {scheme}
+# 			header_up X-Real-IP {remote_host}
+# 		}
+# 	}
+#
+# 	handle {
+# 		reverse_proxy frontend:3333 {
+# 			header_up X-Forwarded-For {remote_host}
+# 			header_up X-Forwarded-Proto {scheme}
+# 			header_up X-Real-IP {remote_host}
+# 		}
+# 	}
+#
+# 	log {
+# 		output stdout
+# 		format filter {
+# 			request>uri query {
+# 				replace pwd REDACTED
+# 			}
+# 			wrap json
+# 		}
+# 	}
+# }

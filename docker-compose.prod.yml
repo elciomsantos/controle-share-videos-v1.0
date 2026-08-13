@@ -134,7 +134,10 @@ services:
         max-size: "10m"
         max-file: "5"
     volumes:
-      - ./reverse-proxy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      # CADDYFILE seleciona a config do Caddy: prod (TLS Let's Encrypt,
+      # default) | ip (HTTP/IP, Caddyfile.ip) | local (porta 3000).
+      # Em Swarm, os secrets DOMAIN/ACME_EMAIL só são usados pelo Caddyfile.prod.
+      - ./reverse-proxy/Caddyfile.${CADDYFILE:-prod}:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
     secrets:

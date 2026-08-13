@@ -281,6 +281,21 @@ openssl rand -base64 32
 > ⚠️ **`JWT_SECRET`**: se mudar após o sistema em produção, todas as sessões
 > ativas são invalidadas. Programe rotações em janela de manutenção.
 
+**Acesso por IP (sem domínio):** se preferir acessar o sistema por IP (ex:
+`http://192.168.1.50`), use `CADDYFILE=ip` no `.env` e omita `DOMAIN`/
+`ACME_EMAIL`. Veja `docs/operacional/DEPLOY.md` §6.2.
+
+```bash
+cat > .env <<'EOF'
+CADDYFILE=ip
+ADMIN_EMAIL=admin@empresa.local
+ADMIN_PASSWORD=<cole a saída de: openssl rand -base64 32>
+JWT_SECRET=<cole a saída de: openssl rand -base64 32>
+CORS_ORIGIN=http://192.168.1.50
+API_URL=http://192.168.1.50/api
+EOF
+```
+
 ### 7. Subir a stack (build das imagens na 1ª vez: ~3–5 min)
 
 ```bash
@@ -337,6 +352,18 @@ docker compose up -d --build
 | `docker-compose.local.yml` | Ambiente de teste local — container único (backend + frontend + Caddy) com `.env.local` |
 | `docker-compose.prod.yml` | Produção com secrets externos (Docker Swarm), TLS via Caddy 2.9 e dados em RAID6 (`/srv/controle-share-videos`) |
 | `docker-compose.monitoring.yml` | Observabilidade (prometheus, grafana, loki, promtail) |
+
+O serviço `caddy` monta `Caddyfile.${CADDYFILE:-prod}` em
+`/etc/caddy/Caddyfile`:
+
+| `CADDYFILE` | Arquivo | Uso |
+|---|---|---|
+| `prod` (default) | `Caddyfile.prod` | TLS Let's Encrypt (domínio No-IP ou próprio) |
+| `ip` | `Caddyfile.ip` | Acesso por IP — HTTP `:80` ou `tls internal` `:443` |
+| `local` | `Caddyfile.local` | Homologação/LAN sem TLS (`:3000`) |
+
+Exemplo — acesso por IP: `CADDYFILE=ip docker compose up -d --build` (veja
+`docs/operacional/DEPLOY.md` §6.2).
 
 ---
 
