@@ -35,6 +35,9 @@ jobs:
           npm ci
           npm run build
 
+      - name: Audit (produção)
+        run: npm audit --omit=dev
+
       - name: Lint
         run: npm run lint
 
@@ -73,6 +76,9 @@ jobs:
         run: |
           npm ci
           npm run build
+
+      - name: Audit (produção)
+        run: npm audit --omit=dev
 
       - name: Lint
         run: npm run lint

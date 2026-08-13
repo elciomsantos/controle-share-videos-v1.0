@@ -164,7 +164,7 @@ Copie `config.example.yaml` para `config.yaml` na raiz do repositório e ajuste 
 
 #### Testes
 
-Há testes unitários e E2E (backend) e unitários (frontend), com cobertura ≥60% e CI em `.github/workflows/ci.yml` (Node 24, lint/build/unit/coverage/e2e).
+Há testes unitários e E2E (backend) e unitários (frontend), com cobertura ≥60% e CI em `.github/workflows/ci.yml` (Node 24, lint/build/unit/coverage/e2e + `npm audit --omit=dev` blocking).
 
 ```bash
 # Backend
