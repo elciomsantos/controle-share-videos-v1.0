@@ -314,6 +314,11 @@ Se a máquina não usa os defaults (distro Debian, usuário `urubu`, caminho
 2. No Windows, rode `apply-portproxy.ps1` como Administrador.
 3. Teste pelo Windows: `http://localhost:3000` e por outro PC da LAN: `http://<IP-da-LAN-do-Windows>:3000`.
 4. Defina `general.appUrl = http://<IP-da-LAN-do-Windows>:3000` (Administração → Configurações → Geral), para links de share/email usarem a URL correta (usado em `docker-compose.local.yml`).
+5. **`general.secureCookies` deve ser `false` em acesso HTTP por IP.** O default é `true`, e o navegador **não envia cookies `Secure`** em origem HTTP não confiável (IP ≠ `localhost`/HTTPS) — isso quebra CSRF e sessão: `signIn` → `403 csrf_invalid`, `/api/auth/token` → `403`, `/api/users/me` → `401`. No banco (tabela `Config`), `UPDATE "Config" SET value='false' WHERE name='secureCookies';` e **reinicie o backend** (o config é carregado em memória no boot). Após isso, `Set-Cookie` sai sem `Secure` e o login funciona.
+
+> O aviso `Cross-Origin-Opener-Policy header has been ignored` no console é
+> **benigno** — COOP/COEP só se aplicam a origens confiáveis (HTTPS ou
+> `localhost`); em HTTP por IP o navegador ignora esses headers.
 
 > **Portas mapeadas:** 3000 (Caddy → app), 3333 (frontend interno),
 > 8090 (backend interno) — as duas últimas são utilitárias (debug).
