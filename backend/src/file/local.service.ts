@@ -315,6 +315,32 @@ export class LocalFileService {
     return fileMetaData;
   }
 
+  /**
+   * Retorna o certificado PDF gerado para um arquivo do share.
+   */
+  async getCertificate(shareId: string, fileId: string) {
+    const fileMetaData = await this.prisma.file.findUnique({
+      where: { id: fileId },
+    });
+
+    if (!fileMetaData)
+      throw new NotFoundException(this.i18n.t("file.notFound"));
+
+    const relativePath = `${shareId}/${fileId}.certificado.pdf`;
+    const stats = await this.repository.statFile(relativePath);
+
+    const file = this.repository.createReadStream(relativePath);
+
+    return {
+      metaData: {
+        name: `${fileMetaData.name}.certificado.pdf`,
+        size: stats.size.toString(),
+        mimeType: "application/pdf",
+      },
+      file,
+    };
+  }
+
   async remove(shareId: string, fileId: string) {
     const fileMetaData = await this.prisma.file.findUnique({
       where: { id: fileId },

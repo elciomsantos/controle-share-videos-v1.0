@@ -16,7 +16,9 @@ import { DownloadLogService } from "../download-log/download-log.service";
 import { EmailService } from "../email/email.service";
 import { FileService } from "../file/file.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { ARGON2_OPTIONS } from "../constants";
+import { ARGON2_OPTIONS, DATA_DIRECTORY } from "../constants";
+import * as os from "os";
+import mime from "mime-types";
 import { CreateShareDTO } from "./dto/createShare.dto";
 import { ShareSecurityDTO } from "./dto/shareSecurity.dto";
 import { UpdateShareDTO } from "./dto/updateShare.dto";
@@ -27,6 +29,12 @@ import { ShareValidationService } from "./domain/share-validation.service";
 import { ShareTokenService } from "./domain/share-token.service";
 import { ShareLimitService } from "./domain/share-limit.service";
 import { MetricsService } from "../metrics/metrics.service";
+import {
+  CertificateService,
+  CertificateFileInfo,
+  CertificateShareInfo,
+  CertificateSystemInfo,
+} from "../certificate/certificate.service";
 
 @Injectable()
 export class ShareService {
@@ -45,6 +53,7 @@ export class ShareService {
     private tokenService: ShareTokenService,
     private limitService: ShareLimitService,
     private config: ConfigService,
+    private certificateService: CertificateService,
     @Optional() private metrics?: MetricsService,
   ) {}
 
@@ -133,6 +142,13 @@ export class ShareService {
         this.i18n.t("share.completionRequiresFile"),
       );
 
+    // Gera o certificado (PDF com hash SHA-256) para cada arquivo do share.
+    // Falha silenciosa para não bloquear a conclusão se a geração falhar.
+    void this.generateCertificates(id).catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Falha ao gerar certificado do share ${id}: ${message}`);
+    });
+
     if (share.files.length > 1)
       this.archiveService.createZip(id)
         .then(() =>
@@ -195,6 +211,65 @@ export class ShareService {
       where: { id },
       data: { uploadLocked: false, isZipReady: false },
     });
+  }
+
+  /**
+   * Gera certificados PDF (com hash SHA-256) para todos os arquivos do share.
+   * Chamado no complete(); falhas são logadas e não bloqueiam a conclusão.
+   */
+  private async generateCertificates(shareId: string): Promise<void> {
+    const share = await this.prisma.share.findUnique({
+      where: { id: shareId },
+      include: { files: true, creator: true },
+    });
+
+    if (!share || share.files.length === 0) return;
+
+    const shareInfo: CertificateShareInfo = {
+      id: share.id,
+      createdAt: share.createdAt,
+      ownerName: share.creator?.username ?? undefined,
+      ownerEmail: share.creator?.email ?? undefined,
+    };
+
+    const systemInfo = this.getSystemInfo();
+
+    for (const file of share.files) {
+      const certFile: CertificateFileInfo = {
+        fileName: file.name,
+        sizeBytes: file.size,
+        mimeType:
+          mime.contentType(file.name.split(".").pop() ?? "") ||
+          "application/octet-stream",
+        extension: file.name.split(".").pop() ?? "",
+        description: file.description ?? null,
+      };
+
+      await this.certificateService.generateCertificate(
+        share.id,
+        file.id,
+        certFile,
+        shareInfo,
+        systemInfo,
+      );
+    }
+  }
+
+  private getSystemInfo(): CertificateSystemInfo {
+    const addresses = Object.values(os.networkInterfaces())
+      .flat()
+      .filter(
+        (iface): iface is os.NetworkInterfaceInfo =>
+          iface !== undefined && !iface.internal && iface.family === "IPv4",
+      )
+      .map((iface) => iface.address);
+    return {
+      hostname: os.hostname(),
+      ip: addresses[0],
+      platform: `${os.platform()} ${os.release()}`,
+      nodeVersion: process.version,
+      storagePath: `${DATA_DIRECTORY}/uploads/shares`,
+    };
   }
 
   async getShares(page: number, perPage: number) {

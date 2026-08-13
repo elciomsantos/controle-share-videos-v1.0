@@ -466,3 +466,11 @@ docker ps -aq
 - Faça backup de dados importantes antes de realizar limpezas completas.
 
 ````
+
+docker compose -f docker-compose.local.yml --env-file .env.local up -d --build 
+
+"http://192.168.0.200:3000
+
+
+
+opencode -s ses_005204235ffeKnAuinpToU6Nmt

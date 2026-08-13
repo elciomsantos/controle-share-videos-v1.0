@@ -1,5 +1,6 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
+import { CertificateModule } from "../certificate/certificate.module";
 import { DownloadLogModule } from "../download-log/download-log.module";
 import { EmailModule } from "../email/email.module";
 import { FileModule } from "../file/file.module";
@@ -21,6 +22,7 @@ import { FileStorageService } from "./file-storage.service";
     SystemModule,
     ShareDomainModule,
     StorageModule,
+    CertificateModule,
   ],
   controllers: [ShareController],
   providers: [ShareService, ShareMapper, ShareArchiveService, FileStorageService],

@@ -65,6 +65,10 @@ export class FileService {
     return this.localFileService.getFileMetaData(shareId, fileId);
   }
 
+  async getCertificate(shareId: string, fileId: string) {
+    return this.localFileService.getCertificate(shareId, fileId);
+  }
+
   async remove(shareId: string, fileId: string) {
     return this.localFileService.remove(shareId, fileId);
   }

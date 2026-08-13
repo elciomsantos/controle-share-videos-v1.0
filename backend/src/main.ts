@@ -43,6 +43,23 @@ export async function configureApp(
   app: NestExpressApplication,
   config: ConfigService,
 ) {
+  // Body parsers - raw for octet-stream (file uploads) MUST come before JSON
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const chunkSize = config.getNumber("share.chunkSize");
+    console.log('[DEBUG] Raw body parser middleware, content-type:', req.headers['content-type']);
+    bodyParser.raw({
+      type: "application/octet-stream",
+      limit: chunkSize,
+    })(req, res, (err) => {
+      console.log('[DEBUG] Raw body parser done, body type:', typeof req.body, 'isBuffer:', Buffer.isBuffer(req.body));
+      next(err);
+    });
+  });
+
+  // JSON parser for all other requests
+  app.use(bodyParser.json({ limit: "10mb" }));
+  app.use(bodyParser.urlencoded({ extended: true, limit: "10mb" }));
+
   app.useGlobalPipes(
     new I18nValidationPipe({
       whitelist: true,
@@ -56,14 +73,6 @@ export async function configureApp(
     new ThrottlerExceptionFilter(app.get(I18nService)),
   );
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
-
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    const chunkSize = config.getNumber("share.chunkSize");
-    bodyParser.raw({
-      type: "application/octet-stream",
-      limit: `${chunkSize}B`,
-    })(req, res, next);
-  });
 
   app.use(cookieParser());
 
@@ -189,6 +198,7 @@ export async function createApp() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: logLevels,
+    bodyParser: false,
   });
 
   await configureApp(app, app.get<ConfigService>(ConfigService));

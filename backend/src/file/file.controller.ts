@@ -140,6 +140,31 @@ export class FileController {
     return new StreamableFile(zipStream);
   }
 
+  @Get(":fileId/certificate")
+  @Public()
+  @SharePublicAccess()
+  async getCertificate(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+    @Param("shareId") shareId: string,
+    @Param("fileId") fileId: string,
+  ) {
+    const { metaData, file } = await this.fileService.getCertificate(
+      shareId,
+      fileId,
+    );
+
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Length": metaData.size,
+      "Content-Security-Policy": "sandbox",
+      "Cache-Control": "no-store",
+      "Content-Disposition": contentDisposition(metaData.name),
+    });
+
+    return new StreamableFile(file);
+  }
+
   @Get(":fileId")
   @Public()
   @SharePublicAccess()
