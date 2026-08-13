@@ -2,6 +2,7 @@ import { useModals } from "@mantine/modals";
 import mime from "mime-types";
 import { FileListItem, FileUpload } from "../../../types/File.type";
 import TextEditor from "../TextEditor";
+import { uuid } from "../../../utils/uuid.util";
 
 type ModalsContextProps = ReturnType<typeof useModals>;
 
@@ -29,7 +30,7 @@ const showTextEditorModal = <T extends FileListItem>(
           });
 
           const fileUpload: FileUpload = {
-            id: crypto.randomUUID(),
+            id: uuid(),
             name: originalFile.name,
             size: newFile.size.toString(),
             description: originalFile.description ?? undefined,

@@ -5,6 +5,7 @@ import useTranslate from "../../hooks/useTranslate.hook";
 import { FileUpload } from "../../types/File.type";
 import { byteToHumanSizeString } from "../../utils/fileSize.util";
 import toast from "../../utils/toast.util";
+import { uuid } from "../../utils/uuid.util";
 
 const Dropzone = ({
   title,
@@ -41,7 +42,7 @@ const Dropzone = ({
     const filesArray = Array.from(filesList);
 
     const files: FileUpload[] = filesArray.map((newFile) => ({
-      id: crypto.randomUUID(),
+      id: uuid(),
       name: newFile.webkitRelativePath || newFile.name,
       size: newFile.size.toString(),
       description: undefined,
