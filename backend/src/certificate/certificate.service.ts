@@ -283,9 +283,13 @@ export class CertificateService {
     // Cartão de metadados
     let y = 208;
     const rowHeight = 18;
-    const drawLabel = (label: string, value: string) => {
+    // Coluna de valores após o label mais largo ("Caminho de armazenamento:"
+    // termina em ~205pt). Se ficar em 175, labels longos como "Hash final
+    // (pós-metadados):" e "Caminho de armazenamento:" sobrepõem o valor.
+    const valueX = 210;
+    const drawLabel = (label: string, value: string, fontSize = 10) => {
       doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(10).text(label, 65, y);
-      doc.fillColor("#333333").font(FONT).fontSize(10).text(value, 175, y, { lineBreak: false });
+      doc.fillColor("#333333").font(FONT).fontSize(fontSize).text(value, valueX, y, { lineBreak: false });
       y += rowHeight;
     };
 
@@ -302,10 +306,11 @@ export class CertificateService {
     drawLabel("Tipo (MIME):", file.mimeType || "—");
     drawLabel("Descrição:", file.description ?? "—");
 
-    // Hash SHA-256
-    drawLabel("Hash SHA-256:", originalHash);
+    // Hash SHA-256 (64 caracteres hex): fonte reduzida para caber inteiro na
+    // largura disponível (valueX até a margem direita) sem quebrar a linha.
+    drawLabel("Hash SHA-256:", originalHash, 9);
     if (finalHash) {
-      drawLabel("Hash final (pós-metadados):", finalHash);
+      drawLabel("Hash final (pós-metadados):", finalHash, 9);
     }
 
     // Dados do sistema
@@ -324,7 +329,7 @@ export class CertificateService {
     ];
     for (const [label, value] of sysEntries) {
       doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(10).text(label, 65, y);
-      doc.fillColor("#333333").font(FONT).fontSize(10).text(value, 175, y, { lineBreak: false });
+      doc.fillColor("#333333").font(FONT).fontSize(10).text(value, valueX, y, { lineBreak: false });
       y += rowHeight;
     }
 
