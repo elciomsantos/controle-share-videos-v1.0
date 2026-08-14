@@ -1,8 +1,15 @@
 import { LogLevel } from "@nestjs/common";
+import * as path from "path";
 
 export const CONFIG_FILE = process.env.CONFIG_FILE || "../config.yaml";
 
 export const DATA_DIRECTORY = process.env.DATA_DIRECTORY || "./data";
+// Imagens usadas no cabeçalho padrão dos certificados (logo + brasão). Em
+// produção o build copia backend/assets/images para o container; localmente
+// aponta para ./assets/images relativo ao DATA_DIRECTORY.
+export const CERTIFICATE_ASSETS_DIRECTORY =
+  process.env.CERTIFICATE_ASSETS_DIRECTORY ||
+  path.resolve(path.dirname(DATA_DIRECTORY), "assets/images");
 export const SHARE_DIRECTORY = `${DATA_DIRECTORY}/uploads/shares`;
 export const DATABASE_URL =
   process.env.DATABASE_URL ||

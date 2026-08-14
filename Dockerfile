@@ -94,6 +94,8 @@ COPY --from=backend-builder --chown=appuser:appgroup /opt/app/backend/prisma ./p
 COPY --from=backend-builder --chown=appuser:appgroup /opt/app/backend/prisma.config.ts ./
 COPY --from=backend-builder --chown=appuser:appgroup /opt/app/backend/package.json ./
 COPY --from=backend-builder --chown=appuser:appgroup /opt/app/backend/tsconfig.json ./
+# Assets estáticos do backend (imagens do cabeçalho do certificado).
+COPY --from=backend-builder --chown=appuser:appgroup /opt/app/backend/assets ./assets
 # Shared package at runtime (npm symlink ../../../packages/shared resolves here).
 COPY --from=shared-builder --chown=appuser:appgroup /opt/app/packages/shared /opt/app/packages/shared
 USER appuser

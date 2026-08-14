@@ -8,7 +8,7 @@ import PDFDocument from "pdfkit";
 import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
 import { IUploadRepository } from "../storage/upload-repository.interface";
-import { DATA_DIRECTORY } from "../constants";
+import { CERTIFICATE_ASSETS_DIRECTORY, DATA_DIRECTORY } from "../constants";
 import { PrismaService } from "../prisma/prisma.service";
 
 export interface CertificateFileInfo {
@@ -251,20 +251,57 @@ export class CertificateService {
         });
     };
 
+    // Cabeçalho padrão: logo (Secretaria de Defesa Social) + brasão da Guarda
+    // Municipal de Londrina lado a lado, e o nome centralizado na linha abaixo.
+    const logoPath = path.join(CERTIFICATE_ASSETS_DIRECTORY, "logo_pml_fb.png");
+    const brasaoPath = path.join(CERTIFICATE_ASSETS_DIRECTORY, "Brasao_GML.png");
+
+    const logoW = 100;
+    const logoH = (logoW * 51) / 160; // 160x51
+    const brasaoH = 46;
+    const brasaoW = (brasaoH * 820) / 963; // 820x963
+    const headerGap = 16;
+    const headerTotalW = logoW + headerGap + brasaoW;
+    const headerX = margin + (contentWidth - headerTotalW) / 2;
+    const headerY = 26;
+
+    if (fs.existsSync(logoPath)) {
+      doc.image(logoPath, headerX, headerY + (brasaoH - logoH) / 2, {
+        width: logoW,
+        height: logoH,
+      });
+    } else {
+      this.logger.warn(`logo do cabeçalho não encontrado: ${logoPath}`);
+    }
+    if (fs.existsSync(brasaoPath)) {
+      doc.image(brasaoPath, headerX + logoW + headerGap, headerY, {
+        width: brasaoW,
+        height: brasaoH,
+      });
+    } else {
+      this.logger.warn(`brasão do cabeçalho não encontrado: ${brasaoPath}`);
+    }
+
+    centerText("Guarda Municipal de Londrina", headerY + brasaoH + 8, {
+      fontSize: 13,
+      color: "#2E8B8B",
+      bold: true,
+    });
+
     // Título
-    centerText("Certificado de assinaturas", 58, { fontSize: 22, bold: true });
+    centerText("Certificado de assinaturas", 104, { fontSize: 22, bold: true });
 
     // Data/hora de geração
-    centerText(`Arquivo gerado em ${nowLabel}`, 88, { fontSize: 10, color: "#555555" });
-    centerText("Datas e horários baseados em horário de Brasília - Brasil", 101, {
+    centerText(`Arquivo gerado em ${nowLabel}`, 132, { fontSize: 10, color: "#555555" });
+    centerText("Datas e horários baseados em horário de Brasília - Brasil", 145, {
       fontSize: 9,
       color: "#777777",
     });
 
     // Nome do documento em destaque
-    this.roundRect(doc, 60, 126, pageWidth - 120, 38, 8);
+    this.roundRect(doc, 60, 156, pageWidth - 120, 34, 8);
     doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(14);
-    doc.text(file.fileName, margin, 135, {
+    doc.text(file.fileName, margin, 164, {
       align: "center",
       width: contentWidth,
       lineBreak: false,
@@ -278,11 +315,11 @@ export class CertificateService {
       .slice(0, 36);
     const formattedCode = `${verificationCode.slice(0, 8)}-${verificationCode.slice(8, 12)}-${verificationCode.slice(12, 16)}-${verificationCode.slice(16, 20)}-${verificationCode.slice(20, 32)}`;
 
-    centerText(`Código para verificação: ${formattedCode}`, 178, { fontSize: 10 });
+    centerText(`Código para verificação: ${formattedCode}`, 200, { fontSize: 10 });
 
     // Cartão de metadados
-    let y = 208;
-    const rowHeight = 18;
+    let y = 226;
+    const rowHeight = 16;
     // Coluna de valores após o label mais largo ("Caminho de armazenamento:"
     // termina em ~205pt). Se ficar em 175, labels longos como "Hash final
     // (pós-metadados):" e "Caminho de armazenamento:" sobrepõem o valor.
@@ -314,11 +351,11 @@ export class CertificateService {
     }
 
     // Dados do sistema
-    y += 30;
+    y += 22;
     doc.rect(55, y, pageWidth - 110, 2).fillColor("#CCCCCC").fill();
-    y += 12;
+    y += 10;
     doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(11).text("Dados do sistema", 65, y);
-    y += 20;
+    y += 16;
 
     const sysEntries: [string, string][] = [
       ["Hostname:", system.hostname],
@@ -334,24 +371,26 @@ export class CertificateService {
     }
 
     // Eventos do documento
-    y += 12;
+    y += 10;
     doc.rect(55, y, pageWidth - 110, 2).fillColor("#CCCCCC").fill();
-    y += 12;
+    y += 10;
     doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(11).text("Eventos do documento", 65, y);
-    y += 20;
+    y += 16;
 
     const eventEntries: [string, string][] = [
       ["DOCUMENTO CRIADO", `${shareCreated}\n${share.ownerName ?? "—"} (${share.ownerEmail ?? "—"})`],
       ["ARQUIVO ENVIADO", `${nowLabel}\nSistema (upload finalizado)`],
-      ["CERTIFICADO GERADO", `${nowLabel}\nHash SHA-256: ${originalHash.slice(0, 20)}…`],
+      // Hash completo (64 caracteres hex) em fonte menor para caber inteiro na
+      // largura disponível (230 até a margem direita) sem quebrar a linha.
+      ["CERTIFICADO GERADO", `${nowLabel}\nHash SHA-256: ${originalHash}`],
     ];
     for (const [event, details] of eventEntries) {
       doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(10).text(event, 65, y);
-      doc.fillColor("#333333").font(FONT).fontSize(9).text(details, 230, y, {
+      doc.fillColor("#333333").font(FONT).fontSize(8).text(details, 230, y, {
         lineBreak: true,
         width: pageWidth - 230 - margin,
       });
-      y += 40;
+      y += 38;
     }
 
     // Rodapé fixo no fim da página. y deve respeitar o limite de texto do
