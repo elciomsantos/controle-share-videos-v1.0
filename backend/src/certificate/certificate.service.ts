@@ -251,17 +251,21 @@ export class CertificateService {
         });
     };
 
-    // Cabeçalho padrão: logo (Secretaria de Defesa Social) + brasão da Guarda
-    // Municipal de Londrina lado a lado, e o nome centralizado na linha abaixo.
+    // Cabeçalho padrão: logo (Secretaria de Defesa Social) + texto + brasão da
+    // Guarda Municipal de Londrina, com o nome centralizado na linha abaixo.
     const logoPath = path.join(CERTIFICATE_ASSETS_DIRECTORY, "logo_pml_fb.png");
     const brasaoPath = path.join(CERTIFICATE_ASSETS_DIRECTORY, "Brasao_GML.png");
 
-    const logoW = 100;
-    const logoH = (logoW * 51) / 160; // 160x51
     const brasaoH = 46;
     const brasaoW = (brasaoH * 820) / 963; // 820x963
     const headerGap = 16;
-    const headerTotalW = logoW + headerGap + brasaoW;
+    const headerText = "SECRETARIA DE DEFESA SOCIAL";
+    const headerTextSize = 22;
+    doc.font(FONT_BOLD).fontSize(headerTextSize);
+    const headerTextW = doc.widthOfString(headerText);
+    const logoW = Math.min(100, contentWidth - headerTextW - headerGap * 2 - brasaoW);
+    const logoH = (logoW * 51) / 160; // 160x51
+    const headerTotalW = logoW + headerGap + headerTextW + headerGap + brasaoW;
     const headerX = margin + (contentWidth - headerTotalW) / 2;
     const headerY = 26;
 
@@ -273,11 +277,23 @@ export class CertificateService {
     } else {
       this.logger.warn(`logo do cabeçalho não encontrado: ${logoPath}`);
     }
+    doc
+      .font(FONT_BOLD)
+      .fillColor("#333333")
+      .fontSize(headerTextSize)
+      .text(
+        headerText,
+        headerX + logoW + headerGap,
+        headerY + (brasaoH - headerTextSize * 1.2) / 2,
+        { width: headerTextW, align: "center", lineBreak: false },
+      );
     if (fs.existsSync(brasaoPath)) {
-      doc.image(brasaoPath, headerX + logoW + headerGap, headerY, {
-        width: brasaoW,
-        height: brasaoH,
-      });
+      doc.image(
+        brasaoPath,
+        headerX + logoW + headerGap + headerTextW + headerGap,
+        headerY,
+        { width: brasaoW, height: brasaoH },
+      );
     } else {
       this.logger.warn(`brasão do cabeçalho não encontrado: ${brasaoPath}`);
     }
