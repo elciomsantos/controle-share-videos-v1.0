@@ -171,6 +171,35 @@ const downloadFile = async (
   window.URL.revokeObjectURL(blobUrl);
 };
 
+const downloadCertificate = async (shareId: string, fileId: string) => {
+  const url = `${window.location.origin}/api/shares/${shareId}/files/${fileId}/certificate`;
+
+  const response = await fetch(url, { credentials: "same-origin" });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const error = new Error(data.message || "Download failed") as Error & {
+      response?: { data: { error?: string; message?: string } };
+    };
+    error.response = { data };
+    throw error;
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get("Content-Disposition");
+  const fileName = disposition
+    ? disposition.split("filename=")[1]?.replace(/"/g, "")
+    : fileId;
+  const blobUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = blobUrl;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(blobUrl);
+};
+
 const removeFile = async (shareId: string, fileId: string) => {
   if (!isValidId(shareId)) throw new Error("Invalid Share ID");
   await api.delete(`shares/${shareId}/files/${fileId}`);
@@ -234,6 +263,7 @@ export default {
   getMyShares,
   isShareIdAvailable,
   downloadFile,
+  downloadCertificate,
   removeFile,
   uploadFile,
 };

@@ -13,6 +13,7 @@ import CopyTextField from "../CopyTextField";
 import QRCode from "../../share/QRCode";
 import toast from "../../../utils/toast.util";
 import { copyToClipboard } from "../../../utils/clipboard.util";
+import shareService from "../../../services/share.service";
 
 const showCompletedUploadModal = (
   modals: ModalsContextProps,
@@ -126,7 +127,23 @@ const Body = ({
       </Button>
 
       <Button
-        onClick={() => {
+        onClick={async () => {
+          const videoFiles = share.files.filter(
+            (file) =>
+              !file.name.endsWith(".certificado.pdf") &&
+              !/\.assinado\.\w+$/.test(file.name),
+          );
+          for (const video of videoFiles) {
+            const hasCert = share.files.some(
+              (file) => file.name === `${video.name}.certificado.pdf`,
+            );
+            if (!hasCert) continue;
+            try {
+              await shareService.downloadCertificate(share.id, video.id);
+            } catch (e) {
+              toast.axiosError(e);
+            }
+          }
           modals.closeAll();
           router.push("/upload");
         }}
