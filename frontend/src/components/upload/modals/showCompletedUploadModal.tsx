@@ -14,6 +14,8 @@ import QRCode from "../../share/QRCode";
 import toast from "../../../utils/toast.util";
 import { copyToClipboard } from "../../../utils/clipboard.util";
 import shareService from "../../../services/share.service";
+import { FileUpload } from "../../../types/File.type";
+import { writeBlobToRelativeDirectory } from "../../../utils/fileSystem.util";
 
 const showCompletedUploadModal = (
   modals: ModalsContextProps,
@@ -21,6 +23,7 @@ const showCompletedUploadModal = (
   appUrl: string,
   defaultAppUrl: string,
   generatedPassword?: string,
+  sourceFiles?: FileUpload[],
 ) => {
   const t = translateOutsideContext();
   return modals.openModal({
@@ -29,7 +32,7 @@ const showCompletedUploadModal = (
     closeOnEscape: false,
     title: t("upload.modal.completed.share-ready"),
     children: (
-      <Body share={share} appUrl={appUrl} defaultAppUrl={defaultAppUrl} generatedPassword={generatedPassword} />
+      <Body share={share} appUrl={appUrl} defaultAppUrl={defaultAppUrl} generatedPassword={generatedPassword} sourceFiles={sourceFiles} />
     ),
   });
 };
@@ -39,11 +42,13 @@ const Body = ({
   appUrl,
   defaultAppUrl,
   generatedPassword,
+  sourceFiles,
 }: {
   share: CompletedShare;
   appUrl: string;
   defaultAppUrl: string;
   generatedPassword?: string;
+  sourceFiles?: FileUpload[];
 }) => {
   const modals = useModals();
   const router = useRouter();
@@ -138,8 +143,30 @@ const Body = ({
               (file) => file.name === `${video.name}.certificado.pdf`,
             );
             if (!hasCert) continue;
+
+            const source = sourceFiles?.find(
+              (file) => file.name === video.name,
+            );
+
             try {
-              await shareService.downloadCertificate(share.id, video.id);
+              if (source?.dirHandle) {
+                const { blob, fileName } = await shareService.fetchCertificate(
+                  share.id,
+                  video.id,
+                );
+                const certBaseName = fileName.split("/").pop() || fileName;
+                const saved = await writeBlobToRelativeDirectory(
+                  source.dirHandle,
+                  source.relativeDirPath ?? "",
+                  certBaseName,
+                  blob,
+                );
+                if (!saved) {
+                  await shareService.downloadCertificate(share.id, video.id);
+                }
+              } else {
+                await shareService.downloadCertificate(share.id, video.id);
+              }
             } catch (e) {
               toast.axiosError(e);
             }

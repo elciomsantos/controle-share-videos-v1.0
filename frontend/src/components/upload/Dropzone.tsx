@@ -6,6 +6,11 @@ import { FileUpload } from "../../types/File.type";
 import { byteToHumanSizeString } from "../../utils/fileSize.util";
 import toast from "../../utils/toast.util";
 import { uuid } from "../../utils/uuid.util";
+import {
+  isFileSystemAccessSupported,
+  listDirectoryFiles,
+  pickDirectory,
+} from "../../utils/fileSystem.util";
 
 const Dropzone = ({
   title,
@@ -28,12 +33,14 @@ const Dropzone = ({
   // no SSR `window` não existe e o botão sumiria no HTML do servidor,
   // reaparecendo no cliente — o que dispara o React error #418.
   const [isFolderUploadSupported, setIsFolderUploadSupported] = useState(false);
+  const [isFileSystemApi, setIsFileSystemApi] = useState(false);
 
   useEffect(() => {
     setIsFolderUploadSupported(
       typeof HTMLInputElement !== "undefined" &&
         "webkitdirectory" in HTMLInputElement.prototype,
     );
+    setIsFileSystemApi(isFileSystemAccessSupported());
   }, []);
 
   const handleFolderSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -68,6 +75,48 @@ const Dropzone = ({
     event.target.value = "";
   };
 
+  const handlePickDirectory = async () => {
+    const dirHandle = await pickDirectory();
+    if (!dirHandle) return;
+
+    const entries = await listDirectoryFiles(dirHandle);
+
+    const files: FileUpload[] = entries.map(({ file, relativePath }) => ({
+      id: uuid(),
+      name: relativePath,
+      size: file.size.toString(),
+      description: undefined,
+      shareId: "",
+      createdAt: new Date(),
+      mimeType: file.type || false,
+      uploadingProgress: 0,
+      file,
+      dirHandle,
+      relativeDirPath: relativePath.split("/").slice(0, -1).join("/"),
+    }));
+
+    const fileSizeSum = files.reduce((n, { size }) => n + Number(size), 0);
+
+    if (fileSizeSum + currentFilesSize > maxShareSize) {
+      toast.error(
+        t("upload.dropzone.notify.file-too-big", {
+          maxSize: byteToHumanSizeString(maxShareSize),
+        }),
+      );
+      return;
+    }
+
+    onFilesChanged(files);
+  };
+
+  const handleSelect = () => {
+    if (isFileSystemApi) {
+      void handlePickDirectory();
+    } else {
+      folderInputRef.current?.click();
+    }
+  };
+
   return (
     <div style={{ position: "relative", marginBottom: 30 }}>
       <input
@@ -88,7 +137,7 @@ const Dropzone = ({
             size="lg"
             radius="xl"
             disabled={isUploading}
-            onClick={() => folderInputRef.current?.click()}
+            onClick={handleSelect}
             leftSection={<img src="/img/images/subir.png" alt="" width={22} height={22} />}
           >
             {currentFilesSize > 0 ? (

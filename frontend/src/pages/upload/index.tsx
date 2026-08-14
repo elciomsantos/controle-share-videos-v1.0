@@ -256,6 +256,7 @@ const Upload = ({
               config.get("general.appUrl"),
               config.get("general.appUrl", true),
               pendingGeneratedPassword,
+              files,
             );
             setPendingGeneratedPassword(undefined);
             setCreatedShare(null);

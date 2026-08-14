@@ -171,7 +171,10 @@ const downloadFile = async (
   window.URL.revokeObjectURL(blobUrl);
 };
 
-const downloadCertificate = async (shareId: string, fileId: string) => {
+const fetchCertificate = async (
+  shareId: string,
+  fileId: string,
+): Promise<{ blob: Blob; fileName: string }> => {
   const url = `${window.location.origin}/api/shares/${shareId}/files/${fileId}/certificate`;
 
   const response = await fetch(url, { credentials: "same-origin" });
@@ -190,6 +193,11 @@ const downloadCertificate = async (shareId: string, fileId: string) => {
   const fileName = disposition
     ? disposition.split("filename=")[1]?.replace(/"/g, "")
     : fileId;
+  return { blob, fileName };
+};
+
+const downloadCertificate = async (shareId: string, fileId: string) => {
+  const { blob, fileName } = await fetchCertificate(shareId, fileId);
   const blobUrl = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = blobUrl;
@@ -264,6 +272,7 @@ export default {
   isShareIdAvailable,
   downloadFile,
   downloadCertificate,
+  fetchCertificate,
   removeFile,
   uploadFile,
 };

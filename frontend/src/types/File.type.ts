@@ -1,3 +1,5 @@
+import { FileSystemDirectoryHandle } from "../utils/fileSystem.util";
+
 export type FileRecord = {
   id: string;
   name: string;
@@ -23,6 +25,10 @@ export type FileUpload = FileRecord & {
   description?: string;
   /** Original DOM File/Blob for chunked upload */
   file?: globalThis.File;
+  /** Pasta de origem do arquivo (File System Access API), quando disponível */
+  dirHandle?: FileSystemDirectoryHandle;
+  /** Caminho relativo do arquivo dentro da pasta de origem */
+  relativeDirPath?: string;
 };
 
 export type FileUploadResponse = { id: string; name: string; description?: string };
