@@ -6,7 +6,6 @@ import {
   Table,
   Text,
 } from "@mantine/core";
-import { useClipboard } from "@mantine/hooks";
 import { useModals } from "@mantine/modals";
 import { dayjs, isEpochZero } from "../../../utils/date.util";
 import { TbInfoCircle, TbLink, TbTrash } from "react-icons/tb";
@@ -16,6 +15,7 @@ import useTranslate from "../../../hooks/useTranslate.hook";
 import { MyShare } from "../../../types/share.type";
 import { byteToHumanSizeString } from "../../../utils/fileSize.util";
 import toast from "../../../utils/toast.util";
+import { copyToClipboard } from "../../../utils/clipboard.util";
 import showShareInformationsModal from "../../share/showShareInformationsModal";
 import showShareLinkModal from "../../account/showShareLinkModal";
 import { HoverTip } from "../../core/HoverTip";
@@ -32,7 +32,6 @@ const ManageShareTable = ({
   isLoading: boolean;
 }) => {
   const modals = useModals();
-  const clipboard = useClipboard();
   const config = useConfig();
   const t = useTranslate();
 
@@ -144,12 +143,12 @@ const ManageShareTable = ({
                           color="victoria"
                           variant="light"
                           size={25}
-                          onClick={() => {
+                          onClick={async () => {
+                            const link = `${config.get("general.appUrl") !== config.get("general.appUrl", true) ? config.get("general.appUrl") : window.location.origin}/share/${share.id}`;
                             if (window.isSecureContext) {
-                              clipboard.copy(
-                                `${config.get("general.appUrl") !== config.get("general.appUrl", true) ? config.get("general.appUrl") : window.location.origin}/share/${share.id}`,
-                              );
-                              toast.success(t("common.notify.copied-link"));
+                              const ok = await copyToClipboard(link);
+                              if (ok) toast.success(t("common.notify.copied-link"));
+                              else toast.error(t("common.notify.copy-error"));
                             } else {
                               showShareLinkModal(
                                 modals,

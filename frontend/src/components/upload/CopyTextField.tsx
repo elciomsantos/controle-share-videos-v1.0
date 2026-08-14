@@ -10,14 +10,17 @@ function CopyTextField(props: { link: string; toggleQR?: () => void }) {
   const t = useTranslate();
 
   const [checkState, setCheckState] = useState(false);
-  const [textClicked, setTextClicked] = useState(false);
   const timerRef = useRef<number | ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
 
-  const copyLink = () => {
-    copyToClipboard(props.link);
-    toast.success(t("common.notify.copied-link"));
+  const copyLink = async () => {
+    const ok = await copyToClipboard(props.link);
+    if (ok) {
+      toast.success(t("common.notify.copied-link"));
+    } else {
+      toast.error(t("common.notify.copy-error"));
+    }
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       setCheckState(false);
@@ -31,12 +34,7 @@ function CopyTextField(props: { link: string; toggleQR?: () => void }) {
       label={t("common.text.link")}
       variant="filled"
       value={props.link}
-      onClick={() => {
-        if (!textClicked) {
-          copyLink();
-          setTextClicked(true);
-        }
-      }}
+      onClick={copyLink}
       rightSectionWidth={90}
       rightSection={
         <div style={{ display: "flex", alignItems: "center" }}>

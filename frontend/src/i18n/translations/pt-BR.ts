@@ -578,6 +578,7 @@ export default {
   "common.button.retry": "Tentar novamente",
   "common.notify.copied": "O seu link foi copiado para a área de transferência",
   "common.notify.copied-link": "O seu link foi copiado para a área de transferência",
+  "common.notify.copy-error": "Não foi possível copiar. Copie manualmente.",
   "common.success": "Sucesso",
   "common.error": "Erro",
   "common.error.unknown": "Ocorreu um erro desconhecido. Tente novamente.",

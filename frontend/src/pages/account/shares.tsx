@@ -10,7 +10,6 @@ import {
   Text,
   Title,
 } from "@mantine/core";
-import { useClipboard } from "@mantine/hooks";
 import { useModals } from "@mantine/modals";
 import { dayjs, isEpochZero } from "../../utils/date.util";
 import Link from "next/link";
@@ -34,11 +33,11 @@ import useTranslate from "../../hooks/useTranslate.hook";
 import shareService from "../../services/share.service";
 import { MyShare } from "../../types/share.type";
 import toast from "../../utils/toast.util";
+import { copyToClipboard } from "../../utils/clipboard.util";
 import isAdminOrAuditor from "../../utils/userRole.util";
 
 const MyShares = () => {
   const modals = useModals();
-  const clipboard = useClipboard();
   const config = useConfig();
   const { user } = useUser();
   const t = useTranslate();
@@ -175,12 +174,12 @@ const MyShares = () => {
                           color="victoria"
                           variant="light"
                           size={25}
-                          onClick={() => {
+                          onClick={async () => {
+                            const link = `${config.get("general.appUrl") !== config.get("general.appUrl", true) ? config.get("general.appUrl") : window.location.origin}/share/${share.id}`;
                             if (window.isSecureContext) {
-                              clipboard.copy(
-                                `${config.get("general.appUrl") !== config.get("general.appUrl", true) ? config.get("general.appUrl") : window.location.origin}/share/${share.id}`,
-                              );
-                              toast.success(t("common.notify.copied-link"));
+                              const ok = await copyToClipboard(link);
+                              if (ok) toast.success(t("common.notify.copied-link"));
+                              else toast.error(t("common.notify.copy-error"));
                             } else {
                               showShareLinkModal(
                                 modals,

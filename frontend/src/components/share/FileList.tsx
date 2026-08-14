@@ -7,7 +7,6 @@ import {
   Table,
   TextInput,
 } from "@mantine/core";
-import { useClipboard } from "@mantine/hooks";
 import { useModals } from "@mantine/modals";
 import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { TbDownload, TbEye, TbLink, TbClipboard } from "react-icons/tb";
@@ -19,6 +18,7 @@ import { FileMetaData, FileRecord } from "../../types/File.type";
 import { Share } from "../../types/share.type";
 import { byteToHumanSizeString } from "../../utils/fileSize.util";
 import toast from "../../utils/toast.util";
+import { copyToClipboard } from "../../utils/clipboard.util";
 import TableSortIcon, { TableSort } from "../core/SortIcon";
 import showFilePreviewModal from "./modals/showFilePreviewModal";
 import showErrorModal from "./showErrorModal";
@@ -51,7 +51,6 @@ const FileList = ({
   isLoading: boolean;
   recipientId?: string;
 }) => {
-  const clipboard = useClipboard();
   const config = useConfig();
   const modals = useModals();
   const t = useTranslate();
@@ -84,7 +83,7 @@ const FileList = ({
     }
   };
 
-  const copyFileLink = (file: FileMetaData | FileRecord) => {
+  const copyFileLink = async (file: FileMetaData | FileRecord) => {
     const recipientQuery = recipientId
       ? `?recipient=${encodeURIComponent(recipientId)}`
       : "";
@@ -93,8 +92,9 @@ const FileList = ({
     }/files/${file.id}${recipientQuery}`;
 
     if (window.isSecureContext) {
-      clipboard.copy(link);
-      toast.success(t("common.notify.copied-link"));
+      const ok = await copyToClipboard(link);
+      if (ok) toast.success(t("common.notify.copied-link"));
+      else toast.error(t("common.notify.copy-error"));
     } else {
       modals.openModal({
         title: t("share.modal.file-link"),
@@ -151,23 +151,30 @@ const FileList = ({
                             color="blue"
                             variant="light"
                             size={25}
-                            onClick={() => {
-                              api
-                                .get(
+                            onClick={async () => {
+                              try {
+                                const res = await api.get(
                                   `/shares/${share.id}/files/${file.id}?download=false`,
-                                )
-                                .then((res) => {
-                                  if (window.isSecureContext) {
-                                    clipboard.copy(res.data);
+                                );
+                                if (window.isSecureContext) {
+                                  const ok = await copyToClipboard(res.data);
+                                  if (ok) {
                                     toast.success(
                                       t("share.notify.copied-contents"),
                                     );
                                   } else {
                                     toast.error(
-                                      t("share.notify.copy-not-supported"),
+                                      t("common.notify.copy-error"),
                                     );
                                   }
-                                });
+                                } else {
+                                  toast.error(
+                                    t("share.notify.copy-not-supported"),
+                                  );
+                                }
+                              } catch (err) {
+                                toast.axiosError(err);
+                              }
                             }}
                           >
                             <TbClipboard />
