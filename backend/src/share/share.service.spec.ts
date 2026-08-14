@@ -17,8 +17,10 @@ import { PrismaService } from "../prisma/prisma.service";
 import { ConfigService } from "../config/config.service";
 import { SystemService } from "../system/system.service";
 import { FileService } from "../file/file.service";
+import { LocalFileService } from "../file/local.service";
 import { DownloadLogService } from "../download-log/download-log.service";
 import { EmailService } from "../email/email.service";
+import { CertificateService } from "../certificate/certificate.service";
 import { MetricsService } from "../metrics/metrics.service";
 import { I18nService } from "nestjs-i18n";
 import { createZipStream } from "../common/zip";
@@ -168,9 +170,15 @@ describe("ShareArchiveService", () => {
       createWriteStream: jest.fn(),
       createReadStream: jest.fn(() => new PassThrough()),
     } as unknown as jest.Mocked<IUploadRepository>;
+    const localFileService = {
+      resolveDiskPath: jest.fn(
+        async (_shareId: string, fileId: string) => `s1/${fileId}`,
+      ),
+    } as unknown as LocalFileService;
     service = new ShareArchiveService(
       prisma as unknown as PrismaService,
       config as unknown as ConfigService,
+      localFileService,
       repository,
     );
     writeStream = new EventEmitter() as EventEmitter & { destroy: jest.Mock };
@@ -259,6 +267,7 @@ describe("ShareService", () => {
         delete: jest.Mock;
       };
       shareSecurity: { delete: jest.Mock; upsert: jest.Mock };
+      file: { count: jest.Mock };
     };
     fileService: { deleteAllFiles: jest.Mock };
     emailService: { sendMailToShareRecipients: jest.Mock };
@@ -278,6 +287,10 @@ describe("ShareService", () => {
     tokenService: { generateShareToken: jest.Mock; verifyShareToken: jest.Mock };
     limitService: { checkShareSizeLimit: jest.Mock };
     config: { getBoolean: jest.Mock; getNumber: jest.Mock };
+    certificateService: {
+      generateCertificate: jest.Mock;
+      embedCertificateInVideo: jest.Mock;
+    };
     metrics: { incSharesCreated: jest.Mock };
     service: ShareService;
   };
@@ -296,6 +309,7 @@ describe("ShareService", () => {
           delete: jest.fn(),
         },
         shareSecurity: { delete: jest.fn(), upsert: jest.fn() },
+        file: { count: jest.fn() },
       },
       fileService: { deleteAllFiles: jest.fn() },
       emailService: { sendMailToShareRecipients: jest.fn() },
@@ -320,6 +334,14 @@ describe("ShareService", () => {
       },
       limitService: { checkShareSizeLimit: jest.fn() },
       config: { getBoolean: jest.fn(), getNumber: jest.fn() },
+      certificateService: {
+        generateCertificate: jest.fn().mockResolvedValue({
+          relativePath: "s1/f1.certificado.pdf",
+          hash: "abc123",
+        }),
+        embedCertificateInVideo: jest.fn().mockResolvedValue(undefined),
+        sha256OfShareFile: jest.fn().mockResolvedValue("sha-abc"),
+      },
       metrics: { incSharesCreated: jest.fn() },
     } as unknown as Mocks;
 
@@ -336,6 +358,7 @@ describe("ShareService", () => {
       mocks.tokenService as unknown as ShareTokenService,
       mocks.limitService as unknown as ShareLimitService,
       mocks.config as unknown as ConfigService,
+      mocks.certificateService as unknown as CertificateService,
       mocks.metrics as unknown as MetricsService,
     );
 
@@ -527,13 +550,17 @@ describe("ShareService", () => {
       prisma.share.findUnique.mockResolvedValue(
         makeShare({
           uploadLocked: false,
-          files: [{ id: "f1" }, { id: "f2" }],
+          files: [
+            { id: "f1", name: "a.mp4" },
+            { id: "f2", name: "b.pdf" },
+          ],
           recipients: [{ id: "r1", email: "a@x.com" }],
           security: { password: "hash", maxViews: 5, maxDownloads: 3 },
         }),
       );
       archiveService.createZip.mockResolvedValue(undefined);
       emailService.sendMailToShareRecipients.mockResolvedValue(undefined);
+      prisma.file.count.mockResolvedValue(2);
       prisma.share.update.mockResolvedValue(
         makeShare({
           uploadLocked: true,
@@ -550,15 +577,34 @@ describe("ShareService", () => {
       expect(result.maxDownloads).toBe(3);
     });
 
-    it("não gera zip com um único arquivo", async () => {
+    it("gera zip quando o certificado é gerado para um único arquivo", async () => {
       const { service, prisma, archiveService } = makeService();
       prisma.share.findUnique.mockResolvedValue(
         makeShare({
           uploadLocked: false,
-          files: [{ id: "f1" }],
+          files: [{ id: "f1", name: "a.mp4" }],
           recipients: [],
         }),
       );
+      archiveService.createZip.mockResolvedValue(undefined);
+      prisma.file.count.mockResolvedValue(2);
+      prisma.share.update.mockResolvedValue(makeShare({ uploadLocked: true }));
+
+      await service.complete("s1");
+
+      expect(archiveService.createZip).toHaveBeenCalledWith("s1");
+    });
+
+    it("não gera zip com um único arquivo sem certificado", async () => {
+      const { service, prisma, archiveService } = makeService();
+      prisma.share.findUnique.mockResolvedValue(
+        makeShare({
+          uploadLocked: false,
+          files: [{ id: "f1", name: "a.mp4" }],
+          recipients: [],
+        }),
+      );
+      prisma.file.count.mockResolvedValue(1);
       prisma.share.update.mockResolvedValue(makeShare({ uploadLocked: true }));
 
       await service.complete("s1");

@@ -33,12 +33,31 @@ describe("JwtGuard", () => {
     mockCanActivate.mockReset();
   });
 
-  it("allows public routes without touching the passport strategy", async () => {
+  it("allows public routes even when the passport strategy rejects (optional auth)", async () => {
     reflector.getAllAndOverride = jest.fn().mockReturnValue(true);
+    mockCanActivate.mockRejectedValue(new Error("no token"));
     const guard = new JwtGuard(reflector);
 
     await expect(guard.canActivate(makeContext())).resolves.toBe(true);
-    expect(mockCanActivate).not.toHaveBeenCalled();
+    expect(mockCanActivate).toHaveBeenCalled();
+  });
+
+  it("populates the user on public routes when a valid token is present", async () => {
+    reflector.getAllAndOverride = jest.fn().mockReturnValue(true);
+    mockCanActivate.mockResolvedValue(true);
+    const req = { user: { id: "user-123" } };
+    const guard = new JwtGuard(reflector);
+
+    await expect(guard.canActivate(makeContext(req))).resolves.toBe(true);
+    expect(mockCanActivate).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows public routes without a token (guest access)", async () => {
+    reflector.getAllAndOverride = jest.fn().mockReturnValue(true);
+    mockCanActivate.mockRejectedValue(new UnauthorizedException());
+    const guard = new JwtGuard(reflector);
+
+    await expect(guard.canActivate(makeContext())).resolves.toBe(true);
   });
 
   it("authenticates a valid token and stamps the user id on the context", async () => {

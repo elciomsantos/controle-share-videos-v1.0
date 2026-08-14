@@ -82,6 +82,8 @@ COPY --from=frontend-builder /opt/app/frontend/public/img /tmp/img
 # =============================================================================
 FROM node:24-alpine AS backend-runner
 ENV NODE_ENV=production
+# ffmpeg: embute o certificado (PDF/hash) como metadados inseparáveis do vídeo
+RUN apk add --no-cache ffmpeg
 # Non-root user
 RUN addgroup -g 1001 -S appgroup && \
     adduser -u 1001 -S appuser -G appgroup
@@ -107,7 +109,7 @@ ENV NODE_ENV=docker
 # residual cache in /root/.npm is dropped from the final image.
 RUN apk update --no-cache && \
     apk upgrade --no-cache && \
-    apk add --no-cache curl caddy su-exec openssl && \
+    apk add --no-cache curl caddy su-exec openssl ffmpeg && \
     npm cache clean --force && \
     rm -rf /var/cache/apk/* /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /root/.npm
 

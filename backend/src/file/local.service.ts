@@ -275,6 +275,34 @@ export class LocalFileService {
     return true;
   }
 
+  /**
+   * Resolve o caminho real no disco de um arquivo do share. Certificados são
+   * salvos como {videoId}.certificado.pdf (o registro de File do certificado
+   * tem id próprio), então o caminho é derivado do nome do arquivo. O mesmo
+   * vale para vídeos assinados, salvos como {videoId}.assinado.{ext}.
+   */
+  async resolveDiskPath(
+    shareId: string,
+    fileId: string,
+    fileName: string,
+  ): Promise<string> {
+    if (!fileName.endsWith(".certificado.pdf") && !/\.assinado\.\w+$/.test(fileName))
+      return `${shareId}/${fileId}`;
+
+    const originalName = fileName
+      .replace(/\.certificado\.pdf$/, "")
+      .replace(/\.assinado\.\w+$/, "");
+    const original = await this.prisma.file.findFirst({
+      where: { shareId, name: originalName },
+    });
+    const suffix = fileName.includes(".certificado.pdf")
+      ? ".certificado.pdf"
+      : fileName.slice(fileName.lastIndexOf(".assinado."));
+    return original
+      ? `${shareId}/${original.id}${suffix}`
+      : `${shareId}/${fileId}`;
+  }
+
   async get(
     shareId: string,
     fileId: string,
@@ -287,7 +315,13 @@ export class LocalFileService {
     if (!fileMetaData)
       throw new NotFoundException(this.i18n.t("file.notFound"));
 
-    const file = this.repository.createReadStream(`${shareId}/${fileId}`, {
+    const diskPath = await this.resolveDiskPath(
+      shareId,
+      fileId,
+      fileMetaData.name,
+    );
+
+    const file = this.repository.createReadStream(diskPath, {
       // PERF-06: HTTP Range (206) support — serve only the requested byte
       // window for video previews / seek or partial-download resumption.
       start: range?.start,
@@ -349,7 +383,12 @@ export class LocalFileService {
     if (!fileMetaData)
       throw new NotFoundException(this.i18n.t("file.notFound"));
 
-    await this.repository.unlinkIfExists(`${shareId}/${fileId}`);
+    const diskPath = await this.resolveDiskPath(
+      shareId,
+      fileId,
+      fileMetaData.name,
+    );
+    await this.repository.unlinkIfExists(diskPath);
 
     await this.prisma.file.delete({ where: { id: fileId } });
   }
@@ -390,6 +429,84 @@ export class LocalFileService {
 
     const entryName = fileMetaData.name || fileId;
 
+    const diskPath = await this.resolveDiskPath(
+      shareId,
+      fileId,
+      fileMetaData.name,
+    );
+
+    return this.zipEntries([
+      { entryName, diskPath },
+    ]);
+  }
+
+  /**
+   * Verifica se existe um certificado PDF para o arquivo (pelo nome base).
+   */
+  async hasCertificate(shareId: string, fileId: string): Promise<boolean> {
+    const fileMetaData = await this.prisma.file.findUnique({
+      where: { id: fileId },
+      select: { name: true },
+    });
+
+    if (!fileMetaData) return false;
+
+    const baseName = fileMetaData.name.replace(/\.assinado\.\w+$/, "");
+    const certFile = await this.prisma.file.findFirst({
+      where: { shareId, name: `${baseName}.certificado.pdf` },
+      select: { id: true },
+    });
+
+    return !!certFile;
+  }
+
+  /**
+   * Baixa um vídeo individual já com o certificado PDF correspondente anexado
+   * no mesmo zip. O certificado é localizado pelo nome base do arquivo
+   * (removendo sufixos ".assinado.<ext>"), para que vídeos originais e vídeos
+   * assinados recebam o mesmo PDF de autenticidade.
+   */
+  async getVideoWithCertificateZip(
+    shareId: string,
+    fileId: string,
+  ): Promise<Readable> {
+    const fileMetaData = await this.prisma.file.findUnique({
+      where: { id: fileId },
+    });
+
+    if (!fileMetaData)
+      throw new NotFoundException(this.i18n.t("file.notFound"));
+
+    const diskPath = await this.resolveDiskPath(
+      shareId,
+      fileId,
+      fileMetaData.name,
+    );
+
+    const baseName = fileMetaData.name.replace(/\.assinado\.\w+$/, "");
+    const certFile = await this.prisma.file.findFirst({
+      where: { shareId, name: `${baseName}.certificado.pdf` },
+    });
+
+    const entries: { entryName: string; diskPath: string }[] = [
+      { entryName: fileMetaData.name, diskPath },
+    ];
+
+    if (certFile) {
+      const certDiskPath = await this.resolveDiskPath(
+        shareId,
+        certFile.id,
+        certFile.name,
+      );
+      entries.push({ entryName: certFile.name, diskPath: certDiskPath });
+    }
+
+    return this.zipEntries(entries);
+  }
+
+  private async zipEntries(
+    entries: { entryName: string; diskPath: string }[],
+  ): Promise<Readable> {
     return new Promise((resolve, reject) => {
       createZipStream({
         zlib: { level: this.config.getNumber("share.zipCompressionLevel") },
@@ -414,10 +531,12 @@ export class LocalFileService {
             this.logger.warn(`zip warning: ${String(err)}`);
           });
 
-          archive.append(
-            this.repository.createReadStream(`${shareId}/${fileId}`),
-            { name: entryName },
-          );
+          for (const { entryName, diskPath } of entries) {
+            archive.append(
+              this.repository.createReadStream(diskPath),
+              { name: entryName },
+            );
+          }
 
           // Resolve immediately after finalize: the Nest StreamableFile will
           // pipe and consume the archive, which in turn emits its "end" event.

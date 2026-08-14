@@ -2,6 +2,8 @@ import { Inject, Injectable, Logger } from "@nestjs/common";
 import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import PDFDocument from "pdfkit";
 import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
@@ -32,8 +34,16 @@ export interface CertificateSystemInfo {
   storagePath: string;
 }
 
+export interface CertificateEmbedResult {
+  originalHash: string;
+  finalHash?: string;
+  finalSize?: number;
+}
+
 const FONT = "Helvetica";
 const FONT_BOLD = "Helvetica-Bold";
+
+const execFileAsync = promisify(execFile);
 
 @Injectable()
 export class CertificateService {
@@ -49,13 +59,106 @@ export class CertificateService {
    * Gera o hash SHA-256 de um arquivo no diretório do share.
    */
   async sha256OfShareFile(shareId: string, fileId: string): Promise<string> {
+    return this.sha256OfRelativePath(`${shareId}/${fileId}`);
+  }
+
+  private async sha256OfRelativePath(relativePath: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const hash = crypto.createHash("sha256");
-      const stream = this.repository.createReadStream(`${shareId}/${fileId}`);
+      const stream = this.repository.createReadStream(relativePath);
       stream.on("error", reject);
       stream.on("data", (chunk) => hash.update(chunk));
       stream.on("end", () => resolve(hash.digest("hex")));
     });
+  }
+
+  /**
+   * Embutir os metadados de certificação no próprio vídeo (in place): o
+   * arquivo original é substituído pela versão com metadados, mantendo o mesmo
+   * File record e o mesmo nome. O hash original (pré-embutido) e o hash final
+   * (compartilhado) são retornados para constarem no certificado PDF.
+   * Para arquivos que não são vídeo, não faz nada (retorna undefined).
+   */
+  async embedCertificateInVideo(
+    shareId: string,
+    fileId: string,
+    fileName: string,
+    share: CertificateShareInfo,
+  ): Promise<CertificateEmbedResult | undefined> {
+    const originalHash = await this.sha256OfShareFile(shareId, fileId);
+    const ext = path.extname(fileName).toLowerCase();
+
+    const videoExtensions = new Set([
+      ".mp4", ".mov", ".m4v", ".mkv", ".webm", ".avi", ".flv", ".wmv",
+    ]);
+    if (!videoExtensions.has(ext)) {
+      this.logger.warn(
+        `extensão "${ext}" do arquivo ${fileId} não suporta assinatura de vídeo; pulando`,
+      );
+      return undefined;
+    }
+
+    const verificationCode = crypto
+      .createHash("sha256")
+      .update(`${share.id}:${fileId}`)
+      .digest("hex")
+      .slice(0, 36);
+    const formattedCode = `${verificationCode.slice(0, 8)}-${verificationCode.slice(8, 12)}-${verificationCode.slice(12, 16)}-${verificationCode.slice(16, 20)}-${verificationCode.slice(20, 32)}`;
+
+    const comment = [
+      "Certificado de autenticidade",
+      `Código: ${formattedCode}`,
+      `Hash SHA-256 (original): ${originalHash}`,
+      `Share: ${share.id}`,
+      `Proprietário: ${share.ownerName ?? "—"}`,
+      `E-mail: ${share.ownerEmail ?? "—"}`,
+    ].join(" | ");
+
+    const srcRelPath = `${shareId}/${fileId}`;
+    const outRelPath = `${shareId}/${fileId}.signed-tmp${ext}`;
+    const srcPath = path.join(DATA_DIRECTORY, "uploads/shares", srcRelPath);
+    const outPath = path.join(DATA_DIRECTORY, "uploads/shares", outRelPath);
+
+    const baseArgs = [
+      "-y",
+      "-i", srcPath,
+      "-metadata", `title=${fileName} (certificado)`,
+      "-metadata", `comment=${comment}`,
+      "-c", "copy",
+    ];
+
+    try {
+      await execFileAsync("ffmpeg", [...baseArgs, outPath], {
+        timeout: 120_000,
+      });
+      this.logger.log(
+        `Vídeo ${shareId}/${fileId} com metadados embutidos (${outRelPath})`,
+      );
+    } catch (metaErr) {
+      this.logger.error(
+        `ffmpeg falhou ao embutir metadados no vídeo ${shareId}/${fileId}: ${
+          metaErr instanceof Error ? metaErr.message : String(metaErr)
+        }`,
+      );
+      await fs.promises.rm(outPath, { force: true }).catch(() => undefined);
+      return undefined;
+    }
+
+    const stats = await fs.promises.stat(outPath);
+    const finalHash = await this.sha256OfRelativePath(outRelPath);
+
+    // Substitui o arquivo original pela versão com metadados (mesmo File record).
+    await this.repository.moveFile(outRelPath, srcRelPath);
+
+    await this.prisma.file.update({
+      where: { id: fileId },
+      data: { size: stats.size },
+    });
+
+    this.logger.log(
+      `Vídeo ${shareId}/${fileId} certificado com metadados embutidos (${srcRelPath})`,
+    );
+    return { originalHash, finalHash, finalSize: stats.size };
   }
 
   private roundRect(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, r: number) {
@@ -83,8 +186,15 @@ export class CertificateService {
     file: CertificateFileInfo,
     share: CertificateShareInfo,
     system: CertificateSystemInfo,
+    hashes?: { originalHash?: string; finalHash?: string },
+    finalSizeBytes?: number | bigint,
   ): Promise<{ relativePath: string; hash: string }> {
-    const hash = await this.sha256OfShareFile(shareId, fileId);
+    const originalHash =
+      hashes?.originalHash ?? (await this.sha256OfShareFile(shareId, fileId));
+    const finalHash =
+      hashes?.finalHash && hashes.finalHash !== originalHash
+        ? hashes.finalHash
+        : undefined;
     const relativePath = `${shareId}/${fileId}.certificado.pdf`;
     const absPath = path.join(DATA_DIRECTORY, "uploads/shares", relativePath);
 
@@ -118,22 +228,47 @@ export class CertificateService {
     // Faixa superior decorativa
     doc.rect(0, 0, pageWidth, 18).fill("#2E8B8B");
 
-    const centerX = pageWidth / 2;
+    // Layout de página única: margens laterais de 50pt e largura de conteúdo
+    // centralizada na página. Centralizar via x=centerX com width desloca o
+    // texto para a direita (o PDFKit centraliza DENTRO de [x, x+width]).
+    const margin = 50;
+    const contentWidth = pageWidth - margin * 2;
+
+    const centerText = (
+      text: string,
+      y: number,
+      options: { fontSize?: number; color?: string; bold?: boolean } = {},
+    ) => {
+      const { fontSize = 10, color = "#333333", bold = false } = options;
+      doc
+        .font(bold ? FONT_BOLD : FONT)
+        .fillColor(color)
+        .fontSize(fontSize)
+        .text(text, margin, y, {
+          align: "center",
+          width: contentWidth,
+          lineBreak: false,
+        });
+    };
 
     // Título
-    doc.font(FONT_BOLD).fillColor("#333333").fontSize(24);
-    doc.text("Certificado de assinaturas", centerX, 70, { align: "center", width: pageWidth - 100 });
+    centerText("Certificado de assinaturas", 58, { fontSize: 22, bold: true });
 
     // Data/hora de geração
-    doc.font(FONT).fillColor("#555555").fontSize(11);
-    doc.text(`Arquivo gerado em ${nowLabel}`, centerX, 108, { align: "center", width: pageWidth - 100 });
-    doc.fontSize(9).fillColor("#777777");
-    doc.text("Datas e horários baseados em horário de Brasília - Brasil", centerX, 124, { align: "center", width: pageWidth - 100 });
+    centerText(`Arquivo gerado em ${nowLabel}`, 88, { fontSize: 10, color: "#555555" });
+    centerText("Datas e horários baseados em horário de Brasília - Brasil", 101, {
+      fontSize: 9,
+      color: "#777777",
+    });
 
     // Nome do documento em destaque
-    this.roundRect(doc, 60, 150, pageWidth - 120, 46, 8);
-    doc.fillColor("#2E8B8B").fontSize(16).font(FONT_BOLD);
-    doc.text(file.fileName, centerX, 162, { align: "center", width: pageWidth - 140 });
+    this.roundRect(doc, 60, 126, pageWidth - 120, 38, 8);
+    doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(14);
+    doc.text(file.fileName, margin, 135, {
+      align: "center",
+      width: contentWidth,
+      lineBreak: false,
+    });
 
     // Código de verificação (UUID baseado no hash)
     const verificationCode = crypto
@@ -143,15 +278,15 @@ export class CertificateService {
       .slice(0, 36);
     const formattedCode = `${verificationCode.slice(0, 8)}-${verificationCode.slice(8, 12)}-${verificationCode.slice(12, 16)}-${verificationCode.slice(16, 20)}-${verificationCode.slice(20, 32)}`;
 
-    doc.fillColor("#333333").font(FONT).fontSize(10);
-    doc.text(`Código para verificação: ${formattedCode}`, centerX, 220, { align: "center", width: pageWidth - 100 });
+    centerText(`Código para verificação: ${formattedCode}`, 178, { fontSize: 10 });
 
     // Cartão de metadados
-    let y = 255;
+    let y = 208;
+    const rowHeight = 18;
     const drawLabel = (label: string, value: string) => {
       doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(10).text(label, 65, y);
-      doc.fillColor("#333333").font(FONT).fontSize(10).text(value, 175, y);
-      y += 20;
+      doc.fillColor("#333333").font(FONT).fontSize(10).text(value, 175, y, { lineBreak: false });
+      y += rowHeight;
     };
 
     drawLabel("Documento ID:", share.id);
@@ -160,21 +295,25 @@ export class CertificateService {
     drawLabel("E-mail:", share.ownerEmail ?? "—");
     drawLabel("Criado em:", shareCreated);
     drawLabel("Tamanho:", `${file.sizeBytes.toString()} bytes`);
+    if (finalSizeBytes && finalSizeBytes.toString() !== file.sizeBytes.toString()) {
+      drawLabel("Tamanho final:", `${finalSizeBytes.toString()} bytes`);
+    }
     drawLabel("Extensão:", file.extension || "—");
     drawLabel("Tipo (MIME):", file.mimeType || "—");
     drawLabel("Descrição:", file.description ?? "—");
 
     // Hash SHA-256
-    const hashLabel = "Hash SHA-256:";
-    doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(10).text(hashLabel, 65, y);
-    doc.fillColor("#333333").font(FONT).fontSize(10).text(hash, 175, y);
+    drawLabel("Hash SHA-256:", originalHash);
+    if (finalHash) {
+      drawLabel("Hash final (pós-metadados):", finalHash);
+    }
 
     // Dados do sistema
-    y += 46;
+    y += 30;
     doc.rect(55, y, pageWidth - 110, 2).fillColor("#CCCCCC").fill();
-    y += 14;
-    doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(12).text("Dados do sistema", 65, y);
-    y += 22;
+    y += 12;
+    doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(11).text("Dados do sistema", 65, y);
+    y += 20;
 
     const sysEntries: [string, string][] = [
       ["Hostname:", system.hostname],
@@ -185,35 +324,39 @@ export class CertificateService {
     ];
     for (const [label, value] of sysEntries) {
       doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(10).text(label, 65, y);
-      doc.fillColor("#333333").font(FONT).fontSize(10).text(value, 175, y);
-      y += 20;
+      doc.fillColor("#333333").font(FONT).fontSize(10).text(value, 175, y, { lineBreak: false });
+      y += rowHeight;
     }
 
     // Eventos do documento
-    y += 16;
+    y += 12;
     doc.rect(55, y, pageWidth - 110, 2).fillColor("#CCCCCC").fill();
-    y += 14;
-    doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(12).text("Eventos do documento", 65, y);
-    y += 24;
+    y += 12;
+    doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(11).text("Eventos do documento", 65, y);
+    y += 20;
 
     const eventEntries: [string, string][] = [
       ["DOCUMENTO CRIADO", `${shareCreated}\n${share.ownerName ?? "—"} (${share.ownerEmail ?? "—"})`],
       ["ARQUIVO ENVIADO", `${nowLabel}\nSistema (upload finalizado)`],
-      ["CERTIFICADO GERADO", `${nowLabel}\nHash SHA-256: ${hash.slice(0, 20)}…`],
+      ["CERTIFICADO GERADO", `${nowLabel}\nHash SHA-256: ${originalHash.slice(0, 20)}…`],
     ];
     for (const [event, details] of eventEntries) {
       doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(10).text(event, 65, y);
-      doc.fillColor("#333333").font(FONT).fontSize(9).text(details, 230, y);
-      y += 48;
+      doc.fillColor("#333333").font(FONT).fontSize(9).text(details, 230, y, {
+        lineBreak: true,
+        width: pageWidth - 230 - margin,
+      });
+      y += 40;
     }
 
-    // Rodapé
+    // Rodapé fixo no fim da página. y deve respeitar o limite de texto do
+    // PDFKit (pageHeight - margin), senão ele cria uma nova página.
     doc.fillColor("#999999").fontSize(8).font(FONT);
     doc.text(
       `Gerado por ${system.hostname} em ${nowLabel} — horário de Brasília - Brasil`,
-      centerX,
-      pageHeight - 50,
-      { align: "center", width: pageWidth - 100 },
+      margin,
+      pageHeight - margin - 12,
+      { align: "center", width: contentWidth, lineBreak: false },
     );
 
     doc.end();
@@ -234,7 +377,7 @@ export class CertificateService {
       },
     });
 
-    this.logger.log(`Certificado gerado para share ${shareId} arquivo ${fileId} (hash ${hash.slice(0, 12)}…)`);
-    return { relativePath, hash };
+    this.logger.log(`Certificado gerado para share ${shareId} arquivo ${fileId} (hash ${originalHash.slice(0, 12)}…)`);
+    return { relativePath, hash: originalHash };
   }
 }

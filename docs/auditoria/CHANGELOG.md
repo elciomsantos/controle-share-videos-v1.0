@@ -7,6 +7,57 @@
 
 ---
 
+## v1.2 — Certificado de Assinaturas SHA-256 (2026-08-14)
+
+### Resumo
+Nova funcionalidade: geração automática de certificado PDF (replicando `docs/certificado.pdf`) para cada arquivo ao concluir um share. Documentação completa em `docs/CERTIFICADO.md`.
+
+### Implementado
+- `CertificateService` (`backend/src/certificate/`) — gera PDF A4 com `pdfkit`, calcula o hash SHA-256 do arquivo original e salva em `{shareId}/{fileId}.certificado.pdf`.
+- `CertificateModule` — provido/exportado e importado no `ShareModule`.
+- `ShareService.complete()` — dispara `generateCertificates()` (fire-and-forget, falha não bloqueia a conclusão).
+- Registro do certificado como `File` no banco — **aparece na listagem do share** e é baixável pelo endpoint padrão.
+- `LocalFileService.resolveDiskPath()` — resolve o caminho real do certificado no disco para download/remoção.
+- Datas localizadas em pt-BR (`dayjs().locale("pt-br")`).
+
+### Correções de bugs (v1.2.1)
+- **`LocalFileService.getFileZip()`** usava `${shareId}/${fileId}` em vez de `resolveDiskPath()`. Para arquivos com subpasta no nome (ex.: `video/arquivo.mp4.certificado.pdf`), o download retornava 404/erro porque o id do certificado não existe no disco. Corrigido para usar `resolveDiskPath()`.
+- **`JwtGuard.canActivate()`** retornava `true` para rotas `@Public()` **sem popular `request.user`**. O `ShareSecurityGuard` nunca reconhecia admin (`allowAdminAccessAllShares`) nem o criador → 403 `share_password_required` em shares com senha. Corrigido com `authenticateOptional()`: popula `request.user` a partir do cookie `access_token` em rotas públicas, sem nunca bloquear visitante anônimo.
+- **Certificado não conta para o limite de downloads** (`FileController.getFile`): o certificado (`*.certificado.pdf`) **ignora o `DownloadLimitGuard` e não incrementa `share.downloads`**. Apenas o vídeo/arquivos originais contam para `maxDownloads`. Regra de negócio: após usar a senha para liberar o acesso, o certificado fica sempre baixável; o bloqueio vale apenas para o vídeo.
+- Remoção de logs de depuração (`[DEBUG] Raw body parser`) em `main.ts`.
+
+### Validado
+- E2E via API: create → upload → complete → certificado listado → download (PDF válido) e visualização (200, `Content-Type: application/pdf`).
+- Fluxo no navegador: página do share carrega para admin logado (200, sem 403), certificado aparece na listagem com visualização funcionando.
+- Hash SHA-256 conferido (arquivo original = certificado).
+- Build, lint e **207 testes unitários verdes** (18 suites).
+
+---
+
+## v1.2.2 — Reformulação do fluxo de certificado (2026-08-14)
+
+### Resumo
+Reformulação para atender `docs/PLANO-CERTIFICADO.md`: um share de upload de 1 vídeo passa a conter **somente o vídeo (com metadados embutidos in-place) + 1 certificado PDF**, sem o artefato intermediário `.assinado`. O certificado registra os hashes **original e final** (pós-metadados) e o tamanho final quando os bytes do vídeo mudam.
+
+### Implementado
+- `CertificateService.embedCertificateInVideo()` — embute o certificado de autenticidade (código/hash/share/proprietário) **diretamente no vídeo** via `ffmpeg -metadata` (in-place, substituindo o arquivo original, sem criar `.assinado`). Retorna `{ originalHash, finalHash, finalSize }`.
+- `CertificateService.generateCertificate()` — agora aceita `hashes` (original/final) e `finalSizeBytes`; o PDF exibe **"Hash final (pós-metadados)"** e **"Tamanho final"** quando diferem do original.
+- `ShareService.generateCertificates()` — chama `embedCertificateInVideo` primeiro e gera o certificado **uma única vez** com ambos os hashes; pula artefatos já gerados (`.certificado.pdf`, `.assinado.`).
+- **BUG-FIX "baixar tudo"** (`ShareService.complete()`): a contagem `share.files.length` era do share antes da geração de certificados. Agora recontar via `prisma.file.count` após `generateCertificates()` → para 1 vídeo o zip agora é gerado e o "Transferir tudo" funciona.
+
+### Correções de layout do PDF (v1.2.2)
+- **Cabeçalho desalinhado**: `doc.text(text, centerX, y, { align: "center", width })` centraliza **dentro de `[x, x+width]`**, começando em `centerX` o texto terminava fora da página. Centralizado com `x = margin` e `width = pageWidth - 100` (offset +0 do centro da página).
+- **4 páginas → 1 página**: conteúdo terminava em y≈855 (além do limite de texto do PDFKit). Layout compactado (linhas 18pt, seções de sistema/eventos enxutas, rodapé em `pageHeight - margin - 12`).
+
+### Validado
+- E2E via API + UI: share com 1 vídeo lista **2 arquivos** (vídeo + certificado, sem `.assinado`).
+- Vídeo com metadados embutidos (ffprobe confirma comment com hash original).
+- Certificado PDF com **1 página**, cabeçalho centralizado (offset +0) e ambos os hashes (`Hash SHA-256` original / `Hash final (pós-metadados)`) + `Tamanho` / `Tamanho final`.
+- "Transferir tudo" (UI) baixa `archive.zip` válido com vídeo+PDF; download individual do vídeo gera zip vídeo+PDF.
+- Build, lint e **208 testes unitários verdes** (18 suites).
+
+---
+
 ## v1.0 — Auditoria de Prontidão para Produção (2026-08-10)
 
 ### Resumo

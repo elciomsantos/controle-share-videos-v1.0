@@ -142,14 +142,24 @@ export class ShareService {
         this.i18n.t("share.completionRequiresFile"),
       );
 
-    // Gera o certificado (PDF com hash SHA-256) para cada arquivo do share.
-    // Falha silenciosa para não bloquear a conclusão se a geração falhar.
-    void this.generateCertificates(id).catch((err: unknown) => {
+    // Gera os certificados (PDF com hash SHA-256) e assina os vídeos antes do
+    // zip, para que o archive.zip já contenha os artefatos gerados. Falhas
+    // são logadas e não bloqueiam a conclusão.
+    try {
+      await this.generateCertificates(id);
+    } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(`Falha ao gerar certificado do share ${id}: ${message}`);
-    });
+    }
 
-    if (share.files.length > 1)
+    // BUG-FIX: recarrega a lista de arquivos após generateCertificates. A
+    // contagem anterior (share.files) refletia o share antes da geração de
+    // certificados/assinatura — para um share com um único vídeo não eram
+    // gerados o zip nem o isZipReady, quebrando o "baixar tudo".
+    const filesAfterCert = await this.prisma.file.count({
+      where: { shareId: id },
+    });
+    if (filesAfterCert > 1)
       this.archiveService.createZip(id)
         .then(() =>
           this.prisma.share.update({ where: { id }, data: { isZipReady: true } }),
@@ -235,6 +245,14 @@ export class ShareService {
     const systemInfo = this.getSystemInfo();
 
     for (const file of share.files) {
+      // Skip artefatos já gerados (certificados PDF e vídeos assinados)
+      if (
+        file.name.endsWith(".certificado.pdf") ||
+        file.name.includes(".assinado.")
+      ) {
+        continue;
+      }
+
       const certFile: CertificateFileInfo = {
         fileName: file.name,
         sizeBytes: file.size,
@@ -245,12 +263,33 @@ export class ShareService {
         description: file.description ?? null,
       };
 
+      // Assina o vídeo in-place: embute os metadados (hash/código/origem) no
+      // próprio arquivo, substituindo o original. Retorna os hashes original
+      // (pré-embutido) e final (compartilhado), além do tamanho final.
+      const embedResult =
+        await this.certificateService.embedCertificateInVideo(
+          share.id,
+          file.id,
+          file.name,
+          shareInfo,
+        );
+
+      // Gera o certificado uma única vez, registrando ambos os hashes quando
+      // a assinatura alterou os bytes do vídeo (original != final). O PDF do
+      // certificado acompanha o vídeo na origem (mesma pasta do share).
       await this.certificateService.generateCertificate(
         share.id,
         file.id,
         certFile,
         shareInfo,
         systemInfo,
+        embedResult
+          ? {
+              originalHash: embedResult.originalHash,
+              finalHash: embedResult.finalHash,
+            }
+          : undefined,
+        embedResult?.finalSize,
       );
     }
   }

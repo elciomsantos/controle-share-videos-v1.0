@@ -4,6 +4,10 @@ http://localhost:3333
 
 docker compose --env-file .env.local -f docker-compose.local.yml up --build
 
+## Certificado de Assinaturas (SHA-256)
+
+Documentação da funcionalidade: `docs/CERTIFICADO.md`
+
 
 ````markdown
 # Manual de Limpeza do Docker (Windows PowerShell e Linux)

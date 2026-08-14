@@ -85,6 +85,17 @@ export class FileService {
     return this.localFileService.getFileZip(shareId, fileId);
   }
 
+  async getVideoWithCertificateZip(
+    shareId: string,
+    fileId: string,
+  ): Promise<Readable> {
+    return this.localFileService.getVideoWithCertificateZip(shareId, fileId);
+  }
+
+  async hasCertificate(shareId: string, fileId: string): Promise<boolean> {
+    return this.localFileService.hasCertificate(shareId, fileId);
+  }
+
   async notifyRecipientDownload(
     shareId: string,
     fileName: string,

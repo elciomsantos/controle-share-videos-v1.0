@@ -46,14 +46,10 @@ export async function configureApp(
   // Body parsers - raw for octet-stream (file uploads) MUST come before JSON
   app.use((req: Request, res: Response, next: NextFunction) => {
     const chunkSize = config.getNumber("share.chunkSize");
-    console.log('[DEBUG] Raw body parser middleware, content-type:', req.headers['content-type']);
     bodyParser.raw({
       type: "application/octet-stream",
       limit: chunkSize,
-    })(req, res, (err) => {
-      console.log('[DEBUG] Raw body parser done, body type:', typeof req.body, 'isBuffer:', Buffer.isBuffer(req.body));
-      next(err);
-    });
+    })(req, res, next);
   });
 
   // JSON parser for all other requests

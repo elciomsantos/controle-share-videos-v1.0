@@ -178,7 +178,11 @@ export class FileController {
   ) {
     const isDownload = download === "true";
 
-    if (isDownload) {
+    const fileMetaData = await this.fileService.getFileMetaData(shareId, fileId);
+    const isCertificate = fileMetaData.name.endsWith(".certificado.pdf");
+    const isSignedVideo = /\.assinado\.\w+$/.test(fileMetaData.name);
+
+    if (isDownload && !isCertificate) {
       await this.downloadLimitGuard.canActivate({
         switchToHttp: () => ({
           getRequest: () => req,
@@ -189,6 +193,47 @@ export class FileController {
     const file = await this.fileService.get(shareId, fileId);
 
     const hasFolderPath = file.metaData.name.includes("/");
+
+    // Vídeos originais: baixa junto o certificado PDF (autenticidade).
+    const isOriginalVideo = !isCertificate && !isSignedVideo && !hasFolderPath;
+    const hasCert = await this.fileService.hasCertificate(shareId, fileId);
+    if (isDownload && isOriginalVideo && hasCert) {
+      const zipStream = await this.fileService.getVideoWithCertificateZip(
+        shareId,
+        fileId,
+      );
+      res.set({
+        "Content-Type": "application/zip",
+        "Content-Security-Policy": "sandbox",
+        "Cache-Control": "no-store",
+        "Content-Disposition": contentDisposition(
+          `${fileMetaData.name}.zip`,
+        ),
+      });
+
+      const user = (req as AuthenticatedRequest).user;
+      void this.downloadLogService.record({
+        shareId,
+        fileId,
+        fileName: file.metaData.name,
+        fileSize: file.metaData.size,
+        userId: user?.id,
+        username: user?.username,
+        ip: getRequestIp(req),
+        userAgent: getRequestUserAgent(req),
+        success: true,
+        event: "download",
+      });
+      void this.downloadLimitGuard.incrementDownloadCount(shareId);
+      void this.fileService.notifyRecipientDownload(
+        shareId,
+        file.metaData.name,
+        getValidRecipientId(recipientId),
+      );
+
+      return new StreamableFile(zipStream);
+    }
+
     if (isDownload && hasFolderPath) {
       const zipStream = await this.fileService.getFileZip(shareId, fileId);
       const zipBaseName =
@@ -213,7 +258,9 @@ export class FileController {
         success: true,
         event: "download",
       });
-      void this.downloadLimitGuard.incrementDownloadCount(shareId);
+      if (!isCertificate) {
+        void this.downloadLimitGuard.incrementDownloadCount(shareId);
+      }
       void this.fileService.notifyRecipientDownload(
         shareId,
         file.metaData.name,
@@ -288,7 +335,9 @@ export class FileController {
         success: true,
         event: "download",
       });
-      void this.downloadLimitGuard.incrementDownloadCount(shareId);
+      if (!isCertificate) {
+        void this.downloadLimitGuard.incrementDownloadCount(shareId);
+      }
       void this.fileService.notifyRecipientDownload(
         shareId,
         file.metaData.name,

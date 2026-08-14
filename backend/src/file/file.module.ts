@@ -19,6 +19,6 @@ import { DownloadLimitGuard } from "./guard/downloadLimit.guard";
   ],
   controllers: [FileController],
   providers: [FileService, LocalFileService, DownloadLimitGuard],
-  exports: [FileService],
+  exports: [FileService, LocalFileService],
 })
 export class FileModule {}

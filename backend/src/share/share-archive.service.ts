@@ -8,6 +8,7 @@ import { ConfigService } from "../config/config.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { createZipStream } from "../common/zip";
 import { toBytes } from "./dto/share.dto";
+import { LocalFileService } from "../file/local.service";
 import {
   IUploadRepository,
   type IUploadRepository as IUploadRepositoryType,
@@ -18,6 +19,7 @@ export class ShareArchiveService {
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
+    private localFileService: LocalFileService,
     @Inject(IUploadRepository)
     private readonly repository: IUploadRepositoryType,
   ) {}
@@ -53,6 +55,13 @@ export class ShareArchiveService {
       zlib: { level: this.config.getNumber("share.zipCompressionLevel") },
     });
     const writeStream = this.repository.createWriteStream(`${shareId}/archive.zip`);
+
+    // IMPORTANTE: conecta o pipe ANTES dos appends. Se o pipe for conectado
+    // depois do loop, o bombGuard (archive.on("data")) coloca o stream em
+    // flowing mode durante os awaits de leitura dos arquivos, e os primeiros
+    // chunks são emitidos (e descartados) antes do pipe existir — corrompendo
+    // o início do zip (o primeiro local file header é perdido).
+    archive.pipe(writeStream);
 
     // Abort the stream if the consumed output exceeds totalSize * MAX_RATIO,
     // which would indicate a zip-bomb attempt (small input -> huge output).
@@ -107,15 +116,19 @@ export class ShareArchiveService {
     for (let i = 0; i < files.length; i += BATCH_SIZE) {
       const batch = files.slice(i, i + BATCH_SIZE);
       for (const file of batch) {
+        const diskPath = await this.localFileService.resolveDiskPath(
+          shareId,
+          file.id,
+          file.name,
+        );
         archive.append(
-          this.repository.createReadStream(`${shareId}/${file.id}`),
+          this.repository.createReadStream(diskPath),
           { name: file.name },
         );
       }
       await waitIfBackpressure();
     }
 
-    archive.pipe(writeStream);
     await archive.finalize();
     await bombGuard;
   }

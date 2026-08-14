@@ -17,6 +17,10 @@ export class JwtGuard extends AuthGuard("jwt") {
     ]);
 
     if (isPublic) {
+      // Rota pública: autenticação é opcional. Tenta popular request.user a
+      // partir do cookie access_token, mas nunca bloqueia o acesso se não
+      // houver token válido (ex.: visitante anônimo de um share).
+      await this.authenticateOptional(context);
       return true;
     }
 
@@ -37,6 +41,25 @@ export class JwtGuard extends AuthGuard("jwt") {
       // to anonymous access — only routes explicitly marked @Public() bypass
       // authentication.
       throw new UnauthorizedException();
+    }
+  }
+
+  /**
+   * Autenticação opcional para rotas públicas: popula request.user se houver
+   * um access_token válido no cookie, ignorando qualquer falha (token ausente,
+   * expirado ou inválido). Permite que guards de share reconheçam admin/dono
+   * mesmo em endpoints públicos (ex.: download de arquivo protegido por senha).
+   */
+  private async authenticateOptional(context: ExecutionContext): Promise<void> {
+    try {
+      await super.canActivate(context);
+      const req = context
+        .switchToHttp()
+        .getRequest<{ user?: { id?: string } }>();
+      const userId = req?.user?.id;
+      if (userId) enhanceRequestContext({ userId });
+    } catch {
+      // ignore: guest access
     }
   }
 }
