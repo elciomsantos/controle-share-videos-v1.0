@@ -41,6 +41,7 @@ O sistema garante:
 * Configuração do link para acesso ao vídeo com limite de visualização e downloads com senha que deve ter um gerador automático, disponibilizado pelo admin junto com o link. (**Padronizado** — ver `docs/Padronizacao-02-link-seguro.md`)
 * Controle sobre o tamanho dos arquivos podendo aumentar e diminuir via painel de administração. (**Padronizado** — já implementado via `share.maxSize` editável em `/admin/config?category=share` + override por usuário `shareSizeLimit`; ver `docs/Padronizacao-05-limite-tamanho.md`)
 * Criação de log dos dados do vídeo como: tamanho, data criação, data download, identificação do usuário (IP, data, hora) que baixou o vídeo, etc. (**Padronizado** — ver `docs/Padronizacao-03-auditoria-logs.md`)
+* **Certificado de assinaturas SHA-256 automático** — ao concluir um compartilhamento (`POST /api/shares/:id/complete`), o sistema gera automaticamente um certificado PDF para cada arquivo do share, contendo o hash SHA-256 do arquivo, metadados do arquivo/share/sistema, linha de eventos e datas em **horário de Brasília (UTC-3)**. O certificado é salvo junto ao arquivo, registrado como `File` no banco (aparece na listagem e é baixável pelo mesmo endpoint) e seus metadados podem ser embutidos no vídeo via `ffmpeg -metadata` (in-place). Documentação completa em `docs/CERTIFICADO.md`.
 * O usuário que recebe o link deve ter acesso somente ao seu vídeo, sem visualização da tela inicial do sistema (criar uma tela exclusiva de visualização quando acessado pelo link). (**Padronizado** — tela exclusiva sem Header/Footer, ver `docs/Padronizacao-02-link-seguro.md` §3.3)
 * Apenas o usuário admin será criado via painel; os demais usuários serão criados pelo admin e, ao acessarem o sistema pela primeira vez, poderão trocar a senha criada por uma nova (**Padronizado** — roles `admin`/`operador`/`auditor`, flag `passwordMustChange` com Guard, troca obrigatória no primeiro acesso, ver `docs/Padronizacao-04-usuarios-permissoes.md`)
 * Popups de erro honestos em três camadas — inline field error (credenciais inválidas, link em uso), modal bloqueante (conta não ativada, rate-limit 429 com countdown, falha de servidor, `completeShare` 500, erro de rede em `isShareIdAvailable`) e toast persistente agrupado para falha de chunks ("Falha ao enviar N. Toque para detalhes"). Helper reutilizável `showBlockingErrorModal` em `components/core/`. Corrigidas lacunas i18n (PT-BR). (**Padronizado** — ver `docs/Padronizacao-10-popups-erro.md`)
@@ -81,6 +82,7 @@ O sistema é responsável por:
 * **PWA** (Service Worker via Serwist, instalação offline-first)
 * **Monitoramento de saúde** (`/api/health`, `/api/system/info` admin)
 * **Limpeza automática** via cron jobs (shares expirados, arquivos temporários, tokens, usuários não ativados)
+* **Certificado de assinaturas SHA-256** gerado automaticamente por arquivo ao concluir um share (PDF com hash, metadados, eventos e datas em horário de Brasília; metadados embutidos no vídeo quando aplicável)
 
 ---
 
@@ -180,6 +182,9 @@ Permissões:
 * **Nodemailer** emails transacionais (SMTP configurável, templates PT-BR)
 * **Sharp** processamento de imagens (thumbnails, validação)
 * **Archiver** criação de ZIPs para download em lote
+* **pdfkit** geração do certificado PDF (SHA-256) por arquivo ao concluir o share
+* **ffmpeg** (binário externo, empacotado na imagem) embutir metadados de autenticidade no vídeo (`-metadata`, in-place) e re-cálculo do hash final
+* **dayjs** + plugins `utc`/`timezone` (fuso de Brasília `America/Sao_Paulo`) datas do certificado
 * **nanoid** / **uuid** geração de tokens seguros
 * **dayjs** manipulação de datas
 * **check-disk-space** monitoramento de espaço em disco
@@ -312,7 +317,8 @@ Essa separação facilita manutenção, testes, evolução independente e deploy
 6. Backend: move chunks → arquivo final, calcula hash, atualiza `File` model. (ClamAV scan removido do fluxo — ver `docs/Padronizacao-07-clamav.md`)
 7. Se scan limpo: share fica `uploadLocked=true`, disponível para download
 8. Se infectado: share + arquivos deletados, log de auditoria
-9. Operação registrada em `DownloadLog` (tipo upload) e audit trail
+9. **Geração automática de certificado** (`ShareService.generateCertificates()` — fire-and-forget, falha apenas logada e não bloqueia a conclusão): para cada arquivo do share, o `CertificateService` calcula o hash SHA-256, opcionalmente embute metadados de autenticidade no vídeo via `ffmpeg -metadata` (in-place), gera o PDF A4 (pdfkit) com hash/metadados/share/sistema/eventos e datas em horário de Brasília (UTC-3), salva em `data/uploads/shares/{shareId}/{fileId}.certificado.pdf` e registra um `File` no banco (aparece na listagem e é baixável). Documentação completa em `docs/CERTIFICADO.md`.
+10. Operação registrada em `DownloadLog` (tipo upload) e audit trail
 
 ## 9.2 Compartilhamento (Link Seguro)
 
@@ -350,6 +356,65 @@ Essa separação facilita manutenção, testes, evolução independente e deploy
 5. **Privacidade:** IPs e User-Agents guardados íntegros (uso interno restrito). Sem e-mail do destinatário anônimo.
 6. **Retenção:** atualmente indefinida (crescimento contínuo) — recomendado follow-up com cron de limpeza (fora deste tema).
 7. **Exposição ao admin:** endpoint `GET /api/admin/download-logs` filtrável por `shareId`, `userId`, `event`, `success`, `from`, `to`, com paginação (`?page=&limit=`), e **tela admin nova** em `/admin/download-logs` (criada por este tema) com tabela, filtros e item de menu lateral "Logs / Download logs" (restrito a admin).
+
+## 9.5 Certificado de Assinaturas SHA-256
+
+> **Implementado** — ver `docs/CERTIFICADO.md` para detalhes técnicos completos.
+
+### 9.5.1 Visão geral
+
+Ao **concluir um compartilhamento** (`POST /api/shares/:id/complete`), o sistema gera automaticamente um **certificado PDF** para **cada arquivo** do share. O certificado:
+
+* Contém o **hash SHA-256** do arquivo (integridade) e, quando o vídeo recebe metadados embutidos, registra também o **hash final (pós-metadados)** e o **tamanho final**.
+* Reúne metadados do arquivo (nome, tamanho, extensão, MIME, descrição), dados do share (id, criador, e-mail, data de criação), dados do sistema (hostname, IP, plataforma, Node.js, caminho de armazenamento) e **linha de eventos** (DOCUMENTO CRIADO, ARQUIVO ENVIADO, CERTIFICADO GERADO).
+* Exibe todas as datas em **horário de Brasília (UTC-3)** independente do fuso do servidor (que roda em UTC), via `dayjs().tz("America/Sao_Paulo")`.
+* É **salvo no mesmo diretório do share** junto ao arquivo (`data/uploads/shares/{shareId}/{fileId}.certificado.pdf`).
+* É **registrado como um `File`** no banco → aparece na listagem do share e é **baixável pelo mesmo endpoint** dos demais arquivos.
+* Quando aplicável, os **metadados de autenticidade** (código/hash/share/proprietário) são **embutidos no próprio vídeo** via `ffmpeg -metadata` (in-place, sem criar artefato `.assinado`).
+
+### 9.5.2 Fluxo de geração
+
+```
+[Usuário] ── POST /api/shares/:shareId/complete ──► ShareService.complete()
+    │  valida: share existe, uploadLocked, tem ≥1 arquivo
+    │
+    └──► generateCertificates(shareId)   [fire-and-forget, não bloqueia]
+            │  para cada file do share:
+            └──► CertificateService.generateCertificate(...)
+                    ├── 1. (opcional) embedCertificateInVideo() — ffmpeg -metadata in-place
+                    │      retorna { originalHash, finalHash, finalSize }
+                    ├── 2. sha256OfShareFile() → hash SHA-256 do arquivo
+                    ├── 3. monta PDF A4 (pdfkit) com hash/metadados/eventos
+                    │      datas em dayjs().tz("America/Sao_Paulo")
+                    ├── 4. salva em {shareId}/{fileId}.certificado.pdf
+                    └── 5. registra File no banco (listagem + download)
+```
+
+> A geração é **assíncrona e tolerante a falhas**: um erro é apenas logado (`Falha ao gerar certificado do share {id}`) e **não impede** a conclusão do share.
+
+### 9.5.3 Componentes
+
+| Arquivo | Responsabilidade |
+|---|---|
+| `backend/src/certificate/certificate.service.ts` | Geração do PDF (pdfkit), cálculo do SHA-256, `embedCertificateInVideo` (ffmpeg), formatação em fuso de Brasília (dayjs + utc/timezone), persistência no storage e registro no banco |
+| `backend/src/certificate/certificate.module.ts` | Módulo NestJS que provê e exporta `CertificateService` |
+| `backend/src/share/share.service.ts` | Orquestra a geração no `complete()` (`generateCertificates` fire-and-forget com `void`+`catch`) |
+| `backend/src/share/share.module.ts` | Importa `CertificateModule` |
+| `backend/src/file/local.service.ts` | Download/remoção — `resolveDiskPath()` resolve o caminho real do certificado no disco |
+
+### 9.5.4 Acesso e proteção
+
+O certificado é servido pelo **mesmo endpoint** dos demais arquivos (`GET /api/shares/:shareId/files/:fileId`), herdando a **mesma proteção** (`SharePublicAccess` + `DownloadLimitGuard`). Exceção: o certificado (`*.certificado.pdf`) **não conta para o limite de downloads** e **não incrementa `share.downloads`** — apenas o vídeo/arquivo original conta para `maxDownloads`.
+
+### 9.5.5 Ciclo de vida
+
+O certificado vive **junto com o share**:
+
+* **Deleção do share** (`DELETE /api/shares/:id` e job de expiração): `deleteAllFiles()` → `removeShareDirectory()` remove o diretório inteiro, incluindo o certificado.
+* **Deleção de arquivo individual**: `remove()` usa `resolveDiskPath()` para apagar também o certificado correspondente.
+* **Zip do share**: o certificado participa da compactação como qualquer arquivo.
+
+Não há job específico de expiração de certificados — o ciclo de vida é o do share.
 
 ---
 
