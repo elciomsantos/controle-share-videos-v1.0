@@ -6,6 +6,7 @@ import {
   writeBlobToRelativeDirectory,
   listDirectoryFiles,
 } from "./fileSystem.util";
+import { FileSystemDirectoryHandle } from "./fileSystem.util";
 
 const makeWritable = () => {
   const written: Blob[] = [];
@@ -19,7 +20,9 @@ const makeWritable = () => {
   return writable as any;
 };
 
-const makeDirHandle = (overrides: Record<string, any> = {}) => {
+const makeDirHandle = (
+  overrides: Record<string, any> = {},
+): FileSystemDirectoryHandle => {
   const dirs = new Map<string, any>();
   const files = new Map<string, any>();
   return {
@@ -43,7 +46,9 @@ const makeDirHandle = (overrides: Record<string, any> = {}) => {
       if (!dirs.has(name)) dirs.set(name, makeDirHandle());
       return dirs.get(name);
     }),
-    requestPermission: vi.fn(async () => "granted"),
+    requestPermission: vi.fn(
+      async (): Promise<"granted" | "denied" | "prompt"> => "granted",
+    ),
     ...overrides,
   };
 };
