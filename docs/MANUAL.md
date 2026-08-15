@@ -1,16 +1,10 @@
 # rodar testes local
 
-http://localhost:3333
 
 docker compose --env-file .env.local -f docker-compose.local.yml up --build
 
-## Certificado de Assinaturas (SHA-256)
-
-Documentação da funcionalidade: `docs/CERTIFICADO.md`
-
 
 ````markdown
-# Manual de Limpeza do Docker (Windows PowerShell e Linux)
 
 ## Objetivo
 
@@ -27,12 +21,6 @@ Este manual reúne os principais comandos para administrar, limpar e recuperar e
 ### Linux
 
 ```bash
-docker ps -a
-```
-
-### Windows PowerShell
-
-```powershell
 docker ps -a
 ```
 
@@ -56,12 +44,6 @@ ou
 docker image ls
 ```
 
-### Windows PowerShell
-
-```powershell
-docker images
-```
-
 **Descrição**
 
 Mostra todas as imagens armazenadas localmente.
@@ -73,12 +55,6 @@ Mostra todas as imagens armazenadas localmente.
 ### Linux
 
 ```bash
-docker volume ls
-```
-
-### Windows PowerShell
-
-```powershell
 docker volume ls
 ```
 
@@ -96,12 +72,6 @@ Exibe todos os volumes persistentes.
 docker network ls
 ```
 
-### Windows PowerShell
-
-```powershell
-docker network ls
-```
-
 **Descrição**
 
 Mostra todas as redes Docker.
@@ -113,12 +83,6 @@ Mostra todas as redes Docker.
 ### Linux
 
 ```bash
-docker system df
-```
-
-### Windows PowerShell
-
-```powershell
 docker system df
 ```
 
@@ -141,12 +105,6 @@ Exibe o espaço utilizado por:
 docker stop $(docker ps -aq)
 ```
 
-## Windows PowerShell
-
-```powershell
-docker stop (docker ps -aq)
-```
-
 ---
 
 # 3. Remover todos os contêineres
@@ -162,19 +120,6 @@ docker rm $(docker ps -aq)
 ```bash
 docker rm -f $(docker ps -aq)
 ```
-
-## Windows PowerShell
-
-```powershell
-docker rm (docker ps -aq)
-```
-
-### Forçando a remoção
-
-```powershell
-docker rm -f (docker ps -aq)
-```
-
 ---
 
 # 4. Remover todas as imagens
@@ -183,13 +128,6 @@ docker rm -f (docker ps -aq)
 
 ```bash
 docker rmi -f $(docker images -aq)
-```
-
-## Windows PowerShell
-
-```powershell
-docker rmi -f (docker images -aq)
-```
 
 ---
 
@@ -199,12 +137,6 @@ docker rmi -f (docker images -aq)
 
 ```bash
 docker volume rm $(docker volume ls -q)
-```
-
-## Windows PowerShell
-
-```powershell
-docker volume rm (docker volume ls -q)
 ```
 
 > **Atenção:** Todos os dados persistentes serão apagados.
@@ -218,13 +150,6 @@ docker volume rm (docker volume ls -q)
 ```bash
 docker network prune -f
 ```
-
-## Windows PowerShell
-
-```powershell
-docker network prune -f
-```
-
 ---
 
 # 7. Limpar cache de build
@@ -244,14 +169,6 @@ docker builder prune -f
 Remover todo o cache:
 
 ```bash
-docker builder prune -a -f
-```
-
-## Windows PowerShell
-
-```powershell
-docker builder prune
-docker builder prune -f
 docker builder prune -a -f
 ```
 
@@ -282,16 +199,6 @@ Sem confirmação:
 ```bash
 docker system prune -a --volumes -f
 ```
-
-## Windows PowerShell
-
-```powershell
-docker system prune
-docker system prune -a
-docker system prune -a --volumes
-docker system prune -a --volumes -f
-```
-
 ---
 
 # 9. Limpeza completa
@@ -311,25 +218,6 @@ docker network prune -f
 
 docker builder prune -a -f
 ```
-
----
-
-## Windows PowerShell
-
-```powershell
-docker stop (docker ps -aq)
-
-docker rm -f (docker ps -aq)
-
-docker rmi -f (docker images -aq)
-
-docker volume rm (docker volume ls -q)
-
-docker network prune -f
-
-docker builder prune -a -f
-```
-
 ---
 
 # 10. Conferir se a limpeza funcionou
@@ -343,17 +231,6 @@ docker volume ls
 docker network ls
 docker system df
 ```
-
-## Windows PowerShell
-
-```powershell
-docker ps -a
-docker images
-docker volume ls
-docker network ls
-docker system df
-```
-
 ---
 
 # 11. Comandos de inspeção
@@ -363,11 +240,6 @@ docker system df
 ```bash
 docker info
 ```
-
-```powershell
-docker info
-```
-
 ---
 
 ## Versão do Docker
@@ -375,11 +247,6 @@ docker info
 ```bash
 docker version
 ```
-
-```powershell
-docker version
-```
-
 ---
 
 ## Ver logs de um contêiner
@@ -387,11 +254,6 @@ docker version
 ```bash
 docker logs NOME_DO_CONTAINER
 ```
-
-```powershell
-docker logs NOME_DO_CONTAINER
-```
-
 ---
 
 ## Entrar em um contêiner
@@ -406,43 +268,16 @@ Caso a imagem não possua o Bash:
 docker exec -it NOME_DO_CONTAINER sh
 ```
 
-No PowerShell:
-
-```powershell
-docker exec -it NOME_DO_CONTAINER powershell
-```
-
-ou
-
-```powershell
-docker exec -it NOME_DO_CONTAINER cmd
-```
-
----
-
 ## Listar apenas contêineres em execução
 
 ```bash
 docker ps
 ```
-
-```powershell
-docker ps
-```
-
----
-
 ## Listar apenas IDs dos contêineres
 
 ```bash
 docker ps -aq
 ```
-
-```powershell
-docker ps -aq
-```
-
----
 
 # Resumo
 
@@ -477,4 +312,3 @@ docker compose -f docker-compose.local.yml --env-file .env.local up -d --build
 
 
 
-opencode -s ses_005204235ffeKnAuinpToU6Nmt

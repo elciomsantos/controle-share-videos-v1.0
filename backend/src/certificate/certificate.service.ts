@@ -226,7 +226,7 @@ export class CertificateService {
       layout: "portrait",
       margin: 50,
       info: {
-        Title: `Certificado de assinaturas - ${file.fileName}`,
+        Title: `Certificado de Autenticidade - ${file.fileName}`,
         Author: share.ownerName ?? "Sistema",
         Subject: "Certificado de arquivo enviado",
       },
@@ -319,7 +319,7 @@ export class CertificateService {
     });
 
     // Título
-    centerText("Certificado de assinaturas", 104, { fontSize: 22, bold: true });
+    centerText("Certificado de Autenticidade", 104, { fontSize: 22, bold: true });
 
     // Data/hora de geração
     centerText(`Arquivo gerado em ${nowLabel}`, 132, { fontSize: 10, color: "#555555" });

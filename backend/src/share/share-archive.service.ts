@@ -38,18 +38,52 @@ export class ShareArchiveService {
 
     const files = await this.prisma.file.findMany({ where: { shareId } });
 
-    if (files.length > MAX_FILES) {
+    // Distinção entre arquivos enviados (vídeos) e certificados PDF:
+    // - Os vídeos originais temos como rows File, gravadas em disco em
+    //   `{shareId}/{file.id}` com o nome exibido igual a `file.name`.
+    // - Os certificados são PDFs persistidos em disco em
+    //   `{shareId}/{originalFileId}.certificado.pdf` e TAMBÉM registrados
+    //   como rows File (com `name` terminando em `.certificado.pdf`), mas o
+    //   `id` dessas rows NÃO corresponde ao caminho no disco — ele aponta
+    //   para a row do vídeo original. Portanto filtramos as rows de
+    //   certificado e incluímos os PDFs listando o diretório do share.
+    const isCertificateRow = (name: string) => name.endsWith(".certificado.pdf");
+    const videoFiles = files.filter((f) => !isCertificateRow(f.name));
+
+    // Lista os PDFs de certificado que realmente existem no disco, para
+    // incluí-los no zip ao lado dos vídeos originais.
+    const dirEntries = await this.repository.listDirectory(shareId);
+    const certificatePdfEntries = dirEntries.filter((entry) =>
+      entry.endsWith(".certificado.pdf"),
+    );
+
+    // Soma os tamanhos dos PDFs de certificado aos limites de proteção
+    // contra zip-bomb, já que eles também são anexados ao archive.zip.
+    const certificateSizes = await Promise.all(
+      certificatePdfEntries.map((entry) =>
+        this.repository.statFile(`${shareId}/${entry}`).then((s) => s.size),
+      ),
+    );
+    const certificateBytes = certificateSizes.reduce((sum, s) => sum + s, 0);
+
+    const totalEntries = videoFiles.length + certificatePdfEntries.length;
+    if (totalEntries > MAX_FILES) {
       throw new BadRequestException(
         `Share exceeds maximum file count of ${MAX_FILES}`,
       );
     }
 
-    const totalSize = files.reduce((sum, f) => sum + toBytes(f.size), 0);
+    const videoBytes = videoFiles.reduce((sum, f) => sum + toBytes(f.size), 0);
+    const totalSize = videoBytes + certificateBytes;
     if (totalSize > MAX_TOTAL_SIZE) {
       throw new BadRequestException(
         `Share exceeds maximum total size of ${MAX_TOTAL_SIZE} bytes`,
       );
     }
+
+    // Mapa originalFileId -> nome exibido do vídeo, para nomear amigavelmente
+    // os PDFs dos certificados dentro do zip (em vez de usar o UUID do disco).
+    const videoNameById = new Map(videoFiles.map((f) => [f.id, f.name]));
 
     const archive = await createZipStream({
       zlib: { level: this.config.getNumber("share.zipCompressionLevel") },
@@ -113,8 +147,8 @@ export class ShareArchiveService {
       return new Promise<void>((resolve) => ws.once("drain", resolve));
     };
     const BATCH_SIZE = 16;
-    for (let i = 0; i < files.length; i += BATCH_SIZE) {
-      const batch = files.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < videoFiles.length; i += BATCH_SIZE) {
+      const batch = videoFiles.slice(i, i + BATCH_SIZE);
       for (const file of batch) {
         const diskPath = await this.localFileService.resolveDiskPath(
           shareId,
@@ -126,6 +160,21 @@ export class ShareArchiveService {
           { name: file.name },
         );
       }
+      await waitIfBackpressure();
+    }
+
+    // Anexa os PDFs de certificado ao zip, nomeando-os de forma amigável:
+    // `<nomeDoVideo>.certificado.pdf`.  O nome no disco segue o padrão
+    // `<originalFileId>.certificado.pdf`; usamos `originalFileId` para
+    // recuperar o nome do vídeo original via `videoNameById`.
+    for (const entry of certificatePdfEntries) {
+      const originalId = entry.slice(0, -".certificado.pdf".length);
+      const baseName = originalId; // fallback se não houver row correspondente
+      const friendlyName = videoNameById.get(originalId) ?? baseName;
+      archive.append(
+        this.repository.createReadStream(`${shareId}/${entry}`),
+        { name: `${friendlyName}.certificado.pdf` },
+      );
       await waitIfBackpressure();
     }
 

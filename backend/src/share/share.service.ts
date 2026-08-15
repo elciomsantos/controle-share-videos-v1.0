@@ -167,7 +167,7 @@ export class ShareService {
         .catch((err: unknown) => {
           const message = err instanceof Error ? err.message : String(err);
           this.logger.error(
-            `Failed to create zip for share ${id}: ${message}`,
+            `Falha ao gerar certificados/zip do share ${id}: ${message}`,
             err instanceof Error ? err.stack : undefined,
           );
           return this.prisma.share.update({
