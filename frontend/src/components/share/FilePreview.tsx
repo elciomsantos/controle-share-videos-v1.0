@@ -1,4 +1,5 @@
 import {
+  ActionIcon,
   Box,
   Button,
   Center,
@@ -12,6 +13,7 @@ import { modals, useModals } from "@mantine/modals";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { Dispatch, SetStateAction, useEffect, useState } from "react";
+import { TbArrowsMaximize, TbArrowsMinimize } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
 import api from "../../services/api.service";
 import showErrorModal from "./showErrorModal";
@@ -246,6 +248,29 @@ const AudioPreview = () => {
   );
 }
 
+const getFullscreenElement = (): Element | null => {
+  const doc = document as Document & { webkitFullscreenElement?: Element | null };
+  return doc.fullscreenElement || doc.webkitFullscreenElement || null;
+};
+
+const requestFullscreen = (el: HTMLElement): void => {
+  const target = el as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> };
+  if (target.requestFullscreen) {
+    target.requestFullscreen().catch(() => {});
+  } else if (target.webkitRequestFullscreen) {
+    target.webkitRequestFullscreen();
+  }
+};
+
+const exitFullscreen = (): void => {
+  const doc = document as Document & { webkitExitFullscreen?: () => Promise<void> };
+  if (doc.exitFullscreen) {
+    doc.exitFullscreen().catch(() => {});
+  } else if (doc.webkitExitFullscreen) {
+    doc.webkitExitFullscreen();
+  }
+};
+
 const VideoPreview = () => {
   const { shareId, fileId, fileDescription, setIsNotSupported } =
     React.useContext(FilePreviewContext);
@@ -253,12 +278,56 @@ const VideoPreview = () => {
   const showError = useViewLimitModal();
   const recordView = useRecordPlayView(shareId, showError);
   const videoRef = React.useRef<HTMLVideoElement>(null);
+  const wrapperRef = React.useRef<HTMLDivElement>(null);
   const recordingRef = React.useRef(false);
+  const wrapperFullscreenRef = React.useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const t = useTranslate();
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const video = videoRef.current;
+      const wrapper = wrapperRef.current;
+      if (!wrapper) return;
+      const fullscreenElement = getFullscreenElement();
+      const wrapperWasFullscreen = wrapperFullscreenRef.current;
+      wrapperFullscreenRef.current = fullscreenElement === wrapper;
+      setIsFullscreen(fullscreenElement === wrapper);
+      // A tarja de proteção é irmã do <video> e só é exibida enquanto o wrapper
+      // (vídeo + tarja) estiver em fullscreen. Se o navegador colocar o <video>
+      // em fullscreen direto (botão nativo em navegadores sem o CSS de ocultação
+      // ou outro caminho), movemos o fullscreen para o wrapper para manter a
+      // tarja visível. O guard wrapperWasFullscreen evita reentrar em fullscreen
+      // durante a transição de saída (senão o usuário ficaria preso em tela cheia).
+      if (fullscreenElement === video && !wrapperWasFullscreen) {
+        requestFullscreen(wrapper);
+      }
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener(
+        "webkitfullscreenchange",
+        handleFullscreenChange,
+      );
+    };
+  }, []);
+
+  const toggleFullscreen = () => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    if (getFullscreenElement() === wrapper) {
+      exitFullscreen();
+    } else {
+      requestFullscreen(wrapper);
+    }
+  };
+
   if (!allowed) return null;
   return (
-    <Box pos="relative">
+    <Box pos="relative" ref={wrapperRef}>
       <video
         ref={videoRef}
         width="100%"
@@ -283,6 +352,27 @@ const VideoPreview = () => {
           src={`/api/shares/${shareId}/files/${fileId}?download=false`}
         />
       </video>
+      <ActionIcon
+        size="lg"
+        variant="filled"
+        radius="sm"
+        style={{
+          position: "absolute",
+          top: 8,
+          right: 8,
+          zIndex: 10,
+          backgroundColor: "rgba(0, 0, 0, 0.55)",
+          color: "#fff",
+        }}
+        onClick={toggleFullscreen}
+        aria-label={
+          isFullscreen
+            ? t("share.video.fullscreen-exit")
+            : t("share.video.fullscreen-enter")
+        }
+      >
+        {isFullscreen ? <TbArrowsMinimize /> : <TbArrowsMaximize />}
+      </ActionIcon>
       {isPlaying && (
         <Text
           style={{

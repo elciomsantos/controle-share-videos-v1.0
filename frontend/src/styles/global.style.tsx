@@ -14,6 +14,9 @@ const GlobalStyle = () => {
             padding-left: 0.5em;
             padding-right: 0.5em;
           }
+          video::-webkit-media-controls-fullscreen-button {
+            display: none !important;
+          }
         `,
       }}
     />

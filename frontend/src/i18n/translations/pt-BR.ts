@@ -328,6 +328,8 @@ export default {
   "share.error.visitor-limit-exceeded.title": "Limite de visualizações excedido",
   "share.error.visitor-limit-exceeded.description": "O limite de reproduções deste vídeo foi excedido.",
   "share.video.protection-notice": "Vídeo protegido — proibida a cópia ou reprodução não autorizada.",
+  "share.video.fullscreen-enter": "Entrar em tela cheia",
+  "share.video.fullscreen-exit": "Sair da tela cheia",
   "share.error.download-limit-exceeded.title": "Limite de downloads excedido",
   "share.error.download-limit-exceeded.description": "O limite de downloads deste compartilhamento foi excedido.",
   "share.error.removed.title": "Compartilhamento removido",
