@@ -1,4 +1,4 @@
-# Certificado de Assinaturas (SHA-256) — Documentação Técnica
+# Certificado de Autenticidade (SHA-256) — Documentação Técnica
 
 > **Funcionalidade**: Geração automática de certificado PDF para cada arquivo enviado em um compartilhamento.
 > **Status**: Implementado e validado E2E
@@ -10,7 +10,7 @@
 
 Ao **concluir um compartilhamento** (endpoint `POST /api/shares/:id/complete`), o sistema gera automaticamente um **certificado PDF** para **cada arquivo** do share. O certificado:
 
-- Contém o **hash SHA-256** do arquivo original (função de verificação de integridade).
+- Contém o **hash SHA-256** do arquivo original (função de verificação de integridade) — impresso em texto **e em QR Code**.
 - Reúne metadados do arquivo, dados do share, dados do sistema e linha de eventos.
 - É **salvo no mesmo diretório do share**, junto ao arquivo.
 - É **registrado como um arquivo do share** (`File` no banco), portanto **aparece na listagem** da interface e é **baixável pelo mesmo endpoint** dos demais arquivos.
@@ -34,10 +34,12 @@ Ao **concluir um compartilhamento** (endpoint `POST /api/shares/:id/complete`), 
     │       │       ▼
     │       │   para cada file do share:
     │       │       └──► CertificateService.generateCertificate(...)
-    │       │               ├── 1. sha256OfShareFile() → hash SHA-256 do arquivo
-    │       │               ├── 2. monta PDF A4 (pdfkit) replicando o modelo
-    │       │               ├── 3. salva em {shareId}/{fileId}.certificado.pdf
-    │       │               └── 4. registra File no banco
+    │       │               ├── 1. (opcional) embedCertificateInVideo() — ffmpeg in-place
+    │       │               │      retorna { originalHash, finalHash, finalSize }
+    │       │               ├── 2. sha256OfShareFile() → hash SHA-256 do arquivo
+    │       │               ├── 3. monta PDF A4 (pdfkit) com hash + QR Code + metadados
+    │       │               ├── 4. salva em {shareId}/{fileId}.certificado.pdf
+    │       │               └── 5. registra File no banco
     │       │
     │       ├──► archiveService.createZip()  (se >1 arquivo)
     │       └──► notifica destinatários por e-mail
@@ -77,15 +79,18 @@ async generateCertificate(
   file: CertificateFileInfo,     // nome, tamanho, MIME, extensão, descrição
   share: CertificateShareInfo,   // id, createdAt, ownerName, ownerEmail
   system: CertificateSystemInfo, // hostname, ip, platform, nodeVersion, storagePath
+  hashes?: { originalHash?: string; finalHash?: string },  // opcional (vídeos)
+  finalSizeBytes?: number | bigint,                        // opcional (vídeos)
 ): Promise<{ relativePath: string; hash: string }>
 ```
 
 Passos:
 
-1. **Hash SHA-256** — lê o arquivo via `repository.createReadStream(`${shareId}/${fileId}`)` e calcula o digest hex (`sha256OfShareFile`).
-2. **Montagem do PDF** — usa `pdfkit` com página **A4 portrait**, margem 50, fundo `#F5FBF9`, faixa superior `#2E8B8B`, fontes Helvetica/Helvetica-Bold. Código de verificação = UUID derivado do SHA-256 de `share.id + ":" + fileId`.
-3. **Persistência** — grava em `DATA_DIRECTORY/uploads/shares/{shareId}/{fileId}.certificado.pdf`.
-4. **Registro no banco** — cria um registro `File`:
+1. **(Opcional) Metadados no vídeo** — `embedCertificateInVideo()` embute código/hash/share/proprietário via `ffmpeg -metadata` (in-place) e retorna `{ originalHash, finalHash, finalSize }`.
+2. **Hash SHA-256** — lê o arquivo via `repository.createReadStream(`${shareId}/${fileId}`)` e calcula o digest hex (`sha256OfShareFile`).
+3. **Montagem do PDF** — usa `pdfkit` com página **A4 portrait**, margem 50, fundo `#F5FBF9`, faixa superior `#2E8B8B`, fontes Helvetica/Helvetica-Bold. Código de verificação = UUID derivado do SHA-256 de `share.id + ":" + fileId`. **QR Code** do hash SHA-256 gerado com `qrcode` (`QRCode.toBuffer`, centralizado, 70x70pt).
+4. **Persistência** — grava em `DATA_DIRECTORY/uploads/shares/{shareId}/{fileId}.certificado.pdf`.
+5. **Registro no banco** — cria um registro `File`:
 
 ```ts
 await this.prisma.file.create({
@@ -126,10 +131,11 @@ O PDF contém (replicando `docs/certificado.pdf`):
 
 | Seção | Campos |
 |---|---|
-| **Cabeçalho** | Título "Certificado de assinaturas", data/hora de geração (fuso de Brasília) |
+| **Cabeçalho** | Título "Certificado de Autenticidade", data/hora de geração (fuso de Brasília) e legenda "Horário oficial de Brasília (UTC−3)" |
 | **Documento** | Nome do arquivo em destaque, Código para verificação (UUID) |
 | **Metadados** | Documento ID, Arquivo ID, Proprietário, E-mail, Criado em, Tamanho (bytes), Extensão, Tipo (MIME), Descrição |
-| **Integridade** | **Hash SHA-256** do arquivo original |
+| **Integridade** | **Hash SHA-256** do arquivo original (e **Hash final (pós-metadados)** + **Tamanho final** quando o vídeo recebe metadados embutidos) |
+| **QR Code** | **QR Code** com `SHA-256: {hash}` — leitura rápida do hash do arquivo original |
 | **Sistema** | Hostname, IP, Plataforma, Node.js, Caminho de armazenamento |
 | **Eventos** | DOCUMENTO CRIADO, ARQUIVO ENVIADO, CERTIFICADO GERADO (com hash) |
 | **Rodapé** | `Gerado por {hostname} em {data} — horário de Brasília - Brasil` |
@@ -189,7 +195,11 @@ O registro `File` do certificado tem **id próprio** (UUID), diferente do nome d
 
 O mesmo resolver é usado em `remove()`.
 
-### 7.3 Proteção de acesso
+### 7.3 Download do vídeo original baixa junto o certificado
+
+Ao baixar um **vídeo original** (`GET /api/shares/:shareId/files/:fileId` com `download=true`), o backend detecta se existe o certificado correspondente (`hasCertificate()`) e retorna um **ZIP `video.mp4.zip`** contendo o vídeo **+** o certificado PDF (`getVideoWithCertificateZip()`), garantindo que destinatário e criador recebam sempre o par (autenticidade + integridade) junto. O download do certificado em si permanece disponível individualmente.
+
+### 7.4 Proteção de acesso
 
 O certificado é servido pelo **mesmo endpoint** dos demais arquivos:
 
@@ -197,11 +207,10 @@ O certificado é servido pelo **mesmo endpoint** dos demais arquivos:
 GET /api/shares/:shareId/files/:fileId
 ```
 
-Portanto herda a **mesma proteção** (`SharePublicAccess` + `DownloadLimitGuard`):
+Portanto herda a **mesma proteção** (`SharePublicAccess`):
 - Requer senha/token do share quando o share é protegido por senha.
-- Respeita limites de downloads (`maxDownloads`).
 
-> O comportamento de acesso é **idêntico ao do vídeo/arquivo original**.
+> **Exceção (regra de negócio)**: o certificado (`*.certificado.pdf`) **não passa pelo `DownloadLimitGuard`** — após liberar o acesso com a senha, o certificado fica sempre baixável, **não conta para o limite de downloads** e **não incrementa `share.downloads`**. Apenas o vídeo/arquivo original conta para `maxDownloads`.
 
 ---
 
@@ -222,6 +231,7 @@ Não há job específico de expiração de certificados — o ciclo de vida é o
 A funcionalidade não exige configuração adicional. Depende das seguintes dependências já presentes:
 
 - `pdfkit` + `@types/pdfkit` (backend)
+- `qrcode` + `@types/qrcode` (backend) — geração do QR Code com o hash SHA-256
 - `dayjs` com locale `pt-br` + plugins `utc` e `timezone` (fuso de Brasília `America/Sao_Paulo`)
 
 ---
@@ -255,7 +265,7 @@ A funcionalidade não exige configuração adicional. Depende das seguintes depe
 
 - `npm run build` ✅
 - `npm run lint` ✅
-- `npm test` — 161 testes unitários passam (1 suite de e-mail pré-existente falha por ausência de SMTP no ambiente de teste, não relacionada a esta feature).
+- `npm test` — **208 testes unitários passam** (18 suites), incluindo a suíte da funcionalidade de certificado.
 
 ---
 
@@ -347,6 +357,7 @@ Se os três valores forem idênticos, o par vídeo + certificado pertence ao mes
 | **Integridade** (não corrompido) | `sha256sum video.mp4` | resultado vs "Hash final (pós-metadados)" do PDF |
 | **Autenticidade** (vídeo do dono) | `ffprobe ... format_tags=comment` | `comment` do vídeo vs "Código" + "Hash SHA-256" do PDF |
 | **Pertinência** (vínculo share↔vídeo) | `ffprobe ... format_tags=comment` | código no `comment` vs "Código para verificação" do PDF |
+| **Leitura rápida (QR Code)** | leitor de QR Code | QR do PDF contém `SHA-256: {hash}` — deve bater com o "Hash SHA-256" impresso |
 
 ### 13.5 Verificação no Linux/macOS (script)
 

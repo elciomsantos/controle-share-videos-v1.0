@@ -41,7 +41,7 @@ O sistema garante:
 * Configuração do link para acesso ao vídeo com limite de visualização e downloads com senha que deve ter um gerador automático, disponibilizado pelo admin junto com o link. (**Padronizado** — ver `docs/Padronizacao-02-link-seguro.md`)
 * Controle sobre o tamanho dos arquivos podendo aumentar e diminuir via painel de administração. (**Padronizado** — já implementado via `share.maxSize` editável em `/admin/config?category=share` + override por usuário `shareSizeLimit`; ver `docs/Padronizacao-05-limite-tamanho.md`)
 * Criação de log dos dados do vídeo como: tamanho, data criação, data download, identificação do usuário (IP, data, hora) que baixou o vídeo, etc. (**Padronizado** — ver `docs/Padronizacao-03-auditoria-logs.md`)
-* **Certificado de assinaturas SHA-256 automático** — ao concluir um compartilhamento (`POST /api/shares/:id/complete`), o sistema gera automaticamente um certificado PDF para cada arquivo do share, contendo o hash SHA-256 do arquivo, metadados do arquivo/share/sistema, linha de eventos e datas em **horário de Brasília (UTC-3)**. O certificado é salvo junto ao arquivo, registrado como `File` no banco (aparece na listagem e é baixável pelo mesmo endpoint) e seus metadados podem ser embutidos no vídeo via `ffmpeg -metadata` (in-place). Documentação completa em `docs/CERTIFICADO.md`.
+* **Certificado de Autenticidade SHA-256 automático** — ao concluir um compartilhamento (`POST /api/shares/:id/complete`), o sistema gera automaticamente um certificado PDF para cada arquivo do share, contendo o hash SHA-256 do arquivo (também em QR Code), metadados do arquivo/share/sistema, linha de eventos e datas em **horário de Brasília (UTC-3)**. O certificado é salvo junto ao arquivo, registrado como `File` no banco (aparece na listagem e é baixável pelo mesmo endpoint) e seus metadados podem ser embutidos no vídeo via `ffmpeg -metadata` (in-place). Documentação completa em `docs/CERTIFICADO.md`.
 * O usuário que recebe o link deve ter acesso somente ao seu vídeo, sem visualização da tela inicial do sistema (criar uma tela exclusiva de visualização quando acessado pelo link). (**Padronizado** — tela exclusiva sem Header/Footer, ver `docs/Padronizacao-02-link-seguro.md` §3.3)
 * Apenas o usuário admin será criado via painel; os demais usuários serão criados pelo admin e, ao acessarem o sistema pela primeira vez, poderão trocar a senha criada por uma nova (**Padronizado** — roles `admin`/`operador`/`auditor`, flag `passwordMustChange` com Guard, troca obrigatória no primeiro acesso, ver `docs/Padronizacao-04-usuarios-permissoes.md`)
 * Popups de erro honestos em três camadas — inline field error (credenciais inválidas, link em uso), modal bloqueante (conta não ativada, rate-limit 429 com countdown, falha de servidor, `completeShare` 500, erro de rede em `isShareIdAvailable`) e toast persistente agrupado para falha de chunks ("Falha ao enviar N. Toque para detalhes"). Helper reutilizável `showBlockingErrorModal` em `components/core/`. Corrigidas lacunas i18n (PT-BR). (**Padronizado** — ver `docs/Padronizacao-10-popups-erro.md`)
@@ -82,7 +82,7 @@ O sistema é responsável por:
 * **PWA** (Service Worker via Serwist, instalação offline-first)
 * **Monitoramento de saúde** (`/api/health`, `/api/system/info` admin)
 * **Limpeza automática** via cron jobs (shares expirados, arquivos temporários, tokens, usuários não ativados)
-* **Certificado de assinaturas SHA-256** gerado automaticamente por arquivo ao concluir um share (PDF com hash, metadados, eventos e datas em horário de Brasília; metadados embutidos no vídeo quando aplicável)
+* **Certificado de Autenticidade SHA-256** gerado automaticamente por arquivo ao concluir um share (PDF com hash e QR Code, metadados, eventos e datas em horário de Brasília; metadados embutidos no vídeo quando aplicável)
 
 ---
 
@@ -183,6 +183,7 @@ Permissões:
 * **Sharp** processamento de imagens (thumbnails, validação)
 * **Archiver** criação de ZIPs para download em lote
 * **pdfkit** geração do certificado PDF (SHA-256) por arquivo ao concluir o share
+* **qrcode** geração do QR Code com o hash SHA-256 no certificado PDF (backend)
 * **ffmpeg** (binário externo, empacotado na imagem) embutir metadados de autenticidade no vídeo (`-metadata`, in-place) e re-cálculo do hash final
 * **dayjs** + plugins `utc`/`timezone` (fuso de Brasília `America/Sao_Paulo`) datas do certificado
 * **nanoid** / **uuid** geração de tokens seguros
@@ -365,7 +366,7 @@ Essa separação facilita manutenção, testes, evolução independente e deploy
 
 Ao **concluir um compartilhamento** (`POST /api/shares/:id/complete`), o sistema gera automaticamente um **certificado PDF** para **cada arquivo** do share. O certificado:
 
-* Contém o **hash SHA-256** do arquivo (integridade) e, quando o vídeo recebe metadados embutidos, registra também o **hash final (pós-metadados)** e o **tamanho final**.
+* Contém o **hash SHA-256** do arquivo (integridade) — impresso em texto **e em QR Code** (`qrcode`, conteúdo `SHA-256: {hash}`) — e, quando o vídeo recebe metadados embutidos, registra também o **hash final (pós-metadados)** e o **tamanho final**.
 * Reúne metadados do arquivo (nome, tamanho, extensão, MIME, descrição), dados do share (id, criador, e-mail, data de criação), dados do sistema (hostname, IP, plataforma, Node.js, caminho de armazenamento) e **linha de eventos** (DOCUMENTO CRIADO, ARQUIVO ENVIADO, CERTIFICADO GERADO).
 * Exibe todas as datas em **horário de Brasília (UTC-3)** independente do fuso do servidor (que roda em UTC), via `dayjs().tz("America/Sao_Paulo")`.
 * É **salvo no mesmo diretório do share** junto ao arquivo (`data/uploads/shares/{shareId}/{fileId}.certificado.pdf`).
@@ -406,7 +407,7 @@ Ao **concluir um compartilhamento** (`POST /api/shares/:id/complete`), o sistema
 
 ### 9.5.4 Acesso e proteção
 
-O certificado é servido pelo **mesmo endpoint** dos demais arquivos (`GET /api/shares/:shareId/files/:fileId`), herdando a **mesma proteção** (`SharePublicAccess` + `DownloadLimitGuard`). Exceção: o certificado (`*.certificado.pdf`) **não conta para o limite de downloads** e **não incrementa `share.downloads`** — apenas o vídeo/arquivo original conta para `maxDownloads`.
+O certificado é servido pelo **mesmo endpoint** dos demais arquivos (`GET /api/shares/:shareId/files/:fileId`), herdando a proteção de acesso (`SharePublicAccess` — exige token/senha do share quando protegido). Exceção (regra de negócio): o certificado (`*.certificado.pdf`) **não passa pelo `DownloadLimitGuard`** — **não conta para o limite de downloads** e **não incrementa `share.downloads`**; apenas o vídeo/arquivo original conta para `maxDownloads`. Adicionalmente, o download do **vídeo original** baixa um ZIP contendo o vídeo **+** seu certificado (`getVideoWithCertificateZip()`).
 
 ### 9.5.5 Ciclo de vida
 
@@ -580,4 +581,4 @@ Os próximos documentos detalham:
 
 ---
 
-*Documento gerado a partir da análise do código-fonte em `main` (Jul/2026). Atualizado em 2026-07-26 para refletir Temas 1–5, 10, 11 executados e Tema 7 rejeitado (sem implementação de código) — ver `docs/Padronizacao.md`.*
+*Documento gerado a partir da análise do código-fonte em `main` (Jul/2026). Atualizado em 2026-08-15 para refletir os Temas 1–5, 10, 11 executados, o Tema 7 rejeitado (sem implementação de código) e o certificado de autenticidade (v1.2.x) — ver `docs/Padronizacao.md` e `docs/CERTIFICADO.md`.*

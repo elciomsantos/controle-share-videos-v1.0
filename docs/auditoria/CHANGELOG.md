@@ -96,6 +96,41 @@ Duas correções pontuais: (1) a tarja de segurança do preview de vídeo passa 
 
 ---
 
+## v1.2.4 — QR Code no certificado + correção do ZIP e autenticidade (2026-08-15)
+
+### Resumo
+Adiciona um **QR Code** com o hash SHA-256 do arquivo no certificado PDF (leitura rápida da integridade sem decifrar o hash impresso) e corrige a geração do ZIP ("Transferir tudo") para incluir os certificados, além de alinhar o título do PDF à finalidade de autenticidade.
+
+### Implementado
+- `CertificateService` (`backend/src/certificate/certificate.service.ts`)
+  - **QR Code**: gera o QR com conteúdo `SHA-256: {originalHash}` via `qrcode` (`QRCode.toBuffer`, 200px, margin 2, centralizado, 70x70pt) posicionado entre os eventos e o rodapé.
+  - **Título do PDF**: alterado de "Certificado de assinaturas" para **"Certificado de Autenticidade"** (tanto no PDF quanto no metadata `info.Title`).
+  - Legenda sob a data de geração: **"Horário oficial de Brasília (UTC−3)"** (reforço do fuso já aplicado em v1.2.3).
+- `ShareArchiveService.getFileZip()` (`backend/src/share/share-archive.service.ts`)
+  - **BUG-FIX**: o ZIP do share era gerado apenas com as rows `File` do banco — os certificados (`*.certificado.pdf`), cujo `id` da row não corresponde ao caminho no disco (`{originalFileId}.certificado.pdf`), ficavam **fora do archive.zip**. Agora o serviço lista o diretório do share (`listDirectory`), detecta os PDFs de certificado, soma seus tamanhos à proteção contra zip-bomb (limite de arquivos/bytes) e os anexa com nome amigável `<nomeDoVideo>.certificado.pdf`.
+- `ShareService.complete()` — mensagem de erro de zip ajustada (PT-BR).
+- `docs/MANUAL.md` — limpeza de conteúdo (removidas seções duplicadas de PowerShell; mantido o manual de limpeza do Docker).
+
+### Correções de CI (PR `fix/...`)
+- Backend: mock de `listDirectory` adicionado ao `ShareArchiveService` nos testes (18 suites, **208 testes** verdes).
+- E2E: filtro `hasNotText(".certificado.pdf")` na listagem pública para evitar `strict mode violation` no teste de download individual.
+- Frontend: adicionado `@types/uuid` (build do Next.js falhava com "Cannot find module 'uuid'").
+- GitHub Actions: `actions/checkout@v4→v5`, `actions/setup-node@v4→v6`, `actions/upload-artifact@v4→v5` — elimina o warning de deprecação do Node.js 20 (remoção marcada para 16/09/2026).
+
+### Validado
+- Backend: 18 suites / **208 testes** verdes; lint ✅; build ✅.
+- Frontend: 14 testes (vitest) verdes; lint ✅; build ✅.
+- E2E Playwright: suíte completa verde (6 testes) — inclui download individual com o certificado na listagem.
+- ZIP do share com 1 vídeo + 1 certificado: archive.zip contém ambos os arquivos, com o PDF nomeado `<video>.certificado.pdf`.
+
+### Commits
+- `eb2a24d` — `correção autenticidade` (título + zip com certificados)
+- `d0e5522` — `QRcode` (QR Code SHA-256 no PDF)
+- `c23c552` — `fix(ci): corrige falhas em testes, build frontend e E2E`
+- `d62d7de` — `ci: atualiza actions para rodar em Node 24`
+
+---
+
 ## v1.0 — Auditoria de Prontidão para Produção (2026-08-10)
 
 ### Resumo

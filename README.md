@@ -41,7 +41,7 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 - Upload apenas pelo dono autenticado (sem reverse shares — removido intencionalmente)
 - Armazenamento **exclusivamente local** no servidor (sem buckets S3 — removido)
 - Upload chunked multipart com progresso e retomada
-- **Certificado PDF automático** por arquivo ao concluir o share — contém hash SHA-256, metadados do arquivo/share/sistema e eventos; datas em horário de Brasília (UTC-3) independente do fuso do servidor (v1.2.3). Documentação em `docs/CERTIFICADO.md`
+- **Certificado de Autenticidade PDF automático** por arquivo ao concluir o share — contém hash SHA-256 (também em QR Code), metadados do arquivo/share/sistema e eventos; datas em horário de Brasília (UTC-3) independente do fuso do servidor (v1.2.4). Documentação em `docs/CERTIFICADO.md`
 
 ### Auditoria
 
@@ -170,7 +170,7 @@ Há testes unitários e E2E (backend) e unitários (frontend), com cobertura ≥
 
 ```bash
 # Backend
-npm run test:unit      # jest — unitários (18 suites, 205 testes)
+npm run test:unit      # jest — unitários (18 suites, 208 testes)
 npm run test:e2e       # jest — e2e efêmero (DB dedicado, não destrutivo)
 npm run test:coverage  # jest com cobertura (thresholds ≥60%)
 npm test               # alias para test:unit
