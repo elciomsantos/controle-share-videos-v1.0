@@ -6,10 +6,20 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import PDFDocument from "pdfkit";
 import dayjs from "dayjs";
+import type { PluginFunc } from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
 import "dayjs/locale/pt-br";
 import { IUploadRepository } from "../storage/upload-repository.interface";
 import { CERTIFICATE_ASSETS_DIRECTORY, DATA_DIRECTORY } from "../constants";
 import { PrismaService } from "../prisma/prisma.service";
+
+dayjs.extend(utc as PluginFunc);
+dayjs.extend(timezone as PluginFunc);
+
+// Os certificados exibem horário de Brasília (UTC-3) independentemente do
+// fuso do servidor (ex.: o container roda em UTC).
+const BRASILIA_TIMEZONE = "America/Sao_Paulo";
 
 export interface CertificateFileInfo {
   fileName: string;
@@ -200,9 +210,13 @@ export class CertificateService {
 
     await fs.promises.mkdir(path.dirname(absPath), { recursive: true });
 
-    const now = dayjs().locale("pt-br");
-    const nowLabel = now.format("DD [de] MMMM [de] YYYY, HH:mm:ss");
+    const now = dayjs();
+    const nowLabel = now
+      .tz(BRASILIA_TIMEZONE)
+      .locale("pt-br")
+      .format("DD [de] MMMM [de] YYYY, HH:mm:ss");
     const shareCreated = dayjs(share.createdAt)
+      .tz(BRASILIA_TIMEZONE)
       .locale("pt-br")
       .format("DD [de] MMMM [de] YYYY, HH:mm:ss");
 
