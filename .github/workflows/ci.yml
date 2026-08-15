@@ -18,9 +18,9 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -60,9 +60,9 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -93,9 +93,9 @@ jobs:
     name: E2E (Playwright)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
 
@@ -137,7 +137,7 @@ jobs:
 
       - name: Upload Playwright report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: playwright-report
           path: e2e/test-results/
@@ -153,7 +153,7 @@ jobs:
       cancel-in-progress: false
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Deploy via SSH
         env:
