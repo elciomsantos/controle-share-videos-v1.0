@@ -5,6 +5,7 @@ import * as path from "path";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import PDFDocument from "pdfkit";
+import QRCode from "qrcode";
 import dayjs from "dayjs";
 import type { PluginFunc } from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -323,7 +324,7 @@ export class CertificateService {
 
     // Data/hora de geração
     centerText(`Arquivo gerado em ${nowLabel}`, 132, { fontSize: 10, color: "#555555" });
-    centerText("Datas e horários baseados em horário de Brasília - Brasil", 145, {
+    centerText("Horário oficial de Brasília (UTC−3)", 145, {
       fontSize: 9,
       color: "#777777",
     });
@@ -422,6 +423,20 @@ export class CertificateService {
       });
       y += 38;
     }
+
+    // QR Code com o hash SHA-256
+    const qrData = `SHA-256: ${originalHash}`;
+    const qrBuffer = await QRCode.toBuffer(qrData, {
+      width: 200,
+      margin: 2,
+      color: { dark: "#000000", light: "#FFFFFF" },
+    });
+    const qrSize = 70;
+    const qrX = (pageWidth - qrSize) / 2;
+    const qrY = y + 10;
+    doc.image(qrBuffer, qrX, qrY, { width: qrSize, height: qrSize });
+
+    y = qrY + qrSize + 15;
 
     // Rodapé fixo no fim da página. y deve respeitar o limite de texto do
     // PDFKit (pageHeight - margin), senão ele cria uma nova página.
