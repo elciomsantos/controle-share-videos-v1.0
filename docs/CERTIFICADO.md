@@ -134,7 +134,19 @@ O PDF contém (replicando `docs/certificado.pdf`):
 | **Eventos** | DOCUMENTO CRIADO, ARQUIVO ENVIADO, CERTIFICADO GERADO (com hash) |
 | **Rodapé** | `Gerado por {hostname} em {data} — horário de Brasília - Brasil` |
 
-Datas formatadas em português (`dayjs().locale("pt-br")`), ex.: `13 de agosto de 2026, 19:09:19`.
+Datas formatadas em português no **fuso de Brasília (UTC-3)**, independentemente do fuso do servidor/container:
+
+```ts
+import type { PluginFunc } from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+// ...
+const BRASILIA_TIMEZONE = "America/Sao_Paulo";
+const nowLabel = dayjs().tz(BRASILIA_TIMEZONE).locale("pt-br")
+  .format("DD [de] MMMM [de] YYYY, HH:mm:ss");
+```
+
+> Em produção o servidor roda em UTC. Sem o `.tz(BRASILIA_TIMEZONE)` as datas sairiam em UTC, divergindo da legenda "horário de Brasília" do rodapé. Ex.: `14 de agosto de 2026, 19:36:34` (Brasília) quando o relógio do servidor marca `22:36 UTC`.
 
 ---
 
@@ -210,7 +222,7 @@ Não há job específico de expiração de certificados — o ciclo de vida é o
 A funcionalidade não exige configuração adicional. Depende das seguintes dependências já presentes:
 
 - `pdfkit` + `@types/pdfkit` (backend)
-- `dayjs` com locale `pt-br`
+- `dayjs` com locale `pt-br` + plugins `utc` e `timezone` (fuso de Brasília `America/Sao_Paulo`)
 
 ---
 
@@ -237,7 +249,7 @@ A funcionalidade não exige configuração adicional. Depende das seguintes depe
 
 - Hash SHA-256 conferido: **igual** entre o arquivo original e o registrado no certificado.
 - PDF contém todos os campos: nome, tamanho, extensão, MIME, owner, datas, hash, system info e eventos.
-- Datas em português (ex.: `13 de agosto de 2026`).
+- Datas em português (ex.: `13 de agosto de 2026`) e em **horário de Brasília (UTC-3)** mesmo com o servidor em UTC.
 
 ### 11.3 Resultado
 

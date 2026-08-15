@@ -58,6 +58,44 @@ Reformulação para atender `docs/PLANO-CERTIFICADO.md`: um share de upload de 1
 
 ---
 
+## v1.2.3 — Correções de tela cheia e fuso horário do certificado (2026-08-14)
+
+### Resumo
+Duas correções pontuais: (1) a tarja de segurança do preview de vídeo passa a permanecer visível em tela cheia; (2) as datas exibidas no certificado passam a refletir o horário de Brasília (UTC-3), independentemente do fuso do servidor.
+
+### Implementado
+
+#### fix(share): tarja de proteção visível em tela cheia
+- `frontend/src/components/share/FilePreview.tsx`
+  - Helpers `getFullscreenElement` / `requestFullscreen` / `exitFullscreen` com fallback `webkit*` (Safari antigo).
+  - `wrapperRef` envolve vídeo + tarja; botão customizado (`ActionIcon` com `TbArrowsMaximize`/`TbArrowsMinimize`) coloca o **wrapper** (e não apenas o `<video>`) em fullscreen, mantendo a tarja visível.
+  - Handler `fullscreenchange` com guarda `wrapperFullscreenRef` evita reentrar em fullscreen durante a transição de saída do Chrome (que passa pelo `<video>` e causava prisão em tela cheia).
+  - Estado `isFullscreen` alterna o `aria-label` entre "Entrar"/"Sair" da tela cheia.
+- `frontend/src/styles/global.style.tsx` — `video::-webkit-media-controls-fullscreen-button { display: none !important; }` oculta o botão nativo (Chromium).
+- `frontend/src/i18n/translations/pt-BR.ts` — chaves `share.video.fullscreen-enter` / `share.video.fullscreen-exit`.
+
+#### fix(certificado): horário de Brasília (UTC-3) nas datas
+- `backend/src/certificate/certificate.service.ts`
+  - Plugins dayjs `utc` + `timezone` estendidos (mirando o padrão já usado em `email.service.ts`).
+  - Constante `BRASILIA_TIMEZONE = "America/Sao_Paulo"`.
+  - `nowLabel` (geração) e `shareCreated` (criação do share) formatados com `.tz(BRASILIA_TIMEZONE)` — antes saíam em UTC embora a legenda afirmasse "horário de Brasília".
+
+### Motivação
+- O container/servidor roda em UTC; o certificado tinha a legenda "horário de Brasília" mas as datas eram impressas em UTC (+3h).
+- A tarja de proteção sumia em tela cheia porque o botão nativo do `<video>` entra em fullscreen apenas no elemento de vídeo (a tarja é irmã do `<video>`), e a tentativa anterior de redirecionar para o wrapper falhava com `TypeError: Permissions check failed` (ausência de user activation) e prendia o usuário em tela cheia.
+
+### Validado
+- **Certificado (E2E)**: share criado → vídeo enviado → complete → certificado gerado e baixado. Extração do PDF confirma `14 de agosto de 2026, 19:36:34` (Brasília) com servidor em `22:36 UTC` (diferença de 3h confirmada); rodapé e cabeçalho exibem "horário de Brasília - Brasil".
+- **Fullscreen (UI)**: no app real, em fullscreen o wrapper é o `fullscreenElement`; a tarja (`<Text>` filha do wrapper) permanece visível; botão alterna os rótulos; saída limpa sem prisão em tela cheia.
+- Backend: `eslint` ✅, `nest build` ✅, `share.service.spec.ts` (45 testes) ✅. Container `controle-videos-local-backend` reconstruído e healthy; fix confirmado no bundle (`grep America/Sao_Paulo`).
+- Frontend: `eslint` ✅, `tsc --noEmit` ✅, `next build` ✅, `vitest run` (14 testes) ✅. Container `controle-videos-local-frontend` reconstruído e healthy.
+
+### Commits
+- `32de153` — `fix(certificado): exibe horário de Brasília (UTC-3) nas datas do certificado`
+- `c7fc53b` — `fix(share): mantém tarja de proteção visível em tela cheia no preview de vídeo`
+
+---
+
 ## v1.0 — Auditoria de Prontidão para Produção (2026-08-10)
 
 ### Resumo

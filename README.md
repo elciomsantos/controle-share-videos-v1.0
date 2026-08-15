@@ -34,12 +34,14 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 - Limites por share: máximo de visualizações, máximo de downloads, expiração
 - Página exclusiva de visualização por link (sem cabeçalho/rodapé do painel admin)
 - Destinatários de e-mail (smtp opcional)
+- **Preview de vídeo com tarja de proteção persistente em tela cheia** — botão customizado coloca o wrapper (vídeo + tarja) em fullscreen (v1.2.3)
 
 ### Upload e armazenamento
 
 - Upload apenas pelo dono autenticado (sem reverse shares — removido intencionalmente)
 - Armazenamento **exclusivamente local** no servidor (sem buckets S3 — removido)
 - Upload chunked multipart com progresso e retomada
+- **Certificado PDF automático** por arquivo ao concluir o share — contém hash SHA-256, metadados do arquivo/share/sistema e eventos; datas em horário de Brasília (UTC-3) independente do fuso do servidor (v1.2.3). Documentação em `docs/CERTIFICADO.md`
 
 ### Auditoria
 
