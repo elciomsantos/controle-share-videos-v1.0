@@ -267,4 +267,114 @@ A funcionalidade não exige configuração adicional. Depende das seguintes depe
 
 ---
 
+## 13. Verificação de Autenticidade e Integridade
+
+O sistema aplica duas camadas de verificação porque, ao concluir o share, **embutir metadados de autenticidade no próprio vídeo** (via `ffmpeg -metadata`, in-place) antes de calcular o hash final. Por isso o certificado PDF exibe **dois hashes**:
+
+| Campo no PDF | O que é | Quando usar |
+|---|---|---|
+| **Hash SHA-256** | Hash do vídeo **original** (antes de embutir metadados) | Verificação de autenticidade (vídeos antigos/sem metadados) |
+| **Hash final (pós-metadados)** | Hash do vídeo **com metadados embutidos** (o que é baixado) | Verificação de integridade do arquivo baixado |
+| **Código para verificação** | UUID derivado de `sha256(share.id + ":" + fileId)[:36]` | Atalho de pertinência (vídeo↔certificado↔share) |
+
+> Para arquivos **não-vídeo** (PDF, ZIP, imagens etc.) não há embutimento de metadados — o certificado lista apenas o **Hash SHA-256** (do arquivo original), e a verificação de integridade é direta.
+
+### 13.1 Verificação de Integridade (arquivo não corrompido)
+
+Confirma que o arquivo baixado é byte-a-byte o que foi certado. Compare o hash calculado com o **hash final (pós-metadados)** do PDF (para vídeos) ou com o **Hash SHA-256** (para não-vídeos).
+
+```bash
+sha256sum video.mp4
+# saída: <hash>  video.mp4
+# compare com "Hash final (pós-metadados)" no certificado PDF
+```
+
+No Windows (PowerShell):
+
+```powershell
+Get-FileHash video.mp4 -Algorithm SHA256
+```
+
+Se os dois valores forem idênticos, o arquivo está **íntegro**.
+
+### 13.2 Verificação de Autenticidade (é o vídeo enviado pelo dono)
+
+O paradeiro da autenticidade está **dentro do próprio vídeo** nos metadados embutidos pelo `ffmpeg`. Além do hash, o sistema grava um campo `comment` com o código de verificação, o hash original, o share e o proprietário.
+
+Extraia os metadados do vídeo:
+
+```bash
+ffprobe -v error -show_entries format_tags=title,comment -of default=noprint_wrappers=1 video.mp4
+```
+
+A saída do `comment` tem este formato:
+
+```
+Certificado de autenticidade | Código: 953f6d90-366d-30b8-97e6-3009d573cc20 | Hash SHA-256 (original): <hash> | Share: <shareId> | Proprietário: <nome> | E-mail: <email>
+```
+
+Compare **três valores** entre o metadado do vídeo e o certificado PDF:
+
+| Campo no `comment` do vídeo | Campo no PDF | Comparação |
+|---|---|---|
+| `Código: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX` | "Código para verificação" | Deve ser idêntico |
+| `Hash SHA-256 (original): <hash>` | "Hash SHA-256" | Deve ser idêntico |
+| `Share: <id>` | ID no campo "Documento" ou na URL do share | Deve ser idêntico |
+
+Se todos baterem, o vídeo é **autêntico** — foi certado por este sistema, para este share, por este proprietário.
+
+### 13.3 Atalho de Pertinência (vídeo ↔ certificado ↔ share)
+
+A verificação mais rápida, sem calcular hash, é conferir apenas o **código de verificação** — ele é derivado deterministicamente de `sha256(share.id + ":" + fileId)` e formado como UUID:
+
+```
+verificationCode = sha256(shareId + ":" + fileId).slice(0, 36)
+formattedCode    = UUID(verificationCode)  # XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXX
+```
+
+O mesmo código aparece:
+
+1. No **certificado PDF** (campo "Código para verificação")
+2. No **metadado `comment`** do vídeo (extraído via `ffprobe`)
+3. Pode ser recalculado a partir do `shareId` + `fileId` (IDs listados no próprio PDF)
+
+Se os três valores forem idênticos, o par vídeo + certificado pertence ao mesmo share/fileId — **não é preciso calcular nenhum hash**.
+
+### 13.4 Resumo prático
+
+| Objetivo | Ferramenta | Comparação |
+|---|---|---|
+| **Integridade** (não corrompido) | `sha256sum video.mp4` | resultado vs "Hash final (pós-metadados)" do PDF |
+| **Autenticidade** (vídeo do dono) | `ffprobe ... format_tags=comment` | `comment` do vídeo vs "Código" + "Hash SHA-256" do PDF |
+| **Pertinência** (vínculo share↔vídeo) | `ffprobe ... format_tags=comment` | código no `comment` vs "Código para verificação" do PDF |
+
+### 13.5 Verificação no Linux/macOS (script)
+
+```bash
+#!/usr/bin/env bash
+# verify-cert.sh <video.mp4> <certificado.pdf>
+set -euo pipefail
+
+VIDEO="${1:?uso: verify-cert.sh <video> <certificado.pdf>}"
+PDF="${2:?uso: verify-cert.sh <video> <certificado.pdf>}"
+
+echo "=== Hash do arquivo baixado ==="
+sha256sum "$VIDEO"
+
+echo
+echo "=== Metadados de autenticidade embutidos no vídeo ==="
+ffprobe -v error -show_entries format_tags=title,comment -of default=noprint_wrappers=1 "$VIDEO"
+
+echo
+echo "=== Abra o certificado PDF e confira: ==="
+echo "  - 'Hash final (pós-metadados)' deve ser igual ao sha256sum acima"
+echo "  - 'Código para verificação' deve ser igual ao 'Código' no comment"
+echo "  - 'Hash SHA-256' deve ser igual ao 'Hash SHA-256 (original)' no comment"
+echo "  - O Share ID no comment deve ser igual ao 'Documento ID' do PDF"
+echo
+echo "PDF: $PDF"
+```
+
+---
+
 *Fim do documento CERTIFICADO.md*

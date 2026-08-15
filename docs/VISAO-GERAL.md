@@ -372,6 +372,8 @@ Ao **concluir um compartilhamento** (`POST /api/shares/:id/complete`), o sistema
 * É **registrado como um `File`** no banco → aparece na listagem do share e é **baixável pelo mesmo endpoint** dos demais arquivos.
 * Quando aplicável, os **metadados de autenticidade** (código/hash/share/proprietário) são **embutidos no próprio vídeo** via `ffmpeg -metadata` (in-place, sem criar artefato `.assinado`).
 
+> **Verificação de autenticidade**: o destinatário pode conferir a integridade e a autenticidade do arquivo comparando o SHA-256 e o código de verificação embutidos no vídeo (extraídos via `ffprobe`) com os valores exibidos no certificado PDF. Procedimento completo em `docs/CERTIFICADO.md` §13.
+
 ### 9.5.2 Fluxo de geração
 
 ```
