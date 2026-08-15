@@ -20,7 +20,8 @@ test.describe("Página pública de compartilhamento (E2E)", () => {
     // O arquivo deve aparecer na listagem (linha da tabela).
     const row = publicPage
       .getByRole("row")
-      .filter({ hasText: "arquivo-download.txt" });
+      .filter({ hasText: "arquivo-download.txt" })
+      .filter({ hasNotText: ".certificado.pdf" });
     await expect(row).toBeVisible({ timeout: 20_000 });
 
     // Download individual: último ActionIcon da linha (botão de download).

@@ -169,6 +169,7 @@ describe("ShareArchiveService", () => {
     repository = {
       createWriteStream: jest.fn(),
       createReadStream: jest.fn(() => new PassThrough()),
+      listDirectory: jest.fn().mockResolvedValue([]),
     } as unknown as jest.Mocked<IUploadRepository>;
     const localFileService = {
       resolveDiskPath: jest.fn(
