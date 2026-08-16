@@ -144,9 +144,12 @@ export class EmailService {
   }
 
   async sendResetPasswordEmail(recipientEmail: string, token: string) {
+    // SEC-NEW-1: o token vai no fragment (#token=...), nunca no path nem na
+    // query string. Fragments não são enviados ao servidor, então não caem
+    // nos access logs do Caddy.
     const resetPasswordUrl = `${this.config.getString(
       "general.appUrl",
-    )}/auth/resetPassword/${token}`;
+    )}/auth/resetPassword#token=${token}`;
 
     await this.sendMail(
       recipientEmail,
@@ -173,9 +176,11 @@ export class EmailService {
   }
 
   async sendVerificationEmail(recipientEmail: string, token: string) {
+    // SEC-NEW-1: token no fragment (#token=...), fora do path/query para não
+    // vazar nos access logs do Caddy.
     const verificationUrl = `${this.config.getString(
       "general.appUrl",
-    )}/auth/verify/${token}`;
+    )}/auth/verify#token=${token}`;
 
     await this.sendMail(
       recipientEmail,

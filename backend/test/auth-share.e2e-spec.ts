@@ -428,13 +428,14 @@ describe("Auth + Share (e2e)", () => {
   });
 
   describe("password reset request (e2e, SEC-03 area)", () => {
-    it("POST /api/auth/resetPassword/:email returns 202 for unknown email (no oracle)", async () => {
+    it("POST /api/auth/resetPassword/request returns 202 for unknown email (no oracle)", async () => {
       const server = agent();
       const token = await getCsrf(server);
 
       await server
-        .post("/api/auth/resetPassword/unknown@example.test")
+        .post("/api/auth/resetPassword/request")
         .set("x-csrf-token", token)
+        .send({ email: "unknown@example.test" })
         .expect(202);
     });
   });

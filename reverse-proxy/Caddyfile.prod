@@ -74,6 +74,20 @@ https://{$DOMAIN} {
             respond 404
         }
 
+        # Metrics restricted to internal networks only (SEC-NEW-2): Prometheus
+        # coleta via rede Docker (backend:8080), nunca pela internet. Bloqueia
+        # info disclosure público (contagem de shares/downloads, rotas HTTP).
+        @metrics path /api/metrics
+        handle @metrics {
+            @metrics_internal remote_ip 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 127.0.0.0/8
+            reverse_proxy @metrics_internal backend:8080 {
+                header_up X-Forwarded-For {remote_host}
+                header_up X-Forwarded-Proto {scheme}
+                header_up X-Real-IP {remote_host}
+            }
+            respond 404
+        }
+
         reverse_proxy backend:8080 {
             header_up X-Forwarded-For {remote_host}
             header_up X-Forwarded-Proto {scheme}

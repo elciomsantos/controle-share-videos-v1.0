@@ -3,7 +3,6 @@ import {
   Controller,
   ForbiddenException,
   HttpCode,
-  Param,
   Patch,
   Post,
   Req,
@@ -26,6 +25,7 @@ import { EnableTotpDTO } from "./dto/enableTotp.dto";
 import { VerifyAccountDTO } from "./dto/verifyAccount.dto";
 import { ResendVerificationDTO } from "./dto/resendVerification.dto";
 import { ResetPasswordDTO } from "./dto/resetPassword.dto";
+import { RequestResetPasswordDTO } from "./dto/requestResetPassword.dto";
 import { TokenDTO } from "./dto/token.dto";
 import { UpdatePasswordDTO } from "./dto/updatePassword.dto";
 import { VerifyTotpDTO } from "./dto/verifyTotp.dto";
@@ -117,7 +117,7 @@ export class AuthController {
     return new TokenDTO().from(result);
   }
 
-  @Post("resetPassword/:email")
+  @Post("resetPassword/request")
   @Public()
   @Throttle({
     default: {
@@ -126,8 +126,10 @@ export class AuthController {
     },
   })
   @HttpCode(202)
-  async requestResetPassword(@Param("email") email: string) {
-    await this.authService.requestResetPassword(email);
+  async requestResetPassword(@Body() dto: RequestResetPasswordDTO) {
+    // SEC-NEW-1: o e-mail trafega no body (não no path), evitando vazamento
+    // nos access logs do Caddy.
+    await this.authService.requestResetPassword(dto.email);
   }
 
   @Post("resetPassword")

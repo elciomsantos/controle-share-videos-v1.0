@@ -94,11 +94,6 @@ export const configVariables = {
       defaultValue: "false",
       secret: false,
     },
-    allowUnauthenticatedShares: {
-      type: "boolean",
-      defaultValue: "false",
-      secret: false,
-    },
     maxExpiration: {
       type: "timespan",
       defaultValue: "0 days",

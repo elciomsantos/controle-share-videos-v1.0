@@ -74,13 +74,6 @@ const Header = () => {
     },
   ];
 
-  if (config.get("share.allowUnauthenticatedShares")) {
-    unauthenticatedLinks.unshift({
-      link: "/upload",
-      label: t("navbar.upload"),
-    });
-  }
-
   if (config.get("share.allowRegistration"))
     unauthenticatedLinks.push({
       link: "/auth/signUp",

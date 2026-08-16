@@ -58,6 +58,37 @@ async function verifyJwt(token: string, secret: string): Promise<{ role: string;
   }
 }
 
+/**
+ * SEC-NEW-4: verificação delegada ao backend quando o fast-path local falha
+ * (ex.: após rotação híbrida, o segredo ativo é o DB, não mais o JWT_SECRET_FILE).
+ * O backend resolve o segredo exato por kid e rejeita tokens inválidos, então
+ * nada de novo é exposto além do que o guard de autenticação já faz.
+ */
+async function verifyJwtViaBackend(
+  token: string,
+  apiUrl: string,
+): Promise<{ role: string; isAdmin: boolean } | null> {
+  try {
+    const response = await fetch(`${apiUrl}/api/users/me`, {
+      headers: {
+        Cookie: `access_token=${token}`,
+      },
+      signal: AbortSignal.timeout(2000),
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    const user = (await response.json()) as {
+      role?: string;
+      isAdmin?: boolean;
+    };
+    if (!user || !user.role) return null;
+    return { role: user.role, isAdmin: user.isAdmin === true };
+  } catch (error) {
+    console.error("Backend JWT verification failed:", error);
+    return null;
+  }
+}
+
 export default async function middleware(request: NextRequest) {
   const routes = {
     unauthenticated: new Routes(["/auth/*", "/"]),
@@ -87,15 +118,18 @@ export default async function middleware(request: NextRequest) {
 
   const jwtSecret = getJwtSecret();
   if (accessToken && jwtSecret) {
+    // SEC-NEW-4: fast-path local primeiro; se falhar (ex.: rotação do segredo
+    // no backend), delega a verificação ao backend, que resolve por kid.
     user = await verifyJwt(accessToken, jwtSecret);
+    if (!user) {
+      user = await verifyJwtViaBackend(accessToken, apiUrl);
+    }
+  } else if (accessToken) {
+    user = await verifyJwtViaBackend(accessToken, apiUrl);
   }
 
   if (!getConfig("share.allowRegistration")) {
     routes.disabled.routes.push("/auth/signUp");
-  }
-
-  if (getConfig("share.allowUnauthenticatedShares")) {
-    routes.public.routes = ["*"];
   }
 
   if (!getConfig("smtp.enabled")) {
@@ -122,7 +156,7 @@ export default async function middleware(request: NextRequest) {
       path: "/",
     },
     {
-      condition: user && routes.unauthenticated.contains(route) && !getConfig("share.allowUnauthenticatedShares"),
+      condition: user && routes.unauthenticated.contains(route),
       path: "/upload",
     },
     {

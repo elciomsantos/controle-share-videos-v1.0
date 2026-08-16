@@ -15,26 +15,33 @@ import authService from "../../../services/auth.service";
 import toast from "../../../utils/toast.util";
 import useTranslate from "../../../hooks/useTranslate.hook";
 import Meta from "../../../components/Meta";
+import { getHashValue } from "../../../utils/hash.util";
 
 export default function VerifyAccount() {
   const router = useRouter();
-  const { token } = router.query;
+  const { token: queryToken } = router.query;
   const t = useTranslate();
   const [status, setStatus] = useState<"loading" | "success" | "error">(
     "loading",
   );
 
   useEffect(() => {
-    if (!token) return;
+    // SEC-NEW-1: o token chega no fragment (#token=...), fora do path.
+    // Fallback para o query token (links antigos com token no path).
+    const token = (getHashValue("token") as string) || (queryToken as string);
+    if (!token) {
+      setStatus("error");
+      return;
+    }
 
     authService
-      .verifyAccount(token as string)
+      .verifyAccount(token)
       .then(() => setStatus("success"))
       .catch((e) => {
         toast.axiosError(e);
         setStatus("error");
       });
-  }, [token]);
+  }, [queryToken]);
 
   return (
     <>
@@ -62,19 +69,16 @@ export default function VerifyAccount() {
             )}
             {status === "error" && (
               <>
-                <Text ta="center" color="red">
+                <Text ta="center">
                   <FormattedMessage id="verify.error" />
                 </Text>
                 <Button
                   fullWidth
                   mt="xl"
-                  variant="light"
+                  variant="outline"
                   onClick={() => router.replace("/auth/signIn")}
                 >
-                  <FormattedMessage
-                    id="verify.button.signin"
-                    defaultMessage="Go to Sign In"
-                  />
+                  <FormattedMessage id="error.button.back" />
                 </Button>
               </>
             )}

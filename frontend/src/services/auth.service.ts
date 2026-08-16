@@ -53,7 +53,8 @@ const refreshAccessToken = async () => {
 };
 
 const requestResetPassword = async (email: string) => {
-  await api.post(`/auth/resetPassword/${email}`);
+  // SEC-NEW-1: e-mail no body (não no path) para não vazar em access logs.
+  await api.post("/auth/resetPassword/request", { email });
 };
 
 const resetPassword = async (token: string, password: string) => {

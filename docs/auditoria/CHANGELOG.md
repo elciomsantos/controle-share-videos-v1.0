@@ -7,6 +7,32 @@
 
 ---
 
+## v1.2.4 — Revisão de segurança e hardening (2026-08-15)
+
+### Resumo
+Auditoria independente de segurança (OWASP Top 10) revalidou os controles centrais e identificou **8 novos achados** (4 médios, 4 baixos) não cobertos pelo SECURITY_REPORT.md anterior. Nota sugerida revisada de 9.0 → **8.5/10**. **Todos os achados foram corrigidos e validados** — nota restaurada para 9.0/10. Registro completo em `SECURITY_REPORT.md` (§9 achados, §10 status das correções).
+
+### Correções aplicadas (2026-08-15)
+- **NEW-1**: tokens de reset/verify movidos do path para **fragment** (`#token=`) nos e-mails; novo endpoint `POST /auth/resetPassword/request` (body `{email}`) substitui `POST /auth/resetPassword/:email`; frontend lê o token via `hash.util.ts` (`getHashValue`) com fallback para a rota antiga.
+- **NEW-2**: `/api/metrics` restrito a redes internas no `Caddyfile.prod`.
+- **NEW-3**: flag morta `share.allowUnauthenticatedShares` removida do frontend (middleware, Header, upload, types, defaultConfig) e do backend (seed + tipo config).
+- **NEW-4**: middleware do Next.js mantém fast-path local e, em falha (pós-rotação), delega a verificação ao backend `GET /users/me` (resolve o segredo por kid).
+- **NEW-5**: `CertificateSystemInfo` reduzido a plataforma + versão Node — certificado PDF público não embute mais hostname/IP/storage path.
+- **NEW-6**: `PublicUserDTO` expõe apenas `id` + `username`.
+- **NEW-7**: `ShareOwnerGuard` remove o caminho `if (!share.creatorId) return true` → fail-closed (apenas dono/admin).
+- **NEW-8**: `.env` dev com `ADMIN_PASSWORD` forte (`openssl rand -base64 32`).
+
+### Controles revalidados (sem alteração)
+Fail-closed, CSRF, argon2, sessões, SQLi, path traversal, XSS, upload, npm audit (0 CVE), segredos em repo.
+
+### Validado
+- Backend: build + lint + **208 testes unitários** + **16 e2e** (roteiro `resetPassword/request` atualizado).
+- Frontend: build + lint + **14 testes**.
+- **6 e2e Playwright** (auth, upload, share) — todos verdes.
+- Pendência residual: `caddy validate` do `Caddyfile.prod` (caddy não instalado no ambiente local).
+
+---
+
 ## v1.2 — Certificado de Assinaturas SHA-256 (2026-08-14)
 
 ### Resumo

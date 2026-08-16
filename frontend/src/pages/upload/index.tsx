@@ -177,9 +177,6 @@ const Upload = ({
         isUserSignedIn: user ? true : false,
         appUrl: config.get("general.appUrl"),
         defaultAppUrl: config.get("general.appUrl", true),
-        allowUnauthenticatedShares: config.get(
-          "share.allowUnauthenticatedShares",
-        ),
         enableEmailRecepients: config.get("email.enableShareEmailRecipients"),
         maxExpiration: isAdminOrAuditor(user)
           ? { value: 0, unit: "days" }

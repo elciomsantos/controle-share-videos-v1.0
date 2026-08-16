@@ -13,16 +13,25 @@ import {
 import { useForm } from "@mantine/form";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { useEffect, useState } from "react";
 import { TbArrowLeft } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
 import * as yup from "yup";
 import useTranslate from "../../../hooks/useTranslate.hook";
 import authService from "../../../services/auth.service";
 import toast from "../../../utils/toast.util";
+import { getHashValue } from "../../../utils/hash.util";
+import ResetPasswordForm from "../../../components/auth/ResetPasswordForm";
 
 const ResetPassword = () => {
   const router = useRouter();
   const t = useTranslate();
+  const [token, setToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    // SEC-NEW-1: o token chega no fragment (#token=...), fora do path.
+    setToken(getHashValue("token"));
+  }, []);
 
   const resetSchema = yup.object().shape({
     email: yup
@@ -48,6 +57,10 @@ const ResetPassword = () => {
       }
     },
   });
+
+  if (token) {
+    return <ResetPasswordForm token={token} />;
+  }
 
   return (
     <Container size={460} my={30}>

@@ -27,12 +27,6 @@ export function getDefaultConfig(): Config[] {
       type: "boolean",
     },
     {
-      key: "share.allowUnauthenticatedShares",
-      value: "false",
-      defaultValue: "false",
-      type: "boolean",
-    },
-    {
       key: "smtp.enabled",
       value: "false",
       defaultValue: "false",

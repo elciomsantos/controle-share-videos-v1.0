@@ -29,7 +29,6 @@ const SimplifiedCreateUploadModal = ({
   uploadCallback: (createShare: CreateShare, files: FileUpload[]) => void;
   options: {
     isUserSignedIn: boolean;
-    allowUnauthenticatedShares: boolean;
     enableEmailRecepients: boolean;
     maxExpiration: Timespan;
     shareIdLength: number;

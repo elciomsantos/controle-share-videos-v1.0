@@ -25,7 +25,6 @@ export type ConfigTypeMap = {
   "appearance.themeColorScheme": string;
   "appearance.customCss": string;
   "share.allowRegistration": boolean;
-  "share.allowUnauthenticatedShares": boolean;
   "share.maxExpiration": Timespan;
   "share.defaultExpiration": Timespan;
   "share.shareIdLength": number;

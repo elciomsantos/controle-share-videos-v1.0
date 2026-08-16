@@ -64,9 +64,6 @@ export class ShareOwnerGuard extends JwtGuard {
     // If the user is an admin, allow access
     if (this.allowAdmin && user?.isAdmin) return true;
 
-    // If it's a anonymous share, allow access
-    if (!share.creatorId) return true;
-
     // If not signed in, deny access
     if (!user) return false;
 

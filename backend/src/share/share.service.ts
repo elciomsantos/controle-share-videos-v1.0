@@ -16,7 +16,7 @@ import { DownloadLogService } from "../download-log/download-log.service";
 import { EmailService } from "../email/email.service";
 import { FileService } from "../file/file.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { ARGON2_OPTIONS, DATA_DIRECTORY } from "../constants";
+import { ARGON2_OPTIONS } from "../constants";
 import * as os from "os";
 import mime from "mime-types";
 import { CreateShareDTO } from "./dto/createShare.dto";
@@ -295,19 +295,9 @@ export class ShareService {
   }
 
   private getSystemInfo(): CertificateSystemInfo {
-    const addresses = Object.values(os.networkInterfaces())
-      .flat()
-      .filter(
-        (iface): iface is os.NetworkInterfaceInfo =>
-          iface !== undefined && !iface.internal && iface.family === "IPv4",
-      )
-      .map((iface) => iface.address);
     return {
-      hostname: os.hostname(),
-      ip: addresses[0],
       platform: `${os.platform()} ${os.release()}`,
       nodeVersion: process.version,
-      storagePath: `${DATA_DIRECTORY}/uploads/shares`,
     };
   }
 

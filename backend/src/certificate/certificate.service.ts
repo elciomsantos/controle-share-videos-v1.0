@@ -38,11 +38,8 @@ export interface CertificateShareInfo {
 }
 
 export interface CertificateSystemInfo {
-  hostname: string;
-  ip?: string;
   platform: string;
   nodeVersion: string;
-  storagePath: string;
 }
 
 export interface CertificateEmbedResult {
@@ -389,11 +386,8 @@ export class CertificateService {
     y += 16;
 
     const sysEntries: [string, string][] = [
-      ["Hostname:", system.hostname],
-      ["IP:", system.ip ?? "—"],
       ["Plataforma:", system.platform],
       ["Node.js:", system.nodeVersion],
-      ["Caminho de armazenamento:", system.storagePath],
     ];
     for (const [label, value] of sysEntries) {
       doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(10).text(label, 65, y);
@@ -442,7 +436,7 @@ export class CertificateService {
     // PDFKit (pageHeight - margin), senão ele cria uma nova página.
     doc.fillColor("#999999").fontSize(8).font(FONT);
     doc.text(
-      `Gerado por ${system.hostname} em ${nowLabel} — horário de Brasília - Brasil`,
+      `Certificado gerado em ${nowLabel} — horário de Brasília - Brasil`,
       margin,
       pageHeight - margin - 12,
       { align: "center", width: contentWidth, lineBreak: false },

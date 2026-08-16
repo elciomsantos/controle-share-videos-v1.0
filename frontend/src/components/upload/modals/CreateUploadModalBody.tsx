@@ -32,7 +32,6 @@ export type CreateUploadModalOptions = {
   isUserSignedIn: boolean;
   appUrl: string;
   defaultAppUrl: string;
-  allowUnauthenticatedShares: boolean;
   enableEmailRecepients: boolean;
   maxExpiration: Timespan;
   defaultExpiration: Timespan;
