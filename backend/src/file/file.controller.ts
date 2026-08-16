@@ -17,7 +17,10 @@ import { Request, Response } from "express";
 import { DownloadLogService } from "../download-log/download-log.service";
 import { User } from "../../prisma/generated/prisma/client";
 import { Public } from "../auth/decorator/guards.decorator";
-import { StrictShareOwnerAccess, SharePublicAccess } from "../share/decorator/share-guards.decorator";
+import {
+  StrictShareOwnerAccess,
+  SharePublicAccess,
+} from "../share/decorator/share-guards.decorator";
 import { FileService } from "./file.service";
 import { DownloadLimitGuard } from "./guard/downloadLimit.guard";
 import mime from "mime-types";
@@ -25,11 +28,112 @@ import range from "range-parser";
 import { HttpStatus } from "@nestjs/common";
 import { getRequestIp, getRequestUserAgent } from "../utils/request.util";
 import { GetUser } from "../auth/decorator/getUser.decorator";
+import { PrismaService } from "../prisma/prisma.service";
 
 const VALID_ID_REGEX = /^[a-zA-Z0-9-]*={0,2}$/;
 
 interface AuthenticatedRequest extends Request {
   user?: User;
+}
+
+/**
+ * AUD-ENRICH: contexto de auditoria extraído do request + banco para enriquecer
+ * os download logs (shareName, creatorUsername, authMethod, referer, mimeType,
+ * fileHash e recipientEmail).
+ */
+interface AuditContext {
+  shareName?: string | null;
+  creatorUsername?: string | null;
+  mimeType?: string | null;
+  authMethod?: string | null;
+  referer?: string | null;
+  fileHash?: string | null;
+  recipientEmail?: string | null;
+}
+
+async function buildAuditContext(
+  prisma: PrismaService,
+  shareId: string,
+  req: Request,
+  fileMime?: string | null,
+  opts?: { fileId?: string; recipientId?: string },
+): Promise<AuditContext> {
+  const [share, file, recipient] = await Promise.all([
+    prisma.share.findUnique({
+      where: { id: shareId },
+      select: { name: true, creator: { select: { username: true } } },
+    }),
+    opts?.fileId
+      ? prisma.file.findUnique({
+          where: { id: opts.fileId },
+          select: { sha256: true },
+        })
+      : Promise.resolve(null),
+    opts?.recipientId
+      ? prisma.shareRecipient.findUnique({
+          where: { id: opts.recipientId },
+          select: { email: true },
+        })
+      : Promise.resolve(null),
+  ]);
+
+  const shareToken = req.cookies?.[`share_${shareId}_token`] as
+    string | undefined;
+  const hasSession = Boolean((req as AuthenticatedRequest).user);
+
+  return {
+    shareName: share?.name ?? null,
+    creatorUsername: share?.creator?.username ?? null,
+    mimeType: fileMime ?? null,
+    authMethod: hasSession
+      ? "session"
+      : shareToken
+        ? "shareToken"
+        : "anonymous",
+    referer: req.headers.referer ?? null,
+    fileHash: file?.sha256 ?? null,
+    recipientEmail: recipient?.email ?? null,
+  };
+}
+
+/**
+ * AUD-ENRICH: registra um download log enriquecido, medindo a duração do
+ * request e anotando bytes transferidos, contexto de auth e HTTP status.
+ */
+function makeAuditEntry(
+  base: {
+    shareId: string;
+    fileId?: string;
+    fileName: string;
+    fileSize?: string | null;
+    fileHash?: string | null;
+    userId?: string;
+    username?: string;
+    ip: string;
+    userAgent?: string | null;
+    success: boolean;
+    reason?: string;
+    event?: "download" | "view" | "upload" | "delete";
+  },
+  context: AuditContext,
+  startedAt: number,
+  opts?: {
+    recipientId?: string;
+    recipientEmail?: string;
+    transferBytes?: string | number;
+    httpStatus?: number;
+  },
+): Parameters<DownloadLogService["record"]>[0] {
+  return {
+    ...base,
+    ...context,
+    recipientId: opts?.recipientId ?? null,
+    recipientEmail: opts?.recipientEmail ?? null,
+    transferBytes:
+      opts?.transferBytes != null ? String(opts.transferBytes) : null,
+    httpStatus: opts?.httpStatus ?? null,
+    durationMs: Math.max(0, Date.now() - startedAt),
+  };
 }
 
 function getValidRecipientId(recipientId?: string): string | undefined {
@@ -43,6 +147,7 @@ export class FileController {
     private fileService: FileService,
     private downloadLimitGuard: DownloadLimitGuard,
     private downloadLogService: DownloadLogService,
+    private prisma: PrismaService,
   ) {}
 
   @Post()
@@ -72,25 +177,43 @@ export class FileController {
     );
 
     if (parseInt(chunkIndex, 10) === parseInt(totalChunks, 10) - 1) {
+      const startedAt = Date.now();
       let fileSize: string | null = null;
+      let mimeType: string | null = null;
       try {
         const meta = await this.fileService.getFileMetaData(shareId, id);
         fileSize = meta?.size != null ? meta.size.toString() : null;
+        mimeType = mime.lookup(name) || null;
       } catch {
         fileSize = null;
       }
-      void this.downloadLogService.record({
+      const context = await buildAuditContext(
+        this.prisma,
         shareId,
-        fileId: id,
-        fileName: name,
-        fileSize,
-        userId: user?.id,
-        username: user?.username,
-        ip: getRequestIp(req),
-        userAgent: getRequestUserAgent(req),
-        success: true,
-        event: "upload",
-      });
+        req,
+        mimeType,
+        {
+          fileId: id,
+        },
+      );
+      void this.downloadLogService.record(
+        makeAuditEntry(
+          {
+            shareId,
+            fileId: id,
+            fileName: name,
+            fileSize,
+            userId: user?.id,
+            username: user?.username,
+            ip: getRequestIp(req),
+            userAgent: getRequestUserAgent(req),
+            success: true,
+            event: "upload",
+          },
+          context,
+          startedAt,
+        ),
+      );
     }
 
     return result;
@@ -119,17 +242,32 @@ export class FileController {
     });
 
     const user = (req as AuthenticatedRequest).user;
-    void this.downloadLogService.record({
+    const startedAt = Date.now();
+    const context = await buildAuditContext(
+      this.prisma,
       shareId,
-      fileName: `${shareId}.zip`,
-      fileSize: null,
-      userId: user?.id,
-      username: user?.username,
-      ip: getRequestIp(req),
-      userAgent: getRequestUserAgent(req),
-      success: true,
-      event: "download",
-    });
+      req,
+      "application/zip",
+      { recipientId: getValidRecipientId(recipientId) },
+    );
+    void this.downloadLogService.record(
+      makeAuditEntry(
+        {
+          shareId,
+          fileName: `${shareId}.zip`,
+          fileSize: null,
+          userId: user?.id,
+          username: user?.username,
+          ip: getRequestIp(req),
+          userAgent: getRequestUserAgent(req),
+          success: true,
+          event: "download",
+        },
+        context,
+        startedAt,
+        { httpStatus: HttpStatus.OK },
+      ),
+    );
     void this.downloadLimitGuard.incrementDownloadCount(shareId);
     void this.fileService.notifyRecipientDownload(
       shareId,
@@ -178,7 +316,10 @@ export class FileController {
   ) {
     const isDownload = download === "true";
 
-    const fileMetaData = await this.fileService.getFileMetaData(shareId, fileId);
+    const fileMetaData = await this.fileService.getFileMetaData(
+      shareId,
+      fileId,
+    );
     const isCertificate = fileMetaData.name.endsWith(".certificado.pdf");
     const isSignedVideo = /\.assinado\.\w+$/.test(fileMetaData.name);
 
@@ -206,24 +347,37 @@ export class FileController {
         "Content-Type": "application/zip",
         "Content-Security-Policy": "sandbox",
         "Cache-Control": "no-store",
-        "Content-Disposition": contentDisposition(
-          `${fileMetaData.name}.zip`,
-        ),
+        "Content-Disposition": contentDisposition(`${fileMetaData.name}.zip`),
       });
 
       const user = (req as AuthenticatedRequest).user;
-      void this.downloadLogService.record({
+      const startedAt = Date.now();
+      const context = await buildAuditContext(
+        this.prisma,
         shareId,
-        fileId,
-        fileName: file.metaData.name,
-        fileSize: file.metaData.size,
-        userId: user?.id,
-        username: user?.username,
-        ip: getRequestIp(req),
-        userAgent: getRequestUserAgent(req),
-        success: true,
-        event: "download",
-      });
+        req,
+        "application/zip",
+        { fileId, recipientId: getValidRecipientId(recipientId) },
+      );
+      void this.downloadLogService.record(
+        makeAuditEntry(
+          {
+            shareId,
+            fileId,
+            fileName: file.metaData.name,
+            fileSize: file.metaData.size,
+            userId: user?.id,
+            username: user?.username,
+            ip: getRequestIp(req),
+            userAgent: getRequestUserAgent(req),
+            success: true,
+            event: "download",
+          },
+          context,
+          startedAt,
+          { httpStatus: HttpStatus.OK },
+        ),
+      );
       void this.downloadLimitGuard.incrementDownloadCount(shareId);
       void this.fileService.notifyRecipientDownload(
         shareId,
@@ -246,18 +400,33 @@ export class FileController {
       });
 
       const user = (req as AuthenticatedRequest).user;
-      void this.downloadLogService.record({
+      const startedAt = Date.now();
+      const context = await buildAuditContext(
+        this.prisma,
         shareId,
-        fileId,
-        fileName: file.metaData.name,
-        fileSize: file.metaData.size,
-        userId: user?.id,
-        username: user?.username,
-        ip: getRequestIp(req),
-        userAgent: getRequestUserAgent(req),
-        success: true,
-        event: "download",
-      });
+        req,
+        "application/zip",
+        { fileId, recipientId: getValidRecipientId(recipientId) },
+      );
+      void this.downloadLogService.record(
+        makeAuditEntry(
+          {
+            shareId,
+            fileId,
+            fileName: file.metaData.name,
+            fileSize: file.metaData.size,
+            userId: user?.id,
+            username: user?.username,
+            ip: getRequestIp(req),
+            userAgent: getRequestUserAgent(req),
+            success: true,
+            event: "download",
+          },
+          context,
+          startedAt,
+          { httpStatus: HttpStatus.OK },
+        ),
+      );
       if (!isCertificate) {
         void this.downloadLimitGuard.incrementDownloadCount(shareId);
       }
@@ -323,18 +492,34 @@ export class FileController {
 
     if (isDownload) {
       const user = (req as AuthenticatedRequest).user;
-      void this.downloadLogService.record({
+      const startedAt = Date.now();
+      const fileMime = mime.lookup(file.metaData.name) || null;
+      const context = await buildAuditContext(
+        this.prisma,
         shareId,
-        fileId,
-        fileName: file.metaData.name,
-        fileSize: file.metaData.size,
-        userId: user?.id,
-        username: user?.username,
-        ip: getRequestIp(req),
-        userAgent: getRequestUserAgent(req),
-        success: true,
-        event: "download",
-      });
+        req,
+        fileMime,
+        { fileId, recipientId: getValidRecipientId(recipientId) },
+      );
+      void this.downloadLogService.record(
+        makeAuditEntry(
+          {
+            shareId,
+            fileId,
+            fileName: file.metaData.name,
+            fileSize: file.metaData.size,
+            userId: user?.id,
+            username: user?.username,
+            ip: getRequestIp(req),
+            userAgent: getRequestUserAgent(req),
+            success: true,
+            event: "download",
+          },
+          context,
+          startedAt,
+          { httpStatus: HttpStatus.OK },
+        ),
+      );
       if (!isCertificate) {
         void this.downloadLimitGuard.incrementDownloadCount(shareId);
       }
@@ -370,17 +555,28 @@ export class FileController {
 
     await this.fileService.remove(shareId, fileId);
 
-    void this.downloadLogService.record({
-      shareId,
+    const startedAt = Date.now();
+    const context = await buildAuditContext(this.prisma, shareId, req, null, {
       fileId,
-      fileName: fileName ?? fileId,
-      fileSize,
-      userId: user?.id,
-      username: user?.username,
-      ip: getRequestIp(req),
-      userAgent: getRequestUserAgent(req),
-      success: true,
-      event: "delete",
     });
+    void this.downloadLogService.record(
+      makeAuditEntry(
+        {
+          shareId,
+          fileId,
+          fileName: fileName ?? fileId,
+          fileSize,
+          userId: user?.id,
+          username: user?.username,
+          ip: getRequestIp(req),
+          userAgent: getRequestUserAgent(req),
+          success: true,
+          event: "delete",
+        },
+        context,
+        startedAt,
+        { httpStatus: HttpStatus.OK },
+      ),
+    );
   }
 }

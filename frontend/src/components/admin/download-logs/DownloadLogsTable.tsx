@@ -1,4 +1,4 @@
-import { Badge, Box, Skeleton, Table, Text } from "@mantine/core";
+import { Badge, Box, Skeleton, Table, Text, Tooltip } from "@mantine/core";
 import { dayjs } from "../../../utils/date.util";
 import { FormattedMessage } from "react-intl";
 import { byteToHumanSizeString } from "../../../utils/fileSize.util";
@@ -12,6 +12,37 @@ const formatFileSize = (value?: string | null) => {
   return byteToHumanSizeString(n);
 };
 
+const formatDuration = (value?: number | null) => {
+  if (value == null) return "-";
+  if (value < 1000) return `${value} ms`;
+  return `${(value / 1000).toFixed(2)} s`;
+};
+
+const formatHash = (value?: string | null) => {
+  if (!value) return "-";
+  return `${value.slice(0, 12)}…${value.slice(-8)}`;
+};
+
+const authMethodBadge = (
+  method: string | null | undefined,
+  t: (key: string) => string,
+) => {
+  if (!method) return "-";
+  const label =
+    method === "session"
+      ? t("admin.downloadLogs.authMethod.session")
+      : method === "shareToken"
+        ? t("admin.downloadLogs.authMethod.shareToken")
+        : method === "anonymous"
+          ? t("admin.downloadLogs.authMethod.anonymous")
+          : method;
+  return (
+    <Badge color="grape" variant="light">
+      {label}
+    </Badge>
+  );
+};
+
 const DownloadLogsTable = ({
   logs,
   isLoading,
@@ -23,15 +54,21 @@ const DownloadLogsTable = ({
 
   const eventBadge = (event: string) => {
     if (event === "view") {
-      return <Badge color="victoria">{t("admin.downloadLogs.events.view")}</Badge>;
+      return (
+        <Badge color="victoria">{t("admin.downloadLogs.events.view")}</Badge>
+      );
     }
     if (event === "upload") {
-      return <Badge color="green">{t("admin.downloadLogs.events.upload")}</Badge>;
+      return (
+        <Badge color="green">{t("admin.downloadLogs.events.upload")}</Badge>
+      );
     }
     if (event === "delete") {
       return <Badge color="red">{t("admin.downloadLogs.events.delete")}</Badge>;
     }
-    return <Badge color="blue">{t("admin.downloadLogs.events.download")}</Badge>;
+    return (
+      <Badge color="blue">{t("admin.downloadLogs.events.download")}</Badge>
+    );
   };
 
   const statusBadge = (success: boolean) =>
@@ -76,6 +113,33 @@ const DownloadLogsTable = ({
             <th>
               <FormattedMessage id="admin.downloadLogs.columns.reason" />
             </th>
+            <th>
+              <FormattedMessage id="admin.downloadLogs.columns.fileHash" />
+            </th>
+            <th>
+              <FormattedMessage id="admin.downloadLogs.columns.shareName" />
+            </th>
+            <th>
+              <FormattedMessage id="admin.downloadLogs.columns.creatorUsername" />
+            </th>
+            <th>
+              <FormattedMessage id="admin.downloadLogs.columns.recipient" />
+            </th>
+            <th>
+              <FormattedMessage id="admin.downloadLogs.columns.mimeType" />
+            </th>
+            <th>
+              <FormattedMessage id="admin.downloadLogs.columns.durationMs" />
+            </th>
+            <th>
+              <FormattedMessage id="admin.downloadLogs.columns.transferBytes" />
+            </th>
+            <th>
+              <FormattedMessage id="admin.downloadLogs.columns.authMethod" />
+            </th>
+            <th>
+              <FormattedMessage id="admin.downloadLogs.columns.httpStatus" />
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -85,10 +149,7 @@ const DownloadLogsTable = ({
               ? emptyRow
               : logs.map((log) => (
                   <tr key={log.id}>
-                    <td>
-                      {dayjs(log.createdAt)
-                        .format("LLL")}
-                    </td>
+                    <td>{dayjs(log.createdAt).format("LLL")}</td>
                     <td>{log.shareId}</td>
                     <td>{log.fileName || "-"}</td>
                     <td>{formatFileSize(log.fileSize)}</td>
@@ -110,6 +171,25 @@ const DownloadLogsTable = ({
                         {log.reason ?? "-"}
                       </Text>
                     </td>
+                    <td>
+                      {log.fileHash ? (
+                        <Tooltip label={log.fileHash} withArrow>
+                          <Text size="xs" style={{ fontFamily: "monospace" }}>
+                            {formatHash(log.fileHash)}
+                          </Text>
+                        </Tooltip>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                    <td>{log.shareName ?? "-"}</td>
+                    <td>{log.creatorUsername ?? "-"}</td>
+                    <td>{log.recipientEmail ?? log.recipientId ?? "-"}</td>
+                    <td>{log.mimeType ?? "-"}</td>
+                    <td>{formatDuration(log.durationMs)}</td>
+                    <td>{formatFileSize(log.transferBytes)}</td>
+                    <td>{authMethodBadge(log.authMethod, t)}</td>
+                    <td>{log.httpStatus ?? "-"}</td>
                   </tr>
                 ))}
         </tbody>
@@ -120,7 +200,7 @@ const DownloadLogsTable = ({
 
 const skeletonRows = [...Array(10)].map((_, i) => (
   <tr key={i}>
-    {[...Array(10)].map((__, j) => (
+    {[...Array(19)].map((__, j) => (
       <td key={j}>
         <Skeleton height={20} />
       </td>
@@ -130,7 +210,7 @@ const skeletonRows = [...Array(10)].map((_, i) => (
 
 const emptyRow = (
   <tr>
-    <td colSpan={10}>
+    <td colSpan={19}>
       <Text color="dimmed" ta="center" py="lg">
         <FormattedMessage id="admin.downloadLogs.empty" />
       </Text>

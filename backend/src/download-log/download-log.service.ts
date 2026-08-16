@@ -1,25 +1,29 @@
-import {
-  BadRequestException,
-  Injectable,
-  Optional,
-} from "@nestjs/common";
+import { BadRequestException, Injectable, Optional } from "@nestjs/common";
 import { RequestContextLogger } from "../common/request-context/request-context";
 import { getRequestContext } from "../common/request-context/request-context";
 import { Prisma } from "../../prisma/generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { MetricsService } from "../metrics/metrics.service";
 
-export type DownloadLogEvent =
-  | "download"
-  | "view"
-  | "upload"
-  | "delete";
+export type DownloadLogEvent = "download" | "view" | "upload" | "delete";
 
 export interface DownloadLogEntry {
   shareId: string;
   fileId?: string;
   fileName: string;
   fileSize?: string | null;
+  // AUD-ENRICH: contexto e rastreabilidade adicionais (todos opcionais).
+  fileHash?: string | null;
+  shareName?: string | null;
+  creatorUsername?: string | null;
+  recipientId?: string | null;
+  recipientEmail?: string | null;
+  mimeType?: string | null;
+  referer?: string | null;
+  durationMs?: number | null;
+  transferBytes?: string | null;
+  authMethod?: string | null;
+  httpStatus?: number | null;
   userId?: string;
   username?: string;
   ip: string;
@@ -52,6 +56,17 @@ export class DownloadLogService {
             fileId: entry.fileId ?? null,
             fileName: entry.fileName,
             fileSize: entry.fileSize ?? null,
+            fileHash: entry.fileHash ?? null,
+            shareName: entry.shareName ?? null,
+            creatorUsername: entry.creatorUsername ?? null,
+            recipientId: entry.recipientId ?? null,
+            recipientEmail: entry.recipientEmail ?? null,
+            mimeType: entry.mimeType ?? null,
+            referer: entry.referer ?? null,
+            durationMs: entry.durationMs ?? null,
+            transferBytes: entry.transferBytes ?? null,
+            authMethod: entry.authMethod ?? null,
+            httpStatus: entry.httpStatus ?? null,
             userId: entry.userId ?? null,
             username: entry.username ?? null,
             ip: entry.ip,

@@ -123,6 +123,11 @@ model File {
   size        BigInt
   description String?
 
+  // AUD-ENRICH: hash SHA-256 do arquivo persistido na geração do certificado
+  // (original pré-embutido para vídeos assinados). Reutilizado nos download
+  // logs sem recálculo (leitura integral do arquivo é cara).
+  sha256 String?
+
   shareId String
   share   Share  @relation(fields: [shareId], references: [id], onDelete: Cascade)
 
@@ -166,6 +171,19 @@ model DownloadLog {
   fileId   String?
   fileName String
   fileSize String?
+
+  // AUD-ENRICH: contexto e rastreabilidade adicionais do evento.
+  fileHash          String?
+  shareName         String?
+  creatorUsername   String?
+  recipientId       String?
+  recipientEmail    String?
+  mimeType          String?
+  referer           String?
+  durationMs        Int?
+  transferBytes     String?
+  authMethod        String?
+  httpStatus        Int?
 
   userId   String?
   username String?

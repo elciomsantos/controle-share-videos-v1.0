@@ -7,6 +7,17 @@ export interface DownloadLog {
   fileId?: string | null;
   fileName: string;
   fileSize?: string | null;
+  fileHash?: string | null;
+  shareName?: string | null;
+  creatorUsername?: string | null;
+  recipientId?: string | null;
+  recipientEmail?: string | null;
+  mimeType?: string | null;
+  referer?: string | null;
+  durationMs?: number | null;
+  transferBytes?: string | null;
+  authMethod?: string | null;
+  httpStatus?: number | null;
   userId?: string | null;
   username?: string | null;
   ip: string;

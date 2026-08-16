@@ -6,7 +6,12 @@ import {
   Optional,
 } from "@nestjs/common";
 import { RequestContextLogger } from "../common/request-context/request-context";
-import { Prisma, Share, User, ShareSecurity } from "../../prisma/generated/prisma/client";
+import {
+  Prisma,
+  Share,
+  User,
+  ShareSecurity,
+} from "../../prisma/generated/prisma/client";
 import argon from "argon2";
 import * as crypto from "crypto";
 import dayjs from "dayjs";
@@ -62,7 +67,10 @@ export class ShareService {
       await this.storageService.ensureSpaceAvailable(share.size);
     }
 
-    if (!(await this.validationService.validateShareIdAvailable(share.id)).isAvailable)
+    if (
+      !(await this.validationService.validateShareIdAvailable(share.id))
+        .isAvailable
+    )
       throw new BadRequestException(this.i18n.t("share.idInUse"));
 
     if (!share.security || Object.keys(share.security).length == 0)
@@ -71,7 +79,10 @@ export class ShareService {
     let generatedPassword: string | undefined;
 
     if (share.security?.password) {
-      share.security.password = await argon.hash(share.security.password, ARGON2_OPTIONS);
+      share.security.password = await argon.hash(
+        share.security.password,
+        ARGON2_OPTIONS,
+      );
     } else if (
       this.config.getBoolean("share.autoGeneratePassword") &&
       !share.security?.password
@@ -84,7 +95,9 @@ export class ShareService {
       } as ShareSecurityDTO;
     }
 
-    const expirationDate = this.validationService.parseExpiration(share.expiration);
+    const expirationDate = this.validationService.parseExpiration(
+      share.expiration,
+    );
     this.validationService.validateExpiration(expirationDate, user?.isAdmin);
 
     this.storageService.createShareDirectory(share.id);
@@ -103,7 +116,13 @@ export class ShareService {
         expiration: expirationDate,
         creator: { connect: user ? { id: user.id } : undefined },
         security: share.security
-          ? { create: { password: share.security.password, maxViews: share.security.maxViews, maxDownloads: share.security.maxDownloads } }
+          ? {
+              create: {
+                password: share.security.password,
+                maxViews: share.security.maxViews,
+                maxDownloads: share.security.maxDownloads,
+              },
+            }
           : undefined,
         recipients: {
           create: share.recipients
@@ -134,8 +153,7 @@ export class ShareService {
     if (await this.isShareCompleted(id))
       throw new BadRequestException(this.i18n.t("share.alreadyCompleted"));
 
-    if (!share)
-      throw new NotFoundException(this.i18n.t("share.notFound"));
+    if (!share) throw new NotFoundException(this.i18n.t("share.notFound"));
 
     if (share.files.length == 0)
       throw new BadRequestException(
@@ -149,7 +167,9 @@ export class ShareService {
       await this.generateCertificates(id);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(`Falha ao gerar certificado do share ${id}: ${message}`);
+      this.logger.error(
+        `Falha ao gerar certificado do share ${id}: ${message}`,
+      );
     }
 
     // BUG-FIX: recarrega a lista de arquivos após generateCertificates. A
@@ -160,9 +180,13 @@ export class ShareService {
       where: { shareId: id },
     });
     if (filesAfterCert > 1)
-      this.archiveService.createZip(id)
+      this.archiveService
+        .createZip(id)
         .then(() =>
-          this.prisma.share.update({ where: { id }, data: { isZipReady: true } }),
+          this.prisma.share.update({
+            where: { id },
+            data: { isZipReady: true },
+          }),
         )
         .catch((err: unknown) => {
           const message = err instanceof Error ? err.message : String(err);
@@ -266,13 +290,12 @@ export class ShareService {
       // Assina o vídeo in-place: embute os metadados (hash/código/origem) no
       // próprio arquivo, substituindo o original. Retorna os hashes original
       // (pré-embutido) e final (compartilhado), além do tamanho final.
-      const embedResult =
-        await this.certificateService.embedCertificateInVideo(
-          share.id,
-          file.id,
-          file.name,
-          shareInfo,
-        );
+      const embedResult = await this.certificateService.embedCertificateInVideo(
+        share.id,
+        file.id,
+        file.name,
+        shareInfo,
+      );
 
       // Gera o certificado uma única vez, registrando ambos os hashes quando
       // a assinatura alterou os bytes do vídeo (original != final). O PDF do
@@ -305,7 +328,12 @@ export class ShareService {
     const [shares, total] = await Promise.all([
       this.prisma.share.findMany({
         orderBy: { expiration: "desc" },
-        include: { files: true, creator: true, security: true, recipients: true },
+        include: {
+          files: true,
+          creator: true,
+          security: true,
+          recipients: true,
+        },
         skip: (page - 1) * perPage,
         take: perPage,
       }),
@@ -334,7 +362,12 @@ export class ShareService {
       this.prisma.share.findMany({
         where,
         orderBy: { expiration: "desc" },
-        include: { recipients: true, files: true, security: true, creator: true },
+        include: {
+          recipients: true,
+          files: true,
+          security: true,
+          creator: true,
+        },
         skip: (page - 1) * perPage,
         take: perPage,
       }),
@@ -380,20 +413,33 @@ export class ShareService {
   async remove(
     shareId: string,
     isDeleterAdmin = false,
-    actor?: { userId?: string; username?: string; ip: string; userAgent?: string | null },
+    actor?: {
+      userId?: string;
+      username?: string;
+      ip: string;
+      userAgent?: string | null;
+      authMethod?: string | null;
+      referer?: string | null;
+    },
   ) {
     const share = await this.prisma.share.findUnique({
       where: { id: shareId },
       select: {
         id: true,
         creatorId: true,
+        name: true,
+        creator: { select: { username: true } },
         files: { select: { id: true, name: true, size: true } },
       },
     });
 
     if (!share) throw new NotFoundException(this.i18n.t("share.notFound"));
 
-    this.validationService.validateCreatorAccess(share, isDeleterAdmin, "delete");
+    this.validationService.validateCreatorAccess(
+      share,
+      isDeleterAdmin,
+      "delete",
+    );
 
     if (actor) {
       for (const file of share.files ?? []) {
@@ -402,6 +448,10 @@ export class ShareService {
           fileId: file.id,
           fileName: file.name,
           fileSize: file.size.toString(),
+          shareName: share.name ?? null,
+          creatorUsername: share.creator?.username ?? null,
+          authMethod: actor.authMethod ?? null,
+          referer: actor.referer ?? null,
           userId: actor.userId,
           username: actor.username,
           ip: actor.ip,
@@ -417,7 +467,9 @@ export class ShareService {
   }
 
   async expire(shareId: string) {
-    const share = await this.prisma.share.findUnique({ where: { id: shareId } });
+    const share = await this.prisma.share.findUnique({
+      where: { id: shareId },
+    });
 
     if (!share) throw new NotFoundException(this.i18n.t("share.notFound"));
 
@@ -442,10 +494,15 @@ export class ShareService {
         include: { security: true },
       }));
 
-    if (!currentShare) throw new NotFoundException(this.i18n.t("share.notFound"));
+    if (!currentShare)
+      throw new NotFoundException(this.i18n.t("share.notFound"));
 
     const isUpdaterAdmin = user?.isAdmin === true;
-    this.validationService.validateCreatorAccess(currentShare, isUpdaterAdmin, "update");
+    this.validationService.validateCreatorAccess(
+      currentShare,
+      isUpdaterAdmin,
+      "update",
+    );
 
     let expirationDate: Date | null | undefined;
     if (body.expiration !== undefined) {
@@ -455,14 +512,19 @@ export class ShareService {
 
     const data: Prisma.ShareUpdateInput = {
       name: body.name !== undefined ? body.name || null : undefined,
-      description: body.description !== undefined ? body.description || null : undefined,
+      description:
+        body.description !== undefined ? body.description || null : undefined,
       expiration: expirationDate,
     };
 
     await this.prisma.share.update({ where: { id: shareId }, data });
 
     if (body.security) {
-      await this.updateSecurity(shareId, body, currentShare.security ?? undefined);
+      await this.updateSecurity(
+        shareId,
+        body,
+        currentShare.security ?? undefined,
+      );
     }
 
     const updatedShare = await this.prisma.share.findUnique({
@@ -470,7 +532,8 @@ export class ShareService {
       include: { creator: true, files: true, recipients: true, security: true },
     });
 
-    if (!updatedShare) throw new NotFoundException(this.i18n.t("share.notFound"));
+    if (!updatedShare)
+      throw new NotFoundException(this.i18n.t("share.notFound"));
     return this.shareMapper.transformShare(updatedShare);
   }
 
@@ -486,10 +549,20 @@ export class ShareService {
       : body.security.password
         ? await argon.hash(body.security.password, ARGON2_OPTIONS)
         : currentSecurity?.password;
-    const nextMaxViews = body.security.maxViews !== undefined ? body.security.maxViews : currentSecurity?.maxViews;
-    const nextMaxDownloads = body.security.maxDownloads !== undefined ? body.security.maxDownloads : currentSecurity?.maxDownloads;
+    const nextMaxViews =
+      body.security.maxViews !== undefined
+        ? body.security.maxViews
+        : currentSecurity?.maxViews;
+    const nextMaxDownloads =
+      body.security.maxDownloads !== undefined
+        ? body.security.maxDownloads
+        : currentSecurity?.maxDownloads;
 
-    if (nextPassword == null && nextMaxViews == null && nextMaxDownloads == null) {
+    if (
+      nextPassword == null &&
+      nextMaxViews == null &&
+      nextMaxDownloads == null
+    ) {
       if (currentSecurity) {
         await this.prisma.shareSecurity.delete({ where: { shareId } });
       }
@@ -519,7 +592,14 @@ export class ShareService {
 
   async increaseViewCount(
     share: Share & { security?: { maxViews?: number | null } | null },
-    context?: { ip?: string; userAgent?: string | null },
+    context?: {
+      ip?: string;
+      userAgent?: string | null;
+      shareName?: string | null;
+      creatorUsername?: string | null;
+      authMethod?: string | null;
+      referer?: string | null;
+    },
   ) {
     const ip = context?.ip ?? "unknown";
     const maxViews = share.security?.maxViews;
@@ -544,6 +624,10 @@ export class ShareService {
         void this.downloadLogService.record({
           shareId: share.id,
           fileName: share.name ?? share.id,
+          shareName: context.shareName ?? share.name ?? null,
+          creatorUsername: context.creatorUsername ?? null,
+          authMethod: context.authMethod ?? null,
+          referer: context.referer ?? null,
           ip,
           userAgent: context.userAgent ?? null,
           success: false,
@@ -561,6 +645,10 @@ export class ShareService {
       void this.downloadLogService.record({
         shareId: share.id,
         fileName: share.name ?? share.id,
+        shareName: context.shareName ?? share.name ?? null,
+        creatorUsername: context.creatorUsername ?? null,
+        authMethod: context.authMethod ?? null,
+        referer: context.referer ?? null,
         ip,
         userAgent: context.userAgent ?? null,
         success: true,
@@ -585,10 +673,20 @@ export class ShareService {
     shareId: string,
     ip?: string,
     userAgent?: string | null,
+    context?: {
+      shareName?: string | null;
+      creatorUsername?: string | null;
+      authMethod?: string | null;
+      referer?: string | null;
+    },
   ) {
     void this.downloadLogService.record({
       shareId,
       fileName: shareId,
+      shareName: context?.shareName ?? null,
+      creatorUsername: context?.creatorUsername ?? null,
+      authMethod: context?.authMethod ?? null,
+      referer: context?.referer ?? null,
       ip: ip ?? "unknown",
       userAgent: userAgent ?? null,
       success: false,
@@ -607,8 +705,7 @@ export class ShareService {
       include: { security: true },
     });
 
-    if (!share)
-      throw new NotFoundException(this.i18n.t("share.notFound"));
+    if (!share) throw new NotFoundException(this.i18n.t("share.notFound"));
 
     if (share.security?.password) {
       if (!password) {
@@ -618,7 +715,10 @@ export class ShareService {
         });
       }
 
-      const isPasswordValid = await argon.verify(share.security.password, password);
+      const isPasswordValid = await argon.verify(
+        share.security.password,
+        password,
+      );
       if (!isPasswordValid) {
         if (context) {
           void this.downloadLogService.record({
@@ -656,7 +756,10 @@ export class ShareService {
       });
     }
 
-    const token = await this.tokenService.generateShareToken({ ...share, security: share.security ?? undefined });
+    const token = await this.tokenService.generateShareToken({
+      ...share,
+      security: share.security ?? undefined,
+    });
     return token;
   }
 
@@ -674,6 +777,8 @@ export class ShareService {
   private generateRandomPassword(length: number): string {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
     const bytes = crypto.randomBytes(length);
-    return Array.from(bytes).map((b) => chars[b % chars.length]).join("");
+    return Array.from(bytes)
+      .map((b) => chars[b % chars.length])
+      .join("");
   }
 }

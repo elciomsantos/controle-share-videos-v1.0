@@ -13,12 +13,19 @@ import {
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { Throttle } from "@nestjs/throttler";
-import { Share, ShareSecurity, User } from "../../prisma/generated/prisma/client";
+import {
+  Share,
+  ShareSecurity,
+  User,
+} from "../../prisma/generated/prisma/client";
 import { Request, Response } from "express";
 import dayjs from "dayjs";
 import { GetUser } from "../auth/decorator/getUser.decorator";
 import { Public } from "../auth/decorator/public.decorator";
-import { AdminOrAuditor, Authenticated } from "../auth/decorator/guards.decorator";
+import {
+  AdminOrAuditor,
+  Authenticated,
+} from "../auth/decorator/guards.decorator";
 import { AdminShareDTO } from "./dto/adminShare.dto";
 import { CreateShareDTO } from "./dto/createShare.dto";
 import { MyShareDTO } from "./dto/myShare.dto";
@@ -27,13 +34,15 @@ import { ShareMetaDataDTO } from "./dto/shareMetaData.dto";
 import { SharePasswordDto } from "./dto/sharePassword.dto";
 import { UpdateShareDTO } from "./dto/updateShare.dto";
 import { GetShare } from "./decorator/getShare.decorator";
-import { ShareOwnerAccess, StrictShareOwnerAccess, SharePublicAccess, ShareTokenAccess } from "./decorator/share-guards.decorator";
+import {
+  ShareOwnerAccess,
+  StrictShareOwnerAccess,
+  SharePublicAccess,
+  ShareTokenAccess,
+} from "./decorator/share-guards.decorator";
 import { ShareService } from "./share.service";
 import { CompletedShareDTO } from "./dto/shareComplete.dto";
-import {
-  getRequestIp,
-  getRequestUserAgent,
-} from "../utils/request.util";
+import { getRequestIp, getRequestUserAgent } from "../utils/request.util";
 import { ConfigService } from "../config/config.service";
 import { PageDTO } from "../pagination/page.dto";
 import { normalizePagination } from "../pagination/pagination.util";
@@ -65,7 +74,11 @@ export class ShareController {
     @Query() query: { page?: unknown; perPage?: unknown },
   ) {
     const { page, perPage } = normalizePagination(query);
-    const page_ = await this.shareService.getSharesByUser(user.id, page, perPage);
+    const page_ = await this.shareService.getSharesByUser(
+      user.id,
+      page,
+      perPage,
+    );
     return PageDTO.of(
       new MyShareDTO().fromList(page_.items),
       page_.total,
@@ -97,12 +110,21 @@ export class ShareController {
   @Public()
   @SharePublicAccess()
   async recordView(@Param("id") id: string, @Req() req: Request) {
-    const share = await this.shareService.get(id);
+    const share = (await this.shareService.get(id)) as Share & {
+      name?: string | null;
+      creator?: { username?: string } | null;
+    };
     const user = req.user as User | undefined;
     if (!user || (share.creatorId !== user.id && !user.isAdmin)) {
+      const shareToken = req.cookies?.[`share_${id}_token`] as
+        string | undefined;
       await this.shareService.increaseViewCount(share as Share, {
         ip: getRequestIp(req),
         userAgent: getRequestUserAgent(req),
+        shareName: share.name ?? null,
+        creatorUsername: share.creator?.username ?? null,
+        authMethod: user ? "session" : shareToken ? "shareToken" : "anonymous",
+        referer: req.headers.referer ?? null,
       });
     }
     return { ok: true };
@@ -129,12 +151,12 @@ export class ShareController {
 
   @Post()
   @Authenticated()
-  async create(
-    @Body() body: CreateShareDTO,
-    @GetUser() user: User,
-  ) {
+  async create(@Body() body: CreateShareDTO, @GetUser() user: User) {
     return new ShareDTO().from(
-      (await this.shareService.create(body, user)) as unknown as Partial<ShareDTO>,
+      (await this.shareService.create(
+        body,
+        user,
+      )) as unknown as Partial<ShareDTO>,
     );
   }
 
@@ -156,7 +178,9 @@ export class ShareController {
   @StrictShareOwnerAccess()
   async complete(@Param("id") id: string) {
     return new CompletedShareDTO().from(
-      (await this.shareService.complete(id)) as unknown as Partial<CompletedShareDTO>,
+      (await this.shareService.complete(
+        id,
+      )) as unknown as Partial<CompletedShareDTO>,
     );
   }
 
@@ -164,7 +188,9 @@ export class ShareController {
   @StrictShareOwnerAccess()
   async revertComplete(@Param("id") id: string) {
     return new ShareDTO().from(
-      (await this.shareService.revertComplete(id)) as unknown as Partial<ShareDTO>,
+      (await this.shareService.revertComplete(
+        id,
+      )) as unknown as Partial<ShareDTO>,
     );
   }
 
@@ -181,6 +207,8 @@ export class ShareController {
       username: user?.username,
       ip: getRequestIp(req),
       userAgent: getRequestUserAgent(req),
+      authMethod: "session",
+      referer: req.headers.referer ?? null,
     });
   }
 

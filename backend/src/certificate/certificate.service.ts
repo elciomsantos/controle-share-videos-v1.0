@@ -97,7 +97,14 @@ export class CertificateService {
     const ext = path.extname(fileName).toLowerCase();
 
     const videoExtensions = new Set([
-      ".mp4", ".mov", ".m4v", ".mkv", ".webm", ".avi", ".flv", ".wmv",
+      ".mp4",
+      ".mov",
+      ".m4v",
+      ".mkv",
+      ".webm",
+      ".avi",
+      ".flv",
+      ".wmv",
     ]);
     if (!videoExtensions.has(ext)) {
       this.logger.warn(
@@ -129,10 +136,14 @@ export class CertificateService {
 
     const baseArgs = [
       "-y",
-      "-i", srcPath,
-      "-metadata", `title=${fileName} (certificado)`,
-      "-metadata", `comment=${comment}`,
-      "-c", "copy",
+      "-i",
+      srcPath,
+      "-metadata",
+      `title=${fileName} (certificado)`,
+      "-metadata",
+      `comment=${comment}`,
+      "-c",
+      "copy",
     ];
 
     try {
@@ -160,7 +171,7 @@ export class CertificateService {
 
     await this.prisma.file.update({
       where: { id: fileId },
-      data: { size: stats.size },
+      data: { size: stats.size, sha256: originalHash },
     });
 
     this.logger.log(
@@ -169,7 +180,14 @@ export class CertificateService {
     return { originalHash, finalHash, finalSize: stats.size };
   }
 
-  private roundRect(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number, r: number) {
+  private roundRect(
+    doc: PDFKit.PDFDocument,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    r: number,
+  ) {
     doc
       .moveTo(x + r, y)
       .lineTo(x + w - r, y)
@@ -266,7 +284,10 @@ export class CertificateService {
     // Cabeçalho padrão: logo (Secretaria de Defesa Social) + texto + brasão da
     // Guarda Municipal de Londrina, com o nome centralizado na linha abaixo.
     const logoPath = path.join(CERTIFICATE_ASSETS_DIRECTORY, "logo_pml_fb.png");
-    const brasaoPath = path.join(CERTIFICATE_ASSETS_DIRECTORY, "Brasao_GML.png");
+    const brasaoPath = path.join(
+      CERTIFICATE_ASSETS_DIRECTORY,
+      "Brasao_GML.png",
+    );
 
     const brasaoH = 46;
     const brasaoW = (brasaoH * 820) / 963; // 820x963
@@ -275,7 +296,10 @@ export class CertificateService {
     const headerTextSize = 22;
     doc.font(FONT_BOLD).fontSize(headerTextSize);
     const headerTextW = doc.widthOfString(headerText);
-    const logoW = Math.min(100, contentWidth - headerTextW - headerGap * 2 - brasaoW);
+    const logoW = Math.min(
+      100,
+      contentWidth - headerTextW - headerGap * 2 - brasaoW,
+    );
     const logoH = (logoW * 51) / 160; // 160x51
     const headerTotalW = logoW + headerGap + headerTextW + headerGap + brasaoW;
     const headerX = margin + (contentWidth - headerTotalW) / 2;
@@ -317,10 +341,16 @@ export class CertificateService {
     });
 
     // Título
-    centerText("Certificado de Autenticidade", 104, { fontSize: 22, bold: true });
+    centerText("Certificado de Autenticidade", 104, {
+      fontSize: 22,
+      bold: true,
+    });
 
     // Data/hora de geração
-    centerText(`Arquivo gerado em ${nowLabel}`, 132, { fontSize: 10, color: "#555555" });
+    centerText(`Arquivo gerado em ${nowLabel}`, 132, {
+      fontSize: 10,
+      color: "#555555",
+    });
     centerText("Horário oficial de Brasília (UTC−3)", 145, {
       fontSize: 9,
       color: "#777777",
@@ -343,7 +373,9 @@ export class CertificateService {
       .slice(0, 36);
     const formattedCode = `${verificationCode.slice(0, 8)}-${verificationCode.slice(8, 12)}-${verificationCode.slice(12, 16)}-${verificationCode.slice(16, 20)}-${verificationCode.slice(20, 32)}`;
 
-    centerText(`Código para verificação: ${formattedCode}`, 200, { fontSize: 10 });
+    centerText(`Código para verificação: ${formattedCode}`, 200, {
+      fontSize: 10,
+    });
 
     // Cartão de metadados
     let y = 226;
@@ -354,7 +386,11 @@ export class CertificateService {
     const valueX = 210;
     const drawLabel = (label: string, value: string, fontSize = 10) => {
       doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(10).text(label, 65, y);
-      doc.fillColor("#333333").font(FONT).fontSize(fontSize).text(value, valueX, y, { lineBreak: false });
+      doc
+        .fillColor("#333333")
+        .font(FONT)
+        .fontSize(fontSize)
+        .text(value, valueX, y, { lineBreak: false });
       y += rowHeight;
     };
 
@@ -364,7 +400,10 @@ export class CertificateService {
     drawLabel("E-mail:", share.ownerEmail ?? "—");
     drawLabel("Criado em:", shareCreated);
     drawLabel("Tamanho:", `${file.sizeBytes.toString()} bytes`);
-    if (finalSizeBytes && finalSizeBytes.toString() !== file.sizeBytes.toString()) {
+    if (
+      finalSizeBytes &&
+      finalSizeBytes.toString() !== file.sizeBytes.toString()
+    ) {
       drawLabel("Tamanho final:", `${finalSizeBytes.toString()} bytes`);
     }
     drawLabel("Extensão:", file.extension || "—");
@@ -380,9 +419,16 @@ export class CertificateService {
 
     // Dados do sistema
     y += 22;
-    doc.rect(55, y, pageWidth - 110, 2).fillColor("#CCCCCC").fill();
+    doc
+      .rect(55, y, pageWidth - 110, 2)
+      .fillColor("#CCCCCC")
+      .fill();
     y += 10;
-    doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(11).text("Dados do sistema", 65, y);
+    doc
+      .fillColor("#2E8B8B")
+      .font(FONT_BOLD)
+      .fontSize(11)
+      .text("Dados do sistema", 65, y);
     y += 16;
 
     const sysEntries: [string, string][] = [
@@ -391,19 +437,33 @@ export class CertificateService {
     ];
     for (const [label, value] of sysEntries) {
       doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(10).text(label, 65, y);
-      doc.fillColor("#333333").font(FONT).fontSize(10).text(value, valueX, y, { lineBreak: false });
+      doc
+        .fillColor("#333333")
+        .font(FONT)
+        .fontSize(10)
+        .text(value, valueX, y, { lineBreak: false });
       y += rowHeight;
     }
 
     // Eventos do documento
     y += 10;
-    doc.rect(55, y, pageWidth - 110, 2).fillColor("#CCCCCC").fill();
+    doc
+      .rect(55, y, pageWidth - 110, 2)
+      .fillColor("#CCCCCC")
+      .fill();
     y += 10;
-    doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(11).text("Eventos do documento", 65, y);
+    doc
+      .fillColor("#2E8B8B")
+      .font(FONT_BOLD)
+      .fontSize(11)
+      .text("Eventos do documento", 65, y);
     y += 16;
 
     const eventEntries: [string, string][] = [
-      ["DOCUMENTO CRIADO", `${shareCreated}\n${share.ownerName ?? "—"} (${share.ownerEmail ?? "—"})`],
+      [
+        "DOCUMENTO CRIADO",
+        `${shareCreated}\n${share.ownerName ?? "—"} (${share.ownerEmail ?? "—"})`,
+      ],
       ["ARQUIVO ENVIADO", `${nowLabel}\nSistema (upload finalizado)`],
       // Hash completo (64 caracteres hex) em fonte menor para caber inteiro na
       // largura disponível (230 até a margem direita) sem quebrar a linha.
@@ -411,10 +471,14 @@ export class CertificateService {
     ];
     for (const [event, details] of eventEntries) {
       doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(10).text(event, 65, y);
-      doc.fillColor("#333333").font(FONT).fontSize(8).text(details, 230, y, {
-        lineBreak: true,
-        width: pageWidth - 230 - margin,
-      });
+      doc
+        .fillColor("#333333")
+        .font(FONT)
+        .fontSize(8)
+        .text(details, 230, y, {
+          lineBreak: true,
+          width: pageWidth - 230 - margin,
+        });
       y += 38;
     }
 
@@ -460,7 +524,18 @@ export class CertificateService {
       },
     });
 
-    this.logger.log(`Certificado gerado para share ${shareId} arquivo ${fileId} (hash ${originalHash.slice(0, 12)}…)`);
+    // AUD-ENRICH: persiste o hash SHA-256 no File original para reutilização
+    // nos download logs sem recálculo (para não-vídeos, calculado aqui).
+    await this.prisma.file
+      .update({
+        where: { id: fileId },
+        data: { sha256: originalHash },
+      })
+      .catch(() => undefined);
+
+    this.logger.log(
+      `Certificado gerado para share ${shareId} arquivo ${fileId} (hash ${originalHash.slice(0, 12)}…)`,
+    );
     return { relativePath, hash: originalHash };
   }
 }
