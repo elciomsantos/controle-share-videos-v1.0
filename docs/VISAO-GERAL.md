@@ -507,7 +507,7 @@ A arquitetura permite expansão futura:
 * **Armazenamento externo**: caso futuramente necessário, reativar provider S3 (removido por padrão — ver `docs/Padronizacao.md`)
 * **Replicação de banco**: Migração para PostgreSQL + Patroni/pgpool / MySQL Group Replication
 * **Load balancing**: Caddy/Traefik/NGINX upstream múltiplos backends
-* **Observabilidade**: OpenTelemetry + Prometheus + Grafana (endpoints `/metrics` a adicionar)
+* **Observabilidade**: OpenTelemetry + Prometheus + Grafana (endpoint `/api/metrics` já exposto via Prometheus, restrito a redes internas — ver `SECURITY_REPORT.md` §10 NEW-2)
 
 ---
 

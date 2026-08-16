@@ -215,8 +215,13 @@ O `reverse-proxy/Caddyfile.prod` já vem com:
   `10 req / 60s` para endpoints de auth (zona `auth`).
 - **Health check** interno `/api/health` restrito a redes internas
   (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `127.0.0.0/8`).
+- **Métricas** `/api/metrics` restrito às mesmas redes internas (SEC-NEW-2):
+  o Prometheus coleta via rede Docker (`backend:8080`), nunca pela internet.
 - **Logs** JSON com filtro `replace pwd REDACTED` (SEC-05: mascara senha
   em query string quando `share.includePasswordInShareLink=true`).
+- **Tokens de reset/verify fora do path** (SEC-NEW-1): links dos e-mails usam
+  fragment `#token=...` e o pedido de reset trafega em `POST /api/auth/resetPassword/request`
+  (body `{email}`) — nada de token/e-mail nos access logs do Caddy.
 
 ### 6.1 Como adaptar o domínio
 

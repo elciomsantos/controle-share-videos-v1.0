@@ -78,7 +78,7 @@ async generateCertificate(
   fileId: string,
   file: CertificateFileInfo,     // nome, tamanho, MIME, extensão, descrição
   share: CertificateShareInfo,   // id, createdAt, ownerName, ownerEmail
-  system: CertificateSystemInfo, // hostname, ip, platform, nodeVersion, storagePath
+  system: CertificateSystemInfo, // platform, nodeVersion (sem hostname/IP/storage — SEC-NEW-5)
   hashes?: { originalHash?: string; finalHash?: string },  // opcional (vídeos)
   finalSizeBytes?: number | bigint,                        // opcional (vídeos)
 ): Promise<{ relativePath: string; hash: string }>
@@ -108,7 +108,7 @@ await this.prisma.file.create({
 Chama `CertificateService` para **todos os arquivos** do share. Coleta:
 
 - **Dados do share**: `id`, `createdAt`, nome/e-mail do criador.
-- **Dados do sistema** (`getSystemInfo()`): hostname, primeiro IP IPv4 não-interno, `plataforma + release`, `process.version` (Node.js) e caminho de storage.
+- **Dados do sistema** (`getSystemInfo()`): `plataforma + release` e `process.version` (Node.js). **Desde 2026-08-15 (SEC-NEW-5)** o certificado público NÃO embute hostname, IP interno ou caminho de storage — removidos para evitar info disclosure a visitantes.
 
 ### 4.3 Integração com `complete()`
 
@@ -136,9 +136,9 @@ O PDF contém (replicando `docs/certificado.pdf`):
 | **Metadados** | Documento ID, Arquivo ID, Proprietário, E-mail, Criado em, Tamanho (bytes), Extensão, Tipo (MIME), Descrição |
 | **Integridade** | **Hash SHA-256** do arquivo original (e **Hash final (pós-metadados)** + **Tamanho final** quando o vídeo recebe metadados embutidos) |
 | **QR Code** | **QR Code** com `SHA-256: {hash}` — leitura rápida do hash do arquivo original |
-| **Sistema** | Hostname, IP, Plataforma, Node.js, Caminho de armazenamento |
+| **Sistema** | Plataforma, Node.js |
 | **Eventos** | DOCUMENTO CRIADO, ARQUIVO ENVIADO, CERTIFICADO GERADO (com hash) |
-| **Rodapé** | `Gerado por {hostname} em {data} — horário de Brasília - Brasil` |
+| **Rodapé** | `Certificado gerado em {data} — horário de Brasília - Brasil` |
 
 Datas formatadas em português no **fuso de Brasília (UTC-3)**, independentemente do fuso do servidor/container:
 
