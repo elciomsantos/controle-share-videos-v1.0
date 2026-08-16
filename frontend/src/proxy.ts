@@ -89,7 +89,7 @@ async function verifyJwtViaBackend(
   }
 }
 
-export default async function middleware(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   const routes = {
     unauthenticated: new Routes(["/auth/*", "/"]),
     public: new Routes([
