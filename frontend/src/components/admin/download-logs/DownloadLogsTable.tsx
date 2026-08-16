@@ -149,7 +149,7 @@ const DownloadLogsTable = ({
               ? emptyRow
               : logs.map((log) => (
                   <tr key={log.id}>
-                    <td>{dayjs(log.createdAt).format("LLL")}</td>
+                    <td>{dayjs(log.createdAt).format("DD/MM/YYYY")}</td>
                     <td>{log.shareId}</td>
                     <td>{log.fileName || "-"}</td>
                     <td>{formatFileSize(log.fileSize)}</td>
