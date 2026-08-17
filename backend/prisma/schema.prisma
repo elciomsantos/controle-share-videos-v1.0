@@ -142,6 +142,8 @@ model Share {
 
   security ShareSecurity?
 
+  shareTokens ShareToken[]
+
   recipients      ShareRecipient[]
   files           File[]
   storageProvider String           @default("LOCAL")
@@ -197,6 +199,25 @@ model ShareSecurity {
 
   shareId String @unique
   share   Share  @relation(fields: [shareId], references: [id], onDelete: Cascade)
+}
+
+// SEC §23: share tokens são opacos (256 bits de entropia) e armazenados como
+// SHA-256. revokedAt invalida tokens ao trocar a senha do share (revogação em
+// lote via updateMany) sem depender de assinatura.
+model ShareToken {
+  id        String   @id @default(uuid())
+  tokenHash String   @unique
+  shareId   String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+  ipAddress String?
+  userAgent String?
+
+  share Share @relation(fields: [shareId], references: [id], onDelete: Cascade)
+
+  // SEC-07: verifyShareToken faz lookup por shareId → tokenHash (banco first).
+  @@index([shareId])
 }
 
 model Config {

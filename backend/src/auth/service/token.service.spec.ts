@@ -65,20 +65,21 @@ describe("TokenService", () => {
   });
 
   describe("createRefreshToken", () => {
-    it("persiste um refresh token com expiry baseado na duração da sessão", async () => {
-      prisma.refreshToken.create.mockResolvedValue({ id: "rt1", token: "tok" });
+    it("persiste apenas o hash do refresh token e retorna o texto puro (§26.3)", async () => {
+      prisma.refreshToken.create.mockResolvedValue({ id: "rt1", token: "ignored" });
 
       const result = await service.createRefreshToken("u1");
 
-      expect(prisma.refreshToken.create).toHaveBeenCalledWith({
-        data: {
-          userId: "u1",
-          reauthenticatedAt: null,
-          expiresAt: expect.any(Date),
-        },
-      });
-      expect(config.getTimespan).toHaveBeenCalledWith("general.sessionDuration");
+      const data = prisma.refreshToken.create.mock.calls[0][0].data;
+      expect(data.userId).toBe("u1");
+      expect(data.reauthenticatedAt).toBeNull();
+      expect(data.expiresAt).toBeInstanceOf(Date);
+      expect(data.token).toMatch(/^[0-9a-f]{64}$/);
       expect(result.id).toBe("rt1");
+      // O valor retornado (cookie) é o texto puro; o banco só tem o SHA-256.
+      expect(result.token).not.toBe(data.token);
+      expect(service.hashToken(result.token)).toBe(data.token);
+      expect(config.getTimespan).toHaveBeenCalledWith("general.sessionDuration");
     });
   });
 

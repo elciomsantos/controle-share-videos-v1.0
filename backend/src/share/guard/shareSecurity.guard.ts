@@ -78,7 +78,7 @@ export class ShareSecurityGuard extends JwtGuard {
 
     if (
       !(await this.shareTokenService.verifyShareToken(
-        { ...share, security: share.security ?? undefined },
+        { id: share.id },
         shareToken,
       ))
     )

@@ -15,6 +15,7 @@ describe("RefreshService (SEC-07)", () => {
     createRefreshToken: jest.Mock;
     createSession: jest.Mock;
     getSessionByAccessToken: jest.Mock;
+    hashToken: jest.Mock;
   };
   let service: RefreshService;
 
@@ -32,6 +33,7 @@ describe("RefreshService (SEC-07)", () => {
       createRefreshToken: jest.fn(),
       createSession: jest.fn(() => ({ accessToken: "access-token" })),
       getSessionByAccessToken: jest.fn(),
+      hashToken: jest.fn((t: string) => `hash(${t})`),
     };
     service = new RefreshService(
       prisma as never,

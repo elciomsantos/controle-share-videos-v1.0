@@ -170,7 +170,7 @@ Há testes unitários e E2E (backend) e unitários (frontend), com cobertura ≥
 
 ```bash
 # Backend
-npm run test:unit      # jest — unitários (22 suites, 233 testes)
+npm run test:unit      # jest — unitários (22 suites, 237 testes)
 npm run test:e2e       # jest — e2e efêmero (DB dedicado, não destrutivo)
 npm run test:coverage  # jest com cobertura (thresholds ≥60%)
 npm test               # alias para test:unit
@@ -280,10 +280,10 @@ Para gerar os segredos:
 openssl rand -base64 32
 ```
 
-> ⚠️ **`JWT_SECRET`**: usado apenas para **share tokens** (downloads) e
-> resolução de segredos legados. As **sessões de autenticação** são opacas e
-> server-side (Fase 4) — rotação do segredo **não** derruba logins ativos;
-> apenas share tokens já emitidos ficam inválidos.
+> ⚠️ **`JWT_SECRET`**: consumido apenas pelo `JwtStrategy` legado (inativo —
+> ver Fase 4). As **sessões de autenticação** são opacas e server-side e os
+> **share tokens** são opacos com `token_hash` (§23) — a rotação do segredo
+> **não** derruba logins ativos nem invalida share tokens emitidos.
 
 **Acesso por IP (sem domínio):** se preferir acessar o sistema por IP (ex:
 `http://192.168.1.50`), use `CADDYFILE=ip` no `.env` e omita `DOMAIN`/
@@ -421,7 +421,7 @@ Detalhes em `docs/operacional/DEPLOY.md` §6.3.
 | Rate limit edge | ✅ Ativo | Caddy: 100 req/10s (dynamic), 10 req/60s (auth endpoints) |
 | Security headers | ✅ Ativo | HSTS preload, X-Frame-Options DENY, X-Content-Type-Options nosniff, COOP/COEP/CORP, Permissions-Policy |
 | Secrets | ✅ Docker secrets | `docker-compose.prod.yml` — `*_FILE` vars + secrets externos; `docker-compose.yml` — variáveis `.env` |
-| Sessão opaca server-side | ✅ Ativo (Fase 4) | Access token opaco 256-bit (apenas SHA-256 persistido); validação por requisição §10 (revogado → expirado → inativo); idle 30min + absoluta 8h; refresh token UUID em DB com rotação + detecção de reuso; share tokens continuam JWT assinados (curta duração) |
+| Sessão opaca server-side | ✅ Ativo (Fase 4) | Access token opaco 256-bit (apenas SHA-256 persistido); validação por requisição §10 (revogado → expirado → inativo); idle 30min + absoluta 8h; refresh token como hash §26.3 com rotação + detecção de reuso; share tokens opacos com `token_hash` + `revoked_at` §23 |
 | SQLite | ⚠️ Monitorado | Produção pequena (≤ 500 users simultâneos); migração PostgreSQL em v1.3 se necessário |
 | Redis cache | 📦 Backlog v1.3 | Backend já tem `@keyv/redis` + fallback in-memory; ativar = subir Redis + flag |
 | S3/MinIO storage | 📦 Backlog v1.4 | `S3UploadRepository` interface pronta (R02); acionar se > 100 GB uploads |

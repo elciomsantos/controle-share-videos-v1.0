@@ -285,7 +285,11 @@ describe("ShareService", () => {
       validateExpiration: jest.Mock;
       validateCreatorAccess: jest.Mock;
     };
-    tokenService: { generateShareToken: jest.Mock; verifyShareToken: jest.Mock };
+    tokenService: {
+      generateShareToken: jest.Mock;
+      verifyShareToken: jest.Mock;
+      revokeAllForShare: jest.Mock;
+    };
     limitService: { checkShareSizeLimit: jest.Mock };
     config: { getBoolean: jest.Mock; getNumber: jest.Mock };
     certificateService: {
@@ -332,6 +336,7 @@ describe("ShareService", () => {
       tokenService: {
         generateShareToken: jest.fn(),
         verifyShareToken: jest.fn(),
+        revokeAllForShare: jest.fn(),
       },
       limitService: { checkShareSizeLimit: jest.fn() },
       config: { getBoolean: jest.fn(), getNumber: jest.fn() },

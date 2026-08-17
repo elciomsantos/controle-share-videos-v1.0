@@ -26,8 +26,9 @@ export class RefreshService {
    * novo refresh, carregando o marco de reautenticação da família.
    */
   async refreshAccessToken(refreshToken: string) {
+    // §26.3: o token trafega em texto puro no cookie; o banco só conhece o hash.
     const refreshTokenMetaData = await this.prisma.refreshToken.findUnique({
-      where: { token: refreshToken },
+      where: { token: this.tokenService.hashToken(refreshToken) },
       include: { user: true },
     });
     if (!refreshTokenMetaData || refreshTokenMetaData.expiresAt < new Date())

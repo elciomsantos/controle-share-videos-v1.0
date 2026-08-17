@@ -33,7 +33,12 @@ export class TokenService {
     return randomBytes(32).toString("base64url");
   }
 
-  /** SHA-256 do token opaco — única forma persistida em `Session.tokenHash`. */
+  /** Gera um refresh token opaco de 256 bits (CSPRNG, base64url). */
+  generateRefreshToken(): string {
+    return randomBytes(32).toString("base64url");
+  }
+
+  /** SHA-256 do token — única forma persistida (access e refresh, §26.3). */
   hashToken(token: string): string {
     return createHash("sha256").update(token).digest("hex");
   }
@@ -74,6 +79,9 @@ export class TokenService {
    * Cria (e persiste) um novo refresh token para o usuário. Aceita um client de
    * transação opcional para composição com outras operações atômicas.
    *
+   * §26.3 (Fase 4): apenas o SHA-256 do token é persistido (`token`); o valor
+   * em texto puro é retornado para o cookie e nunca fica no banco.
+   *
    * `reauthAt` define o marco de autenticação recente (SEC-1.2/15.4) da nova
    * sessão: login forte, segundo fator ou reautenticação explícita o preenchem.
    */
@@ -84,15 +92,19 @@ export class TokenService {
   ) {
     const prisma = tx || this.prisma;
     const sessionDuration = this.config.getTimespan("general.sessionDuration");
-    return prisma.refreshToken.create({
-      data: {
-        userId,
-        reauthenticatedAt: reauthAt ?? null,
-        expiresAt: dayjs()
-          .add(sessionDuration.value, sessionDuration.unit)
-          .toDate(),
-      },
-    });
+    const plainToken = this.generateRefreshToken();
+    return prisma.refreshToken
+      .create({
+        data: {
+          userId,
+          token: this.hashToken(plainToken),
+          reauthenticatedAt: reauthAt ?? null,
+          expiresAt: dayjs()
+            .add(sessionDuration.value, sessionDuration.unit)
+            .toDate(),
+        },
+      })
+      .then((record) => ({ ...record, token: plainToken }));
   }
 
   /**

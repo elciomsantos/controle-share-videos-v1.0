@@ -11,7 +11,6 @@ import {
   Req,
   Res,
 } from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
 import { Throttle } from "@nestjs/throttler";
 import {
   Share,
@@ -19,7 +18,6 @@ import {
   User,
 } from "../../prisma/generated/prisma/client";
 import { Request, Response } from "express";
-import dayjs from "dayjs";
 import { GetUser } from "../auth/decorator/getUser.decorator";
 import { Public } from "../auth/decorator/public.decorator";
 import {
@@ -54,7 +52,6 @@ import { normalizePagination } from "../pagination/pagination.util";
 export class ShareController {
   constructor(
     private shareService: ShareService,
-    private jwtService: JwtService,
     private config: ConfigService,
   ) {}
 
@@ -269,42 +266,22 @@ export class ShareController {
   }
 
   /**
-   * Keeps the 10 most recent share token cookies and deletes the rest and all expired ones
+   * Keeps the 10 most recent share token cookies and deletes the rest. Tokens
+   * são opacos (§23) — expiração/revogação é validada no servidor por hash, então
+   * o limite aqui só evita acúmulo de cookies.
    */
   private clearShareTokenCookies(request: Request, response: Response) {
-    const shareTokenCookies = Object.entries(request.cookies)
-      .filter(([key]) => key.startsWith("share_") && key.endsWith("_token"))
-      .map(([key, value]) => ({
-        key,
-        payload: this.jwtService.decode(value),
-      }));
+    const shareTokenCookies = Object.keys(request.cookies)
+      .filter((key) => key.startsWith("share_") && key.endsWith("_token"));
 
-    const expiredTokens = shareTokenCookies.filter(
-      (cookie) => cookie.payload.exp < dayjs().unix(),
-    );
-    const validTokens = shareTokenCookies.filter(
-      (cookie) => cookie.payload.exp >= dayjs().unix(),
-    );
-
-    expiredTokens.forEach((cookie) =>
-      response.clearCookie(cookie.key, {
-        path: "/",
-        sameSite: "lax",
-        secure: this.config.getBoolean("general.secureCookies"),
-      }),
-    );
-
-    if (validTokens.length > 10) {
-      validTokens
-        .sort((a, b) => a.payload.exp - b.payload.exp)
-        .slice(0, -10)
-        .forEach((cookie) =>
-          response.clearCookie(cookie.key, {
-            path: "/",
-            sameSite: "lax",
-            secure: this.config.getBoolean("general.secureCookies"),
-          }),
-        );
-    }
+    shareTokenCookies
+      .slice(0, -10)
+      .forEach((key) =>
+        response.clearCookie(key, {
+          path: "/",
+          sameSite: "lax",
+          secure: this.config.getBoolean("general.secureCookies"),
+        }),
+      );
   }
 }

@@ -583,6 +583,12 @@ export class ShareService {
         maxDownloads: nextMaxDownloads,
       },
     });
+
+    // SEC-07 §23: troca de senha invalida todos os share tokens emitidos com a
+    // senha anterior (revogação em lote; o histórico fica para auditoria).
+    if (nextPassword !== currentSecurity?.password) {
+      await this.tokenService.revokeAllForShare(shareId);
+    }
   }
 
   async isShareCompleted(id: string) {
@@ -756,10 +762,10 @@ export class ShareService {
       });
     }
 
-    const token = await this.tokenService.generateShareToken({
-      ...share,
-      security: share.security ?? undefined,
-    });
+    const token = await this.tokenService.generateShareToken(
+      { id: share.id, expiration: share.expiration },
+      context,
+    );
     return token;
   }
 
