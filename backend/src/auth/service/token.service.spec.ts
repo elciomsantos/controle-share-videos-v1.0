@@ -105,8 +105,10 @@ describe("TokenService", () => {
   });
 
   describe("addTokensToResponse", () => {
+    const makeResponse = () => ({ cookie: jest.fn(), setHeader: jest.fn() });
+
     it("grava cookies httpOnly com flags de sessão", () => {
-      const response = { cookie: jest.fn() };
+      const response = makeResponse();
 
       service.addTokensToResponse(
         response as never,
@@ -115,7 +117,7 @@ describe("TokenService", () => {
       );
 
       expect(response.cookie).toHaveBeenCalledWith(
-        "access_token",
+        "__Host-SID",
         "access",
         expect.objectContaining({ httpOnly: true, sameSite: "strict" }),
       );
@@ -125,6 +127,19 @@ describe("TokenService", () => {
         expect.objectContaining({ path: "/api/auth/token" }),
       );
     });
+
+    it("usa o nome legado quando secureCookies está desabilitado", () => {
+      config.getBoolean.mockReturnValue(false);
+      const response = makeResponse();
+
+      service.addTokensToResponse(response as never, "refresh", "access");
+
+      expect(response.cookie).toHaveBeenCalledWith(
+        "access_token",
+        "access",
+        expect.objectContaining({ httpOnly: true, sameSite: "strict" }),
+      );
+    });
   });
 
   describe("getUserIdFromRequest", () => {
@@ -132,7 +147,7 @@ describe("TokenService", () => {
       jwtService.verifyAsync.mockResolvedValue({ sub: "u1" });
 
       const result = await service.getUserIdFromRequest({
-        cookies: { access_token: "jwt" },
+        cookies: { "__Host-SID": "jwt" },
       } as never);
 
       expect(result).toBe("u1");
@@ -147,7 +162,7 @@ describe("TokenService", () => {
       jwtService.verifyAsync.mockRejectedValue(new Error("bad"));
       await expect(
         service.getUserIdFromRequest({
-          cookies: { access_token: "jwt" },
+          cookies: { "__Host-SID": "jwt" },
         } as never),
       ).resolves.toBeNull();
     });

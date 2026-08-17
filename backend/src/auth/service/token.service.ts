@@ -6,6 +6,10 @@ import dayjs from "dayjs";
 import { ConfigService } from "../../config/config.service";
 import { JwtSecretService } from "../../config/jwt-secret.service";
 import { PrismaService } from "../../prisma/prisma.service";
+import {
+  REFRESH_COOKIE_NAME,
+  getSessionCookieName,
+} from "../../utils/session-cookie.util";
 
 /**
  * TokenService — emissão e manipulação de tokens (access/refresh/login) e
@@ -85,6 +89,10 @@ export class TokenService {
 
   /**
    * Grava access/refresh tokens como cookies httpOnly de sessão.
+   *
+   * Em produção o cookie de sessão usa o prefixo `__Host-` (exige Secure e
+   * Path=/). Em dev (Secure=false) mantém o nome legado, pois o browser
+   * rejeita cookies `__Host-` sem Secure.
    */
   addTokensToResponse(
     response: Response,
@@ -92,11 +100,14 @@ export class TokenService {
     accessToken?: string,
   ) {
     const isSecure = this.config.getBoolean("general.secureCookies");
+    const sessionCookieName = getSessionCookieName(isSecure);
+    response.setHeader("Cache-Control", "no-store");
     if (accessToken)
-      response.cookie("access_token", accessToken, {
+      response.cookie(sessionCookieName, accessToken, {
         httpOnly: true,
         sameSite: "strict",
         secure: isSecure,
+        path: "/",
         maxAge: 1000 * 60 * 60 * 24 * 30 * 3, // 3 months
       });
     if (refreshToken) {
@@ -105,7 +116,7 @@ export class TokenService {
       const maxAge = dayjs(now)
         .add(sessionDuration.value, sessionDuration.unit)
         .diff(now);
-      response.cookie("refresh_token", refreshToken, {
+      response.cookie(REFRESH_COOKIE_NAME, refreshToken, {
         path: "/api/auth/token",
         httpOnly: true,
         sameSite: "strict",
@@ -121,13 +132,16 @@ export class TokenService {
    * in O(1) instead of trying every verification secret.
    */
   async getUserIdFromRequest(request: Request): Promise<string | null> {
-    if (!request.cookies.access_token) return null;
+    const cookieName = getSessionCookieName(
+      this.config.getBoolean("general.secureCookies"),
+    );
+    if (!request.cookies[cookieName]) return null;
     const secret =
-      this.jwtSecret.resolveSecretForToken(request.cookies.access_token) ??
+      this.jwtSecret.resolveSecretForToken(request.cookies[cookieName]) ??
       this.jwtSecret.getCurrentSecret();
     try {
       const payload = await this.jwtService.verifyAsync(
-        request.cookies.access_token,
+        request.cookies[cookieName],
         { secret, algorithms: ["HS256", "HS512"] },
       );
       return payload.sub;

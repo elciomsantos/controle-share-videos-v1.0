@@ -170,7 +170,7 @@ Há testes unitários e E2E (backend) e unitários (frontend), com cobertura ≥
 
 ```bash
 # Backend
-npm run test:unit      # jest — unitários (18 suites, 208 testes)
+npm run test:unit      # jest — unitários (18 suites, 209 testes)
 npm run test:e2e       # jest — e2e efêmero (DB dedicado, não destrutivo)
 npm run test:coverage  # jest com cobertura (thresholds ≥60%)
 npm test               # alias para test:unit

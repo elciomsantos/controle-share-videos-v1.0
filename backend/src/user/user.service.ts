@@ -98,10 +98,13 @@ export class UserService {
     try {
       const hash = user.password && (await argon.hash(user.password, ARGON2_OPTIONS));
 
+      const existing = await this.prisma.user.findUnique({ where: { id } });
+      if (!existing)
+        throw new BadRequestException(this.i18n.t("auth.userNotFound"));
+
       // Prevent demoting the last admin
       if (user.role && user.role !== "admin") {
-        const targetUser = await this.prisma.user.findUnique({ where: { id } });
-        if (targetUser?.isAdmin) {
+        if (existing.isAdmin) {
           const adminCount = await this.prisma.user.count({
             where: { role: "admin" },
           });
@@ -116,7 +119,8 @@ export class UserService {
       const isAdmin = user.role ? user.role === "admin" : user.isAdmin;
 
       this.logger.log(`User updated: ${id}`);
-      return await this.prisma.user.update({
+
+      const updated = await this.prisma.user.update({
         where: { id },
         data: {
           username: user.username,
@@ -128,6 +132,16 @@ export class UserService {
           password: hash,
         },
       });
+
+      // SEC-1.2/12: revoga todas as sessões em eventos de segurança —
+      // desativação do usuário, alteração de privilégios ou troca de senha.
+      const deactivated = existing.isActivated && user.isActivated === false;
+      const privilegeChanged = user.role && user.role !== existing.role;
+      if (deactivated || privilegeChanged || hash) {
+        await this.prisma.refreshToken.deleteMany({ where: { userId: id } });
+      }
+
+      return updated;
     } catch (e) {
       if (
         e instanceof Prisma.PrismaClientKnownRequestError &&

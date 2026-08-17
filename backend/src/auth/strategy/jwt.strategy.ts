@@ -4,15 +4,24 @@ import { Request } from "express";
 import { Strategy } from "passport-jwt";
 import { JwtSecretService } from "../../config/jwt-secret.service";
 import { PrismaService } from "../../prisma/prisma.service";
+import { ConfigService } from "../../config/config.service";
+import { getSessionCookieName } from "../../utils/session-cookie.util";
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     jwtSecret: JwtSecretService,
     private prisma: PrismaService,
+    private config: ConfigService,
   ) {
     super({
-      jwtFromRequest: JwtStrategy.extractJWT,
+      jwtFromRequest: (req: Request) => {
+        if (!req.cookies) return null;
+        const cookieName = getSessionCookieName(
+          config.getBoolean("general.secureCookies"),
+        );
+        return req.cookies[cookieName] ?? req.cookies.access_token ?? null;
+      },
       algorithms: ["HS256", "HS512"],
       secretOrKeyProvider: (
         _req: Request,
@@ -33,16 +42,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  private static extractJWT(req: Request) {
-    if (!req.cookies.access_token) return null;
-    return req.cookies.access_token;
-  }
-
   async validate(payload: { sub: string }) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
     });
-    if (!user) return null;
+    // SEC: usuário desativado ou inexistente nunca deve ser autenticado.
+    if (!user || !user.isActivated) return null;
     return user;
   }
 }

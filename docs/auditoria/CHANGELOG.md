@@ -7,6 +7,30 @@
 
 ---
 
+## v1.2.5 — Correções da Especificação de Segurança v1.2 (Fases 0 + 1) (2026-08-17)
+
+### Resumo
+Revisão completa contra `docs/ESPECIFICACAO-SEGURANCA.md` **v1.2** (sessões, autenticação e tokens). Foram executadas as **Fases 0 + 1** do plano (`docs/PLANO-CORRECOES-SEGURANCA.md`): correções rápidas e correções críticas exploráveis, **sem mudança de arquitetura** (a migração para sessão opaca server-side permanece na Fase 4).
+
+### Correções aplicadas (Fase 0)
+- **UA truncado** para 512 chars antes da persistência (`utils/request.util.ts`) — §28.4.
+- **`Cache-Control: no-store`** nas respostas de autenticação (login, refresh, signOut, CSRF) — §21.
+- **Cookie `__Host-SID`** em produção: nome condicional (Secure → `__Host-SID`; dev → `access_token`), `Path=/` explícito, centralizado em `utils/session-cookie.util.ts`. Frontend (`proxy.ts`, `auth.service.ts`) atualizado para ler ambos os nomes — §8.
+
+### Correções aplicadas (Fase 1)
+- **Usuário desativado bloqueado em cada requisição**: `JwtStrategy.validate()` retorna `null` quando `!user.isActivated` → 401 — §10.
+- **Revogação de sessões em eventos de segurança**: `UserService.update()` apaga refresh tokens ao desativar usuário, alterar role ou trocar senha — §12.
+- **`resetPassword` revoga todas as sessões**: `VerificationService.resetPassword()` invalida os refresh tokens do usuário em transação — §16.4.
+- **Download atômico com limite**: `DownloadLimitGuard` reserva o slot com `updateMany WHERE downloads < maxDownloads` (check + increment num único UPDATE), eliminando o TOCTOU; removidas as chamadas separadas de `incrementDownloadCount` — §25.1.
+- **Login genérico para conta não ativada**: `LoginService.signIn()` retorna `wrongCredentials` (sem revelar existência da conta) — §14.4.
+
+### Validado
+- Backend: build + lint + **209 testes unitários** (18 suites, todos verdes).
+- Frontend: lint (arquivos alterados) verdes.
+- Pendências: Fases 2–7 do plano (MFA obrigatório p/ admin + recovery codes, reautenticação crítica, rate limit por conta, sessão opaca com `token_hash`, auditoria estruturada, admin de sessões, testes §35).
+
+---
+
 ## v1.2.4 — Revisão de segurança e hardening (2026-08-15)
 
 ### Resumo

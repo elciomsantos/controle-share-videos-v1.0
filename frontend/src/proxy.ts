@@ -71,7 +71,7 @@ async function verifyJwtViaBackend(
   try {
     const response = await fetch(`${apiUrl}/api/users/me`, {
       headers: {
-        Cookie: `access_token=${token}`,
+        Cookie: `__Host-SID=${token}; access_token=${token}`,
       },
       signal: AbortSignal.timeout(2000),
       cache: "no-store",
@@ -114,7 +114,9 @@ export default async function proxy(request: NextRequest) {
 
   const route = request.nextUrl.pathname;
   let user: { role: string; isAdmin: boolean } | null = null;
-  const accessToken = request.cookies.get("access_token")?.value;
+  const accessToken =
+    request.cookies.get("__Host-SID")?.value ??
+    request.cookies.get("access_token")?.value;
 
   const jwtSecret = getJwtSecret();
   if (accessToken && jwtSecret) {

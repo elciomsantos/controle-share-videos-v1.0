@@ -268,7 +268,6 @@ export class FileController {
         { httpStatus: HttpStatus.OK },
       ),
     );
-    void this.downloadLimitGuard.incrementDownloadCount(shareId);
     void this.fileService.notifyRecipientDownload(
       shareId,
       `${shareId}.zip`,
@@ -378,7 +377,6 @@ export class FileController {
           { httpStatus: HttpStatus.OK },
         ),
       );
-      void this.downloadLimitGuard.incrementDownloadCount(shareId);
       void this.fileService.notifyRecipientDownload(
         shareId,
         file.metaData.name,
@@ -427,9 +425,6 @@ export class FileController {
           { httpStatus: HttpStatus.OK },
         ),
       );
-      if (!isCertificate) {
-        void this.downloadLimitGuard.incrementDownloadCount(shareId);
-      }
       void this.fileService.notifyRecipientDownload(
         shareId,
         file.metaData.name,
@@ -520,9 +515,6 @@ export class FileController {
           { httpStatus: HttpStatus.OK },
         ),
       );
-      if (!isCertificate) {
-        void this.downloadLimitGuard.incrementDownloadCount(shareId);
-      }
       void this.fileService.notifyRecipientDownload(
         shareId,
         file.metaData.name,

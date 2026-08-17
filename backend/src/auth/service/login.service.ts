@@ -41,9 +41,11 @@ export class LoginService {
 
     if (user?.password && (await argon.verify(user.password, dto.password))) {
       if (!user.isActivated) {
-        throw new UnauthorizedException(
-          this.i18n.t("auth.accountNotActivated"),
+        // SEC-1.2/14.4: mensagem genérica — não revelar que a conta existe.
+        this.logger.debug(
+          `Login denied for inactive user ${user.email} from IP ${ip}`,
         );
+        throw new UnauthorizedException(this.i18n.t("auth.wrongCredentials"));
       }
       this.logger.log(
         `Successful password login for user ${user.email} from IP ${ip}`,

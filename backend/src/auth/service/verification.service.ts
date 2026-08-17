@@ -121,13 +121,19 @@ export class VerificationService {
 
     const newPasswordHash = await argon.hash(newPassword, ARGON2_OPTIONS);
 
-    await this.prisma.resetPasswordToken.delete({
-      where: { token },
-    });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.resetPasswordToken.delete({
+        where: { token },
+      });
 
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { password: newPasswordHash },
+      // SEC-1.2/16.4: alteração de credenciais revoga todas as sessões do
+      // usuário (refresh tokens) — qualquer sessão anterior deixa de valer.
+      await tx.refreshToken.deleteMany({ where: { userId: user.id } });
+
+      await tx.user.update({
+        where: { id: user.id },
+        data: { password: newPasswordHash },
+      });
     });
   }
 }

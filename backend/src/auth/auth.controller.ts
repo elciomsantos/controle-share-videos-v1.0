@@ -29,6 +29,10 @@ import { RequestResetPasswordDTO } from "./dto/requestResetPassword.dto";
 import { TokenDTO } from "./dto/token.dto";
 import { UpdatePasswordDTO } from "./dto/updatePassword.dto";
 import { VerifyTotpDTO } from "./dto/verifyTotp.dto";
+import {
+  REFRESH_COOKIE_NAME,
+  getSessionCookieName,
+} from "../utils/session-cookie.util";
 
 @Controller("auth")
 export class AuthController {
@@ -217,13 +221,19 @@ export class AuthController {
     await this.authService.signOut(request.cookies.access_token);
 
     const isSecure = this.config.getBoolean("general.secureCookies");
-    response.cookie("access_token", "", {
+    const sessionCookieName = getSessionCookieName(isSecure);
+    response.setHeader("Cache-Control", "no-store");
+    response.cookie(sessionCookieName, "", {
+      path: "/",
+      httpOnly: true,
+      sameSite: "strict",
       maxAge: -1,
       secure: isSecure,
     });
-    response.cookie("refresh_token", "", {
+    response.cookie(REFRESH_COOKIE_NAME, "", {
       path: "/api/auth/token",
       httpOnly: true,
+      sameSite: "strict",
       maxAge: -1,
       secure: isSecure,
     });

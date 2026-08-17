@@ -11,6 +11,7 @@ describe("VerificationService", () => {
   let prisma: {
     user: { findUnique: jest.Mock; findFirst: jest.Mock; update: jest.Mock };
     resetPasswordToken: { delete: jest.Mock; create: jest.Mock };
+    refreshToken: { deleteMany: jest.Mock };
     $transaction: jest.Mock;
   };
   let emailService: {
@@ -24,6 +25,7 @@ describe("VerificationService", () => {
     prisma = {
       user: { findUnique: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
       resetPasswordToken: { delete: jest.fn(), create: jest.fn() },
+      refreshToken: { deleteMany: jest.fn() },
       $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
     };
     emailService = {

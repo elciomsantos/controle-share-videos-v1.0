@@ -36,37 +36,38 @@ export class DownloadLimitGuard {
       throw new NotFoundException(this.i18n.t("share.notFound"));
     }
 
-    if (
-      share.security?.maxDownloads != null &&
-      share.security.maxDownloads > 0 &&
-      share.downloads >= share.security.maxDownloads
-    ) {
-      const user = (request as AuthenticatedRequest).user;
-      void this.downloadLogService.record({
-        shareId,
-        fileName: "",
-        userId: user?.id,
-        username: user?.username,
-        ip: getRequestIp(request),
-        userAgent: getRequestUserAgent(request),
-        success: false,
-        reason: "maxDownloadsExceeded",
-        event: "download",
+    const maxDownloads = share.security?.maxDownloads;
+
+    // SEC-1.2/25.1: reserva atômica do download. O UPDATE condicionado ao
+    // limite + contagem de linhas afetadas elimina a corrida (TOCTOU) entre
+    // verificação e incremento.
+    if (maxDownloads != null && maxDownloads > 0) {
+      const { count } = await this.prisma.share.updateMany({
+        where: { id: shareId, downloads: { lt: maxDownloads } },
+        data: { downloads: { increment: 1 } },
       });
 
-      throw new ForbiddenException({
-        message: this.i18n.t("share.maxDownloadsExceeded"),
-        error: "share_max_downloads_exceeded",
-      });
+      if (count === 0) {
+        const user = (request as AuthenticatedRequest).user;
+        void this.downloadLogService.record({
+          shareId,
+          fileName: "",
+          userId: user?.id,
+          username: user?.username,
+          ip: getRequestIp(request),
+          userAgent: getRequestUserAgent(request),
+          success: false,
+          reason: "maxDownloadsExceeded",
+          event: "download",
+        });
+
+        throw new ForbiddenException({
+          message: this.i18n.t("share.maxDownloadsExceeded"),
+          error: "share_max_downloads_exceeded",
+        });
+      }
     }
 
     return true;
-  }
-
-  async incrementDownloadCount(shareId: string): Promise<void> {
-    await this.prisma.share.update({
-      where: { id: shareId },
-      data: { downloads: { increment: 1 } },
-    });
   }
 }
