@@ -12,6 +12,7 @@ import { ThrottlerModule } from "@nestjs/throttler";
 import { RequestThrottlerGuard } from "./throttler/request-throttler.guard";
 import { AppCacheModule } from "./cache/cache.module";
 import { AppController } from "./app.controller";
+import { AuditModule } from "./audit/audit.module";
 import { ConfigModule } from "./config/config.module";
 import { DownloadLogModule } from "./download-log/download-log.module";
 import { EmailModule } from "./email/email.module";
@@ -53,6 +54,7 @@ const i18nPath = existsSync(join(__dirname, "../i18n"))
     AppCacheModule,
     DownloadLogModule,
     MetricsModule,
+    AuditModule,
     I18nModule.forRoot({
       fallbackLanguage: "pt-BR",
       loaderOptions: {

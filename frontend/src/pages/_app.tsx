@@ -314,7 +314,7 @@ function App({ Component, pageProps }: AppProps) {
                     >
                       <div>
                         <Header />
-                        <Container size={router.pathname === "/admin/download-logs" ? "xl" : undefined}>
+                        <Container size={["/admin/download-logs", "/admin/audit-logs", "/admin/sessions"].includes(router.pathname) ? "xl" : undefined}>
                           <Component {...pageProps} />
                         </Container>
                       </div>

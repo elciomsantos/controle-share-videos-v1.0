@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Optional,
   UnauthorizedException,
 } from "@nestjs/common";
 import { RequestContextLogger } from "../common/request-context/request-context";
@@ -15,6 +16,7 @@ import {
 } from "otplib";
 import qrcode from "qrcode-svg";
 import { I18nService } from "nestjs-i18n";
+import { AuditEvent, AuditService } from "../audit/audit.service";
 import { ConfigService } from "../config/config.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { LoginService } from "./service/login.service";
@@ -35,6 +37,7 @@ export class AuthTotpService {
     private tokenService: TokenService,
     private recoveryCodeService: RecoveryCodeService,
     private readonly i18n: I18nService,
+    @Optional() private readonly auditService?: AuditService,
   ) {}
   private readonly logger = new RequestContextLogger(AuthTotpService.name);
 
@@ -102,6 +105,10 @@ export class AuthTotpService {
       // SEC-1.2/15.3: aceita recovery code de uso único como alternativa.
       const consumed = await this.recoveryCodeService.consume(user.id, dto.totp);
       if (!consumed) {
+        void this.auditService?.record(AuditEvent.MFA_FAILED, {
+          userId: user.id,
+          result: "invalid_code",
+        });
         this.logger.debug(
           `TOTP sign-in failure for user ${user.email} from IP ${this.clientIp()} (invalid code)`,
         );
@@ -112,6 +119,10 @@ export class AuthTotpService {
     await this.consumeLoginToken(token.token);
     const session = await this.issueSession(user);
 
+    void this.auditService?.record(AuditEvent.LOGIN_SUCCESS, {
+      userId: user.id,
+      result: "success",
+    });
     this.logger.log(`TOTP sign-in success for user ${user.email} from IP ${this.clientIp()}`);
     return session;
   }
@@ -195,6 +206,10 @@ export class AuthTotpService {
     const recoveryCodes = await this.recoveryCodeService.regenerate(user.id);
     const session = await this.issueSession(user);
 
+    void this.auditService?.record(AuditEvent.MFA_ENABLED, {
+      userId: user.id,
+      result: "success",
+    });
     this.logger.log(`TOTP enrolled and verified for user ${user.email} from IP ${this.clientIp()}`);
     return { ...session, recoveryCodes };
   }
@@ -278,6 +293,10 @@ export class AuthTotpService {
     // uma única vez.
     const recoveryCodes = await this.recoveryCodeService.regenerate(user.id);
 
+    void this.auditService?.record(AuditEvent.MFA_ENABLED, {
+      userId: user.id,
+      result: "success",
+    });
     this.logger.log(`TOTP verified for user ${user.email} from IP ${this.clientIp()}`);
     return { verified: true, recoveryCodes };
   }
@@ -317,6 +336,10 @@ export class AuthTotpService {
     // SEC-1.2/15.3: revoga os recovery codes ao desabilitar o segundo fator.
     await this.recoveryCodeService.clearForUser(user.id);
 
+    void this.auditService?.record(AuditEvent.MFA_DISABLED, {
+      userId: user.id,
+      result: "success",
+    });
     this.logger.log(`TOTP disabled for user ${user.email} from IP ${this.clientIp()}`);
     return true;
   }

@@ -1,5 +1,6 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { Injectable, Optional, UnauthorizedException } from "@nestjs/common";
 import { RequestContextLogger } from "../../common/request-context/request-context";
+import { AuditEvent, AuditService } from "../../audit/audit.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import { TokenService } from "./token.service";
 
@@ -13,6 +14,7 @@ export class RefreshService {
   constructor(
     private prisma: PrismaService,
     private tokenService: TokenService,
+    @Optional() private readonly auditService?: AuditService,
   ) {}
   private readonly logger = new RequestContextLogger(RefreshService.name);
 
@@ -75,6 +77,13 @@ export class RefreshService {
       });
 
       if (outcome.reuse) {
+        void this.auditService?.record(
+          AuditEvent.REFRESH_TOKEN_REUSE_DETECTED,
+          {
+            userId: refreshTokenMetaData.user.id,
+            result: "family_revoked",
+          },
+        );
         this.logger.warn(
           `Reuse of refresh token detected for user ${refreshTokenMetaData.user.email}; all sessions revoked`,
         );
@@ -99,6 +108,12 @@ export class RefreshService {
     const session = await this.tokenService.getSessionByAccessToken(accessToken);
     if (!session) return;
 
+    void this.auditService?.record(AuditEvent.LOGOUT, {
+      userId: session.userId,
+      sessionId: session.id,
+      result: "success",
+    });
+
     await this.prisma.refreshToken
       .delete({ where: { id: session.refreshTokenId } })
       .catch((e) => {
@@ -119,6 +134,12 @@ export class RefreshService {
     await this.prisma.loginToken.updateMany({
       where: { userId, used: false },
       data: { used: true },
+    });
+
+    void this.auditService?.record(AuditEvent.SESSION_REVOKED, {
+      userId,
+      resource: "all",
+      result: "success",
     });
   }
 }

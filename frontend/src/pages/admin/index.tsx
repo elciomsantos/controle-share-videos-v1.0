@@ -11,8 +11,10 @@ import {
 import Link from "next/link";
 import {
   TbClipboardList,
+  TbHistory,
   TbLink,
   TbSettings,
+  TbShieldLock,
   TbUsers,
 } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
@@ -44,6 +46,18 @@ const Admin = () => {
       title: t("admin.button.downloadLogs"),
       icon: TbClipboardList,
       route: "/admin/download-logs",
+      roles: ["admin", "auditor"],
+    },
+    {
+      title: t("admin.button.sessions"),
+      icon: TbShieldLock,
+      route: "/admin/sessions",
+      roles: ["admin", "auditor"],
+    },
+    {
+      title: t("admin.button.auditLogs"),
+      icon: TbHistory,
+      route: "/admin/audit-logs",
       roles: ["admin", "auditor"],
     },
     {

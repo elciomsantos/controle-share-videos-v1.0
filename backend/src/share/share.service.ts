@@ -16,6 +16,7 @@ import argon from "argon2";
 import * as crypto from "crypto";
 import dayjs from "dayjs";
 import { I18nService } from "nestjs-i18n";
+import { AuditEvent, AuditService } from "../audit/audit.service";
 import { ConfigService } from "../config/config.service";
 import { DownloadLogService } from "../download-log/download-log.service";
 import { EmailService } from "../email/email.service";
@@ -60,6 +61,7 @@ export class ShareService {
     private config: ConfigService,
     private certificateService: CertificateService,
     @Optional() private metrics?: MetricsService,
+    @Optional() private readonly auditService?: AuditService,
   ) {}
 
   async create(share: CreateShareDTO, user?: User) {
@@ -135,6 +137,12 @@ export class ShareService {
     });
 
     this.metrics?.incSharesCreated();
+
+    void this.auditService?.record(AuditEvent.SHARE_CREATED, {
+      userId: user?.id ?? null,
+      resource: shareTuple.id,
+      result: "success",
+    });
 
     return { ...shareTuple, generatedPassword };
   }
@@ -464,6 +472,13 @@ export class ShareService {
 
     await this.fileService.deleteAllFiles(shareId);
     await this.prisma.share.delete({ where: { id: shareId } });
+
+    void this.auditService?.record(AuditEvent.SHARE_REVOKED, {
+      userId: share.creatorId ?? undefined,
+      resource: shareId,
+      result: "success",
+      metadata: { action: "deleted" },
+    });
   }
 
   async expire(shareId: string) {
@@ -478,6 +493,12 @@ export class ShareService {
     await this.prisma.share.update({
       where: { id: shareId },
       data: { expiration: dayjs().toDate() },
+    });
+
+    void this.auditService?.record(AuditEvent.SHARE_REVOKED, {
+      userId: share.creatorId ?? undefined,
+      resource: shareId,
+      result: "success",
     });
   }
 

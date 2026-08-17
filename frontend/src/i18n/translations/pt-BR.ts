@@ -281,6 +281,49 @@ export default {
   "admin.downloadLogs.empty": "Nenhum log encontrado.",
   // END /admin/download-logs
 
+  // /admin/audit-logs
+  "admin.auditLogs.title": "Auditoria de eventos",
+  "admin.auditLogs.filters.userId": "ID do usuário",
+  "admin.auditLogs.filters.from": "De",
+  "admin.auditLogs.filters.to": "Até",
+  "admin.auditLogs.filters.event": "Evento",
+  "admin.auditLogs.filters.any": "Qualquer",
+  "admin.auditLogs.columns.createdAt": "Data",
+  "admin.auditLogs.columns.event": "Evento",
+  "admin.auditLogs.columns.user": "Usuário",
+  "admin.auditLogs.columns.result": "Resultado",
+  "admin.auditLogs.columns.resource": "Recurso",
+  "admin.auditLogs.columns.ip": "IP",
+  "admin.auditLogs.columns.userAgent": "User-Agent",
+  "admin.auditLogs.columns.requestId": "Request ID",
+  "admin.auditLogs.user.id": "ID",
+  "admin.auditLogs.empty": "Nenhum evento encontrado.",
+  // END /admin/audit-logs
+
+  // /admin/sessions
+  "admin.sessions.title": "Sessões ativas",
+  "admin.sessions.filters.userId": "ID do usuário",
+  "admin.sessions.columns.user": "Usuário",
+  "admin.sessions.columns.role": "Perfil",
+  "admin.sessions.columns.state": "Estado",
+  "admin.sessions.columns.createdAt": "Criada em",
+  "admin.sessions.columns.lastActivityAt": "Último acesso",
+  "admin.sessions.columns.expiresAt": "Expira em",
+  "admin.sessions.columns.ip": "IP",
+  "admin.sessions.columns.userAgent": "User-Agent",
+  "admin.sessions.columns.actions": "Ações",
+  "admin.sessions.state.active": "Ativa",
+  "admin.sessions.state.idle": "Ociosa",
+  "admin.sessions.state.expired": "Expirada",
+  "admin.sessions.state.revoked": "Revogada",
+  "admin.sessions.revoke": "Revogar",
+  "admin.sessions.revokeConfirm.title": "Revogar sessão de {user}?",
+  "admin.sessions.revokeConfirm.description": "O usuário será desconectado deste dispositivo. Esta ação será registrada na auditoria.",
+  "admin.sessions.revokeSuccess": "Sessão revogada com sucesso.",
+  "admin.sessions.user.id": "ID",
+  "admin.sessions.empty": "Nenhuma sessão encontrada.",
+  // END /admin/sessions
+
   // /upload
   "upload.title": "Carregar",
   "upload.notify.confirm-leave": "Você tem certeza que deseja sair desta página? Seu envio será cancelado.",

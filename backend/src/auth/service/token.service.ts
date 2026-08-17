@@ -1,8 +1,9 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import { Request, Response } from "express";
 import { Prisma } from "../../../prisma/generated/prisma/client";
 import { randomBytes, createHash } from "crypto";
 import dayjs from "dayjs";
+import { AuditEvent, AuditService } from "../../audit/audit.service";
 import { ConfigService } from "../../config/config.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import { getRequestContext } from "../../common/request-context/request-context";
@@ -26,6 +27,7 @@ export class TokenService {
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
+    @Optional() private readonly auditService?: AuditService,
   ) {}
 
   /** Gera um access token opaco de 256 bits (CSPRNG, base64url). */
@@ -71,6 +73,13 @@ export class TokenService {
         userAgent: ctx?.userAgent ?? null,
       },
       select: { id: true },
+    });
+    // SEC-1.2/§29.4: SESSION_CREATED. Fire-and-forget: nunca esperar por
+    // auditoria dentro de transações (evita lock no SQLite de conexão única).
+    void this.auditService?.record(AuditEvent.SESSION_CREATED, {
+      userId,
+      sessionId: session.id,
+      result: "success",
     });
     return { accessToken, sessionId: session.id };
   }

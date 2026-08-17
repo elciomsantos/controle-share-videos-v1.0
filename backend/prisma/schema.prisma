@@ -26,6 +26,7 @@ model User {
   sessions      Session[]
   loginTokens   LoginToken[]
   recoveryCodes RecoveryCode[]
+  auditLogs     AuditLog[]
 
   totpEnabled        Boolean             @default(false)
   totpVerified       Boolean             @default(false)
@@ -278,5 +279,34 @@ model DownloadLog {
   @@index([userId])
   @@index([createdAt])
   @@index([event])
+  @@index([requestId])
+}
+
+// SEC-1.2/§29 (Fase 5) — Trilha de auditoria. Nunca armazenar senha, token,
+// cookie, refresh token ou código MFA (§29.1). Campos conforme §29.3: timestamp
+// UTC, event_type, user_id, session_id interno, request_id, IP, User-Agent,
+// recurso, resultado.
+model AuditLog {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  eventType String
+  userId    String?
+  sessionId String?
+  resource  String?
+  result    String?
+  metadata  String?
+
+  ipAddress String?
+  userAgent String?
+  requestId String?
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // BDB-02: admin de auditoria filtra por (createdAt) e (eventType);
+  // join user é por FK.
+  @@index([createdAt])
+  @@index([eventType])
+  @@index([userId])
   @@index([requestId])
 }

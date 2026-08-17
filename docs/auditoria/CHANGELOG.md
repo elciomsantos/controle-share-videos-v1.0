@@ -7,6 +7,66 @@
 
 ---
 
+## v1.2.10 — Fase 5 da Especificação de Segurança v1.2: auditoria (§29) e admin de sessões (§34) (2026-08-17)
+
+### Resumo
+Conclusão da **Fase 5** (itens 15 e 16 do plano): trilha de auditoria estruturada com os eventos mínimos do §29.4 e painel administrativo de sessões (§34) com listagem (IP/User-Agent/estado) e revogação — sem nunca expor o token. Encerra o plano de segurança v1.2 (Fases 1–5 concluídas; itens 1–16).
+
+### Correções aplicadas
+- **Item 15 — Tabela de auditoria** (§29.4):
+  - Migração `20260817173536_add_audit_log`: modelo `AuditLog` (`eventType`, `userId` FK `SetNull`, `sessionId`, `resource`, `result`, `metadata` JSON, `ipAddress`, `userAgent`, `requestId`; índices `createdAt`/`eventType`/`userId`/`requestId`); relação `auditLogs` em `User`.
+  - `AuditService` (`@Global`): constante `AuditEvent` com os 17 eventos mínimos do §29.4; `record()` **nunca lança** (BKD-04) e extrai IP/User-Agent/requestId do request context; `findAll` com filtros `eventType`/`userId`/`from`/`to` + paginação.
+  - Hooks fire-and-forget (`void this.auditService?.record(...)`, **sem `await` dentro de transações** — evita deadlock do SQLite de conexão única): `TokenService` (SESSION_CREATED), `LoginService` (LOGIN_FAILURE/LOGIN_SUCCESS), `AuthTotpService` (MFA_FAILED/LOGIN_SUCCESS/MFA_ENABLED/MFA_DISABLED), `RefreshService` (REFRESH_TOKEN_REUSE_DETECTED/LOGOUT/SESSION_REVOKED), `AuthService.updatePassword` (PASSWORD_CHANGED+SESSION_REVOKED), `VerificationService` (PASSWORD_RESET_REQUESTED/PASSWORD_RESET_COMPLETED+SESSION_REVOKED), `UserService.update` (SESSION_REVOKED/ROLE_CHANGED/PERMISSION_CHANGED), `ShareService` (SHARE_CREATED/SHARE_REVOKED).
+  - `AdminAuditLogsController`: `GET /admin/audit-logs` (admin+auditor, throttle 30/60s — §22.4).
+  - DownloadLog continua cobrindo `SHARE_ACCESS`/`SHARE_DOWNLOAD` (sem duplicação no `AuditLog`).
+- **Item 16 — Admin de sessões** (§34):
+  - `AdminSessionsService`: `findAll` computa estado `active`/`idle`/`expired`/`revoked` (idle via `general.sessionIdleTimeout`); **`tokenHash` nunca é selecionado** (§34.1); `revoke(sessionId)` exclui o refresh token (cascata na `Session`); `revokeAllByUser(userId)` revoga a família inteira.
+  - `AdminSessionsController`: `GET /admin/sessions` (admin+auditor), `POST :id/revoke` e `POST revoke-all` (admin + `@ReauthRequired` — §15.4/§34.3); todas as revogações auditadas (`ADMIN_SESSION_REVOKED`).
+  - `AuditModule` registrado no `AppModule`; i18n `session.json` (`session.notFound`/`session.userNotFound`).
+- **Frontend (novo)**: páginas `/admin/audit-logs` (filtros evento/usuário/intervalo + tabela) e `/admin/sessions` (estado com badge, IP/User-Agent, revogação com confirmação e reautenticação obrigatória); cards no admin index; serviços `auditLog.service`/`adminSession.service`; tipos `auditLog.type`/`session.type`; i18n pt-BR.
+
+### Validado
+- Backend: build + lint (0 erros) + **247 testes unitários** (24 suites verdes; +10 das specs de auditoria/sessões).
+- Backend: **e2e `auth-share`** — 16 testes verdes.
+- Frontend: `tsc` + lint + build + **14 testes** verdes; rotas `/admin/audit-logs` e `/admin/sessions` geradas no build.
+
+### Pendências
+- Plano de segurança v1.2 completo (Fases 1–5, itens 1–16). Follow-ups opcionais: testes §35 (fase 6) e rate limiting distribuído §22.5 quando houver múltiplas instâncias.
+
+---
+
+## v1.2.9 — Fase 4 da Especificação de Segurança v1.2: refresh token hash (§26.3) e share tokens opacos server-side (§23) (2026-08-17)
+
+### Resumo
+Conclusão da **Fase 4**: itens 13 e 14 do plano. Refresh tokens passam a ser armazenados **apenas como SHA-256** (texto puro só no cookie httpOnly), e os **share tokens JWT** — que carregavam `shareId`/`iat`/`sharePasswordSignature` assinados — são substituídos por **tokens opacos de 256 bits** persistidos como hash, com expiração e **revogação explícita** (`revoked_at`).
+
+### Correções aplicadas
+- **Item 13 — Refresh token como hash** (§26.3):
+  - `TokenService.generateRefreshToken()`: CSPRNG `randomBytes(32)` base64url (256 bits).
+  - `createRefreshToken` persiste `token: hashToken(plainToken)` (SHA-256 hex, 64 chars) e retorna o registro com o **texto puro** apenas para o cookie — sem migração (reutiliza a coluna `RefreshToken.token` UNIQUE).
+  - `RefreshService.refreshAccessToken` faz lookup por `hashToken(refreshToken)`; detecção de reuso (§26.2/SEC-07) inalterada.
+  - Specs de `TokenService`/`RefreshService` atualizadas para o modelo hash.
+  - **Nota de deploy**: refresh tokens legados (não-hash) deixam de corresponder ao lookup → famílias ativas pré-v1.2.9 são invalidadas; o cliente é redirecionado ao login.
+- **Item 14 — Share tokens opacos com `token_hash` + `revoked_at`** (§23):
+  - Migração `20260817172410_add_share_token_hash`: modelo `ShareToken` (`tokenHash` UNIQUE SHA-256, `shareId` FK cascade, `createdAt`, `expiresAt`, `revokedAt`, `ipAddress`, `userAgent`, índice `[shareId]`).
+  - `ShareTokenService` reescrito (sem `JwtService`/`JwtSecretService`): `generateShareToken` emite **256 bits de entropia** (§23.2) e persiste apenas o hash; `verifyShareToken` rejeita token inexistente, de outro share, **revogado ou expirado** (§23.4); `revokeAllForShare` revoga em lote mantendo histórico (§23/§29.4).
+  - `ShareService.updateSecurity`: **troca de senha revoga todos os share tokens** emitidos com a senha anterior (invalidação imediata, sem assinatura HMAC).
+  - `ShareSecurityGuard` simplificado: delega verificação ao serviço; validação de expiração/revogação server-side por hash (cookie opaco ilegível).
+  - `ShareController`: `clearShareTokenCookies` não decodifica mais JWT (tokens opacos); mantém cap de 10 cookies por ordem de inserção; dependência de `JwtService`/`dayjs` removida do controller.
+  - `ShareService.getShareToken` propaga IP/UA do contexto para o registro do token.
+- **Remoções**: `share-token.service` perde as funções HMAC (`getSharePasswordSignature`/`signaturesMatch`); cookie `share_${id}_token` agora contém token opaco.
+
+### Validado
+- Backend: build + lint + **237 testes unitários** (22 suites verdes; +4 do novo `ShareTokenService` §23; specs de share atualizadas).
+- Backend: **e2e `auth-share`** — 16 testes verdes (fluxo §14.6/§10 inalterado).
+- Frontend: `tsc` + lint + build + **14 testes** verdes (share tokens nunca são decodificados no cliente).
+- README atualizado (contagem de testes e tabela de segurança).
+
+### Pendências da Fase 4
+- Fase 5 (itens 15-16): auditoria §29.4 e admin de sessões §34 — pendente.
+
+---
+
 ## v1.2.8 — Fase 4 da Especificação de Segurança v1.2: sessão opaca server-side (§6, §7, §10, §11, §40) (2026-08-17)
 
 ### Resumo
@@ -49,38 +109,6 @@ Implementação do núcleo da **Fase 4** do plano (`docs/PLANO-CORRECOES-SEGURAN
 ### Pendências da Fase 4
 - Item 13: refresh token como hash (§26.3) — adiado (rotação + reuso já ativos).
 - Item 14: share token JWT → `token_hash` + `revoked_at` (§23) — adiado.
-
----
-
-## v1.2.9 — Fase 4 da Especificação de Segurança v1.2: refresh token hash (§26.3) e share tokens opacos server-side (§23) (2026-08-17)
-
-### Resumo
-Conclusão da **Fase 4**: itens 13 e 14 do plano. Refresh tokens passam a ser armazenados **apenas como SHA-256** (texto puro só no cookie httpOnly), e os **share tokens JWT** — que carregavam `shareId`/`iat`/`sharePasswordSignature` assinados — são substituídos por **tokens opacos de 256 bits** persistidos como hash, com expiração e **revogação explícita** (`revoked_at`).
-
-### Correções aplicadas
-- **Item 13 — Refresh token como hash** (§26.3):
-  - `TokenService.generateRefreshToken()`: CSPRNG `randomBytes(32)` base64url (256 bits).
-  - `createRefreshToken` persiste `token: hashToken(plainToken)` (SHA-256 hex, 64 chars) e retorna o registro com o **texto puro** apenas para o cookie — sem migração (reutiliza a coluna `RefreshToken.token` UNIQUE).
-  - `RefreshService.refreshAccessToken` faz lookup por `hashToken(refreshToken)`; detecção de reuso (§26.2/SEC-07) inalterada.
-  - Specs de `TokenService`/`RefreshService` atualizadas para o modelo hash.
-  - **Nota de deploy**: refresh tokens legados (não-hash) deixam de corresponder ao lookup → famílias ativas pré-v1.2.9 são invalidadas; o cliente é redirecionado ao login.
-- **Item 14 — Share tokens opacos com `token_hash` + `revoked_at`** (§23):
-  - Migração `20260817172410_add_share_token_hash`: modelo `ShareToken` (`tokenHash` UNIQUE SHA-256, `shareId` FK cascade, `createdAt`, `expiresAt`, `revokedAt`, `ipAddress`, `userAgent`, índice `[shareId]`).
-  - `ShareTokenService` reescrito (sem `JwtService`/`JwtSecretService`): `generateShareToken` emite **256 bits de entropia** (§23.2) e persiste apenas o hash; `verifyShareToken` rejeita token inexistente, de outro share, **revogado ou expirado** (§23.4); `revokeAllForShare` revoga em lote mantendo histórico (§23/§29.4).
-  - `ShareService.updateSecurity`: **troca de senha revoga todos os share tokens** emitidos com a senha anterior (invalidação imediata, sem assinatura HMAC).
-  - `ShareSecurityGuard` simplificado: delega verificação ao serviço; validação de expiração/revogação server-side por hash (cookie opaco ilegível).
-  - `ShareController`: `clearShareTokenCookies` não decodifica mais JWT (tokens opacos); mantém cap de 10 cookies por ordem de inserção; dependência de `JwtService`/`dayjs` removida do controller.
-  - `ShareService.getShareToken` propaga IP/UA do contexto para o registro do token.
-- **Remoções**: `share-token.service` perde as funções HMAC (`getSharePasswordSignature`/`signaturesMatch`); cookie `share_${id}_token` agora contém token opaco.
-
-### Validado
-- Backend: build + lint + **237 testes unitários** (22 suites verdes; +4 do novo `ShareTokenService` §23; specs de share atualizadas).
-- Backend: **e2e `auth-share`** — 16 testes verdes (fluxo §14.6/§10 inalterado).
-- Frontend: `tsc` + lint + build + **14 testes** verdes (share tokens nunca são decodificados no cliente).
-- README atualizado (contagem de testes e tabela de segurança).
-
-### Pendências da Fase 4
-- Fase 5 (itens 15-16): auditoria §29.4 e admin de sessões §34 — pendente.
 
 ---
 

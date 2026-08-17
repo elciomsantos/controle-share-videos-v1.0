@@ -170,7 +170,7 @@ Há testes unitários e E2E (backend) e unitários (frontend), com cobertura ≥
 
 ```bash
 # Backend
-npm run test:unit      # jest — unitários (22 suites, 237 testes)
+npm run test:unit      # jest — unitários (24 suites, 247 testes)
 npm run test:e2e       # jest — e2e efêmero (DB dedicado, não destrutivo)
 npm run test:coverage  # jest com cobertura (thresholds ≥60%)
 npm test               # alias para test:unit
@@ -426,6 +426,8 @@ Detalhes em `docs/operacional/DEPLOY.md` §6.3.
 | Redis cache | 📦 Backlog v1.3 | Backend já tem `@keyv/redis` + fallback in-memory; ativar = subir Redis + flag |
 | S3/MinIO storage | 📦 Backlog v1.4 | `S3UploadRepository` interface pronta (R02); acionar se > 100 GB uploads |
 | Auditoria de views/downloads | ✅ Completa | Dashboard `/admin/download-logs` com filtros e paginação |
+| Auditoria de eventos (§29.4) | ✅ Ativo (Fase 5) | `AuditLog` estruturado (IP/UA/requestId) com 17 eventos mínimos (login, MFA, sessões, senha, permissões, shares); admin `/admin/audit-logs` (admin+auditor) |
+| Admin de sessões (§34) | ✅ Ativo (Fase 5) | `/admin/sessions`: listagem com estado (ativa/ociosa/expirada/revogada), IP e User-Agent; revogação com reautenticação recente; `tokenHash` nunca exposto |
 | Swagger | 🔒 Dev only | Habilitado apenas em `docker-compose.local.yml` (`SWAGGER_ENABLED=true`) |
 
 > Ver `docs/auditoria/SECURITY_REPORT.md` e `docs/auditoria/AUDIT_REPORT.md` para detalhes técnicos e evidências.

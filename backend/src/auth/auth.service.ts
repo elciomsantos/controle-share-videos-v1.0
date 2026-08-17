@@ -1,6 +1,7 @@
 import {
   ForbiddenException,
   Injectable,
+  Optional,
 } from "@nestjs/common";
 import { RequestContextLogger } from "../common/request-context/request-context";
 import { DuplicatedFieldException } from "../common/duplicated-field.exception";
@@ -10,6 +11,7 @@ import { Request, Response } from "express";
 import dayjs from "dayjs";
 import { I18nService } from "nestjs-i18n";
 import { ARGON2_OPTIONS } from "../constants";
+import { AuditEvent, AuditService } from "../audit/audit.service";
 import { ConfigService } from "../config/config.service";
 import { EmailService } from "../email/email.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -45,6 +47,7 @@ export class AuthService {
     private readonly tokenService: TokenService,
     private readonly refreshService: RefreshService,
     private readonly verificationService: VerificationService,
+    @Optional() private readonly auditService?: AuditService,
   ) {}
   private readonly logger = new RequestContextLogger(AuthService.name);
 
@@ -165,6 +168,15 @@ export class AuthService {
       data: { password: hash, passwordMustChange: false },
     });
 
+    void this.auditService?.record(AuditEvent.PASSWORD_CHANGED, {
+      userId: user.id,
+      result: "success",
+    });
+    void this.auditService?.record(AuditEvent.SESSION_REVOKED, {
+      userId: user.id,
+      resource: "all",
+      result: "success",
+    });
     this.logger.log(`Password changed for user ${user.email}`);
     // SEC-1.2/15.4: a nova sessão emitida após troca de senha nasce com o
     // marco de reautenticação atual (a troca exigiu reautenticação recente).

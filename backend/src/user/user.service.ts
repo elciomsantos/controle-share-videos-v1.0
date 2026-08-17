@@ -1,9 +1,10 @@
-import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, Optional } from "@nestjs/common";
 import { Prisma } from "../../prisma/generated/prisma/client";
 import * as crypto from "crypto";
 import argon from "argon2";
 import { I18nService } from "nestjs-i18n";
 import { ARGON2_OPTIONS } from "../constants";
+import { AuditEvent, AuditService } from "../audit/audit.service";
 import { ConfigService } from "../config/config.service";
 import { DuplicatedFieldException } from "../common/duplicated-field.exception";
 import { EmailService } from "../email/email.service";
@@ -22,6 +23,7 @@ export class UserService {
     private fileService: FileService,
     private readonly i18n: I18nService,
     private config: ConfigService,
+    @Optional() private readonly auditService?: AuditService,
   ) {}
 
   async list() {
@@ -139,6 +141,35 @@ export class UserService {
       const privilegeChanged = user.role && user.role !== existing.role;
       if (deactivated || privilegeChanged || hash) {
         await this.prisma.refreshToken.deleteMany({ where: { userId: id } });
+
+        // SEC-1.2/§29.4: audita o evento de segurança correspondente.
+        if (deactivated || privilegeChanged) {
+          void this.auditService?.record(AuditEvent.SESSION_REVOKED, {
+            userId: id,
+            resource: "all",
+            result: "success",
+            metadata: { deactivated, privilegeChanged },
+          });
+        }
+      }
+
+      if (user.role && user.role !== existing.role) {
+        void this.auditService?.record(AuditEvent.ROLE_CHANGED, {
+          userId: id,
+          result: "success",
+          metadata: { from: existing.role, to: user.role },
+        });
+      }
+
+      const permissionChanged =
+        user.isActivated !== undefined &&
+        user.isActivated !== existing.isActivated;
+      if (permissionChanged) {
+        void this.auditService?.record(AuditEvent.PERMISSION_CHANGED, {
+          userId: id,
+          result: "success",
+          metadata: { isActivated: user.isActivated },
+        });
       }
 
       return updated;

@@ -1,12 +1,14 @@
 import {
   BadRequestException,
   Injectable,
+  Optional,
   UnauthorizedException,
 } from "@nestjs/common";
 import { RequestContextLogger } from "../../common/request-context/request-context";
 import { User } from "../../../prisma/generated/prisma/client";
 import argon from "argon2";
 import { I18nService } from "nestjs-i18n";
+import { AuditEvent, AuditService } from "../../audit/audit.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import { TokenService } from "./token.service";
 import { AuthSignInDTO } from "../dto/authSignIn.dto";
@@ -22,6 +24,7 @@ export class LoginService {
     private prisma: PrismaService,
     private tokenService: TokenService,
     private readonly i18n: I18nService,
+    @Optional() private readonly auditService?: AuditService,
   ) {}
   private readonly logger = new RequestContextLogger(LoginService.name);
 
@@ -45,6 +48,10 @@ export class LoginService {
         this.logger.debug(
           `Login denied for inactive user ${user.email} from IP ${ip}`,
         );
+        void this.auditService?.record(AuditEvent.LOGIN_FAILURE, {
+          userId: user.id,
+          result: "inactive",
+        });
         throw new UnauthorizedException(this.i18n.t("auth.wrongCredentials"));
       }
       this.logger.log(
@@ -53,6 +60,10 @@ export class LoginService {
       return this.generateToken(user);
     }
 
+    void this.auditService?.record(AuditEvent.LOGIN_FAILURE, {
+      result: "invalid_credentials",
+      resource: dto.email ?? dto.username ?? undefined,
+    });
     this.logger.debug(
       `Failed login attempt for user ${dto.email || dto.username} from IP ${ip}`,
     );
@@ -85,10 +96,16 @@ export class LoginService {
       undefined,
       new Date(),
     );
-    const { accessToken } = await this.tokenService.createSession(
+    const { accessToken, sessionId } = await this.tokenService.createSession(
       user.id,
       refreshToken.id,
     );
+
+    void this.auditService?.record(AuditEvent.LOGIN_SUCCESS, {
+      userId: user.id,
+      sessionId,
+      result: "success",
+    });
 
     return { accessToken, refreshToken: refreshToken.token };
   }

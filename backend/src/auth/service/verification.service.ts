@@ -1,8 +1,9 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, Optional } from "@nestjs/common";
 import argon from "argon2";
 import dayjs from "dayjs";
 import { I18nService } from "nestjs-i18n";
 import { ARGON2_OPTIONS } from "../../constants";
+import { AuditEvent, AuditService } from "../../audit/audit.service";
 import { EmailService } from "../../email/email.service";
 import { PrismaService } from "../../prisma/prisma.service";
 
@@ -16,6 +17,7 @@ export class VerificationService {
     private prisma: PrismaService,
     private emailService: EmailService,
     private readonly i18n: I18nService,
+    @Optional() private readonly auditService?: AuditService,
   ) {}
 
   async verifyAccount(token: string) {
@@ -97,6 +99,10 @@ export class VerificationService {
         },
       });
 
+      void this.auditService?.record(AuditEvent.PASSWORD_RESET_REQUESTED, {
+        userId: user.id,
+        result: "success",
+      });
       await this.emailService.sendResetPasswordEmail(user.email, token);
     });
   }
@@ -134,6 +140,16 @@ export class VerificationService {
         where: { id: user.id },
         data: { password: newPasswordHash },
       });
+    });
+
+    void this.auditService?.record(AuditEvent.PASSWORD_RESET_COMPLETED, {
+      userId: user.id,
+      result: "success",
+    });
+    void this.auditService?.record(AuditEvent.SESSION_REVOKED, {
+      userId: user.id,
+      resource: "all",
+      result: "success",
     });
   }
 }
