@@ -7,6 +7,28 @@
 
 ---
 
+## v1.2.7 — Fase 3 da Especificação de Segurança v1.2: rate limiting (§22) (2026-08-17)
+
+### Resumo
+Implementação da **Fase 3** do plano (`docs/PLANO-CORRECOES-SEGURANCA.md`): rate limiting por identificador de conta + IP no login (§22.1) e limites específicos em endpoints de share (§22.3/§23.5) e administrativos (§22.4).
+
+### Correções aplicadas
+- **Item 8 — Login por conta + IP** (§22.1):
+  - Novo `RequestThrottlerGuard` (substitui o `ThrottlerGuard` global), com `getTracker` ciente do recurso.
+  - `/auth/signIn` passa a ser limitado por **email/username + IP** (ex.: 5/min por conta+IP), impedindo brute force concentrado em uma conta e por enumerador.
+  - Demais rotas mantêm o comportamento padrão por IP.
+- **Item 9 — Limites específicos em share e admin** (§22.3/§22.4/§23.5):
+  - Acesso público a share (`GET /shares/:id`, `:id/view`, `:id/metaData`, `:id/token`) passa a ser limitado por **IP + share id** (e inclui o token de compartilhamento na chave quando presente), prevenindo abuso concentrado em um único recurso.
+  - `ShareController` ganhou limite de classe de 60 req/min (rotas públicas seguem com limites menores próprios).
+  - Endpoints administrativos com limite mais restritivo que o global (30 req/min): `UserController` (rotas de perfil `/me` permanecem no limite global), `ConfigController`, `SystemController` e `AdminDownloadLogsController`.
+  - `MetricsController` (público, coleta Prometheus) com limite próprio de 60 req/min.
+
+### Validado
+- Backend: build + lint + **226 testes unitários** (21 suites, verdes; +7 testes do `RequestThrottlerGuard`).
+- Pendências: Fases 4–7 do plano (sessão opaca com `token_hash`, auditoria estruturada, admin de sessões, testes §35). **§22.5** (rate limiting distribuído) permanece aberto: o `@nestjs/throttler` usa armazenamento em memória por instância — revisitado quando houver múltiplas instâncias (ex.: storage Redis dedicado ao throttler).
+
+---
+
 ## v1.2.6 — Fase 2 da Especificação de Segurança v1.2: MFA, recovery codes e reautenticação (2026-08-17)
 
 ### Resumo

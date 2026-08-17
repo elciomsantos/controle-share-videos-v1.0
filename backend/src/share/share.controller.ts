@@ -46,7 +46,11 @@ import { getRequestIp, getRequestUserAgent } from "../utils/request.util";
 import { ConfigService } from "../config/config.service";
 import { PageDTO } from "../pagination/page.dto";
 import { normalizePagination } from "../pagination/pagination.util";
+// SEC-1.2/22.3 + 23.5: endpoints de share com limite por IP (e por recurso no
+// acesso público via RequestThrottlerGuard); rotas públicas têm limites
+// próprios ainda menores.
 @Controller("shares")
+@Throttle({ default: { limit: 60, ttl: 60_000 } })
 export class ShareController {
   constructor(
     private shareService: ShareService,

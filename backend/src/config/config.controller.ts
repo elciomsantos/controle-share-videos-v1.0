@@ -29,7 +29,11 @@ import { TestEmailDTO } from "./dto/testEmail.dto";
 import UpdateConfigDTO from "./dto/updateConfig.dto";
 import { LogoService } from "./logo.service";
 
+// SEC-1.2/22.4: endpoints administrativos de configuração com limite mais
+// restritivo que o global; rotas específicas (ex.: rotação de segredo) podem
+// definir limites ainda menores.
 @Controller("configs")
+@Throttle({ default: { limit: 30, ttl: 60_000 } })
 export class ConfigController {
   constructor(
     private configService: ConfigService,

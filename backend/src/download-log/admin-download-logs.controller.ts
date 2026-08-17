@@ -1,4 +1,5 @@
 import { Controller, Get, Query, UseGuards } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { JwtGuard } from "../auth/guard/jwt.guard";
 import { Roles } from "../auth/decorator/roles.decorator";
 import { RolesGuard } from "../auth/guard/roles.guard";
@@ -7,9 +8,11 @@ import {
   DownloadLogService,
 } from "../download-log/download-log.service";
 
+// SEC-1.2/22.4: endpoints administrativos com limite mais restritivo que o global.
 @Controller("admin/download-logs")
 @UseGuards(JwtGuard, RolesGuard)
 @Roles("admin", "auditor")
+@Throttle({ default: { limit: 30, ttl: 60_000 } })
 export class AdminDownloadLogsController {
   constructor(private downloadLogService: DownloadLogService) {}
 

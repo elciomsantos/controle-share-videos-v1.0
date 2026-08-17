@@ -12,6 +12,7 @@ import {
 } from "@nestjs/common";
 import { User } from "../../prisma/generated/prisma/client";
 import { Response } from "express";
+import { Throttle, SkipThrottle } from "@nestjs/throttler";
 import { GetUser } from "../auth/decorator/getUser.decorator";
 import { Authenticated, AdminOnly } from "../auth/decorator/guards.decorator";
 import { ReauthRequired } from "../auth/decorator/reauth.decorator";
@@ -26,7 +27,10 @@ import {
   getSessionCookieName,
 } from "../utils/session-cookie.util";
 
+// SEC-1.2/22.4: endpoints administrativos de usuário com limite mais restritivo
+// que o global; rotas de perfil próprio ficam no limite global.
 @Controller("users")
+@Throttle({ default: { limit: 30, ttl: 60_000 } })
 export class UserController {
   constructor(
     private userService: UserService,
@@ -35,6 +39,7 @@ export class UserController {
 
   // Own user operations
   @Get("me")
+  @SkipThrottle()
   @Authenticated()
   async getCurrentUser(@GetUser() user?: User) {
     if (!user) return null;
@@ -44,6 +49,7 @@ export class UserController {
   }
 
   @Patch("me")
+  @SkipThrottle()
   @Authenticated()
   @ReauthRequired()
   async updateCurrentUser(
@@ -54,6 +60,7 @@ export class UserController {
   }
 
   @Delete("me")
+  @SkipThrottle()
   @HttpCode(204)
   @Authenticated()
   @ReauthRequired()
