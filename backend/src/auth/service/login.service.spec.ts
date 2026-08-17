@@ -15,7 +15,7 @@ describe("LoginService", () => {
   let tokenService: {
     createLoginToken: jest.Mock;
     createRefreshToken: jest.Mock;
-    signAccessToken: jest.Mock;
+    createSession: jest.Mock;
   };
   let i18n: { t: jest.Mock };
   let service: LoginService;
@@ -37,7 +37,7 @@ describe("LoginService", () => {
     tokenService = {
       createLoginToken: jest.fn(),
       createRefreshToken: jest.fn(),
-      signAccessToken: jest.fn(() => "access-token"),
+      createSession: jest.fn(() => ({ accessToken: "access-token" })),
     };
     i18n = { t: jest.fn((key: string) => `t:${key}`) };
     service = new LoginService(
@@ -71,7 +71,7 @@ describe("LoginService", () => {
         accessToken: "access-token",
         refreshToken: "refresh-token",
       });
-      expect(tokenService.signAccessToken).toHaveBeenCalledWith(user, "rt1");
+      expect(tokenService.createSession).toHaveBeenCalledWith("u1", "rt1");
     });
 
     it("retorna loginToken quando o usuário tem TOTP habilitado", async () => {
@@ -103,7 +103,7 @@ describe("LoginService", () => {
         requiresTotpSetup: true,
       });
       expect(tokenService.createRefreshToken).not.toHaveBeenCalled();
-      expect(tokenService.signAccessToken).not.toHaveBeenCalled();
+      expect(tokenService.createSession).not.toHaveBeenCalled();
     });
 
     it("lança UnauthorizedException para credenciais inválidas", async () => {

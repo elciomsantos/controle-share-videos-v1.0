@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Global, Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { EmailModule } from "../email/email.module";
 import { AuthController } from "./auth.controller";
@@ -13,9 +13,11 @@ import { ReauthGuard } from "./guard/reauth.guard";
 import { LoginService } from "./service/login.service";
 import { TokenService } from "./service/token.service";
 import { RefreshService } from "./service/refresh.service";
+import { SessionService } from "./service/session.service";
 import { VerificationService } from "./service/verification.service";
 import { RecoveryCodeService } from "./recovery-code.service";
 
+@Global()
 @Module({
   imports: [
     JwtModule.register({
@@ -31,6 +33,7 @@ import { RecoveryCodeService } from "./recovery-code.service";
     LoginService,
     TokenService,
     RefreshService,
+    SessionService,
     VerificationService,
     RecoveryCodeService,
     JwtStrategy,
@@ -39,6 +42,6 @@ import { RecoveryCodeService } from "./recovery-code.service";
     PasswordMustChangeGuard,
     ReauthGuard,
   ],
-  exports: [AuthService, JwtGuard, RolesGuard, PasswordMustChangeGuard],
+  exports: [AuthService, JwtGuard, RolesGuard, PasswordMustChangeGuard, SessionService],
 })
 export class AuthModule {}

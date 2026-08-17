@@ -98,7 +98,10 @@ export async function configureApp(
     res.setHeader("X-Request-Id", incomingId);
 
     const ip = req.ip ?? req.socket?.remoteAddress ?? undefined;
-    runInRequestContext({ requestId: incomingId, ip }, () => next());
+    const ua = req.headers["user-agent"];
+    const userAgent =
+      (Array.isArray(ua) ? ua[0] : ua ?? "").slice(0, 512) || undefined;
+    runInRequestContext({ requestId: incomingId, ip, userAgent }, () => next());
   });
 
   // CSRF protection via double-submit cookie (CRIT-01).

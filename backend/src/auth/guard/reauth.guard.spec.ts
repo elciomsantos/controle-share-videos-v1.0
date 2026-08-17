@@ -2,10 +2,9 @@ import { ForbiddenException } from "@nestjs/common";
 import { ReauthGuard } from "./reauth.guard";
 
 describe("ReauthGuard", () => {
-  let prisma: {
-    refreshToken: { findUnique: jest.Mock };
+  let sessionService: {
+    findByAccessToken: jest.Mock;
   };
-  let tokenService: { extractRefreshTokenId: jest.Mock };
   let config: {
     getBoolean: jest.Mock;
     getTimespan: jest.Mock;
@@ -16,29 +15,28 @@ describe("ReauthGuard", () => {
     ({ switchToHttp: () => ({ getRequest: () => ({ cookies }) }) }) as never;
 
   const makeSession = (minsAgo: number | null) => ({
-    reauthenticatedAt:
-      minsAgo === null ? null : new Date(Date.now() - minsAgo * 60_000),
+    refreshToken: {
+      reauthenticatedAt:
+        minsAgo === null ? null : new Date(Date.now() - minsAgo * 60_000),
+    },
   });
 
   beforeEach(() => {
-    prisma = { refreshToken: { findUnique: jest.fn() } };
-    tokenService = { extractRefreshTokenId: jest.fn(() => "rt1") };
+    sessionService = {
+      findByAccessToken: jest.fn(() =>
+        Promise.resolve(makeSession(1)),
+      ),
+    };
     config = {
       getBoolean: jest.fn(() => false), // dev: cookie legado access_token
       getTimespan: jest.fn(() => ({ value: 5, unit: "minutes" })),
     };
-    guard = new ReauthGuard(
-      prisma as never,
-      tokenService as never,
-      config as never,
-    );
+    guard = new ReauthGuard(sessionService as never, config as never);
   });
 
   it("aceita quando a sessão foi reautenticada dentro da janela", async () => {
-    prisma.refreshToken.findUnique.mockResolvedValue(makeSession(1));
-
     await expect(
-      guard.canActivate(makeContext({ access_token: "jwt" })),
+      guard.canActivate(makeContext({ access_token: "opaque" })),
     ).resolves.toBe(true);
   });
 
@@ -48,27 +46,27 @@ describe("ReauthGuard", () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it("recusa quando o access token não referencia a sessão", async () => {
-    tokenService.extractRefreshTokenId.mockReturnValue(undefined);
+  it("recusa quando a sessão opaca não é encontrada", async () => {
+    sessionService.findByAccessToken.mockResolvedValue(null);
 
     await expect(
-      guard.canActivate(makeContext({ access_token: "jwt" })),
+      guard.canActivate(makeContext({ access_token: "opaque" })),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it("recusa quando nunca houve reautenticação na sessão", async () => {
-    prisma.refreshToken.findUnique.mockResolvedValue(makeSession(null));
+    sessionService.findByAccessToken.mockResolvedValue(makeSession(null));
 
     await expect(
-      guard.canActivate(makeContext({ access_token: "jwt" })),
+      guard.canActivate(makeContext({ access_token: "opaque" })),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it("recusa quando a reautenticação está fora da janela", async () => {
-    prisma.refreshToken.findUnique.mockResolvedValue(makeSession(10));
+    sessionService.findByAccessToken.mockResolvedValue(makeSession(10));
 
     await expect(
-      guard.canActivate(makeContext({ access_token: "jwt" })),
+      guard.canActivate(makeContext({ access_token: "opaque" })),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

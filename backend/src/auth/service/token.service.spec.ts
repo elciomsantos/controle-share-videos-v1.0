@@ -3,71 +3,64 @@ import { TokenService } from "./token.service";
 describe("TokenService", () => {
   let prisma: {
     refreshToken: { create: jest.Mock };
+    session: { create: jest.Mock; findUnique: jest.Mock };
     loginToken: { create: jest.Mock; updateMany: jest.Mock };
     $transaction: jest.Mock;
   };
-  let jwtService: { sign: jest.Mock; verifyAsync: jest.Mock; decode: jest.Mock };
   let config: { getBoolean: jest.Mock; getTimespan: jest.Mock };
-  let jwtSecret: {
-    getCurrentSecret: jest.Mock;
-    getKid: jest.Mock;
-    resolveSecretForToken: jest.Mock;
-  };
   let service: TokenService;
 
   beforeEach(() => {
     prisma = {
       refreshToken: { create: jest.fn() },
+      session: { create: jest.fn(), findUnique: jest.fn() },
       loginToken: { create: jest.fn(), updateMany: jest.fn() },
       $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
     };
-    jwtService = { sign: jest.fn(), verifyAsync: jest.fn(), decode: jest.fn() };
     config = {
       getBoolean: jest.fn(() => true),
       getTimespan: jest.fn(() => ({ value: 30, unit: "days" })),
     };
-    jwtSecret = {
-      getCurrentSecret: jest.fn(() => "secret"),
-      getKid: jest.fn(() => "kid-1"),
-      resolveSecretForToken: jest.fn(() => "secret"),
-    };
-    service = new TokenService(
-      prisma as never,
-      jwtService as never,
-      config as never,
-      jwtSecret as never,
-    );
+    service = new TokenService(prisma as never, config as never);
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  describe("signAccessToken", () => {
-    it("assina com o secret atual e o kid de rotação", () => {
-      jwtService.sign.mockReturnValue("jwt");
+  describe("generateAccessToken / hashToken", () => {
+    it("gera token opaco de 256 bits e armazena somente o SHA-256", () => {
+      const token = service.generateAccessToken();
+      const hash = service.hashToken(token);
 
-      const result = service.signAccessToken(
-        {
-          id: "u1",
-          email: "a@b.com",
-          role: "admin",
-          isAdmin: true,
-        } as never,
-        "rt1",
+      expect(token).toBeDefined();
+      // 32 bytes em base64url -> ~43 caracteres.
+      expect(token.length).toBeGreaterThan(40);
+      // SHA-256 hex -> exatamente 64 caracteres.
+      expect(hash).toMatch(/^[0-9a-f]{64}$/);
+      // O hash não contém o token real.
+      expect(hash).not.toContain(token);
+    });
+  });
+
+  describe("createSession", () => {
+    it("cria a sessão com hash + expiração absoluta e retorna o token real", async () => {
+      prisma.session.create.mockResolvedValue({ id: "s1" });
+      config.getTimespan.mockImplementation((key: string) =>
+        key === "general.sessionMaxDuration"
+          ? { value: 8, unit: "hours" }
+          : { value: 30, unit: "days" },
       );
 
-      expect(jwtService.sign).toHaveBeenCalledWith(
-        {
-          sub: "u1",
-          email: "a@b.com",
-          role: "admin",
-          isAdmin: true,
-          refreshTokenId: "rt1",
-        },
-        { expiresIn: "15min", secret: "secret", keyid: "kid-1" },
-      );
-      expect(result).toBe("jwt");
+      const result = await service.createSession("u1", "rt1");
+
+      const data = prisma.session.create.mock.calls[0][0].data;
+      expect(data.tokenHash).toMatch(/^[0-9a-f]{64}$/);
+      expect(service.hashToken(result.accessToken)).toBe(data.tokenHash);
+      expect(data.userId).toBe("u1");
+      expect(data.refreshTokenId).toBe("rt1");
+      expect(data.expiresAt).toBeInstanceOf(Date);
+      expect(result.sessionId).toBe("s1");
     });
   });
 
@@ -105,17 +98,31 @@ describe("TokenService", () => {
     });
   });
 
+  describe("getSessionByAccessToken", () => {
+    it("localiza a sessão pelo hash do token opaco", async () => {
+      prisma.session.findUnique.mockResolvedValue({ id: "s1", userId: "u1" });
+
+      const result = await service.getSessionByAccessToken("some-token");
+
+      expect(prisma.session.findUnique).toHaveBeenCalledWith({
+        where: { tokenHash: service.hashToken("some-token") },
+        include: { refreshToken: true, user: true },
+      });
+      expect(result?.id).toBe("s1");
+    });
+
+    it("retorna null sem token", async () => {
+      await expect(service.getSessionByAccessToken("")).resolves.toBeNull();
+    });
+  });
+
   describe("addTokensToResponse", () => {
     const makeResponse = () => ({ cookie: jest.fn(), setHeader: jest.fn() });
 
     it("grava cookies httpOnly com flags de sessão", () => {
       const response = makeResponse();
 
-      service.addTokensToResponse(
-        response as never,
-        "refresh",
-        "access",
-      );
+      service.addTokensToResponse(response as never, "refresh", "access");
 
       expect(response.cookie).toHaveBeenCalledWith(
         "__Host-SID",
@@ -144,40 +151,46 @@ describe("TokenService", () => {
   });
 
   describe("getUserIdFromRequest", () => {
-    it("retorna o sub quando o token é válido", async () => {
-      jwtService.verifyAsync.mockResolvedValue({ sub: "u1" });
+    it("retorna o user id quando a sessão é válida", async () => {
+      prisma.session.findUnique.mockResolvedValue({
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 60_000),
+        user: { id: "u1", isActivated: true },
+      });
 
       const result = await service.getUserIdFromRequest({
-        cookies: { "__Host-SID": "jwt" },
+        cookies: { "__Host-SID": "access" },
       } as never);
 
       expect(result).toBe("u1");
-      expect(jwtSecret.resolveSecretForToken).toHaveBeenCalledWith("jwt");
     });
 
-    it("retorna null sem token ou com token inválido", async () => {
+    it("retorna null sem token, com sessão revogada ou expirada", async () => {
       await expect(
         service.getUserIdFromRequest({ cookies: {} } as never),
       ).resolves.toBeNull();
 
-      jwtService.verifyAsync.mockRejectedValue(new Error("bad"));
+      prisma.session.findUnique.mockResolvedValue({
+        revokedAt: new Date(),
+        expiresAt: new Date(Date.now() + 60_000),
+        user: { id: "u1", isActivated: true },
+      });
       await expect(
         service.getUserIdFromRequest({
-          cookies: { "__Host-SID": "jwt" },
+          cookies: { "__Host-SID": "access" },
         } as never),
       ).resolves.toBeNull();
-    });
-  });
 
-  describe("extractRefreshTokenId", () => {
-    it("decodifica o refreshTokenId do access token", () => {
-      jwtService.decode.mockReturnValue({ refreshTokenId: "rt1" });
-      expect(service.extractRefreshTokenId("jwt")).toBe("rt1");
-    });
-
-    it("retorna undefined quando não presente", () => {
-      jwtService.decode.mockReturnValue({});
-      expect(service.extractRefreshTokenId("jwt")).toBeUndefined();
+      prisma.session.findUnique.mockResolvedValue({
+        revokedAt: null,
+        expiresAt: new Date(Date.now() - 60_000),
+        user: { id: "u1", isActivated: true },
+      });
+      await expect(
+        service.getUserIdFromRequest({
+          cookies: { "__Host-SID": "access" },
+        } as never),
+      ).resolves.toBeNull();
     });
   });
 });

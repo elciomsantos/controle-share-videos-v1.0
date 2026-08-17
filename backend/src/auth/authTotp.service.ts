@@ -77,8 +77,8 @@ export class AuthTotpService {
       undefined,
       new Date(),
     );
-    const accessToken = this.tokenService.signAccessToken(
-      user,
+    const { accessToken } = await this.tokenService.createSession(
+      user.id,
       refreshToken.id,
     );
     return { accessToken, refreshToken: refreshToken.token };

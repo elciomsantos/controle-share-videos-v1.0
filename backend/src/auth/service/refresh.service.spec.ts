@@ -13,8 +13,8 @@ describe("RefreshService (SEC-07)", () => {
   };
   let tokenService: {
     createRefreshToken: jest.Mock;
-    signAccessToken: jest.Mock;
-    extractRefreshTokenId: jest.Mock;
+    createSession: jest.Mock;
+    getSessionByAccessToken: jest.Mock;
   };
   let service: RefreshService;
 
@@ -30,8 +30,8 @@ describe("RefreshService (SEC-07)", () => {
     };
     tokenService = {
       createRefreshToken: jest.fn(),
-      signAccessToken: jest.fn(() => "access-token"),
-      extractRefreshTokenId: jest.fn(),
+      createSession: jest.fn(() => ({ accessToken: "access-token" })),
+      getSessionByAccessToken: jest.fn(),
     };
     service = new RefreshService(
       prisma as never,
@@ -55,6 +55,7 @@ describe("RefreshService (SEC-07)", () => {
     it("rotaciona o token dentro de uma transação", async () => {
       prisma.refreshToken.findUnique.mockResolvedValue(meta);
       prisma.refreshToken.deleteMany.mockResolvedValue({ count: 1 });
+      tokenService.createSession.mockResolvedValue({ accessToken: "access-token" });
       tokenService.createRefreshToken.mockResolvedValue({
         id: "rt2",
         token: "new-token",
@@ -70,6 +71,7 @@ describe("RefreshService (SEC-07)", () => {
         prisma,
         undefined,
       );
+      expect(tokenService.createSession).toHaveBeenCalledWith("u1", "rt2", prisma);
     });
 
     it("detecta reuso, revoga a família e lança UnauthorizedException", async () => {
@@ -106,8 +108,10 @@ describe("RefreshService (SEC-07)", () => {
   });
 
   describe("signOut", () => {
-    it("remove a sessão identificada pelo refreshTokenId", async () => {
-      tokenService.extractRefreshTokenId.mockReturnValue("rt1");
+    it("remove o refresh token associado à sessão", async () => {
+      tokenService.getSessionByAccessToken.mockResolvedValue({
+        refreshTokenId: "rt1",
+      });
       prisma.refreshToken.delete.mockResolvedValue({});
 
       await service.signOut("access-token");
@@ -117,8 +121,8 @@ describe("RefreshService (SEC-07)", () => {
       });
     });
 
-    it("não faz nada quando o token não carrega refreshTokenId", async () => {
-      tokenService.extractRefreshTokenId.mockReturnValue(undefined);
+    it("não faz nada quando a sessão não existe", async () => {
+      tokenService.getSessionByAccessToken.mockResolvedValue(null);
 
       await service.signOut("access-token");
 

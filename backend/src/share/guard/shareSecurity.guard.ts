@@ -11,6 +11,7 @@ import { I18nService } from "nestjs-i18n";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ShareTokenService } from "./../domain/share-token.service";
 import { ConfigService } from "../../config/config.service";
+import { SessionService } from "../../auth/service/session.service";
 import { JwtGuard } from "../../auth/guard/jwt.guard";
 import { Prisma, User } from "../../../prisma/generated/prisma/client";
 import { isEpochZero } from "../../utils/date.util";
@@ -21,10 +22,11 @@ export class ShareSecurityGuard extends JwtGuard {
     private shareTokenService: ShareTokenService,
     private prisma: PrismaService,
     private configService: ConfigService,
+    sessionService: SessionService,
     private readonly i18n: I18nService,
     reflector: Reflector,
   ) {
-    super(reflector);
+    super(reflector, sessionService, configService);
   }
 
   async canActivate(context: ExecutionContext) {

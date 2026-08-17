@@ -170,7 +170,7 @@ Há testes unitários e E2E (backend) e unitários (frontend), com cobertura ≥
 
 ```bash
 # Backend
-npm run test:unit      # jest — unitários (21 suites, 226 testes)
+npm run test:unit      # jest — unitários (22 suites, 233 testes)
 npm run test:e2e       # jest — e2e efêmero (DB dedicado, não destrutivo)
 npm run test:coverage  # jest com cobertura (thresholds ≥60%)
 npm test               # alias para test:unit
@@ -280,8 +280,10 @@ Para gerar os segredos:
 openssl rand -base64 32
 ```
 
-> ⚠️ **`JWT_SECRET`**: se mudar após o sistema em produção, todas as sessões
-> ativas são invalidadas. Programe rotações em janela de manutenção.
+> ⚠️ **`JWT_SECRET`**: usado apenas para **share tokens** (downloads) e
+> resolução de segredos legados. As **sessões de autenticação** são opacas e
+> server-side (Fase 4) — rotação do segredo **não** derruba logins ativos;
+> apenas share tokens já emitidos ficam inválidos.
 
 **Acesso por IP (sem domínio):** se preferir acessar o sistema por IP (ex:
 `http://192.168.1.50`), use `CADDYFILE=ip` no `.env` e omita `DOMAIN`/
@@ -419,7 +421,7 @@ Detalhes em `docs/operacional/DEPLOY.md` §6.3.
 | Rate limit edge | ✅ Ativo | Caddy: 100 req/10s (dynamic), 10 req/60s (auth endpoints) |
 | Security headers | ✅ Ativo | HSTS preload, X-Frame-Options DENY, X-Content-Type-Options nosniff, COOP/COEP/CORP, Permissions-Policy |
 | Secrets | ✅ Docker secrets | `docker-compose.prod.yml` — `*_FILE` vars + secrets externos; `docker-compose.yml` — variáveis `.env` |
-| JWT rotation | ✅ Suportado | Troca de `JWT_SECRET` invalida sessões (previsto); rotação híbrida AES-256-GCM + resolução por kid; middleware do Next.js delega verificação ao backend quando o segredo local está desatualizado (SEC-NEW-4) |
+| Sessão opaca server-side | ✅ Ativo (Fase 4) | Access token opaco 256-bit (apenas SHA-256 persistido); validação por requisição §10 (revogado → expirado → inativo); idle 30min + absoluta 8h; refresh token UUID em DB com rotação + detecção de reuso; share tokens continuam JWT assinados (curta duração) |
 | SQLite | ⚠️ Monitorado | Produção pequena (≤ 500 users simultâneos); migração PostgreSQL em v1.3 se necessário |
 | Redis cache | 📦 Backlog v1.3 | Backend já tem `@keyv/redis` + fallback in-memory; ativar = subir Redis + flag |
 | S3/MinIO storage | 📦 Backlog v1.4 | `S3UploadRepository` interface pronta (R02); acionar se > 100 GB uploads |

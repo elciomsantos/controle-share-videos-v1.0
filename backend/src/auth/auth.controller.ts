@@ -254,7 +254,11 @@ export class AuthController {
       dto.oldPassword,
     );
 
-    this.authService.addTokensToResponse(response, result.refreshToken);
+    this.authService.addTokensToResponse(
+      response,
+      result.refreshToken,
+      result.accessToken,
+    );
     return new TokenDTO().from(result);
   }
 
@@ -284,10 +288,12 @@ export class AuthController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
-    await this.authService.signOut(request.cookies.access_token);
-
     const isSecure = this.config.getBoolean("general.secureCookies");
     const sessionCookieName = getSessionCookieName(isSecure);
+    await this.authService.signOut(
+      request.cookies?.[sessionCookieName] ?? request.cookies?.access_token,
+    );
+
     response.setHeader("Cache-Control", "no-store");
     response.cookie(sessionCookieName, "", {
       path: "/",

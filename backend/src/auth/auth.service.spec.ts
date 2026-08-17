@@ -11,7 +11,7 @@ describe("AuthService (orquestrador)", () => {
   let i18n: { t: jest.Mock };
   let loginService: { signIn: jest.Mock; verifyPassword: jest.Mock };
   let tokenService: {
-    signAccessToken: jest.Mock;
+    createSession: jest.Mock;
     createRefreshToken: jest.Mock;
     createLoginToken: jest.Mock;
     addTokensToResponse: jest.Mock;
@@ -46,7 +46,7 @@ describe("AuthService (orquestrador)", () => {
       verifyPassword: jest.fn(),
     };
     tokenService = {
-      signAccessToken: jest.fn(() => "access-token"),
+      createSession: jest.fn(() => ({ accessToken: "access-token" })),
       createRefreshToken: jest.fn(),
       createLoginToken: jest.fn(),
       addTokensToResponse: jest.fn(),

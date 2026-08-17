@@ -1,14 +1,29 @@
-import { ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common";
+import {
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { AuthGuard } from "@nestjs/passport";
 import { IS_PUBLIC_KEY } from "../decorator/public.decorator";
 import { enhanceRequestContext } from "../../common/request-context/request-context";
+import { ConfigService } from "../../config/config.service";
+import { SessionService } from "../service/session.service";
+import { getSessionCookieName } from "../../utils/session-cookie.util";
 
+/**
+ * Guard de autenticação por sessão de acesso server-side (SEC-1.2/§10, Fase 4).
+ *
+ * O access token é opaco; cada requisição autenticada é validada no banco:
+ * SHA-256 -> lookup -> revogado? -> expirado? -> usuário ativo?. Rotas
+ * `@Public()` tentam autenticação opcional e nunca bloqueiam visitantes.
+ */
 @Injectable()
-export class JwtGuard extends AuthGuard("jwt") {
-  constructor(private reflector: Reflector) {
-    super();
-  }
+export class JwtGuard {
+  constructor(
+    private reflector: Reflector,
+    private sessionService: SessionService,
+    private config: ConfigService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
@@ -16,50 +31,49 @@ export class JwtGuard extends AuthGuard("jwt") {
       context.getClass(),
     ]);
 
+    const request = context
+      .switchToHttp()
+      .getRequest<{ cookies?: Record<string, string>; user?: unknown }>();
+
     if (isPublic) {
-      // Rota pública: autenticação é opcional. Tenta popular request.user a
-      // partir do cookie access_token, mas nunca bloqueia o acesso se não
-      // houver token válido (ex.: visitante anônimo de um share).
-      await this.authenticateOptional(context);
+      await this.authenticateOptional(request);
       return true;
     }
 
-    try {
-      const result = (await super.canActivate(context)) as boolean;
-
-      // GAP-02: stamp the authenticated user id onto the request context so
-      // every downstream log line carries it via RequestContextLogger.
-      const req = context
-        .switchToHttp()
-        .getRequest<{ user?: { id?: string } }>();
-      const userId = req?.user?.id;
-      if (userId) enhanceRequestContext({ userId });
-
-      return result;
-    } catch {
-      // SEC-01/R02: fail-closed. A failed or missing JWT must never fall back
-      // to anonymous access — only routes explicitly marked @Public() bypass
-      // authentication.
+    const user = await this.authenticate(request);
+    if (!user) {
+      // SEC-01/R02: fail-closed. Sessão ausente, revogada, expirada ou usuário
+      // inativo nunca caem em acesso anônimo fora de rotas @Public().
       throw new UnauthorizedException();
+    }
+
+    // GAP-02: stampa o usuário autenticado no request context para os logs.
+    enhanceRequestContext({ userId: user.id });
+    return true;
+  }
+
+  private async authenticateOptional(request: {
+    cookies?: Record<string, string>;
+    user?: unknown;
+  }): Promise<void> {
+    const user = await this.authenticate(request);
+    if (user) {
+      enhanceRequestContext({ userId: user.id });
     }
   }
 
-  /**
-   * Autenticação opcional para rotas públicas: popula request.user se houver
-   * um access_token válido no cookie, ignorando qualquer falha (token ausente,
-   * expirado ou inválido). Permite que guards de share reconheçam admin/dono
-   * mesmo em endpoints públicos (ex.: download de arquivo protegido por senha).
-   */
-  private async authenticateOptional(context: ExecutionContext): Promise<void> {
-    try {
-      await super.canActivate(context);
-      const req = context
-        .switchToHttp()
-        .getRequest<{ user?: { id?: string } }>();
-      const userId = req?.user?.id;
-      if (userId) enhanceRequestContext({ userId });
-    } catch {
-      // ignore: guest access
-    }
+  private async authenticate(request: {
+    cookies?: Record<string, string>;
+    user?: unknown;
+  }) {
+    const cookieName = getSessionCookieName(
+      this.config.getBoolean("general.secureCookies"),
+    );
+    const accessToken =
+      request.cookies?.[cookieName] ?? request.cookies?.access_token;
+    const user = await this.sessionService.validate(accessToken);
+    if (!user) return null;
+    (request as { user?: unknown }).user = user;
+    return user;
   }
 }

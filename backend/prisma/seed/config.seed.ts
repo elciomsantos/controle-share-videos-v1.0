@@ -55,6 +55,20 @@ export const configVariables = {
       defaultValue: "3 months",
       secret: false,
     },
+    // SEC-1.2/§11 (Fase 4): timeout por inatividade e expiração absoluta da
+    // sessão de acesso server-side (token opaco). A sessão de acesso morre após
+    // idleTimeout sem atividade ou após maxDuration; a rotação do refresh emite
+    // nova sessão de acesso.
+    sessionIdleTimeout: {
+      type: "timespan",
+      defaultValue: "30 minutes",
+      secret: false,
+    },
+    sessionMaxDuration: {
+      type: "timespan",
+      defaultValue: "8 hours",
+      secret: false,
+    },
     // SEC-1.2/15.4: janela de reautenticação recente exigida em operações
     // críticas (troca de senha, permissões, desativação, revogação etc.).
     reauthWindow: {

@@ -85,8 +85,8 @@ export class LoginService {
       undefined,
       new Date(),
     );
-    const accessToken = this.tokenService.signAccessToken(
-      user,
+    const { accessToken } = await this.tokenService.createSession(
+      user.id,
       refreshToken.id,
     );
 

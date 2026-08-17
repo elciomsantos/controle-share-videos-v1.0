@@ -23,6 +23,7 @@ model User {
 
   shares        Share[]
   refreshTokens RefreshToken[]
+  sessions      Session[]
   loginTokens   LoginToken[]
   recoveryCodes RecoveryCode[]
 
@@ -53,6 +54,36 @@ model RefreshToken {
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // SEC-1.2/§6-§11: sessão de acesso server-side (token opaco de 256 bits,
+  // armazenado somente como hash SHA-256). Uma sessão de acesso por refresh
+  // token; rotação/revogação do refresh cascateiam para a sessão.
+  session Session?
+}
+
+// SEC-1.2/§6-§7-§10-§11 (Fase 4) — Sessão de acesso server-side.
+//
+// O token real (256 bits) nunca é armazenado — apenas token_hash (SHA-256).
+// A validação por requisição segue: cookie -> hash -> lookup -> revogado?
+// -> expirado? -> usuário ativo? -> autorização (§10). Expiração absoluta
+// (expiresAt) e timeout por inatividade (lastActivityAt + idle) (§11).
+model Session {
+  id             String   @id @default(uuid())
+  tokenHash      String   @unique
+  userId         String
+  refreshTokenId String   @unique
+  createdAt      DateTime @default(now())
+  lastActivityAt DateTime @default(now())
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  ipAddress      String?
+  userAgent      String?
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshToken RefreshToken @relation(fields: [refreshTokenId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model LoginToken {

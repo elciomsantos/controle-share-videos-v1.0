@@ -1,5 +1,3 @@
-import { getCookie } from "cookies-next";
-import * as jose from "jose";
 import api from "./api.service";
 
 const signIn = async (emailOrUsername: string, password: string) => {
@@ -74,21 +72,16 @@ const signOut = async () => {
   else window.location.href = "/";
 };
 
+// SEC-1.2/§10 (Fase 4): o access token é opaco e httpOnly — o client não
+// consegue ler `exp` nem a sessão. A rotação é delegada ao backend (cookie de
+// refresh httpOnly) e o 401-handler do api.service já faz refresh deduplicado
+// sob demanda. Aqui o refresh é apenas proativo (keep-alive): sem refresh
+// cookie, o backend responde 401 e o erro é ignorado.
 const refreshAccessToken = async () => {
   try {
-    const accessToken =
-      (getCookie("__Host-SID") as string) ||
-      (getCookie("access_token") as string);
-
-    // If the access token expires in less than 2 minutes refresh it
-    if (
-      accessToken &&
-      (jose.decodeJwt(accessToken).exp ?? 0) * 1000 < Date.now() + 2 * 60 * 1000
-    ) {
-      await api.post("/auth/token");
-    }
+    await api.post("/auth/token");
   } catch (e) {
-    console.info("Refresh token invalid or expired");
+    console.info("No active session; refresh skipped");
   }
 };
 

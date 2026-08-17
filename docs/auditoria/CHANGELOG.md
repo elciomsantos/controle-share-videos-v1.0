@@ -7,6 +7,51 @@
 
 ---
 
+## v1.2.8 — Fase 4 da Especificação de Segurança v1.2: sessão opaca server-side (§6, §7, §10, §11, §40) (2026-08-17)
+
+### Resumo
+Implementação do núcleo da **Fase 4** do plano (`docs/PLANO-CORRECOES-SEGURANCA.md`): substituição do **access token JWT** (que carregava `sub`/`email`/`role`/`isAdmin`) por **sessão de acesso opaca server-side** de 256 bits (apenas SHA-256 persistido), com validação por requisição (§10) e ciclo de vida idle 30min + absoluta 8h (§11). Itens 10, 11 e 12 do plano concluídos; item 13 (refresh token com rotação já existente) permanece conforme interpretação pragmática abaixo; item 14 (share token) adiado.
+
+### Decisão de arquitetura (documentada em §40)
+- `Session` = **camada de acesso**. O token opaco associa-se ao `RefreshToken` (família de rotação de 3 meses, §26) via `refreshTokenId` único.
+- **Idle 30min** (`general.sessionIdleTimeout`) e **absoluta 8h** (`general.sessionMaxDuration`) aplicam-se a cada **sessão de acesso** (não à família). A rotação do refresh emite uma nova sessão de acesso; a detecção de reuso (SEC-07) continua revogando toda a família.
+- Interpretação pragmática do §26.1/§26.3: refresh tokens permanecem como valores aleatórios UUID persistidos em DB (não-hash), com rotação + reuso já implementados na Fase anterior. `lastActivityAt` usa **update condicional** (§10.4), no máximo 1×/min por sessão.
+
+### Correções aplicadas
+- **Item 10 — Modelo `Session`** (§7):
+  - `Session.token_hash` **UNIQUE** (SHA-256 hex), `user_id`, `created_at`, `last_activity_at`, `expires_at`, `revoked_at`, `ip_address`, `user_agent`; índices em `user_id`/`expires_at`; FK com cascade para `User` e `RefreshToken`.
+  - Migração `20260817161907_add_opaque_sessions` + `prisma generate`. (SQLite não suporta `@db.Char(64)`/`@db.VarChar`; o hash/truncamentos são validados em código — UA truncado a 512 no middleware, IP em 45.)
+  - `RequestContext` agora carrega `userAgent` (gravado a partir do request no `main.ts`).
+  - Config novas: `general.sessionIdleTimeout` (30 minutes) e `general.sessionMaxDuration` (8 hours), seed aplicado na DB runtime.
+- **Item 11 — Token opaco 256-bit** (§6):
+  - `TokenService.generateAccessToken()` (CSPRNG base64url) + `hashToken()` (SHA-256) — **o token real nunca é persistido**.
+  - `createSession(userId, refreshTokenId, tx?)` cria a sessão (IP/UA do request context) e retorna `{ accessToken, sessionId }`.
+  - `getSessionByAccessToken()` faz lookup por hash (include refresh+user).
+  - `JwtGuard` reescrito (sem passport): validação por requisição no `SessionService` (§10: hash → lookup → revogado → expirado → usuário ativo), fail-closed com `UnauthorizedException` em rotas não-`@Public()`; auth opcional em rotas públicas.
+  - `ReauthGuard` reescrito: resolve a sessão corrente via `SessionService.findByAccessToken` → `refreshToken.reauthenticatedAt` (mantém §15.4).
+  - `RefreshService.refreshAccessToken` emite nova sessão de acesso opaca na rotação; `signOut` resolve a sessão pelo token do cookie.
+  - `signUp`/`signIn`/`signInTotp`/`updatePassword`/`authTotp.issueSession` emitem sessão opaca; `updatePassword` agora também retorna/grava o access token.
+  - Middleware do Next.js (`frontend/src/proxy.ts`): removido o fast-path de verificação JWT local (`jose`); roteamento passa a delegar exclusivamente ao backend (`/api/users/me`), consistente com tokens opacos. `jose` removido do `package.json`.
+  - `frontend/src/services/auth.service.ts`: `refreshAccessToken` simplificado (cookie httpOnly ilegível; refresh proativo delegado ao backend; 401-handler deduplicado do `api.service` já cobre refresh sob demanda).
+- **Item 12 — Idle timeout + expiração absoluta** (§11):
+  - `SessionService.validate`: expiração absoluta por `expiresAt`; idle por `lastActivityAt + sessionIdleTimeout`; **update condicional** de `lastActivityAt` via `updateMany WHERE lastActivityAt = antigo`, no máximo 1×/min (§10.4).
+  - Cookie de acesso com `maxAge = min(idleTimeout, maxDuration)`.
+- **Correções de vazamentos latentes**:
+  - `POST /auth/signOut` lia apenas `access_token` (nome legado) — corrigido para resolver o nome correto do cookie (`__Host-SID` em produção).
+  - `PATCH /auth/password` não reemitia access token — agora grava access+refresh.
+
+### Validado
+- Backend: build + lint + **233 testes unitários** (22 suites, verdes; +9 do `SessionService` §10/§10.4; specs de `TokenService`, `RefreshService`, `LoginService`, `ReauthGuard` e `JwtGuard` reescritas para o modelo opaco).
+- Backend: **e2e `auth-share` reescrito para o fluxo §14.6/§10** (16 testes verdes): bootstrap do admin com cadastro TOTP pré-login, sessão por cookie httpOnly (sem Bearer), rotação `/auth/token` e `signOut`.
+- Frontend: `tsc --noEmit` + lint + build + **14 testes** (2 suites) verdes.
+- README atualizado (contagem de suites/testes e tabela de segurança).
+
+### Pendências da Fase 4
+- Item 13: refresh token como hash (§26.3) — adiado (rotação + reuso já ativos).
+- Item 14: share token JWT → `token_hash` + `revoked_at` (§23) — adiado.
+
+---
+
 ## v1.2.7 — Fase 3 da Especificação de Segurança v1.2: rate limiting (§22) (2026-08-17)
 
 ### Resumo

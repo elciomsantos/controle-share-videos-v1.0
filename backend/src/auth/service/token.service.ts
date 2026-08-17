@@ -1,11 +1,12 @@
 import { Injectable } from "@nestjs/common";
-import { JwtService } from "@nestjs/jwt";
 import { Request, Response } from "express";
-import { Prisma, User } from "../../../prisma/generated/prisma/client";
+import { Prisma } from "../../../prisma/generated/prisma/client";
+import { randomBytes, createHash } from "crypto";
 import dayjs from "dayjs";
 import { ConfigService } from "../../config/config.service";
-import { JwtSecretService } from "../../config/jwt-secret.service";
 import { PrismaService } from "../../prisma/prisma.service";
+import { getRequestContext } from "../../common/request-context/request-context";
+import { timespanToMs } from "../../utils/timespan.util";
 import {
   REFRESH_COOKIE_NAME,
   getSessionCookieName,
@@ -15,40 +16,58 @@ import {
  * TokenService — emissão e manipulação de tokens (access/refresh/login) e
  * cookies de sessão.
  *
- * A emissão do access token (JWT assinado), a escrita de cookies e a leitura do
- * usuário corrente a partir do request **não dependem de banco de dados**. Apenas
- * a persistência dos refresh/login tokens (para rotação/invalidação) toca o
- * Prisma, sempre de forma transacional via `tx` opcional.
+ * SEC-1.2/§6-§11 (Fase 4): o access token é um valor **opaco** de 256 bits
+ * (CSPRNG), nunca armazenado — somente seu SHA-256 (`Session.tokenHash`).
+ * Nenhum dado de negócio (user_id, role, email) trafega no token; a associação
+ * token↔usuário existe apenas no servidor, em `Session`.
  */
 @Injectable()
 export class TokenService {
   constructor(
     private prisma: PrismaService,
-    private jwtService: JwtService,
     private config: ConfigService,
-    private jwtSecret: JwtSecretService,
   ) {}
 
+  /** Gera um access token opaco de 256 bits (CSPRNG, base64url). */
+  generateAccessToken(): string {
+    return randomBytes(32).toString("base64url");
+  }
+
+  /** SHA-256 do token opaco — única forma persistida em `Session.tokenHash`. */
+  hashToken(token: string): string {
+    return createHash("sha256").update(token).digest("hex");
+  }
+
   /**
-   * Assina um access token JWT de curta duração (15 min), resolvendo o segredo
-   * atual e o `kid` de rotação.
+   * Cria (e persiste) uma sessão de acesso server-side para o refresh token
+   * informado. O token real é retornado para o cookie; somente o hash é
+   * gravado. `expiresAt` = agora + `general.sessionMaxDuration` (§11.1).
+   * IP/User-Agent vêm do request context (SEC-1.2/§28.4, truncados no
+   * middleware).
    */
-  signAccessToken(user: User, refreshTokenId: string) {
-    const secret = this.jwtSecret.getCurrentSecret();
-    return this.jwtService.sign(
-      {
-        sub: user.id,
-        email: user.email,
-        role: user.role,
-        isAdmin: user.isAdmin,
+  async createSession(
+    userId: string,
+    refreshTokenId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<{ accessToken: string; sessionId: string }> {
+    const prisma = tx || this.prisma;
+    const accessToken = this.generateAccessToken();
+    const maxDuration = this.config.getTimespan("general.sessionMaxDuration");
+    const ctx = getRequestContext();
+    const session = await prisma.session.create({
+      data: {
+        tokenHash: this.hashToken(accessToken),
+        userId,
         refreshTokenId,
+        expiresAt: dayjs()
+          .add(maxDuration.value, maxDuration.unit)
+          .toDate(),
+        ipAddress: ctx?.ip ?? null,
+        userAgent: ctx?.userAgent ?? null,
       },
-      {
-        expiresIn: "15min",
-        secret,
-        keyid: this.jwtSecret.getKid(secret),
-      },
-    );
+      select: { id: true },
+    });
+    return { accessToken, sessionId: session.id };
   }
 
   /**
@@ -121,14 +140,26 @@ export class TokenService {
     const isSecure = this.config.getBoolean("general.secureCookies");
     const sessionCookieName = getSessionCookieName(isSecure);
     response.setHeader("Cache-Control", "no-store");
-    if (accessToken)
+    if (accessToken) {
+      const idleTimeout = this.config.getTimespan(
+        "general.sessionIdleTimeout",
+      );
+      const maxDuration = this.config.getTimespan("general.sessionMaxDuration");
+      // O cookie do access token dura o menor entre o timeout de inatividade
+      // e a duração absoluta da sessão; o refresh é o que sustenta sessões
+      // longas por rotação.
+      const cookieMaxAge = Math.min(
+        timespanToMs(idleTimeout),
+        timespanToMs(maxDuration),
+      );
       response.cookie(sessionCookieName, accessToken, {
         httpOnly: true,
         sameSite: "strict",
         secure: isSecure,
         path: "/",
-        maxAge: 1000 * 60 * 60 * 24 * 30 * 3, // 3 months
+        maxAge: cookieMaxAge,
       });
+    }
     if (refreshToken) {
       const now = dayjs();
       const sessionDuration = this.config.getTimespan("general.sessionDuration");
@@ -146,37 +177,34 @@ export class TokenService {
   }
 
   /**
-   * Returns the user id if the user is logged in, null otherwise.
-   * Resolves the exact secret that signed the token by its kid (rotation-aware)
-   * in O(1) instead of trying every verification secret.
+   * Localiza a sessão de acesso pelo token opaco (hash), incluindo o refresh
+   * token associado e o usuário. Retorna null quando o hash não corresponde a
+   * nenhuma sessão. A validação de estado (revogado/expirado/inativo) fica no
+   * SessionService.
+   */
+  async getSessionByAccessToken(accessToken: string) {
+    if (!accessToken) return null;
+    const session = await this.prisma.session.findUnique({
+      where: { tokenHash: this.hashToken(accessToken) },
+      include: { refreshToken: true, user: true },
+    });
+    return session;
+  }
+
+  /**
+   * Returns the user id if the user has a valid access session, null otherwise.
    */
   async getUserIdFromRequest(request: Request): Promise<string | null> {
     const cookieName = getSessionCookieName(
       this.config.getBoolean("general.secureCookies"),
     );
-    if (!request.cookies[cookieName]) return null;
-    const secret =
-      this.jwtSecret.resolveSecretForToken(request.cookies[cookieName]) ??
-      this.jwtSecret.getCurrentSecret();
-    try {
-      const payload = await this.jwtService.verifyAsync(
-        request.cookies[cookieName],
-        { secret, algorithms: ["HS256", "HS512"] },
-      );
-      return payload.sub;
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * Extrai o `refreshTokenId` (id da sessão) de um access token sem verificar
-   * assinatura — usado apenas para localizar e revogar a sessão no sign-out.
-   */
-  extractRefreshTokenId(accessToken: string): string | undefined {
-    const { refreshTokenId } = (this.jwtService.decode(accessToken) as {
-      refreshTokenId?: string;
-    }) || {};
-    return refreshTokenId;
+    const accessToken =
+      request.cookies[cookieName] ?? request.cookies.access_token;
+    if (!accessToken) return null;
+    const session = await this.getSessionByAccessToken(accessToken);
+    if (!session || session.revokedAt) return null;
+    if (session.expiresAt <= new Date()) return null;
+    if (!session.user || !session.user.isActivated) return null;
+    return session.user.id;
   }
 }

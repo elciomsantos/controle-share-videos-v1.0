@@ -42,7 +42,6 @@
     "axios": "^1.7.7",
     "cookies-next": "^6.1.1",
     "dompurify": "^3.2.0",
-    "jose": "^6.2.4",
     "markdown-to-jsx": "^9.9.0",
     "mime-types": "^2.1.35",
     "next": "^16.2.12",

@@ -16,6 +16,8 @@ export interface RequestContext {
   requestId: string;
   /** Best-effort client IP (already proxy-aware via app.set('trust proxy')). */
   ip?: string;
+  /** Best-effort User-Agent (truncated to 512 chars), SEC-1.2/§28.4. */
+  userAgent?: string;
   /** Authenticated user id, when available (filled by guards). */
   userId?: string;
 }

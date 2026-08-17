@@ -94,9 +94,10 @@ export class AuthService {
           tx,
           new Date(),
         );
-        const accessToken = this.tokenService.signAccessToken(
-          user,
+        const { accessToken } = await this.tokenService.createSession(
+          user.id,
           refreshToken.id,
+          tx,
         );
 
         this.logger.log(`User ${user.email} signed up from IP ${ip}`);
@@ -172,12 +173,15 @@ export class AuthService {
       undefined,
       new Date(),
     );
-    return { refreshTokenId: refreshToken.id, refreshToken: refreshToken.token };
-  }
-
-  /** Back-compat: delega emissão de access token ao TokenService. */
-  async createAccessToken(user: User, refreshTokenId: string) {
-    return this.tokenService.signAccessToken(user, refreshTokenId);
+    const { accessToken } = await this.tokenService.createSession(
+      user.id,
+      refreshToken.id,
+    );
+    return {
+      refreshTokenId: refreshToken.id,
+      refreshToken: refreshToken.token,
+      accessToken,
+    };
   }
 
   /**
@@ -212,14 +216,16 @@ export class AuthService {
         throw new ForbiddenException(this.i18n.t("auth.invalidCode"));
     }
 
-    const refreshTokenId = this.tokenService.extractRefreshTokenId(accessToken);
-    if (!refreshTokenId)
+    // SEC-1.2/15.4: localiza a sessão de acesso corrente pelo token opaco e
+    // renova o marco de reautenticação no refresh token associado.
+    const session = await this.tokenService.getSessionByAccessToken(accessToken);
+    if (!session?.refreshTokenId)
       throw new ForbiddenException({
         message: "reauthentication_required",
         error: "reauthentication_required",
       });
 
-    await this.tokenService.markReauthenticated(refreshTokenId);
+    await this.tokenService.markReauthenticated(session.refreshTokenId);
 
     this.logger.log(`Re-authenticated user ${user.email}`);
     return true;

@@ -1,6 +1,4 @@
-import { jwtVerify } from "jose";
 import { NextRequest, NextResponse } from "next/server";
-import * as fs from "fs";
 import configService from "./services/config.service";
 import { getDefaultConfig } from "./utils/defaultConfig.util";
 
@@ -26,45 +24,13 @@ async function fetchConfig(apiUrl: string): Promise<any> {
   }
 }
 
-function getJwtSecret(): string {
-  // Prefer file-based secret (Docker secret)
-  const secretFile = process.env.JWT_SECRET_FILE;
-  if (secretFile && fs.existsSync(secretFile)) {
-    return fs.readFileSync(secretFile, "utf8").trim();
-  }
-  // Fallback to environment variable
-  const secretEnv = process.env.JWT_SECRET;
-  if (secretEnv) {
-    return secretEnv;
-  }
-  // Last resort: empty string (will cause verification to fail)
-  return "";
-}
-
-async function verifyJwt(token: string, secret: string): Promise<{ role: string; isAdmin: boolean } | null> {
-  if (!secret) {
-    console.warn("JWT_SECRET not configured, skipping token verification");
-    return null;
-  }
-  try {
-    const secretKey = new TextEncoder().encode(secret);
-    const { payload } = await jwtVerify(token, secretKey);
-    return {
-      role: payload.role as string,
-      isAdmin: payload.isAdmin === true,
-    };
-  } catch {
-    return null;
-  }
-}
-
 /**
- * SEC-NEW-4: verificação delegada ao backend quando o fast-path local falha
- * (ex.: após rotação híbrida, o segredo ativo é o DB, não mais o JWT_SECRET_FILE).
- * O backend resolve o segredo exato por kid e rejeita tokens inválidos, então
- * nada de novo é exposto além do que o guard de autenticação já faz.
+ * SEC-1.2/§10 (Fase 4): o access token é opaco e validado server-side no
+ * backend (SHA-256 -> sessão ativa). O proxy delega a verificação ao endpoint
+ * /api/users/me — nada é exposto além do que o guard de autenticação já faz,
+ * e o resultado é usado apenas para decisões de roteamento.
  */
-async function verifyJwtViaBackend(
+async function verifySessionViaBackend(
   token: string,
   apiUrl: string,
 ): Promise<{ role: string; isAdmin: boolean } | null> {
@@ -84,7 +50,7 @@ async function verifyJwtViaBackend(
     if (!user || !user.role) return null;
     return { role: user.role, isAdmin: user.isAdmin === true };
   } catch (error) {
-    console.error("Backend JWT verification failed:", error);
+    console.error("Backend session verification failed:", error);
     return null;
   }
 }
@@ -118,16 +84,8 @@ export default async function proxy(request: NextRequest) {
     request.cookies.get("__Host-SID")?.value ??
     request.cookies.get("access_token")?.value;
 
-  const jwtSecret = getJwtSecret();
-  if (accessToken && jwtSecret) {
-    // SEC-NEW-4: fast-path local primeiro; se falhar (ex.: rotação do segredo
-    // no backend), delega a verificação ao backend, que resolve por kid.
-    user = await verifyJwt(accessToken, jwtSecret);
-    if (!user) {
-      user = await verifyJwtViaBackend(accessToken, apiUrl);
-    }
-  } else if (accessToken) {
-    user = await verifyJwtViaBackend(accessToken, apiUrl);
+  if (accessToken) {
+    user = await verifySessionViaBackend(accessToken, apiUrl);
   }
 
   if (!getConfig("share.allowRegistration")) {

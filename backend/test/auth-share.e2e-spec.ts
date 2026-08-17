@@ -3,6 +3,7 @@ import { NestExpressApplication } from "@nestjs/platform-express";
 import { ThrottlerStorage } from "@nestjs/throttler";
 import request from "supertest";
 import * as argon from "argon2";
+import { generate } from "otplib";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "../prisma/generated/prisma/client";
 import { AppModule } from "../src/app.module";
@@ -22,9 +23,30 @@ describe("Auth + Share (e2e)", () => {
   const username = "e2euser";
   const password = "E2e!Passw0rd";
 
+  // Segredo TOTP do usuário admin (obtido no bootstrap pré-login, §14.6).
+  let totpSecret = "";
+
   async function getCsrf(server: Agent) {
     const res = await server.get("/api/auth/csrf-token").expect(200);
     return res.body.token as string;
+  }
+
+  // Sign-in do admin via TOTP. Retorna o token CSRF para as chamadas seguintes.
+  async function signInTotp(server: Agent) {
+    const token = await getCsrf(server);
+    const signIn = await server
+      .post("/api/auth/signIn")
+      .set("x-csrf-token", token)
+      .send({ email, password })
+      .expect(200);
+    const loginToken = signIn.body.loginToken as string;
+    expect(loginToken).toBeTruthy();
+    await server
+      .post("/api/auth/signIn/totp")
+      .set("x-csrf-token", token)
+      .send({ loginToken, totp: await generate({ secret: totpSecret }) })
+      .expect(200);
+    return token;
   }
 
   beforeAll(async () => {
@@ -55,6 +77,39 @@ describe("Auth + Share (e2e)", () => {
     app = moduleRef.createNestApplication<NestExpressApplication>();
     await configureApp(app, app.get(ConfigService));
     await app.init();
+
+    // Bootstrap do primeiro usuário (admin, §14.6): signUp + cadastro de TOTP
+    // pré-login, para que os testes usem sessão autenticada por cookie.
+    const bootstrap = agent();
+    const csrf = await getCsrf(bootstrap);
+    await bootstrap
+      .post("/api/auth/signUp")
+      .set("x-csrf-token", csrf)
+      .send({ email, username, password })
+      .expect(201);
+
+    const signIn = await bootstrap
+      .post("/api/auth/signIn")
+      .set("x-csrf-token", csrf)
+      .send({ email, password })
+      .expect(200);
+    expect(signIn.body.requiresTotpSetup).toBe(true);
+    const loginToken = signIn.body.loginToken as string;
+    expect(loginToken).toBeTruthy();
+
+    const enroll = await bootstrap
+      .post("/api/auth/totp/enroll")
+      .set("x-csrf-token", csrf)
+      .send({ loginToken, password })
+      .expect(201);
+    totpSecret = enroll.body.totpSecret as string;
+    expect(totpSecret).toBeTruthy();
+
+    await bootstrap
+      .post("/api/auth/totp/enroll/verify")
+      .set("x-csrf-token", csrf)
+      .send({ loginToken, code: await generate({ secret: totpSecret }) })
+      .expect(201);
   });
 
   afterAll(async () => {
@@ -70,32 +125,12 @@ describe("Auth + Share (e2e)", () => {
   it("signs up the first user, signs in and creates/deletes a share", async () => {
     const server = agent();
 
-    // 1. Issue CSRF cookie/token
-    const token = await getCsrf(server);
+    // 1. Sign in as the TOTP-enabled admin (session via httpOnly cookie)
+    const token = await signInTotp(server);
 
-    // 2. First user → admin, no email verification
-    await server
-      .post("/api/auth/signUp")
-      .set("x-csrf-token", token)
-      .send({ email, username, password })
-      .expect(201);
+    const authed = () => server.set("x-csrf-token", token);
 
-    // 3. Sign in
-    const signIn = await server
-      .post("/api/auth/signIn")
-      .set("x-csrf-token", token)
-      .send({ email, password })
-      .expect(200);
-
-    const accessToken = signIn.body.accessToken as string;
-    expect(accessToken).toBeTruthy();
-
-    const authed = () =>
-      server
-        .set("Authorization", `Bearer ${accessToken}`)
-        .set("x-csrf-token", token);
-
-    // 4. Create a share
+    // 2. Create a share
     const createRes = await authed()
       .post("/api/shares")
       .set("x-csrf-token", token)
@@ -156,18 +191,9 @@ describe("Auth + Share (e2e)", () => {
 
   it("paginates GET /api/shares with query params (R03)", async () => {
     const server = agent();
-    const token = await getCsrf(server);
     // Sign in as the seeded admin (e2euser) so we have an authed session.
-    const signIn = await server
-      .post("/api/auth/signIn")
-      .set("x-csrf-token", token)
-      .send({ email, password })
-      .expect(200);
-    const accessToken = signIn.body.accessToken as string;
-    const authed = () =>
-      server
-        .set("Authorization", `Bearer ${accessToken}`)
-        .set("x-csrf-token", token);
+    const token = await signInTotp(server);
+    const authed = () => server.set("x-csrf-token", token);
 
     const page1 = await authed()
       .get("/api/shares?page=1&perPage=1")
@@ -200,17 +226,8 @@ describe("Auth + Share (e2e)", () => {
 
     it("GET /api/system/info requires admin role (signed-in e2euser is admin)", async () => {
       const server = agent();
-      const token = await getCsrf(server);
-      const signIn = await server
-        .post("/api/auth/signIn")
-        .set("x-csrf-token", token)
-        .send({ email, password })
-        .expect(200);
-      const accessToken = signIn.body.accessToken as string;
-      const authed = () =>
-        server
-          .set("Authorization", `Bearer ${accessToken}`)
-          .set("x-csrf-token", token);
+      const token = await signInTotp(server);
+      const authed = () => server.set("x-csrf-token", token);
 
       const res = await authed().get("/api/system/info").expect(200);
       expect(res.body).toBeTruthy();
@@ -219,17 +236,11 @@ describe("Auth + Share (e2e)", () => {
 
     it("GET /api/users/me returns the signed-in user", async () => {
       const server = agent();
-      const token = await getCsrf(server);
-      const signIn = await server
-        .post("/api/auth/signIn")
-        .set("x-csrf-token", token)
-        .send({ email, password })
-        .expect(200);
-      const accessToken = signIn.body.accessToken as string;
+      const token = await signInTotp(server);
 
       const res = await server
         .get("/api/users/me")
-        .set("Authorization", `Bearer ${accessToken}`)
+        .set("x-csrf-token", token)
         .expect(200);
       expect(res.body.email).toBe(email);
       expect(res.body.username).toBe(username);
@@ -238,17 +249,11 @@ describe("Auth + Share (e2e)", () => {
 
     it("GET /api/users (admin list) returns serialized users without passwords", async () => {
       const server = agent();
-      const token = await getCsrf(server);
-      const signIn = await server
-        .post("/api/auth/signIn")
-        .set("x-csrf-token", token)
-        .send({ email, password })
-        .expect(200);
-      const accessToken = signIn.body.accessToken as string;
+      const token = await signInTotp(server);
 
       const res = await server
         .get("/api/users")
-        .set("Authorization", `Bearer ${accessToken}`)
+        .set("x-csrf-token", token)
         .expect(200);
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body.some((u: { email: string }) => u.email === email)).toBe(
@@ -263,17 +268,8 @@ describe("Auth + Share (e2e)", () => {
   describe("share expiration (e2e)", () => {
     it("POST /api/shares/:id/expire marks share as expired (sets expiration to now)", async () => {
       const server = agent();
-      const token = await getCsrf(server);
-      const signIn = await server
-        .post("/api/auth/signIn")
-        .set("x-csrf-token", token)
-        .send({ email, password })
-        .expect(200);
-      const accessToken = signIn.body.accessToken as string;
-      const authed = () =>
-        server
-          .set("Authorization", `Bearer ${accessToken}`)
-          .set("x-csrf-token", token);
+      const token = await signInTotp(server);
+      const authed = () => server.set("x-csrf-token", token);
 
       await authed()
         .post("/api/shares")
@@ -376,13 +372,7 @@ describe("Auth + Share (e2e)", () => {
   describe("refresh token rotation (e2e, SEC-07)", () => {
     it("POST /api/auth/token refreshes the access token", async () => {
       const server = agent();
-      const token = await getCsrf(server);
-
-      await server
-        .post("/api/auth/signIn")
-        .set("x-csrf-token", token)
-        .send({ email, password })
-        .expect(200);
+      const token = await signInTotp(server);
 
       const refreshRes = await server
         .post("/api/auth/token")
@@ -393,12 +383,7 @@ describe("Auth + Share (e2e)", () => {
 
     it("POST /api/auth/signOut clears session (returns 201)", async () => {
       const server = agent();
-      const token = await getCsrf(server);
-      await server
-        .post("/api/auth/signIn")
-        .set("x-csrf-token", token)
-        .send({ email, password })
-        .expect(200);
+      const token = await signInTotp(server);
 
       await server.post("/api/auth/signOut").set("x-csrf-token", token).expect(
         201,

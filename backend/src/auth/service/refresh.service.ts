@@ -5,7 +5,8 @@ import { TokenService } from "./token.service";
 
 /**
  * RefreshService — ciclo de vida das sessões: rotação do refresh token (com
- * detecção de reuso SEC-07) e revogação ativa de sessões.
+ * detecção de reuso SEC-07), emissão de sessões de acesso opacas e revogação
+ * ativa de sessões.
  */
 @Injectable()
 export class RefreshService {
@@ -19,6 +20,10 @@ export class RefreshService {
    * Rotaciona o refresh token emitindo um novo par access/refresh dentro de uma
    * transação. Se um token já consumido (reusado) for apresentado, revoga toda
    * a família de sessões do usuário antes de recusar a requisição.
+   *
+   * A rotação elimina o refresh anterior (cascateando a exclusão da sessão de
+   * acesso vinculada) e emite uma nova sessão de acesso opaca (§6) ligada ao
+   * novo refresh, carregando o marco de reautenticação da família.
    */
   async refreshAccessToken(refreshToken: string) {
     const refreshTokenMetaData = await this.prisma.refreshToken.findUnique({
@@ -54,9 +59,10 @@ export class RefreshService {
           refreshTokenMetaData.reauthenticatedAt ?? undefined,
         );
 
-        const accessToken = this.tokenService.signAccessToken(
-          refreshTokenMetaData.user,
+        const { accessToken } = await this.tokenService.createSession(
+          refreshTokenMetaData.user.id,
           newRefreshToken.id,
+          tx,
         );
 
         return {
@@ -83,24 +89,26 @@ export class RefreshService {
   }
 
   /**
-   * Revoga a sessão associada ao access token informado (endpoint signOut).
+   * Revoga a sessão de acesso informada (endpoint signOut). A exclusão do
+   * refresh token associado cascateia (FK) para a sessão de acesso.
    */
   async signOut(accessToken: string) {
-    const refreshTokenId = this.tokenService.extractRefreshTokenId(accessToken);
+    if (!accessToken) return;
 
-    if (refreshTokenId) {
-      await this.prisma.refreshToken
-        .delete({ where: { id: refreshTokenId } })
-        .catch((e) => {
-          // Ignore error if refresh token doesn't exist
-          if (e.code != "P2025") throw e;
-        });
-    }
+    const session = await this.tokenService.getSessionByAccessToken(accessToken);
+    if (!session) return;
+
+    await this.prisma.refreshToken
+      .delete({ where: { id: session.refreshTokenId } })
+      .catch((e) => {
+        // Ignore error if refresh token doesn't exist
+        if (e.code != "P2025") throw e;
+      });
   }
 
   /**
-   * Revoga todas as sessões (refresh tokens) e invalida login tokens pendentes
-   * do usuário.
+   * Revoga todas as sessões (refresh tokens e sessões de acesso) e invalida
+   * login tokens pendentes do usuário.
    */
   async logoutAllDevices(userId: string) {
     await this.prisma.refreshToken.deleteMany({
