@@ -54,17 +54,36 @@ export class TokenService {
   /**
    * Cria (e persiste) um novo refresh token para o usuário. Aceita um client de
    * transação opcional para composição com outras operações atômicas.
+   *
+   * `reauthAt` define o marco de autenticação recente (SEC-1.2/15.4) da nova
+   * sessão: login forte, segundo fator ou reautenticação explícita o preenchem.
    */
-  createRefreshToken(userId: string, tx?: Prisma.TransactionClient) {
+  createRefreshToken(
+    userId: string,
+    tx?: Prisma.TransactionClient,
+    reauthAt?: Date,
+  ) {
     const prisma = tx || this.prisma;
     const sessionDuration = this.config.getTimespan("general.sessionDuration");
     return prisma.refreshToken.create({
       data: {
         userId,
+        reauthenticatedAt: reauthAt ?? null,
         expiresAt: dayjs()
           .add(sessionDuration.value, sessionDuration.unit)
           .toDate(),
       },
+    });
+  }
+
+  /**
+   * SEC-1.2/15.4: marca a sessão como reautenticada no instante atual. Usado
+   * após verificação de senha (+ TOTP) no endpoint de reautenticação.
+   */
+  async markReauthenticated(refreshTokenId: string): Promise<void> {
+    await this.prisma.refreshToken.update({
+      where: { id: refreshTokenId },
+      data: { reauthenticatedAt: new Date() },
     });
   }
 

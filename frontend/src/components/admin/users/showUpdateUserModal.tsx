@@ -13,7 +13,9 @@ import { useModals } from "@mantine/modals";
 import { FormattedMessage, useIntl } from "react-intl";
 import * as yup from "yup";
 import useTranslate from "../../../hooks/useTranslate.hook";
+import useUser from "../../../hooks/user.hook";
 import userService from "../../../services/user.service";
+import showReauthModal from "../../auth/showReauthModal";
 import User from "../../../types/user.type";
 import toast from "../../../utils/toast.util";
 
@@ -48,6 +50,27 @@ const Body = ({
 }) => {
   const t = useTranslate();
   const intl = useIntl();
+  const { user: currentUser } = useUser();
+
+  // SEC-1.2/15.4: operações críticas exigem reautenticação recente. Ao receber
+  // 403, abre o modal de confirmação e re-submete após sucesso.
+  const withReauth = (run: () => Promise<unknown>) => (err: any) => {
+    const data = err?.response?.data;
+    if (
+      err?.response?.status === 403 &&
+      (data?.error === "reauthentication_required" ||
+        data?.message === "reauthentication_required")
+    ) {
+      showReauthModal(modals, {
+        hasTotp: !!currentUser?.totpVerified,
+        onSuccess: () => {
+          run().catch((e) => toast.axiosError(e));
+        },
+      });
+      return;
+    }
+    toast.axiosError(err);
+  };
   const accountForm = useForm({
     initialValues: {
       username: user.username,
@@ -104,19 +127,23 @@ const Body = ({
     <Stack>
       <form
         id="accountForm"
-        onSubmit={accountForm.onSubmit(async (values) => {
-          userService
-            .update(user.id, {
+        onSubmit={accountForm.onSubmit((values) => {
+          const run = () =>
+            userService.update(user.id, {
               username: values.username,
               email: values.email,
               isActivated: values.isActivated,
               role: values.role,
-            })
+            });
+          run()
             .then(() => {
               getUsers();
               modals.closeAll();
             })
-            .catch(toast.axiosError);
+            .catch(withReauth(() => run().then(() => {
+              getUsers();
+              modals.closeAll();
+            })));
         })}
       >
         <Stack>
@@ -155,17 +182,22 @@ const Body = ({
           </Accordion.Control>
           <Accordion.Panel>
             <form
-              onSubmit={passwordForm.onSubmit(async (values) => {
-                userService
-                  .update(user.id, {
+              onSubmit={passwordForm.onSubmit((values) => {
+                const run = () =>
+                  userService.update(user.id, {
                     password: values.password,
-                  })
+                  });
+                run()
                   .then(() =>
                     toast.success(
                       t("admin.users.edit.update.notify.password.success"),
                     ),
                   )
-                  .catch(toast.axiosError);
+                  .catch(withReauth(() => run().then(() =>
+                    toast.success(
+                      t("admin.users.edit.update.notify.password.success"),
+                    ),
+                  )));
               })}
             >
               <Stack>

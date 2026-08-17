@@ -19,6 +19,7 @@ import { ConfigService } from "../config/config.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { LoginService } from "./service/login.service";
 import { TokenService } from "./service/token.service";
+import { RecoveryCodeService } from "./recovery-code.service";
 import { AuthSignInTotpDTO } from "./dto/authSignInTotp.dto";
 
 const legacyGuardrails = createGuardrails({
@@ -32,6 +33,7 @@ export class AuthTotpService {
     private configService: ConfigService,
     private loginService: LoginService,
     private tokenService: TokenService,
+    private recoveryCodeService: RecoveryCodeService,
     private readonly i18n: I18nService,
   ) {}
   private readonly logger = new RequestContextLogger(AuthTotpService.name);
@@ -41,14 +43,11 @@ export class AuthTotpService {
     return getRequestContext()?.ip ?? "unknown";
   }
 
-  async signInTotp(dto: AuthSignInTotpDTO) {
+  /** Valida um login token não usado e não expirado, retornando-o com o usuário. */
+  private async validateLoginToken(loginToken: string) {
     const token = await this.prisma.loginToken.findFirst({
-      where: {
-        token: dto.loginToken,
-      },
-      include: {
-        user: true,
-      },
+      where: { token: loginToken },
+      include: { user: true },
     });
 
     if (!token || token.used)
@@ -60,39 +59,144 @@ export class AuthTotpService {
         "token_expired",
       );
 
-    const { totpSecret } = token.user;
+    return token;
+  }
 
-    if (!totpSecret) {
+  private async consumeLoginToken(loginToken: string) {
+    await this.prisma.loginToken.update({
+      where: { token: loginToken },
+      data: { used: true },
+    });
+  }
+
+  private async issueSession(user: User) {
+    // SEC-1.2/15.4: login com segundo fator (ou reautenticação) marca a
+    // sessão como autenticada recentemente.
+    const refreshToken = await this.tokenService.createRefreshToken(
+      user.id,
+      undefined,
+      new Date(),
+    );
+    const accessToken = this.tokenService.signAccessToken(
+      user,
+      refreshToken.id,
+    );
+    return { accessToken, refreshToken: refreshToken.token };
+  }
+
+  async signInTotp(dto: AuthSignInTotpDTO) {
+    const token = await this.validateLoginToken(dto.loginToken);
+    const user = token.user;
+
+    if (!user.totpSecret) {
       throw new BadRequestException(this.i18n.t("auth.totpNotEnabled"));
     }
 
     const verified = await verify({
       token: dto.totp,
-      secret: totpSecret,
+      secret: user.totpSecret,
       guardrails: legacyGuardrails,
     });
+
     if (!verified.valid) {
-      this.logger.debug(
-        `TOTP sign-in failure for user ${token.user.email} from IP ${this.clientIp()} (invalid code)`,
-      );
+      // SEC-1.2/15.3: aceita recovery code de uso único como alternativa.
+      const consumed = await this.recoveryCodeService.consume(user.id, dto.totp);
+      if (!consumed) {
+        this.logger.debug(
+          `TOTP sign-in failure for user ${user.email} from IP ${this.clientIp()} (invalid code)`,
+        );
+        throw new BadRequestException(this.i18n.t("auth.invalidCode"));
+      }
+    }
+
+    await this.consumeLoginToken(token.token);
+    const session = await this.issueSession(user);
+
+    this.logger.log(`TOTP sign-in success for user ${user.email} from IP ${this.clientIp()}`);
+    return session;
+  }
+
+  /**
+   * SEC-1.2/14.6 — Cadastro de TOTP pré-login (contas administrativas).
+   * Exige login token válido (senha já conferida no signIn) + nova confirmação
+   * da senha. Reutiliza o segredo em andamento, se existir.
+   */
+  async enrollTotp(loginToken: string, password: string) {
+    const token = await this.validateLoginToken(loginToken);
+    const user = token.user;
+
+    if (!(await this.loginService.verifyPassword(user, password)))
+      throw new ForbiddenException(this.i18n.t("auth.invalidPassword"));
+
+    if (user.totpVerified) {
+      throw new BadRequestException(this.i18n.t("auth.totpAlreadyEnabled"));
+    }
+
+    let secret = user.totpSecret;
+    if (!secret) {
+      secret = generateSecret();
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { totpEnabled: true, totpSecret: secret },
+      });
+    }
+
+    const issuer = this.configService.getString("general.appName");
+    const otpURL = generateURI({
+      issuer,
+      label: user.username || user.email,
+      secret,
+    });
+
+    const qrCode = new qrcode({
+      content: otpURL,
+      container: "svg-viewbox",
+      join: true,
+    }).svg();
+
+    this.logger.log(`TOTP enroll started for user ${user.email} from IP ${this.clientIp()}`);
+    return {
+      totpAuthUrl: otpURL,
+      totpSecret: secret,
+      qrCode: "data:image/svg+xml;base64," + Buffer.from(qrCode).toString("base64"),
+    };
+  }
+
+  /**
+   * SEC-1.2/14.6 — Conclui o cadastro de TOTP pré-login: valida o código,
+   * marca o segundo fator como verificado, gera os recovery codes (exibidos
+   * uma única vez) e emite a sessão.
+   */
+  async enrollVerifyTotp(loginToken: string, code: string) {
+    const token = await this.validateLoginToken(loginToken);
+    const user = token.user;
+
+    if (!user.totpSecret) {
+      throw new BadRequestException(this.i18n.t("auth.totpNotInProgress"));
+    }
+
+    const verified = await verify({
+      token: code,
+      secret: user.totpSecret,
+      guardrails: legacyGuardrails,
+    });
+
+    if (!verified.valid) {
       throw new BadRequestException(this.i18n.t("auth.invalidCode"));
     }
 
-    await this.prisma.loginToken.update({
-      where: { token: token.token },
-      data: { used: true },
+    await this.consumeLoginToken(token.token);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { totpVerified: true },
     });
 
-    const refreshToken = await this.tokenService.createRefreshToken(
-      token.user.id,
-    );
-    const accessToken = this.tokenService.signAccessToken(
-      token.user,
-      refreshToken.id,
-    );
+    const recoveryCodes = await this.recoveryCodeService.regenerate(user.id);
+    const session = await this.issueSession(user);
 
-    this.logger.log(`TOTP sign-in success for user ${token.user.email} from IP ${this.clientIp()}`);
-    return { accessToken, refreshToken: refreshToken.token };
+    this.logger.log(`TOTP enrolled and verified for user ${user.email} from IP ${this.clientIp()}`);
+    return { ...session, recoveryCodes };
   }
 
   async enableTotp(user: User, password: string) {
@@ -170,8 +274,12 @@ export class AuthTotpService {
       },
     });
 
+    // SEC-1.2/15.3: recovery codes são emitidos apenas na ativação, exibidos
+    // uma única vez.
+    const recoveryCodes = await this.recoveryCodeService.regenerate(user.id);
+
     this.logger.log(`TOTP verified for user ${user.email} from IP ${this.clientIp()}`);
-    return true;
+    return { verified: true, recoveryCodes };
   }
 
   async disableTotp(user: User, password: string, code: string) {
@@ -206,7 +314,43 @@ export class AuthTotpService {
       },
     });
 
+    // SEC-1.2/15.3: revoga os recovery codes ao desabilitar o segundo fator.
+    await this.recoveryCodeService.clearForUser(user.id);
+
     this.logger.log(`TOTP disabled for user ${user.email} from IP ${this.clientIp()}`);
     return true;
+  }
+
+  /**
+   * SEC-1.2/15.3 — Regenera os recovery codes após confirmação de senha + TOTP.
+   * Os códigos anteriores são revogados e novos valores são exibidos uma vez.
+   */
+  async regenerateRecoveryCodes(user: User, password: string, code: string) {
+    if (!(await this.loginService.verifyPassword(user, password)))
+      throw new ForbiddenException(this.i18n.t("auth.invalidPassword"));
+
+    const totpResult = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      select: { totpSecret: true },
+    });
+
+    if (!totpResult?.totpSecret) {
+      throw new BadRequestException(this.i18n.t("auth.totpNotEnabled"));
+    }
+
+    const verified = await verify({
+      token: code,
+      secret: totpResult.totpSecret,
+      guardrails: legacyGuardrails,
+    });
+
+    if (!verified.valid) {
+      throw new BadRequestException(this.i18n.t("auth.invalidCode"));
+    }
+
+    const recoveryCodes = await this.recoveryCodeService.regenerate(user.id);
+
+    this.logger.log(`Recovery codes regenerated for user ${user.email} from IP ${this.clientIp()}`);
+    return { recoveryCodes };
   }
 }

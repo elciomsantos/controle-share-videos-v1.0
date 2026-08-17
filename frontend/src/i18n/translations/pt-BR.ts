@@ -35,6 +35,8 @@ export default {
   "signin.button.submit": "Iniciar sessão",
   "signIn.notify.totp-required.title": "Autenticação de dois fatores necessária",
   "signin.notify.totp-required.description": "Insira seu código de autenticação de dois fatores",
+  "signIn.notify.totp-setup-required.title": "Autenticação de dois fatores obrigatória",
+  "signin.notify.totp-setup-required.description": "Administradores devem configurar a autenticação de dois fatores antes de entrar",
   "signin.forgot-password": "Esqueci minha senha",
   "signin.activated.title": "Conta não ativada",
   "signin.activated.description": "Sua conta ainda não foi ativada. Verifique seu e-mail para o link de ativação.",
@@ -75,6 +77,30 @@ export default {
   "totp.title": "Autenticação TOTP",
   "totp.button.signIn": "Iniciar sessão",
   // END /auth/totp
+
+  // /auth/totp/enroll (cadastro obrigatório de 2FA p/ admins)
+  "totp.enroll.title": "Habilitar autenticação de dois fatores",
+  "totp.enroll.description": "Como administrador, você deve configurar a autenticação de dois fatores (TOTP) antes de continuar.",
+  "totp.enroll.step1.title": "Confirme sua senha",
+  "totp.enroll.step1.button": "Continuar",
+  "totp.enroll.step2.title": "Adicione o seu autenticador",
+  "totp.enroll.step2.manual": "Inserir manualmente",
+  "totp.enroll.step3.title": "Valide o seu código",
+  "totp.enroll.button.verify": "Verificar e entrar",
+  "totp.enroll.recovery.title": "Códigos de recuperação",
+  "totp.enroll.recovery.description": "Guarde estes códigos em local seguro. Cada código só pode ser usado uma vez para entrar quando você não tiver acesso ao autenticador.",
+  "totp.enroll.recovery.button": "Concluir",
+  "totp.enroll.notify.success": "Autenticação de dois fatores habilitada",
+  // END /auth/totp/enroll
+
+  // Reautenticação de operações críticas
+  "reauthenticate.modal.title": "Confirme sua identidade",
+  "reauthenticate.modal.description": "Por segurança, confirme sua identidade para continuar.",
+  "reauthenticate.input.password": "Senha",
+  "reauthenticate.input.totp": "Código TOTP",
+  "reauthenticate.button.confirm": "Confirmar",
+  "reauthenticate.notify.success": "Identidade confirmada",
+  // END reautenticação
 
   // /auth/reset-password
   "resetPassword.title": "Esqueceu a sua senha?",

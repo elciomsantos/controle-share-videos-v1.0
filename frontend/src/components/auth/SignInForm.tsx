@@ -75,19 +75,27 @@ const SignInForm = ({ redirectPath }: { redirectPath: string }) => {
     try {
       const response = await authService.signIn(email.trim(), password.trim());
 
-      if (response.data["loginToken"]) {
+if (response.data["loginToken"]) {
         // Prompt the user to enter their totp code
         showNotification({
           icon: <TbInfoCircle />,
           color: "blue",
           radius: "md",
-          title: t("signIn.notify.totp-required.title"),
-          message: t("signIn.notify.totp-required.description"),
+          title: response.data["requiresTotpSetup"]
+            ? t("signIn.notify.totp-setup-required.title")
+            : t("signIn.notify.totp-required.title"),
+          message: response.data["requiresTotpSetup"]
+            ? t("signin.notify.totp-setup-required.description")
+            : t("signin.notify.totp-required.description"),
         });
         router.push(
-          `/auth/totp/${
-            response.data["loginToken"]
-          }?redirect=${encodeURIComponent(redirectPath)}`,
+          response.data["requiresTotpSetup"]
+            ? `/auth/totp/enroll/${
+                response.data["loginToken"]
+              }?redirect=${encodeURIComponent(redirectPath)}`
+            : `/auth/totp/${
+                response.data["loginToken"]
+              }?redirect=${encodeURIComponent(redirectPath)}`,
         );
       } else {
         const user = await refreshUser();

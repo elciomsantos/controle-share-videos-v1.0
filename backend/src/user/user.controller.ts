@@ -14,6 +14,7 @@ import { User } from "../../prisma/generated/prisma/client";
 import { Response } from "express";
 import { GetUser } from "../auth/decorator/getUser.decorator";
 import { Authenticated, AdminOnly } from "../auth/decorator/guards.decorator";
+import { ReauthRequired } from "../auth/decorator/reauth.decorator";
 import { ConfigService } from "../config/config.service";
 import { CreateUserDTO } from "./dto/createUser.dto";
 import { UpdateOwnUserDTO } from "./dto/updateOwnUser.dto";
@@ -44,6 +45,7 @@ export class UserController {
 
   @Patch("me")
   @Authenticated()
+  @ReauthRequired()
   async updateCurrentUser(
     @GetUser() user: User,
     @Body() data: UpdateOwnUserDTO,
@@ -54,6 +56,7 @@ export class UserController {
   @Delete("me")
   @HttpCode(204)
   @Authenticated()
+  @ReauthRequired()
   async deleteCurrentUser(
     @GetUser() user: User,
     @Res({ passthrough: true }) response: Response,
@@ -107,12 +110,14 @@ export class UserController {
 
   @Patch(":id")
   @AdminOnly()
+  @ReauthRequired()
   async update(@Param("id") id: string, @Body() user: UpdateUserDto) {
     return new UserDTO().from(await this.userService.update(id, user) as unknown as Partial<UserDTO>);
   }
 
   @Delete(":id")
   @AdminOnly()
+  @ReauthRequired()
   async delete(@Param("id") id: string) {
     return new UserDTO().from(await this.userService.delete(id) as unknown as Partial<UserDTO>);
   }

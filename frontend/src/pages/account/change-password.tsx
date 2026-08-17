@@ -1,18 +1,23 @@
 import { Alert, Button, PasswordInput, Stack, Text, Title } from "@mantine/core";
 import { useForm } from "@mantine/form";
+import { useModals } from "@mantine/modals";
 import { useRouter } from "next/router";
 import { useIntl } from "react-intl";
 import * as yup from "yup";
 import Head from "next/head";
 import { TbAlertCircle } from "react-icons/tb";
 import useTranslate from "../../hooks/useTranslate.hook";
+import useUser from "../../hooks/user.hook";
 import authService from "../../services/auth.service";
+import showReauthModal from "../../components/auth/showReauthModal";
 import toast from "../../utils/toast.util";
 
 const ChangePassword = () => {
   const t = useTranslate();
   const router = useRouter();
   const intl = useIntl();
+  const modals = useModals();
+  const { user } = useUser();
 
   const form = useForm({
     initialValues: {
@@ -59,6 +64,28 @@ const ChangePassword = () => {
           : "/";
       router.push(next);
     } catch (err: any) {
+      // SEC-1.2/15.4: reautenticação recente exigida — pede confirmação e
+      // re-submete ao concluir.
+      const data = err?.response?.data;
+      if (
+        err?.response?.status === 403 &&
+        (data?.error === "reauthentication_required" ||
+          data?.message === "reauthentication_required")
+      ) {
+        showReauthModal(modals, {
+          hasTotp: !!user?.totpVerified,
+          onSuccess: () => {
+            void authService
+              .updatePassword(values.currentPassword, values.newPassword)
+              .then(() => {
+                toast.success(t("account.changePassword.success"));
+                router.push("/");
+              })
+              .catch(toast.axiosError);
+          },
+        });
+        return;
+      }
       toast.axiosError(err);
     }
   });

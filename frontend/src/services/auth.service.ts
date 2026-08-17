@@ -22,6 +22,44 @@ const signInTotp = (totp: string, loginToken: string) => {
   });
 };
 
+// SEC-1.2/14.6: cadastro pré-login de TOTP (admins sem 2FA).
+const totpEnroll = async (loginToken: string, password: string) => {
+  const { data } = await api.post("/auth/totp/enroll", {
+    loginToken,
+    password,
+  });
+  return {
+    totpAuthUrl: data.totpAuthUrl,
+    totpSecret: data.totpSecret,
+    qrCode: data.qrCode,
+  };
+};
+
+const totpEnrollVerify = async (loginToken: string, code: string) => {
+  const { data } = await api.post("/auth/totp/enroll/verify", {
+    loginToken,
+    code,
+  });
+  return { recoveryCodes: data.recoveryCodes as string[] };
+};
+
+// SEC-1.2/15.4: reautenticação forte para operações críticas.
+const reauthenticate = async (password: string, totpCode?: string) => {
+  await api.post("/auth/reauthenticate", {
+    password,
+    code: totpCode,
+  });
+};
+
+// SEC-1.2/15.3: regeneração de recovery codes (uso único).
+const regenerateRecoveryCodes = async (totpCode: string, password: string) => {
+  const { data } = await api.post("/auth/totp/recovery", {
+    code: totpCode,
+    password,
+  });
+  return { recoveryCodes: data.recoveryCodes as string[] };
+};
+
 const signUp = async (email: string, username: string, password: string) => {
   const response = await api.post("auth/signUp", { email, username, password });
 
@@ -86,10 +124,11 @@ const enableTOTP = async (password: string) => {
 };
 
 const verifyTOTP = async (totpCode: string, password: string) => {
-  await api.post("/auth/totp/verify", {
+  const { data } = await api.post("/auth/totp/verify", {
     code: totpCode,
     password,
   });
+  return { recoveryCodes: (data?.recoveryCodes as string[]) ?? [] };
 };
 
 const disableTOTP = async (totpCode: string, password: string) => {
@@ -102,6 +141,10 @@ const disableTOTP = async (totpCode: string, password: string) => {
 export default {
   signIn,
   signInTotp,
+  totpEnroll,
+  totpEnrollVerify,
+  reauthenticate,
+  regenerateRecoveryCodes,
   signUp,
   signOut,
   refreshAccessToken,

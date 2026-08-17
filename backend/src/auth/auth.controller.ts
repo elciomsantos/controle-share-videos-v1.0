@@ -18,10 +18,14 @@ import { AuthService } from "./auth.service";
 import { AuthTotpService } from "./authTotp.service";
 import { GetUser } from "./decorator/getUser.decorator";
 import { Public, Authenticated } from "./decorator/guards.decorator";
+import { ReauthRequired } from "./decorator/reauth.decorator";
 import { AuthRegisterDTO } from "./dto/authRegister.dto";
 import { AuthSignInDTO } from "./dto/authSignIn.dto";
 import { AuthSignInTotpDTO } from "./dto/authSignInTotp.dto";
 import { EnableTotpDTO } from "./dto/enableTotp.dto";
+import { EnrollTotpDTO } from "./dto/enrollTotp.dto";
+import { EnrollVerifyTotpDTO } from "./dto/enrollVerifyTotp.dto";
+import { ReauthenticateDTO } from "./dto/reauthenticate.dto";
 import { VerifyAccountDTO } from "./dto/verifyAccount.dto";
 import { ResendVerificationDTO } from "./dto/resendVerification.dto";
 import { ResetPasswordDTO } from "./dto/resetPassword.dto";
@@ -121,6 +125,67 @@ export class AuthController {
     return new TokenDTO().from(result);
   }
 
+  // SEC-1.2/14.6: cadastro de TOTP pré-login (contas administrativas sem 2FA).
+  @Post("totp/enroll")
+  @Public()
+  @Throttle({
+    default: {
+      limit: 5,
+      ttl: 60_000,
+    },
+  })
+  async enrollTotp(@Body() dto: EnrollTotpDTO) {
+    return this.authTotpService.enrollTotp(dto.loginToken, dto.password);
+  }
+
+  @Post("totp/enroll/verify")
+  @Public()
+  @Throttle({
+    default: {
+      limit: 5,
+      ttl: 60_000,
+    },
+  })
+  async enrollVerifyTotp(
+    @Body() dto: EnrollVerifyTotpDTO,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.authTotpService.enrollVerifyTotp(
+      dto.loginToken,
+      dto.code,
+    );
+
+    this.authService.addTokensToResponse(
+      response,
+      result.refreshToken,
+      result.accessToken,
+    );
+
+    return { recoveryCodes: result.recoveryCodes };
+  }
+
+  // SEC-1.2/15.4: reautenticação forte para operações críticas.
+  @Post("reauthenticate")
+  @Authenticated()
+  @HttpCode(200)
+  async reauthenticate(
+    @GetUser() user: User,
+    @Req() request: Request,
+    @Body() dto: ReauthenticateDTO,
+  ) {
+    const isSecure = this.config.getBoolean("general.secureCookies");
+    const cookieName = getSessionCookieName(isSecure);
+    const accessToken =
+      request.cookies?.[cookieName] ?? request.cookies?.access_token;
+
+    return this.authService.reauthenticate(
+      user,
+      dto.password,
+      dto.code,
+      accessToken ?? "",
+    );
+  }
+
   @Post("resetPassword/request")
   @Public()
   @Throttle({
@@ -177,6 +242,7 @@ export class AuthController {
 
   @Patch("password")
   @Authenticated()
+  @ReauthRequired()
   async updatePassword(
     @GetUser() user: User,
     @Res({ passthrough: true }) response: Response,
@@ -262,5 +328,19 @@ export class AuthController {
   @Authenticated()
   async disableTotp(@GetUser() user: User, @Body() body: VerifyTotpDTO) {
     return this.authTotpService.disableTotp(user, body.password, body.code);
+  }
+
+  // SEC-1.2/15.3: regeneração de recovery codes (uso único, exibidos uma vez).
+  @Post("totp/recovery")
+  @Authenticated()
+  async regenerateRecoveryCodes(
+    @GetUser() user: User,
+    @Body() body: VerifyTotpDTO,
+  ) {
+    return this.authTotpService.regenerateRecoveryCodes(
+      user,
+      body.password,
+      body.code,
+    );
   }
 }

@@ -55,6 +55,13 @@ export const configVariables = {
       defaultValue: "3 months",
       secret: false,
     },
+    // SEC-1.2/15.4: janela de reautenticação recente exigida em operações
+    // críticas (troca de senha, permissões, desativação, revogação etc.).
+    reauthWindow: {
+      type: "timespan",
+      defaultValue: "5m",
+      secret: false,
+    },
     defaultLanguage: {
       type: "string",
       defaultValue: "pt-BR",

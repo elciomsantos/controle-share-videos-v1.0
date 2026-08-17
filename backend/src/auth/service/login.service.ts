@@ -63,6 +63,11 @@ export class LoginService {
    * Emite a sessão inicial para um usuário já autenticado (credencial validada
    * previamente). Se o usuário tiver TOTP habilitado, retorna apenas um login
    * token para o segundo fator.
+   *
+   * SEC-1.2/14.6 (§34.2): contas administrativas são obrigadas a ter MFA
+   * verificado. Admin sem TOTP recebe apenas um login token com a flag
+   * `requiresTotpSetup`, direcionando ao cadastro pré-login — nenhuma sessão
+   * (access/refresh) é emitida antes do segundo fator estar ativo.
    */
   async generateToken(user: User) {
     if (user.totpVerified) {
@@ -70,7 +75,16 @@ export class LoginService {
       return { loginToken };
     }
 
-    const refreshToken = await this.tokenService.createRefreshToken(user.id);
+    if (user.isAdmin) {
+      const loginToken = await this.tokenService.createLoginToken(user.id);
+      return { loginToken, requiresTotpSetup: true };
+    }
+
+    const refreshToken = await this.tokenService.createRefreshToken(
+      user.id,
+      undefined,
+      new Date(),
+    );
     const accessToken = this.tokenService.signAccessToken(
       user,
       refreshToken.id,

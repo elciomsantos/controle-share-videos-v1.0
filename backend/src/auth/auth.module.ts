@@ -9,10 +9,12 @@ import { UserModule } from "../user/user.module";
 import { RolesGuard } from "./guard/roles.guard";
 import { PasswordMustChangeGuard } from "./guard/passwordMustChange.guard";
 import { JwtGuard } from "./guard/jwt.guard";
+import { ReauthGuard } from "./guard/reauth.guard";
 import { LoginService } from "./service/login.service";
 import { TokenService } from "./service/token.service";
 import { RefreshService } from "./service/refresh.service";
 import { VerificationService } from "./service/verification.service";
+import { RecoveryCodeService } from "./recovery-code.service";
 
 @Module({
   imports: [
@@ -30,10 +32,12 @@ import { VerificationService } from "./service/verification.service";
     TokenService,
     RefreshService,
     VerificationService,
+    RecoveryCodeService,
     JwtStrategy,
     JwtGuard,
     RolesGuard,
     PasswordMustChangeGuard,
+    ReauthGuard,
   ],
   exports: [AuthService, JwtGuard, RolesGuard, PasswordMustChangeGuard],
 })

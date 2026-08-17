@@ -48,6 +48,7 @@ describe("RefreshService (SEC-07)", () => {
       id: "rt1",
       token: "old-token",
       expiresAt: new Date(Date.now() + 60_000),
+      reauthenticatedAt: null as Date | null,
       user: { id: "u1", email: "user@example.com" },
     };
 
@@ -67,6 +68,7 @@ describe("RefreshService (SEC-07)", () => {
       expect(tokenService.createRefreshToken).toHaveBeenCalledWith(
         "u1",
         prisma,
+        undefined,
       );
     });
 

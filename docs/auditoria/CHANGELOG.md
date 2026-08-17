@@ -7,6 +7,40 @@
 
 ---
 
+## v1.2.6 — Fase 2 da Especificação de Segurança v1.2: MFA, recovery codes e reautenticação (2026-08-17)
+
+### Resumo
+Implementação da **Fase 2** do plano (`docs/PLANO-CORRECOES-SEGURANCA.md`): MFA obrigatório para administradores (§14.6/§34.2), recovery codes de uso único (§15.3) e reautenticação recente para operações críticas (§15.4). **Sem** mudança de arquitetura de sessão (Fase 4 permanece).
+
+### Correções aplicadas
+- **Item 5 — TOTP obrigatório para admins** (§14.6/§34.2):
+  - `LoginService.generateToken()` não emite sessão (access/refresh) para admin sem TOTP verificado — retorna `{ loginToken, requiresTotpSetup }`.
+  - Novo fluxo de **cadastro pré-login**: `POST /auth/totp/enroll` (loginToken + senha → QR/segredo) e `POST /auth/totp/enroll/verify` (loginToken + código → ativa `totpVerified`, gera recovery codes e emite sessão). Evita deadlock de bootstrap do primeiro admin.
+  - Frontend: nova página `/auth/totp/enroll/[loginToken]` com 3 etapas (senha → QR → código → recovery codes).
+- **Item 6 — Recovery codes de uso único** (§15.3):
+  - Novo modelo `RecoveryCode` (apenas hash SHA-256 persistido; valor em texto puro exibido UMA única vez na ativação).
+  - `RecoveryCodeService` com `regenerate` (revoga anteriores), `consume` (uso único atômico via `updateMany WHERE usedAt: null`) e `clearForUser`.
+  - `signInTotp` aceita recovery code como alternativa ao TOTP; `verifyTotp`/`enrollVerifyTotp` geram os códigos; `disableTotp` os revoga; `POST /auth/totp/recovery` regenera após senha + TOTP.
+  - Frontend: exibição dos códigos no modal de habilitação e no cadastro; `TotpForm` aceita 6 dígitos TOTP ou 10 hex de recovery.
+- **Item 7 — Reautenticação recente** (§15.4):
+  - `RefreshToken.reauthenticatedAt` (marco de autenticação forte) + config `general.reauthWindow` (padrão 5m).
+  - `ReauthGuard`/`@ReauthRequired()`: operações críticas exigem reautenticação dentro da janela, senão 403 `reauthentication_required`.
+  - `POST /auth/reauthenticate` (senha + TOTP se ativo) renova o marco da sessão corrente.
+  - Aplicado em: `PATCH /auth/password`, `PATCH/DELETE /users/:id` (admin) e `PATCH/DELETE /users/me`.
+  - Login forte, 2FA e rotação de refresh preservam o marco (cópia em `refreshAccessToken`).
+  - Frontend: modal reutilizável `showReauthModal` integrado à troca de senha e à edição de usuários (admin), com re-submissão automática após confirmar.
+
+### Migração
+- Nova migração `20260817151710_add_recovery_codes_and_reauth` (modelo `RecoveryCode` + `RefreshToken.reauthenticatedAt`).
+- Nova config `general.reauthWindow` (timespan, default `5m`) — inserida via seed no banco de dados.
+
+### Validado
+- Backend: build + lint + **219 testes unitários** (18 suites, verdes; +10: admin gate, recovery codes, reauth guard).
+- Frontend: build (nova rota `/auth/totp/enroll`) + lint + **14 testes** verdes.
+- Pendências: Fases 3–7 do plano (rate limit por conta, sessão opaca com `token_hash`, auditoria estruturada, admin de sessões, testes §35).
+
+---
+
 ## v1.2.5 — Correções da Especificação de Segurança v1.2 (Fases 0 + 1) (2026-08-17)
 
 ### Resumo

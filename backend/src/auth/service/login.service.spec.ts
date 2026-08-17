@@ -88,6 +88,24 @@ describe("LoginService", () => {
       expect(tokenService.createRefreshToken).not.toHaveBeenCalled();
     });
 
+    it("admin sem TOTP verificado recebe loginToken com requiresTotpSetup (SEC-1.2/14.6)", async () => {
+      const user = makeUser({ isAdmin: true, role: "admin" });
+      prisma.user.findFirst.mockResolvedValue(user);
+      tokenService.createLoginToken.mockResolvedValue("login-token-admin");
+
+      const result = await service.signIn(
+        { email: "user@example.com", password: "secret" } as never,
+        "1.2.3.4",
+      );
+
+      expect(result).toEqual({
+        loginToken: "login-token-admin",
+        requiresTotpSetup: true,
+      });
+      expect(tokenService.createRefreshToken).not.toHaveBeenCalled();
+      expect(tokenService.signAccessToken).not.toHaveBeenCalled();
+    });
+
     it("lança UnauthorizedException para credenciais inválidas", async () => {
       prisma.user.findFirst.mockResolvedValue(makeUser());
       verifyMock.mockResolvedValue(false);

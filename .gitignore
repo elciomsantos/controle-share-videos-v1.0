@@ -57,6 +57,7 @@ yarn-error.log*
 # local dev database (SQLite)
 /backend/prisma/dev.db
 /backend/prisma/dev.db-journal
+/backend/dev.db
 /docs/build/
 /docs/.docusaurus
 /docs/.cache-loader

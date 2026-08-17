@@ -3,7 +3,7 @@ import {
   Container,
   Group,
   Paper,
-  PinInput,
+  TextInput,
   Title,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
@@ -24,10 +24,12 @@ function TotpForm({ redirectPath }: { redirectPath: string }) {
 
   const [loading, setLoading] = useState(false);
 
+  // SEC-1.2/15.3: aceita o código TOTP (6 dígitos) ou um recovery code de
+  // uso único (10 caracteres hexadecimais).
   const validationSchema = yup.object().shape({
     code: yup
       .string()
-      .min(6, t("common.error.too-short", { length: 6 }))
+      .matches(/^([0-9]{6}|[0-9a-f]{10})$/i, t("auth.wrongCredentials"))
       .required(t("common.error.field-required")),
   });
 
@@ -82,12 +84,12 @@ function TotpForm({ redirectPath }: { redirectPath: string }) {
       <Paper withBorder shadow="md" p={30} mt={30} radius="md">
         <form onSubmit={form.onSubmit(onSubmit)}>
           <Group justify="center">
-            <PinInput
-              length={6}
-              oneTimeCode
+            <TextInput
               aria-label="One time code"
               autoFocus={true}
-              onComplete={onSubmit}
+              autoCapitalize="characters"
+              maxLength={10}
+              style={{ flex: "1" }}
               {...form.getInputProps("code")}
             />
             <Button mt="md" type="submit" loading={loading}>

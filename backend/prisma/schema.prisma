@@ -24,6 +24,7 @@ model User {
   shares        Share[]
   refreshTokens RefreshToken[]
   loginTokens   LoginToken[]
+  recoveryCodes RecoveryCode[]
 
   totpEnabled        Boolean             @default(false)
   totpVerified       Boolean             @default(false)
@@ -46,6 +47,10 @@ model RefreshToken {
 
   expiresAt DateTime
 
+  // SEC-1.2/15.4: marco da última autenticação forte (senha+2FA ou
+  // reautenticação). Operações críticas exigem reautenticação recente.
+  reauthenticatedAt DateTime?
+
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -59,6 +64,22 @@ model LoginToken {
   userId String
   user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   used   Boolean @default(false)
+}
+
+// SEC-1.2/15.3: recovery codes de uso único para o segundo fator. Apenas o
+// hash SHA-256 é armazenado; o valor em texto puro é exibido uma única vez na
+// ativação do TOTP.
+model RecoveryCode {
+  id        String   @id @default(uuid())
+  codeHash  String   @unique
+  createdAt DateTime @default(now())
+  usedAt    DateTime?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // SEC-1.2/15.3: consumo por código de uso único.
+  @@index([userId])
 }
 
 model ResetPasswordToken {

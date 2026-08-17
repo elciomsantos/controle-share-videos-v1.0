@@ -1,6 +1,8 @@
 import {
+  Alert,
   Button,
   Center,
+  CopyButton,
   Group,
   Image,
   Stack,
@@ -12,6 +14,7 @@ import { useForm } from "@mantine/form";
 import { useModals } from "@mantine/modals";
 import { FormattedMessage } from "react-intl";
 import * as yup from "yup";
+import { useState } from "react";
 import useTranslate, {
   translateOutsideContext,
 } from "../../hooks/useTranslate.hook";
@@ -52,6 +55,7 @@ const CreateEnableTotpModal = ({
 }) => {
   const modals = useModals();
   const t = useTranslate();
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
 
   const validationSchema = yup.object().shape({
     code: yup
@@ -118,10 +122,8 @@ const CreateEnableTotpModal = ({
             onSubmit={form.onSubmit((values) => {
               authService
                 .verifyTOTP(values.code, options.password)
-                .then(() => {
-                  toast.success(t("account.notify.totp.enable"));
-                  modals.closeAll();
-                  refreshUser();
+                .then(({ recoveryCodes }) => {
+                  setRecoveryCodes(recoveryCodes ?? []);
                 })
                 .catch(toast.axiosError);
             })}
@@ -146,6 +148,54 @@ const CreateEnableTotpModal = ({
           </form>
         </Stack>
       </Center>
+
+      {recoveryCodes.length > 0 && (
+        <Center mt="md">
+          <Stack>
+            <Alert color="yellow" title={t("totp.enroll.recovery.title")}>
+              <Text size="sm">
+                <FormattedMessage id="totp.enroll.recovery.description" />
+              </Text>
+            </Alert>
+            <Group justify="center" gap="xs">
+              {recoveryCodes.map((code) => (
+                <CopyButton key={code} value={code}>
+                  {({ copied, copy }) => (
+                    <Tooltip
+                      label={
+                        copied
+                          ? t("common.notify.copied")
+                          : t("common.button.clickToCopy")
+                      }
+                    >
+                      <Button
+                        variant="light"
+                        size="xs"
+                        onClick={() => {
+                          copy();
+                          toast.success(t("common.notify.copied"));
+                        }}
+                      >
+                        {code}
+                      </Button>
+                    </Tooltip>
+                  )}
+                </CopyButton>
+              ))}
+            </Group>
+            <Button
+              mt="xs"
+              onClick={() => {
+                toast.success(t("account.notify.totp.enable"));
+                modals.closeAll();
+                refreshUser();
+              }}
+            >
+              <FormattedMessage id="totp.enroll.recovery.button" />
+            </Button>
+          </Stack>
+        </Center>
+      )}
     </div>
   );
 };

@@ -19,6 +19,14 @@ import { LoginService } from "./service/login.service";
 import { TokenService } from "./service/token.service";
 import { RefreshService } from "./service/refresh.service";
 import { VerificationService } from "./service/verification.service";
+import {
+  verify as verifyTotp,
+  createGuardrails,
+} from "otplib";
+
+const legacyGuardrails = createGuardrails({
+  MIN_SECRET_BYTES: 10,
+});
 
 /**
  * AuthService — orquestrador da autenticação. Delega credenciais, tokens,
@@ -84,6 +92,7 @@ export class AuthService {
         const refreshToken = await this.tokenService.createRefreshToken(
           user.id,
           tx,
+          new Date(),
         );
         const accessToken = this.tokenService.signAccessToken(
           user,
@@ -156,13 +165,64 @@ export class AuthService {
     });
 
     this.logger.log(`Password changed for user ${user.email}`);
-    const refreshToken = await this.tokenService.createRefreshToken(user.id);
+    // SEC-1.2/15.4: a nova sessão emitida após troca de senha nasce com o
+    // marco de reautenticação atual (a troca exigiu reautenticação recente).
+    const refreshToken = await this.tokenService.createRefreshToken(
+      user.id,
+      undefined,
+      new Date(),
+    );
     return { refreshTokenId: refreshToken.id, refreshToken: refreshToken.token };
   }
 
   /** Back-compat: delega emissão de access token ao TokenService. */
   async createAccessToken(user: User, refreshTokenId: string) {
     return this.tokenService.signAccessToken(user, refreshTokenId);
+  }
+
+  /**
+   * SEC-1.2/15.4 — Reautenticação forte para operações críticas.
+   * Verifica senha (+ TOTP, se ativo) e renova o marco de autenticação
+   * recente da sessão corrente (identificada pelo refreshTokenId do access
+   * token). Requer sucesso na verificação para atualizar o marco.
+   */
+  async reauthenticate(
+    user: User,
+    password: string,
+    code: string | undefined,
+    accessToken: string,
+  ) {
+    if (!(await this.loginService.verifyPassword(user, password)))
+      throw new ForbiddenException(this.i18n.t("auth.invalidPassword"));
+
+    if (user.totpVerified) {
+      const totpResult = await this.prisma.user.findUnique({
+        where: { id: user.id },
+        select: { totpSecret: true },
+      });
+      if (!totpResult?.totpSecret)
+        throw new ForbiddenException(this.i18n.t("auth.invalidCode"));
+
+      const verified = await verifyTotp({
+        token: code ?? "",
+        secret: totpResult.totpSecret,
+        guardrails: legacyGuardrails,
+      });
+      if (!verified.valid)
+        throw new ForbiddenException(this.i18n.t("auth.invalidCode"));
+    }
+
+    const refreshTokenId = this.tokenService.extractRefreshTokenId(accessToken);
+    if (!refreshTokenId)
+      throw new ForbiddenException({
+        message: "reauthentication_required",
+        error: "reauthentication_required",
+      });
+
+    await this.tokenService.markReauthenticated(refreshTokenId);
+
+    this.logger.log(`Re-authenticated user ${user.email}`);
+    return true;
   }
 
   async signOut(accessToken: string) {

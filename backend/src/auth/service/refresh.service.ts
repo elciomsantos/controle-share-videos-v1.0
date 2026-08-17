@@ -25,7 +25,6 @@ export class RefreshService {
       where: { token: refreshToken },
       include: { user: true },
     });
-
     if (!refreshTokenMetaData || refreshTokenMetaData.expiresAt < new Date())
       throw new UnauthorizedException();
 
@@ -52,6 +51,7 @@ export class RefreshService {
         const newRefreshToken = await this.tokenService.createRefreshToken(
           refreshTokenMetaData.user.id,
           tx,
+          refreshTokenMetaData.reauthenticatedAt ?? undefined,
         );
 
         const accessToken = this.tokenService.signAccessToken(

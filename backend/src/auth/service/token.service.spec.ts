@@ -80,6 +80,7 @@ describe("TokenService", () => {
       expect(prisma.refreshToken.create).toHaveBeenCalledWith({
         data: {
           userId: "u1",
+          reauthenticatedAt: null,
           expiresAt: expect.any(Date),
         },
       });
