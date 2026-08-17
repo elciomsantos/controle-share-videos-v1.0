@@ -359,7 +359,6 @@ export class ShareService {
   async getSharesByUser(userId: string, page: number, perPage: number) {
     const where = {
       creator: { id: userId },
-      uploadLocked: true,
       OR: [
         { expiration: { gt: new Date() } },
         { expiration: { equals: null } },
@@ -403,7 +402,7 @@ export class ShareService {
     if (share?.removedReason)
       throw new NotFoundException(share.removedReason, "share_removed");
 
-    if (!share || !share.uploadLocked)
+    if (!share)
       throw new NotFoundException(this.i18n.t("share.notFound"));
 
     return this.shareMapper.transformShare(share);

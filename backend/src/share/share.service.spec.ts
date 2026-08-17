@@ -376,7 +376,7 @@ describe("ShareService", () => {
     createdAt: new Date("2026-01-01"),
     updatedAt: null,
     name: "Share 1",
-    uploadLocked: true,
+    uploadLocked: undefined,
     isZipReady: false,
     views: 0,
     downloads: 0,
@@ -569,7 +569,7 @@ describe("ShareService", () => {
       prisma.file.count.mockResolvedValue(2);
       prisma.share.update.mockResolvedValue(
         makeShare({
-          uploadLocked: true,
+          uploadLocked: undefined,
           security: { password: "hash", maxViews: 5, maxDownloads: 3 },
         }),
       );
@@ -662,7 +662,7 @@ describe("ShareService", () => {
         expect.objectContaining({
           where: {
             creator: { id: "u1" },
-            uploadLocked: true,
+            uploadLocked: undefined,
             OR: expect.any(Array),
           },
         }),
