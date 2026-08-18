@@ -118,6 +118,20 @@ export class UserService {
         }
       }
 
+      // Prevent deactivating the last admin
+      if (user.isActivated === false && existing.isActivated) {
+        if (existing.isAdmin) {
+          const adminCount = await this.prisma.user.count({
+            where: { role: "admin", isActivated: true },
+          });
+          if (adminCount === 1) {
+            throw new BadRequestException(
+              this.i18n.t("auth.cannotDeactivateLastAdmin"),
+            );
+          }
+        }
+      }
+
       const isAdmin = user.role ? user.role === "admin" : user.isAdmin;
 
       this.logger.log(`User updated: ${id}`);

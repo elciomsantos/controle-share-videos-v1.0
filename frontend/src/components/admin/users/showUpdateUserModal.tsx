@@ -6,7 +6,6 @@ import {
   PasswordInput,
   Select,
   Stack,
-  Switch,
   Text,
   TextInput,
 } from "@mantine/core";
@@ -174,13 +173,6 @@ const Body = ({
             ]}
             disabled={isLastAdmin}
             {...accountForm.getInputProps("role")}
-          />
-          <Switch
-            mt="xs"
-            labelPosition="left"
-            label={t("admin.users.edit.update.email-verified")}
-            {...accountForm.getInputProps("isActivated", { type: "checkbox" })}
-            disabled={user.isActivated}
           />
         </Stack>
       </form>

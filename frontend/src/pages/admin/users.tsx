@@ -31,6 +31,55 @@ const Users = () => {
     });
   };
 
+  const toggleUserActivation = (user: User) => {
+    const activating = !user.isActivated;
+    modals.openConfirmModal({
+      title: t(
+        activating
+          ? "admin.users.activate.title"
+          : "admin.users.deactivate.title",
+        { username: user.username },
+      ),
+      children: (
+        <Text size="sm">
+          <FormattedMessage
+            id={
+              activating
+                ? "admin.users.activate.description"
+                : "admin.users.deactivate.description"
+            }
+          />
+        </Text>
+      ),
+      labels: {
+        confirm: t(activating ? "common.button.enable" : "common.button.disable"),
+        cancel: t("common.button.cancel"),
+      },
+      confirmProps: { color: activating ? "green" : "red" },
+      onConfirm: async () => {
+        const run = () =>
+          userService.update(user.id, { isActivated: activating });
+        const done = () => {
+          getUsers();
+          toast.success(
+            t(
+              activating
+                ? "admin.users.notify.activate.success"
+                : "admin.users.notify.deactivate.success",
+            ),
+          );
+        };
+        run()
+          .then(done)
+          .catch(
+            withReauth(modals, !!currentUser?.totpVerified)(() =>
+              run().then(done),
+            ),
+          );
+      },
+    });
+  };
+
   const deleteUser = (user: User) => {
     modals.openConfirmModal({
       title: t("admin.users.edit.delete.title", {
@@ -86,6 +135,7 @@ const Users = () => {
         users={users}
         getUsers={getUsers}
         deleteUser={deleteUser}
+        toggleUserActivation={toggleUserActivation}
         isLoading={isLoading}
         currentUser={currentUser}
       />

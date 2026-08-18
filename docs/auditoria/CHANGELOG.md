@@ -7,6 +7,26 @@
 
 ---
 
+## v1.2.19 — Função Ativar/Desativar usuário (mantém logs e compartilhamentos) (2026-08-18)
+
+### Resumo
+Quando um usuário possui muitos compartilhamentos e registros de auditoria, excluí-lo apaga tudo (cascade) — o que inviabiliza a exclusão. Adicionada uma função dedicada de **Ativar/Desativar** usuário: desativar bloqueia o login e revoga as sessões, mas **mantém** compartilhamentos e logs (a desativação nunca apaga dados). Reativação permite o login novamente.
+
+### Implementado
+- **`frontend/src/components/admin/users/ManageUserTable.tsx`**: nova coluna **Status** (badge Ativo/Inativo), linha inativa fica esmaecida, e novo botão por linha que alterna Desativar (`TbUserOff`) / Ativar (`TbUserCheck`). O botão de desativar é **ocultado para o próprio admin** e para o **último admin ativo**.
+- **`frontend/src/pages/admin/users.tsx`**: `toggleUserActivation(user)` — modal de confirmação (título/descrição por ação), chama `PATCH /users/:id { isActivated }` e trata o 403 `reauthentication_required` reabrindo a confirmação de identidade (senha + TOTP) e re-executando; toast de sucesso e recarrega a lista.
+- **`backend/src/user/user.service.ts`**: guarda adicional — não permite **desativar o último admin** (`cannotDeactivateLastAdmin`), complementando a proteção existente de rebaixamento.
+- **`frontend/src/components/admin/users/showUpdateUserModal.tsx`**: removido o switch "Email verified" que estava ligado a `isActivated` (redundante e confuso agora que existe o toggle dedicado) — chave i18n correspondente também removida.
+
+### Comportamento já existente (reforçado)
+Desativar continua bloqueando login (`login.service`), invalidando sessões ativas (`session.service`/`jwt.strategy`) e revogando tokens de refresh, com auditoria `PERMISSION_CHANGED` e `SESSION_REVOKED` — sem apagar nenhum dado do usuário.
+
+### Validado
+- `tsc --noEmit`/`eslint` limpos em frontend e backend; vitest **14/14**; jest backend **248 testes / 24 suítes**; rebuild das imagens no Docker.
+- Navegador: criar `autoteste3` → linha "Ativo" com botão Desativar; modal de confirmação correto; Desativar → `PATCH` 403 `reauthentication_required` → confirmação senha+TOTP → 200 → badge "Inativo" e botão vira "Ativar"; Ativar → 403 → reauth → 200 → "Ativo"; linha do próprio admin mostra só Editar/Excluir; usuário de teste excluído ao final.
+
+---
+
 ## v1.2.18 — Reautenticação em TODAS as operações do admin sobre usuários (2026-08-18)
 
 ### Resumo
