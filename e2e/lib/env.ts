@@ -26,6 +26,9 @@ export const E2E_ADMIN = {
   password: "E2e-Teste-2026!",
 };
 
+export const E2E_TOTP_SECRET =
+  process.env.E2E_TOTP_SECRET || "WYHQCW3YRDUNVYWXY37S6NEMQBPK6AWK";
+
 export const JWT_SECRET =
   process.env.E2E_JWT_SECRET || "e2e-test-secret-0123456789abcdef0123456789abcd";
 
@@ -44,4 +47,6 @@ export const BACKEND_ENV = {
   ADMIN_EMAIL: E2E_ADMIN.email,
   ADMIN_USERNAME: E2E_ADMIN.username,
   ADMIN_PASSWORD: E2E_ADMIN.password,
+  E2E_TOTP_ADMIN_EMAIL: E2E_ADMIN.email,
+  E2E_TOTP_ADMIN_SECRET: E2E_TOTP_SECRET,
 } as Record<string, string>;

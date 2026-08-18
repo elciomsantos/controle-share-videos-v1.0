@@ -11,6 +11,7 @@
     "e2e:build-frontend": "cd ../frontend && API_URL=http://localhost:8181 node_modules/.bin/next build --webpack"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.1"
+    "@playwright/test": "^1.62.1",
+    "otplib": "^13.3.0"
   }
 }

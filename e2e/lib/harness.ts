@@ -42,6 +42,8 @@ export function seedAdmin() {
   exec(tsxBin, ["prisma/seed/user.seed.ts"], BACKEND_DIR);
   console.log("[e2e:harness] aplicando overrides de config E2E");
   exec(tsxBin, ["prisma/seed/e2e-overrides.ts"], BACKEND_DIR);
+  console.log("[e2e:harness] habilitando TOTP do admin de teste");
+  exec(tsxBin, ["prisma/seed/e2e-totp.ts"], BACKEND_DIR);
 }
 
 function waitForHttp(url: string, timeoutMs: number, label: string) {

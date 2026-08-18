@@ -16,7 +16,7 @@ import {
 import { FileInterceptor } from "@nestjs/platform-express";
 import { createKeyv, RedisClientOptions } from "@keyv/redis";
 import { I18nService } from "nestjs-i18n";
-import { Throttle } from "@nestjs/throttler";
+import { Throttle, SkipThrottle } from "@nestjs/throttler";
 import { Request } from "express";
 import { AdminOnly, Public } from "../auth/decorator/guards.decorator";
 import { GetUser } from "../auth/decorator/getUser.decorator";
@@ -45,6 +45,11 @@ export class ConfigController {
 
   @Get()
   @Public()
+  // SEC-1.2/22.4: a lista pública de configuração é consumida pelo frontend
+  // em toda renderização de página (middleware + getInitialProps). Fica no
+  // limite global, fora do limite restritivo de admin — mesmo padrão das
+  // rotas /me do UserController.
+  @SkipThrottle()
   async list() {
     return new ConfigDTO().fromList(await this.configService.list());
   }

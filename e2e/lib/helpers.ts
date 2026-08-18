@@ -1,8 +1,9 @@
 import { Page, test as base, expect } from "@playwright/test";
+import { generate } from "otplib";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { E2E_ADMIN, BASE_URL } from "../lib/env";
+import { E2E_ADMIN, E2E_TOTP_SECRET, BASE_URL } from "../lib/env";
 
 export interface UploadFileSpec {
   name: string;
@@ -14,6 +15,14 @@ export async function loginAsAdmin(page: Page) {
   await expect(page.getByRole("heading", { name: /Bem-vindo/ })).toBeVisible();
   await page.getByPlaceholder("Seu e-mail ou nome de usuário").fill(E2E_ADMIN.email);
   await page.getByPlaceholder("A sua senha").fill(E2E_ADMIN.password);
+  await page.getByRole("button", { name: "Iniciar sessão" }).click();
+
+  // Admin com MFA obrigatório (§34.2): o segundo fator vem após a senha.
+  // Gera o código a partir do segredo fixo semeado pelo harness (e2e-totp.ts).
+  await expect(page).toHaveURL(/\/auth\/totp\//, { timeout: 15_000 });
+  await page
+    .getByLabel("One time code")
+    .fill(await generate({ secret: E2E_TOTP_SECRET }));
   await page.getByRole("button", { name: "Iniciar sessão" }).click();
 
   // Aguarda o login concluir (POST + refreshUser + redirect). Garante que os
