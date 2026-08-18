@@ -4,5 +4,5 @@ import { UserDTO } from "../../user/dto/user.dto";
 
 export class UpdatePasswordDTO extends PickType(UserDTO, ["password"]) {
   @IsString()
-  oldPassword: string;
+  oldPassword!: string;
 }
