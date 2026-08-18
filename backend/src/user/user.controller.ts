@@ -110,6 +110,7 @@ export class UserController {
 
   @Post()
   @AdminOnly()
+  @ReauthRequired()
   async create(@Body() user: CreateUserDTO) {
     const result = await this.userService.create(user);
     if (result.temporaryPassword) {

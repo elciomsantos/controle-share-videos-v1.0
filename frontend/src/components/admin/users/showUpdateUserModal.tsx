@@ -18,8 +18,8 @@ import { TbCheck } from "react-icons/tb";
 import * as yup from "yup";
 import useTranslate from "../../../hooks/useTranslate.hook";
 import userService from "../../../services/user.service";
-import showReauthModal from "../../auth/showReauthModal";
 import User from "../../../types/user.type";
+import { withReauth } from "../../../utils/reauth.util";
 import toast from "../../../utils/toast.util";
 
 type ModalsContextProps = ReturnType<typeof useModals>;
@@ -73,23 +73,7 @@ const Body = ({
 
   // SEC-1.2/15.4: operações críticas exigem reautenticação recente. Ao receber
   // 403, abre o modal de confirmação e re-submete após sucesso.
-  const withReauth = (run: () => Promise<unknown>) => (err: any) => {
-    const data = err?.response?.data;
-    if (
-      err?.response?.status === 403 &&
-      (data?.error === "reauthentication_required" ||
-        data?.message === "reauthentication_required")
-    ) {
-      showReauthModal(modals, {
-        hasTotp: !!currentUser?.totpVerified,
-        onSuccess: () => {
-          run().catch((e) => toast.axiosError(e));
-        },
-      });
-      return;
-    }
-    toast.axiosError(err);
-  };
+  const reauth = withReauth(modals, !!currentUser?.totpVerified);
   const accountForm = useForm({
     initialValues: {
       username: user.username,
@@ -165,7 +149,7 @@ const Body = ({
               getUsers();
               modals.closeAll();
             })
-            .catch(withReauth(() => run().then(() => {
+            .catch(reauth(() => run().then(() => {
               getUsers();
               modals.closeAll();
             })));
@@ -235,7 +219,7 @@ const Body = ({
                   };
                   run()
                     .then(done)
-                    .catch(withReauth(() => run().then(done)));
+                    .catch(reauth(() => run().then(done)));
                 })}
               >
                 <Stack>

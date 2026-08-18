@@ -16,7 +16,12 @@ import * as yup from "yup";
 import { translateOutsideContext } from "../../../hooks/useTranslate.hook";
 import useTranslate from "../../../hooks/useTranslate.hook";
 import userService from "../../../services/user.service";
+import User from "../../../types/user.type";
 import { getApiErrorField, getApiErrorMessage } from "../../../utils/error.util";
+import {
+  isReauthRequiredError,
+  withReauth,
+} from "../../../utils/reauth.util";
 import toast from "../../../utils/toast.util";
 import { copyToClipboard } from "../../../utils/clipboard.util";
 
@@ -26,12 +31,18 @@ const showCreateUserModal = (
   modals: ModalsContextProps,
   smtpEnabled: boolean,
   getUsers: () => void,
+  currentUser?: User | null,
 ) => {
   const t = translateOutsideContext();
   return modals.openModal({
     title: t("admin.users.modal.create.title"),
     children: (
-      <Body modals={modals} smtpEnabled={smtpEnabled} getUsers={getUsers} />
+      <Body
+        modals={modals}
+        smtpEnabled={smtpEnabled}
+        getUsers={getUsers}
+        currentUser={currentUser}
+      />
     ),
   });
 };
@@ -40,10 +51,12 @@ const Body = ({
   modals,
   smtpEnabled,
   getUsers,
+  currentUser,
 }: {
   modals: ModalsContextProps;
   smtpEnabled: boolean;
   getUsers: () => void;
+  currentUser?: User | null;
 }) => {
   const t = useTranslate();
   const [checkingField, setCheckingField] = useState<"username" | "email" | null>(null);
@@ -122,62 +135,70 @@ const Body = ({
     <Stack>
       <form
         onSubmit={form.onSubmit(async (values) => {
-          userService
-            .create({
-              username: values.username,
-              email: values.email,
-              password: values.password,
-              role: values.role,
-              generatePassword: values.generatePassword,
-            })
-            .then((result) => {
-              getUsers();
-              if (result.temporaryPassword) {
-                modals.openConfirmModal({
-                  title: t("admin.users.modal.create.temporaryPassword"),
-                  children: (
-                    <Stack gap="md">
-                      <p>{t("admin.users.modal.create.temporaryPassword.warning")}</p>
-                      <div
-                        style={{
-                          background: "var(--mantine-color-gray-1)",
-                          padding: "md",
-                          borderRadius: "md",
-                          fontFamily: "monospace",
-                          wordBreak: "break-all",
-                        }}
-                      >
-                        {result.temporaryPassword}
-                      </div>
-                      <Button
-                        onClick={() => {
-                          copyToClipboard(result.temporaryPassword);
-                          toast.success(t("common.notify.copied"));
-                        }}
-                      >
-                        {t("common.button.copy")}
-                      </Button>
-                    </Stack>
-                  ),
-                  labels: {
-                    confirm: t("common.button.done"),
-                    cancel: t("common.button.cancel"),
-                  },
-                  cancelProps: { style: { display: "none" } },
-                  onClose: () => modals.closeAll(),
-                });
-              } else {
-                modals.closeAll();
-              }
-            })
-            .catch((e) => {
-              const field = getApiErrorField(e);
-              if (field === "username" || field === "email") {
-                form.setFieldError(field, getApiErrorMessage(e) ?? t("admin.users.error.duplicated"));
-              } else {
-                toast.axiosError(e);
-              }
-            });
+          const doCreate = () =>
+            userService
+              .create({
+                username: values.username,
+                email: values.email,
+                password: values.password,
+                role: values.role,
+                generatePassword: values.generatePassword,
+              })
+              .then((result) => {
+                getUsers();
+                if (result.temporaryPassword) {
+                  modals.openConfirmModal({
+                    title: t("admin.users.modal.create.temporaryPassword"),
+                    children: (
+                      <Stack gap="md">
+                        <p>{t("admin.users.modal.create.temporaryPassword.warning")}</p>
+                        <div
+                          style={{
+                            background: "var(--mantine-color-gray-1)",
+                            padding: "md",
+                            borderRadius: "md",
+                            fontFamily: "monospace",
+                            wordBreak: "break-all",
+                          }}
+                        >
+                          {result.temporaryPassword}
+                        </div>
+                        <Button
+                          onClick={() => {
+                            copyToClipboard(result.temporaryPassword);
+                            toast.success(t("common.notify.copied"));
+                          }}
+                        >
+                          {t("common.button.copy")}
+                        </Button>
+                      </Stack>
+                    ),
+                    labels: {
+                      confirm: t("common.button.done"),
+                      cancel: t("common.button.cancel"),
+                    },
+                    cancelProps: { style: { display: "none" } },
+                    onClose: () => modals.closeAll(),
+                  });
+                } else {
+                  modals.closeAll();
+                }
+              });
+
+          // SEC-1.2/15.4: criar usuário é operação crítica — exige reauth.
+          const reauth = withReauth(modals, !!currentUser?.totpVerified);
+          doCreate().catch((e) => {
+            if (isReauthRequiredError(e)) {
+              reauth(doCreate)(e);
+              return;
+            }
+            const field = getApiErrorField(e);
+            if (field === "username" || field === "email") {
+              form.setFieldError(field, getApiErrorMessage(e) ?? t("admin.users.error.duplicated"));
+            } else {
+              toast.axiosError(e);
+            }
+          });
         })}
       >
         <Stack>

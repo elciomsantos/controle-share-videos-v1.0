@@ -11,6 +11,7 @@ import useTranslate from "../../hooks/useTranslate.hook";
 import useUser from "../../hooks/user.hook";
 import userService from "../../services/user.service";
 import User from "../../types/user.type";
+import { withReauth } from "../../utils/reauth.util";
 import toast from "../../utils/toast.util";
 
 const Users = () => {
@@ -46,10 +47,11 @@ const Users = () => {
       },
       confirmProps: { color: "red" },
       onConfirm: async () => {
-        userService
-          .remove(user.id)
-          .then(() => setUsers(users.filter((v) => v.id != user.id)))
-          .catch(toast.axiosError);
+        const run = () => userService.remove(user.id);
+        const done = () => setUsers(users.filter((v) => v.id != user.id));
+        run()
+          .then(done)
+          .catch(withReauth(modals, !!currentUser?.totpVerified)(() => run().then(done)));
       },
     });
   };
@@ -67,7 +69,12 @@ const Users = () => {
         </Title>
         <Button
           onClick={() =>
-            showCreateUserModal(modals, config.get("smtp.enabled"), getUsers)
+            showCreateUserModal(
+              modals,
+              config.get("smtp.enabled"),
+              getUsers,
+              currentUser,
+            )
           }
           leftSection={<TbPlus size={20} />}
         >

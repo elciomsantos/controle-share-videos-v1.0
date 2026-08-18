@@ -7,6 +7,24 @@
 
 ---
 
+## v1.2.18 — Reautenticação em TODAS as operações do admin sobre usuários (2026-08-18)
+
+### Resumo
+Pedido do usuário: por medida de segurança, **todas** as alterações que o admin fizer em outros usuários precisam de autenticação (reauth de senha + TOTP). No v1.2.17 o reauth virou uso único, mas só o editar (`PATCH /users/:id`) e o excluir (`DELETE /users/:id`) tinham `@ReauthRequired()`; **criar usuário não exigia reauth**, e os fluxos de excluir/criar **não tratavam** o 403 `reauthentication_required` (mostravam só o toast de erro, sem abrir o modal de confirmação). Também foi relatado 401 no login — investigado: senha pessoal do admin sobrescrita pelo seed no restart do container (comportamento pré-existente, senha vigente = valor de `.env.local`).
+
+### Correções aplicadas
+- **`backend/src/user/user.controller.ts`**: `@ReauthRequired()` no `POST /users` (criar). Todas as operações de admin sobre usuários (criar/editar/excluir) agora exigem reauth.
+- **`frontend/src/utils/reauth.util.ts`** (novo): `isReauthRequiredError` + `withReauth(modals, hasTotp)` — lógica de 403 reauth centralizada (era duplicada inline no modal de edição).
+- **`frontend/src/pages/admin/users.tsx`**: exclusão de usuário trata 403 `reauthentication_required` — abre o modal de confirmação e re-executa o delete após sucesso. Passa `currentUser` ao modal de criar.
+- **`frontend/src/components/admin/users/showCreateUserModal.tsx`**: recebe `currentUser` (para `hasTotp`) e trata 403 de reauth no submit — abre o modal e re-executa a criação (mantendo o fluxo de senha temporária).
+- **`frontend/src/components/admin/users/showUpdateUserModal.tsx`**: refatorado para usar o util compartilhado.
+
+### Validado
+- `tsc --noEmit`/`eslint` frontend limpos; vitest **14/14**; jest backend **248 testes / 24 suítes**; `eslint` backend limpo; rebuild das imagens no Docker.
+- Navegador: (1) criar usuário logo após login → `POST` 201 **sem** pedir reauth (marco do login) e consome o marco; (2) **excluir** usuário na sequência → `DELETE` 403 `reauthentication_required`, modal "Confirme sua identidade" com senha + TOTP → confirmado → `DELETE` 200 e linha removida; (3) **criar** outro usuário → `POST` 403, reauth pedido → confirmado → `POST` 201 com senha temporária exibida.
+
+---
+
 ## v1.2.17 — Reautenticação de uso único para operações críticas (2026-08-18)
 
 ### Resumo
