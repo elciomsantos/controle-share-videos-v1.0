@@ -197,6 +197,7 @@ export default {
   "admin.users.edit.update.change-password.title": "Alterar senha",
   "admin.users.edit.update.change-password.field": "Nova senha",
   "admin.users.edit.update.change-password.button": "Salvar nova senha",
+  "admin.users.edit.update.change-password.self": "Para alterar a sua própria senha, use a página \"Trocar senha\" da sua conta.",
   "admin.users.edit.update.notify.password.success": "Senha alterada com sucesso",
   "admin.users.edit.delete.title": "Excluir usuário {username} ?",
   "admin.users.edit.delete.description": "Você realmente quer excluir este usuário e todos os seus compartilhamentos?",

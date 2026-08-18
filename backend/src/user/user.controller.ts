@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   Param,
@@ -13,6 +14,7 @@ import {
 import { User } from "../../prisma/generated/prisma/client";
 import { Response } from "express";
 import { Throttle, SkipThrottle } from "@nestjs/throttler";
+import { I18nService } from "nestjs-i18n";
 import { GetUser } from "../auth/decorator/getUser.decorator";
 import { Authenticated, AdminOnly } from "../auth/decorator/guards.decorator";
 import { ReauthRequired } from "../auth/decorator/reauth.decorator";
@@ -35,6 +37,7 @@ export class UserController {
   constructor(
     private userService: UserService,
     private config: ConfigService,
+    private readonly i18n: I18nService,
   ) {}
 
   // Own user operations
@@ -118,7 +121,16 @@ export class UserController {
   @Patch(":id")
   @AdminOnly()
   @ReauthRequired()
-  async update(@Param("id") id: string, @Body() user: UpdateUserDto) {
+  async update(
+    @Param("id") id: string,
+    @Body() user: UpdateUserDto,
+    @GetUser() currentUser: User,
+  ) {
+    // SEC-1.2/15.4: o admin não altera a própria senha por este canal — deve
+    // usar a página "Trocar senha" da própria conta.
+    if (id === currentUser.id && user.password) {
+      throw new ForbiddenException(this.i18n.t("auth.cannotChangeOwnPassword"));
+    }
     return new UserDTO().from(await this.userService.update(id, user) as unknown as Partial<UserDTO>);
   }
 

@@ -1,16 +1,20 @@
 import {
   Accordion,
+  Alert,
   Button,
   Group,
   PasswordInput,
   Select,
   Stack,
   Switch,
+  Text,
   TextInput,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useModals } from "@mantine/modals";
 import { FormattedMessage, useIntl } from "react-intl";
+import { useState } from "react";
+import { TbCheck } from "react-icons/tb";
 import * as yup from "yup";
 import useTranslate from "../../../hooks/useTranslate.hook";
 import userService from "../../../services/user.service";
@@ -57,6 +61,13 @@ const Body = ({
 }) => {
   const t = useTranslate();
   const intl = useIntl();
+
+  const [passwordChanged, setPasswordChanged] = useState(false);
+
+  // SEC-1.2/15.4: o admin não troca a própria senha por este canal — deve usar
+  // a página "Trocar senha" da própria conta. A troca de senha de outros
+  // usuários (ex.: reset de senha esquecida) permanece habilitada.
+  const isSelf = currentUser?.id === user.id;
 
   // SEC-1.2/15.4: operações críticas exigem reautenticação recente. Ao receber
   // 403, abre o modal de confirmação e re-submete após sucesso.
@@ -181,44 +192,58 @@ const Body = ({
           />
         </Stack>
       </form>
-      <Accordion>
-        <Accordion.Item style={{ borderBottom: "none" }} value="changePassword">
-          <Accordion.Control px={0}>
-            <FormattedMessage id="admin.users.edit.update.change-password.title" />
-          </Accordion.Control>
-          <Accordion.Panel>
-            <form
-              onSubmit={passwordForm.onSubmit((values) => {
-                const run = () =>
-                  userService.update(user.id, {
-                    password: values.password,
-                  });
-                run()
-                  .then(() =>
+      {isSelf ? (
+        <Text size="sm" c="dimmed">
+          <FormattedMessage id="admin.users.edit.update.change-password.self" />
+        </Text>
+      ) : (
+        <Accordion>
+          <Accordion.Item style={{ borderBottom: "none" }} value="changePassword">
+            <Accordion.Control px={0}>
+              <FormattedMessage id="admin.users.edit.update.change-password.title" />
+            </Accordion.Control>
+            <Accordion.Panel>
+              {passwordChanged && (
+                <Alert
+                  icon={<TbCheck size={18} />}
+                  color="green"
+                  variant="light"
+                  mb="sm"
+                >
+                  <FormattedMessage id="admin.users.edit.update.notify.password.success" />
+                </Alert>
+              )}
+              <form
+                onSubmit={passwordForm.onSubmit((values) => {
+                  const run = () =>
+                    userService.update(user.id, {
+                      password: values.password,
+                    });
+                  const done = () => {
+                    setPasswordChanged(true);
                     toast.success(
                       t("admin.users.edit.update.notify.password.success"),
-                    ),
-                  )
-                  .catch(withReauth(() => run().then(() =>
-                    toast.success(
-                      t("admin.users.edit.update.notify.password.success"),
-                    ),
-                  )));
-              })}
-            >
-              <Stack>
-                <PasswordInput
-                  label={t("admin.users.edit.update.change-password.field")}
-                  {...passwordForm.getInputProps("password")}
-                />
-                <Button variant="light" type="submit">
-                  <FormattedMessage id="admin.users.edit.update.change-password.button" />
-                </Button>
-              </Stack>
-            </form>
-          </Accordion.Panel>
-        </Accordion.Item>
-      </Accordion>
+                    );
+                  };
+                  run()
+                    .then(done)
+                    .catch(withReauth(() => run().then(done)));
+                })}
+              >
+                <Stack>
+                  <PasswordInput
+                    label={t("admin.users.edit.update.change-password.field")}
+                    {...passwordForm.getInputProps("password")}
+                  />
+                  <Button variant="light" type="submit">
+                    <FormattedMessage id="admin.users.edit.update.change-password.button" />
+                  </Button>
+                </Stack>
+              </form>
+            </Accordion.Panel>
+          </Accordion.Item>
+        </Accordion>
+      )}
       <Group justify="flex-end">
         <Button type="submit" form="accountForm">
           <FormattedMessage id="common.button.save" />

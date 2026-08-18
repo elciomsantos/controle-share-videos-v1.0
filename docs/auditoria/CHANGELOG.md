@@ -7,6 +7,28 @@
 
 ---
 
+## v1.2.14 — Admin não altera a própria senha via /admin/users + mensagem de sucesso visível (2026-08-18)
+
+### Resumo
+Após o v1.2.13, o usuário pediu 3 ajustes no painel `/admin/users`: (1) impedir que o admin troque a **própria** senha por esse canal; (2) manter habilitada a troca/reset de senha de **outros** usuários (senha esquecida); (3) consertar a mensagem de confirmação que não aparecia (a mesma reclamação do v1.2.13 tinha outra camada: o toast de sucesso existia no DOM mas ficava **invisível**).
+
+### Causa raiz da mensagem invisível
+`_app.tsx` importava `@mantine/core/styles.css` mas **não** `@mantine/notifications/styles.css`. Sem o CSS, o container de notificações renderizava `position: static` no rodapé do fluxo da página — **atrás do overlay do modal** (z-index 201) — em vez de `position: fixed` (z-index 400) no canto da tela. O CSS existe no pacote (`node_modules/@mantine/notifications/styles.css`). Isso também afetava os toasts em `/account/change-password`.
+
+### Correções aplicadas
+- **`frontend/src/pages/_app.tsx`**: importa `@mantine/notifications/styles.css` (corrige a posição/visibilidade dos toasts).
+- **`frontend/src/components/admin/users/showUpdateUserModal.tsx`**: quando `currentUser?.id === user.id` (admin editando a si mesmo), o acordeão "Alterar senha" é **substituído** por um texto informativo apontando para a página "Trocar senha" da própria conta. Para outros usuários o acordeão permanece (reset de senha esquecida). Adicionado `Alert` verde inline de sucesso dentro do painel (além do toast) após a troca.
+- **`frontend/src/i18n/translations/pt-BR.ts`**: chave `admin.users.edit.update.change-password.self` (texto de bloqueio).
+- **`backend/src/user/user.controller.ts`**: guarda de defesa em profundidade no `PATCH /users/:id` — se `id === currentUser.id && user.password`, lança `ForbiddenException` (`i18n auth.cannotChangeOwnPassword`). O bloco da UI já impede o fluxo; o guard protege o endpoint diretamente.
+- **`backend/src/i18n/pt-BR/auth.json`**: chave `cannotChangeOwnPassword`.
+
+### Validado
+- `tsc --noEmit`/`eslint` frontend limpos; vitest **14/14**; `eslint` backend limpo (sem testes unitários do `UserController` no repositório).
+- Navegador (Docker, rebuild backend+frontend): modal de edição do **próprio** admin sem acordeão e com texto "Para alterar a sua própria senha, use a página Trocar senha"; modal de **outro** usuário com acordeão presente e troca de senha OK (`PATCH` 200); toast agora `position: fixed` (z-index 400) com "Senha alterada com sucesso" **e** `Alert` inline verde no modal; chamada direta `PATCH /api/users/{id-do-admin}` com senha → **403** "Não é possível alterar a própria senha por este canal. Use \"Trocar senha\" na sua conta.".
+- **Observação**: o seed do backend reaplica a senha do admin a partir de `.env.local` a cada start do container — comportamento pré-existente (a senha pessoal configurada pelo usuário é sobrescrita no restart).
+
+---
+
 ## v1.2.13 — Feedback de troca de senha em /admin/users (reauth com TOTP em modal) (2026-08-18)
 
 ### Resumo
