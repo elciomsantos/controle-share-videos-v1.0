@@ -62,6 +62,8 @@ const Body = ({
   const t = useTranslate();
   const intl = useIntl();
 
+  const VALID_ROLES = ["admin", "operador", "auditor"];
+
   const [passwordChanged, setPasswordChanged] = useState(false);
 
   // SEC-1.2/15.4: o admin não troca a própria senha por este canal — deve usar
@@ -93,14 +95,20 @@ const Body = ({
       username: user.username,
       email: user.email,
       isActivated: user.isActivated,
-      role: user.isAdmin ? "admin" : (user.role || "operador"),
+      role: user.isAdmin
+        ? "admin"
+        : (VALID_ROLES.includes(user.role) ? user.role : "operador"),
     },
     validate: (values) => {
       const schema = yup.object().shape({
         email: yup.string().email(t("common.error.invalid-email")),
         username: yup
           .string()
-          .min(3, t("common.error.too-short", { length: 3 })),
+          .min(3, t("common.error.too-short", { length: 3 }))
+          .matches(
+            /^[a-zA-Z0-9_.]*$/,
+            t("common.error.username-pattern"),
+          ),
       });
       try {
         schema.validateSync(values, { abortEarly: false });

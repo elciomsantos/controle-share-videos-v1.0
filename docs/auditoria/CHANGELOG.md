@@ -7,6 +7,27 @@
 
 ---
 
+## v1.2.16 — Corrige erro 400 ao salvar dados de conta em /admin/users (papel legado + validação de nome) (2026-08-18)
+
+### Resumo
+Relato do usuário: ao usar o botão "Salvar" no modal de editar usuário após alterar o **Nome de usuário**, o `PATCH /api/users/:id` retornava **400**. Reproduzido e analisado: dois problemas em cascata.
+
+### Causa raiz
+1. **Papel legado no banco**: usuários criados em versões antigas (ex.: o `e2e-teste` local) tinham `role = "user"` no DB — fora do conjunto válido atual `admin`/`operador`/`auditor`. O `Select` de perfil do modal não reconhecia `"user"` (ficava sem valor visível) e o formulário **enviava `role: "user"` no submit** → validação do backend rejeitava com 400. Por isso o "Salvar" falhava até sem alteração nenhuma ("o botão salvar não está salvando nada").
+2. **Nome de usuário inválido sem validação local**: o yup do formulário só checava o mínimo de 3 caracteres; um nome com espaço/caractere inválido passava no frontend e só falhava no backend (400) — sem mensagem clara para o usuário.
+
+### Correções aplicadas
+- **`backend/prisma/migrations/20260818140000_normalize_legacy_user_roles/migration.sql`**: normaliza papéis legados — `UPDATE "User" SET role='operador' WHERE role NOT IN ('admin','operador','auditor')` (roda via `prisma migrate deploy` no start do container).
+- **`frontend/src/components/admin/users/showUpdateUserModal.tsx`**: valor inicial do perfil normaliza papéis desconhecidos para `operador` (`VALID_ROLES.includes(user.role) ? user.role : "operador"`); validação do nome de usuário agora exige o mesmo padrão do backend (`/^[a-zA-Z0-9_.]*$/`) com erro inline.
+- **`frontend/src/i18n/translations/pt-BR.ts`**: chave `common.error.username-pattern`.
+
+### Validado
+- `tsc --noEmit`/`eslint` frontend limpos; vitest **14/14**; rebuild das imagens backend+frontend no Docker; migration aplicada no DB local (`e2e-teste` → `operador`).
+- Navegador: perfil do `e2e-teste` abre como "Operador"; nome com espaço mostra erro inline ("O nome de usuário pode conter apenas letras, números, pontos e sublinhados") **sem chamada à API**; renomeação válida → `PATCH` 200 (após reauth com TOTP) e o modal fecha.
+- **Nota**: o usuário de teste local `e2e-teste` tinha hífen no nome (inválido pelo padrão); na validação foi renomeado para `e2e_teste` (o spec e2e não depende desse nome).
+
+---
+
 ## v1.2.15 — Botão "Fechar" no modal de editar usuário (/admin/users) (2026-08-18)
 
 ### Resumo

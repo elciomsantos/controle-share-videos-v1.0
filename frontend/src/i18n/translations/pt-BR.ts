@@ -668,6 +668,7 @@ export default {
   "common.error": "Erro",
   "common.error.unknown": "Ocorreu um erro desconhecido. Tente novamente.",
   "common.error.invalid-email": "Endereço de e-mail inválido",
+  "common.error.username-pattern": "O nome de usuário pode conter apenas letras, números, pontos e sublinhados",
   "common.error.too-short": "Deve ter no mínimo {length} caracteres",
   "common.error.too-long": "Deve ter no máximo {length} caracteres",
   "common.error.number-too-small": "Deve ser pelo menos {min}",
