@@ -7,6 +7,35 @@
 
 ---
 
+## v1.2.11 — Correções de CI: build do backend, audit de produção, e2e (jest) e E2E (Playwright) (2026-08-18)
+
+### Resumo
+O pipeline de CI apresentava 3 falhas após as correções de segurança (`a043c1d`..`f44933c`): o **build do backend** quebrava (TS2564), o **audit de produção** acusava `deepmerge-ts@7.1.5` (high), o **e2e jest** falhava por dependência de ordem entre suites e o **E2E (Playwright)** não completava o login de admin (MFA obrigatório §34.2) nem carregava páginas que dependem de config pública. Todos os jobs de teste do CI estão verdes após esta correção.
+
+### Correções aplicadas
+- **Build do backend (TS2564)** — `backend/src/auth/dto/updatePassword.dto.ts`: `f44933c` tornou `oldPassword` obrigatória, mas sem inicialização (quebrava `nest build`). Adicionado `!` (`oldPassword!: string`) — "definitely assigned".
+- **Audit de produção** — `backend/package.json`: adicionado override `"deepmerge-ts": "^8.0.0"`. O `npm audit --omit=dev` apontava `GHSA-ggr8-5vv4-36mx` (high) em `deepmerge-ts@7.1.5`, puxado em produção via `@prisma/config` ← `prisma` ← `@prisma/client` (Prisma 7). Com o override: **0 vulnerabilidades**.
+- **e2e jest (ordem das suites)** — `backend/package.json` `test:e2e` dividido em duas invocações sequenciais com `--testPathPatterns=auth-share` e `--testPathPatterns=security`. As suites `auth-share` e `security` dependem do bootstrap "primeiro usuário" (admin via signUp + TOTP, §14.6) e compartilham o mesmo DB; apenas a suite alfabeticamente anterior (auth-share) conseguia virar admin, fazendo a `security` falhar em lote (16 testes). Agora **31/31 verdes** (16 + 15).
+- **E2E (Playwright) — login com MFA**: admin do harness agora tem TOTP verificado com segredo fixo conhecido:
+  - `backend/prisma/seed/e2e-totp.ts` (novo): seta `totpVerified = true` + `totpSecret` (base32 fixo) no admin de teste; idempotente (update). Executado por `seedAdmin()` (`e2e/lib/harness.ts`).
+  - `e2e/lib/env.ts`: constantes `E2E_TOTP_SECRET` + `E2E_TOTP_ADMIN_EMAIL/SECRET` injetadas no `BACKEND_ENV`.
+  - `e2e/lib/helpers.ts` `loginAsAdmin`: após a senha, completa o 2º fator — espera `/auth/totp/`, preenche "One time code" com código gerado via `otplib` (`generate({ secret })`) e confirma "Iniciar sessão".
+  - `e2e/package.json` (+lock): `otplib` adicionado como devDependency.
+- **E2E (Playwright) — quebra de páginas por throttling de config** — `backend/src/config/config.controller.ts`: a lista pública `GET /configs` recebeu `@SkipThrottle()`. O frontend consome `/api/configs` em **toda** renderização de página (middleware `proxy.ts` + `_app.tsx` getInitialProps), e o limite restritivo de admin (§22.4, 30 req/min do commit `37b0dab`) gerava 429 → fallback `getDefaultConfig()` (que **não** inclui `share.chunkSize`) → as páginas de upload/share lançavam `Config variable share.chunkSize not found` e o botão "Carregar Videos" nunca aparecia. Mesmo padrão das rotas `/me` do `UserController` (rota pública de uso obrigatório fora do limite restritivo).
+- **E2E (Playwright) — timeout**: `e2e/playwright.config.ts` `timeout: 120_000` (padrão 30s). Uploads com retry de CSRF (`csrf_invalid` transiente em rajadas, com rotação de cookie) podem ultrapassar os 30s.
+
+### Validado
+- Backend: build + lint (0 erros) + **247 testes unitários** (24 suites verdes) + e2e jest **31/31** + `npm audit --omit=dev` **0 vulnerabilidades**.
+- Frontend: build OK (produção e E2E).
+- E2E Playwright local: **6/6 verdes**.
+- CI (run `32139680571`, commit `afe82b6`): Backend, Frontend e **E2E (Playwright) verdes**.
+
+### Pendências
+- Job **Deploy (produção)** do CI falhou no passo SSH para o host (fora do escopo de teste; depende de segredos do environment `production` / disponibilidade do host).
+- Tracker `docs/SEGURANCA-CORRECTIONS-TRACKER.md` desatualizado (ainda marca Fase 3/rate limiting como pendente) — recomenda-se revisão futura.
+
+---
+
 ## v1.2.10 — Fase 5 da Especificação de Segurança v1.2: auditoria (§29) e admin de sessões (§34) (2026-08-17)
 
 ### Resumo
