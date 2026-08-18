@@ -2,6 +2,7 @@ import {
   Button,
   Center,
   Grid,
+  Group,
   Pagination,
   Space,
   Stack,
@@ -13,6 +14,7 @@ import { useModals } from "@mantine/modals";
 import { useEffect, useState } from "react";
 import { FormattedMessage } from "react-intl";
 import Meta from "../../../components/Meta";
+import AdminBackButton from "../../../components/admin/AdminBackButton";
 import SessionsTable from "../../../components/admin/sessions/SessionsTable";
 import useTranslate from "../../../hooks/useTranslate.hook";
 import adminSessionService from "../../../services/adminSession.service";
@@ -94,9 +96,12 @@ const Sessions = () => {
   return (
     <>
       <Meta title={t("admin.sessions.title")} />
-      <Title mb={20} order={3}>
-        <FormattedMessage id="admin.sessions.title" />
-      </Title>
+      <Group gap="md" align="center" mb={20}>
+        <AdminBackButton />
+        <Title mb={0} order={3}>
+          <FormattedMessage id="admin.sessions.title" />
+        </Title>
+      </Group>
 
       <Stack gap="md" mb="lg">
         <Grid gap="sm">

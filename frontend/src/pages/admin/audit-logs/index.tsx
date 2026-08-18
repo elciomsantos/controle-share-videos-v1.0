@@ -2,6 +2,7 @@ import {
   Button,
   Center,
   Grid,
+  Group,
   Pagination,
   Select,
   Space,
@@ -12,6 +13,7 @@ import {
 import { useEffect, useState } from "react";
 import { FormattedMessage } from "react-intl";
 import Meta from "../../../components/Meta";
+import AdminBackButton from "../../../components/admin/AdminBackButton";
 import AuditLogsTable from "../../../components/admin/audit-logs/AuditLogsTable";
 import useTranslate from "../../../hooks/useTranslate.hook";
 import auditLogService from "../../../services/auditLog.service";
@@ -84,9 +86,12 @@ const AuditLogs = () => {
   return (
     <>
       <Meta title={t("admin.auditLogs.title")} />
-      <Title mb={20} order={3}>
-        <FormattedMessage id="admin.auditLogs.title" />
-      </Title>
+      <Group gap="md" align="center" mb={20}>
+        <AdminBackButton />
+        <Title mb={0} order={3}>
+          <FormattedMessage id="admin.auditLogs.title" />
+        </Title>
+      </Group>
 
       <Stack gap="md" mb="lg">
         <Grid gap="sm">

@@ -1,6 +1,5 @@
 import {
   Box,
-  Button,
   Group,
   SegmentedControl,
   Stack,
@@ -9,7 +8,6 @@ import {
   useComputedColorScheme,
   useMantineTheme,
 } from "@mantine/core";
-import Link from "next/link";
 import { Dispatch, SetStateAction } from "react";
 import {
   TbAt,
@@ -21,6 +19,7 @@ import {
   TbShare,
 } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
+import AdminBackButton from "../AdminBackButton";
 
 /**
  * Category definitions — value is the lowercase key used by the backend API.
@@ -64,15 +63,11 @@ const ConfigurationTopNav = ({
       }}
     >
       <Stack gap="xs">
-        <Group justify="space-between" w="100%">
+        <Group gap="md" w="100%">
+          <AdminBackButton />
           <Text size="xs" c="dimmed" fw={600} tt="uppercase">
             <FormattedMessage id="admin.config.title" />
           </Text>
-          <Box style={{ "@media (min-width: 768px)": { display: "none" } }}>
-            <Button variant="light" component={Link} href="/admin">
-              <FormattedMessage id="common.button.go-back" />
-            </Button>
-          </Box>
         </Group>
         <SegmentedControl
           fullWidth

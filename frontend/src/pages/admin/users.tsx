@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { TbPlus } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
 import Meta from "../../components/Meta";
+import AdminBackButton from "../../components/admin/AdminBackButton";
 import ManageUserTable from "../../components/admin/users/ManageUserTable";
 import showCreateUserModal from "../../components/admin/users/showCreateUserModal";
 import useConfig from "../../hooks/config.hook";
@@ -113,9 +114,12 @@ const Users = () => {
     <>
       <Meta title={t("admin.users.title")} />
       <Group justify="space-between" align="baseline" mb={20}>
-        <Title mb={30} order={3}>
-          <FormattedMessage id="admin.users.title" />
-        </Title>
+        <Group gap="md" align="baseline">
+          <AdminBackButton />
+          <Title mb={0} order={3}>
+            <FormattedMessage id="admin.users.title" />
+          </Title>
+        </Group>
         <Button
           onClick={() =>
             showCreateUserModal(

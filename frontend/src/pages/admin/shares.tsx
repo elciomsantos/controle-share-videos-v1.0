@@ -3,6 +3,7 @@ import { useModals } from "@mantine/modals";
 import { useEffect, useState } from "react";
 import { FormattedMessage } from "react-intl";
 import Meta from "../../components/Meta";
+import AdminBackButton from "../../components/admin/AdminBackButton";
 import ManageShareTable from "../../components/admin/shares/ManageShareTable";
 import DiskUsage from "../../components/admin/shares/DiskUsage";
 import useTranslate from "../../hooks/useTranslate.hook";
@@ -66,9 +67,12 @@ const Shares = () => {
     <>
       <Meta title={t("admin.shares.title")} />
       <Group justify="space-between" align="center" mb={20}>
-        <Title mb={0} order={3}>
-          <FormattedMessage id="admin.shares.title" />
-        </Title>
+        <Group gap="md" align="center">
+          <AdminBackButton />
+          <Title mb={0} order={3}>
+            <FormattedMessage id="admin.shares.title" />
+          </Title>
+        </Group>
         <DiskUsage />
       </Group>
 

@@ -179,6 +179,8 @@ export default {
   "admin.button.users": "Gerenciamento de usuários",
   "admin.button.shares": "Gerenciamento de compartilhamentos",
   "admin.button.downloadLogs": "Logs de download",
+  "admin.button.sessions": "Sessões ativas",
+  "admin.button.auditLogs": "auditoria de eventos",
   "admin.button.config": "Configuração",
   "admin.version": "Versão",
   // END /admin

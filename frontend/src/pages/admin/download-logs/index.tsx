@@ -2,6 +2,7 @@ import {
   Button,
   Center,
   Grid,
+  Group,
   Pagination,
   Select,
   Space,
@@ -12,6 +13,7 @@ import {
 import { useEffect, useState } from "react";
 import { FormattedMessage } from "react-intl";
 import Meta from "../../../components/Meta";
+import AdminBackButton from "../../../components/admin/AdminBackButton";
 import DownloadLogsTable from "../../../components/admin/download-logs/DownloadLogsTable";
 import useTranslate from "../../../hooks/useTranslate.hook";
 import downloadLogService from "../../../services/downloadLog.service";
@@ -94,9 +96,12 @@ const DownloadLogs = () => {
   return (
     <>
       <Meta title={t("admin.downloadLogs.title")} />
-      <Title mb={20} order={3}>
-        <FormattedMessage id="admin.downloadLogs.title" />
-      </Title>
+      <Group gap="md" align="center" mb={20}>
+        <AdminBackButton />
+        <Title mb={0} order={3}>
+          <FormattedMessage id="admin.downloadLogs.title" />
+        </Title>
+      </Group>
 
       <Stack gap="md" mb="lg">
         <Grid gap="sm">
