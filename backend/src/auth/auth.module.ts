@@ -42,6 +42,6 @@ import { RecoveryCodeService } from "./recovery-code.service";
     PasswordMustChangeGuard,
     ReauthGuard,
   ],
-  exports: [AuthService, JwtGuard, RolesGuard, PasswordMustChangeGuard, SessionService],
+  exports: [AuthService, JwtGuard, RolesGuard, PasswordMustChangeGuard, SessionService, TokenService],
 })
 export class AuthModule {}

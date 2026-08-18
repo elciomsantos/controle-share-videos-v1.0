@@ -128,6 +128,18 @@ export class TokenService {
   }
 
   /**
+   * SEC-1.2/15.4: limpa o marco de reautenticação recente da sessão. Usado
+   * para tornar o reauth de **uso único**: cada operação crítica consumida
+   * exige nova confirmação de senha (+ TOTP) na operação seguinte.
+   */
+  async clearReauthenticated(refreshTokenId: string): Promise<void> {
+    await this.prisma.refreshToken.update({
+      where: { id: refreshTokenId },
+      data: { reauthenticatedAt: null },
+    });
+  }
+
+  /**
    * Cria um login token de uso único para o segundo fator (TOTP). Invalida os
    * login tokens anteriores não usados antes de criar um novo.
    */

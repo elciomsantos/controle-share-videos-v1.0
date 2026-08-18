@@ -5,6 +5,9 @@ describe("ReauthGuard", () => {
   let sessionService: {
     findByAccessToken: jest.Mock;
   };
+  let tokenService: {
+    clearReauthenticated: jest.Mock;
+  };
   let config: {
     getBoolean: jest.Mock;
     getTimespan: jest.Mock;
@@ -16,6 +19,7 @@ describe("ReauthGuard", () => {
 
   const makeSession = (minsAgo: number | null) => ({
     refreshToken: {
+      id: "refresh-token-id",
       reauthenticatedAt:
         minsAgo === null ? null : new Date(Date.now() - minsAgo * 60_000),
     },
@@ -27,17 +31,38 @@ describe("ReauthGuard", () => {
         Promise.resolve(makeSession(1)),
       ),
     };
+    tokenService = {
+      clearReauthenticated: jest.fn(() => Promise.resolve()),
+    };
     config = {
       getBoolean: jest.fn(() => false), // dev: cookie legado access_token
       getTimespan: jest.fn(() => ({ value: 5, unit: "minutes" })),
     };
-    guard = new ReauthGuard(sessionService as never, config as never);
+    guard = new ReauthGuard(
+      sessionService as never,
+      tokenService as never,
+      config as never,
+    );
   });
 
-  it("aceita quando a sessão foi reautenticada dentro da janela", async () => {
+  it("aceita quando a sessão foi reautenticada dentro da janela e consome o marco (reauth de uso único)", async () => {
     await expect(
       guard.canActivate(makeContext({ access_token: "opaque" })),
     ).resolves.toBe(true);
+
+    expect(tokenService.clearReauthenticated).toHaveBeenCalledWith(
+      "refresh-token-id",
+    );
+  });
+
+  it("não consome o marco quando a sessão foi reautenticada fora da janela", async () => {
+    sessionService.findByAccessToken.mockResolvedValue(makeSession(10));
+
+    await expect(
+      guard.canActivate(makeContext({ access_token: "opaque" })),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(tokenService.clearReauthenticated).not.toHaveBeenCalled();
   });
 
   it("recusa quando o cookie de sessão está ausente", async () => {

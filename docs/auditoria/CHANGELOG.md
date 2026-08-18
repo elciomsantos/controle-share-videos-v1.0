@@ -7,6 +7,28 @@
 
 ---
 
+## v1.2.17 — Reautenticação de uso único para operações críticas (2026-08-18)
+
+### Resumo
+Relato do usuário: após alterar o nome de usuário em `/admin/users` (o fluxo pediu senha + OTP do admin corretamente), ao abrir o modal novamente e trocar o **perfil** o sistema **não voltou a pedir** a confirmação de senha/OTP — janela de reauth de 5 min (SEC-1.2/15.4) ainda válida. Pedido: exigir a confirmação novamente em cada operação crítica por segurança.
+
+### Causa raiz
+O `ReauthGuard` (SEC-1.2/15.4) só checava o marco `reauthenticatedAt` no refresh token dentro da janela `general.reauthWindow` (5 min) — o marco não era consumido. Uma vez reautenticado, qualquer operação crítica dentro da janela passava sem nova confirmação.
+
+### Correção aplicada
+Reautenticação de **uso único**: cada operação crítica que passa pelo `ReauthGuard` **consome** o marco — a operação crítica seguinte exige nova confirmação de senha (+ TOTP).
+- **`backend/src/auth/service/token.service.ts`**: novo `clearReauthenticated(refreshTokenId)` (zera `reauthenticatedAt`).
+- **`backend/src/auth/guard/reauth.guard.ts`**: após validar a janela, limpa o marco da sessão corrente.
+- **`backend/src/auth/auth.module.ts`**: exporta `TokenService` (o guard é usado também em `UserModule`/`AuditModule`, que precisam resolver a dependência).
+- **`backend/src/auth/guard/reauth.guard.spec.ts`**: mocks atualizados (TokenService) e asserções do consumo do marco.
+
+### Validado
+- Jest backend: **248 testes / 24 suítes** passando; `eslint` limpo.
+- Navegador (Docker, rebuild do backend): 1ª operação crítica logo após login → `PATCH` 200 **sem** pedir reauth; 2ª operação crítica (trocar perfil) → `PATCH` 403 `reauthentication_required` e modal "Confirme sua identidade" **com senha + PinInput TOTP**; reauth concluído → re-submit 200 e modal fecha.
+- Fluxos que renovam o token (ex.: trocar a própria senha) continuam nascendo com o marco reautenticado (comportamento original preservado).
+
+---
+
 ## v1.2.16 — Corrige erro 400 ao salvar dados de conta em /admin/users (papel legado + validação de nome) (2026-08-18)
 
 ### Resumo
