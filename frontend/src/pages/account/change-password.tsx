@@ -2,10 +2,11 @@ import { Alert, Button, PasswordInput, Stack, Text, Title } from "@mantine/core"
 import { useForm } from "@mantine/form";
 import { useModals } from "@mantine/modals";
 import { useRouter } from "next/router";
+import { useEffect, useState } from "react";
 import { useIntl } from "react-intl";
 import * as yup from "yup";
 import Head from "next/head";
-import { TbAlertCircle } from "react-icons/tb";
+import { TbAlertCircle, TbCheck } from "react-icons/tb";
 import useTranslate from "../../hooks/useTranslate.hook";
 import useUser from "../../hooks/user.hook";
 import authService from "../../services/auth.service";
@@ -52,17 +53,29 @@ const ChangePassword = () => {
 
   const isRestricted = router.query.restricted === "true";
 
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const nextPath =
+    typeof router.query.next === "string" &&
+    router.query.next.startsWith("/") &&
+    !router.query.next.startsWith("//")
+      ? router.query.next
+      : "/";
+
+  // Mantém a mensagem de sucesso visível antes de redirecionar.
+  useEffect(() => {
+    if (!success) return;
+    const id = window.setTimeout(() => router.push(nextPath), 2500);
+    return () => window.clearTimeout(id);
+  }, [success, nextPath, router]);
+
   const handleSubmit = form.onSubmit(async (values) => {
+    setLoading(true);
     try {
       await authService.updatePassword(values.currentPassword, values.newPassword);
       toast.success(t("account.changePassword.success"));
-      const next =
-        typeof router.query.next === "string" &&
-        router.query.next.startsWith("/") &&
-        !router.query.next.startsWith("//")
-          ? router.query.next
-          : "/";
-      router.push(next);
+      setSuccess(true);
     } catch (err: any) {
       // SEC-1.2/15.4: reautenticação recente exigida — pede confirmação e
       // re-submete ao concluir.
@@ -79,7 +92,7 @@ const ChangePassword = () => {
               .updatePassword(values.currentPassword, values.newPassword)
               .then(() => {
                 toast.success(t("account.changePassword.success"));
-                router.push("/");
+                setSuccess(true);
               })
               .catch(toast.axiosError);
           },
@@ -87,6 +100,8 @@ const ChangePassword = () => {
         return;
       }
       toast.axiosError(err);
+    } finally {
+      setLoading(false);
     }
   });
 
@@ -109,6 +124,16 @@ const ChangePassword = () => {
             {t("account.changePassword.restricted")}
           </Alert>
         )}
+        {success && (
+          <Alert
+            icon={<TbCheck size={18} />}
+            color="green"
+            variant="light"
+            title={t("account.changePassword.success")}
+          >
+            {t("account.changePassword.next")}
+          </Alert>
+        )}
         <form onSubmit={handleSubmit}>
           <Stack gap="md">
             <PasswordInput
@@ -123,7 +148,7 @@ const ChangePassword = () => {
               label={t("account.changePassword.confirm")}
               {...form.getInputProps("confirmPassword")}
             />
-            <Button type="submit" fullWidth>
+            <Button type="submit" fullWidth loading={loading}>
               {t("account.changePassword.submit")}
             </Button>
           </Stack>

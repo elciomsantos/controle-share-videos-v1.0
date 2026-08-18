@@ -13,6 +13,7 @@ import {
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useModals } from "@mantine/modals";
+import { useState } from "react";
 import { TbAuth2Fa } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
 import * as yup from "yup";
@@ -31,6 +32,8 @@ const Account = () => {
   const modals = useModals();
   const t = useTranslate();
   const config = useConfig();
+
+  const [passwordSaving, setPasswordSaving] = useState(false);
 
   const accountForm = useForm({
     initialValues: {
@@ -185,16 +188,22 @@ const Account = () => {
             <FormattedMessage id="account.card.password.title" />
           </Title>
           <form
-            onSubmit={passwordForm.onSubmit((values) =>
-              authService
-                .updatePassword(values.oldPassword, values.password)
-                .then(async () => {
-                  refreshUser();
-                  toast.success(t("account.notify.password.success"));
-                  passwordForm.reset();
-                })
-                .catch(toast.axiosError),
-            )}
+            onSubmit={passwordForm.onSubmit(async (values) => {
+              setPasswordSaving(true);
+              try {
+                await authService.updatePassword(
+                  values.oldPassword,
+                  values.password,
+                );
+                refreshUser();
+                toast.success(t("account.notify.password.success"));
+                passwordForm.reset();
+              } catch (err) {
+                toast.axiosError(err);
+              } finally {
+                setPasswordSaving(false);
+              }
+            })}
           >
             <Stack>
               {user?.hasPassword ? (
@@ -212,7 +221,7 @@ const Account = () => {
                 {...passwordForm.getInputProps("password")}
               />
               <Group justify="flex-end">
-                <Button type="submit">
+                <Button type="submit" loading={passwordSaving}>
                   <FormattedMessage id="common.button.save" />
                 </Button>
               </Group>

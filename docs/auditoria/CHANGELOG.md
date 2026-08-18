@@ -7,6 +7,24 @@
 
 ---
 
+## v1.2.12 — Feedback visível na troca de senha (loading + confirmação + redirect adiado) (2026-08-18)
+
+### Resumo
+Relato do usuário: na página `/account/change-password`, clicar em "Trocar senha" não mostrava mensagem de confirmação/falha. Verificado em reprodução (usuário comum, admin com TOTP e fluxo de reautenticação SEC-1.2/15.4) que o toast **sempre** era disparado — mas: (1) o botão não tinha estado de carregamento (a verificação argon2 + revogação de sessões leva ~2-4s de espera "silenciosa"); (2) o toast de sucesso disparava no mesmo instante do redirect e sumia em ~4s (auto-dismiss), fácil de perder. Além disso, a tradução `account.changePassword.next` ("Você será redirecionado em seguida.") já existia mas estava **sem uso** — o design original previa mensagem visível + redirect adiado, nunca implementado.
+
+### Correções aplicadas
+- **`frontend/src/pages/account/change-password.tsx`**:
+  - Botão "Trocar senha" com `loading` durante a requisição (feedback imediato no clique).
+  - Sucesso agora exibe `Alert` verde inline "Senha alterada com sucesso." + "Você será redirecionado em seguida." (`account.changePassword.next`, antes órfã) e o redirect (`next`/`/`) ocorre **2,5s depois** via `useEffect` — o toast e a mensagem ficam visíveis antes da navegação.
+  - Fluxo de reautenticação (403 `reauthentication_required`) também usa o mesmo `setSuccess` em vez de `router.push` imediato.
+- **`frontend/src/pages/account/index.tsx`**: card "Senha" de `/account` — botão "Salvar" com `loading` e handler `async`/`try-finally` (mesmo feedback durante o processamento; toast já funcionava e não redireciona).
+
+### Validado
+- `tsc --noEmit` e `eslint` frontend: 0 erros; vitest **14/14**.
+- Reprodução no navegador (Docker): admin+TOTP — sucesso mantém a página por ~2,5s com toast + Alert "Você será redirecionado em seguida.", depois navega a `/upload`; erro e reauth (403 → modal "Confirme sua identidade" → re-submit) continuam com feedback.
+
+---
+
 ## v1.2.11 — Correções de CI: build do backend, audit de produção, e2e (jest) e E2E (Playwright) (2026-08-18)
 
 ### Resumo
