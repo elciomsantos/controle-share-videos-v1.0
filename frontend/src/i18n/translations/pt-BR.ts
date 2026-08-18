@@ -647,6 +647,7 @@ export default {
   "common.button.submit": "Submeter",
   "common.button.delete": "Excluir",
   "common.button.cancel": "Cancelar",
+  "common.button.close": "Fechar",
   "common.button.confirm": "Confirmar",
   "common.button.disable": "Desativar",
   "common.button.share": "Carregar",

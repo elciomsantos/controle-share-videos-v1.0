@@ -7,6 +7,21 @@
 
 ---
 
+## v1.2.15 — Botão "Fechar" no modal de editar usuário (/admin/users) (2026-08-18)
+
+### Resumo
+Após a troca de senha de outro usuário o modal permanece aberto (com o `Alert` de confirmação); o usuário pediu um botão para fechá-lo. Adicionado o botão **"Fechar"** ao lado do "Salvar" no rodapé do modal, que apenas fecha o modal (`modals.closeAll()`). O "Salvar" (dados de conta) foi mantido.
+
+### Correção aplicada
+- **`frontend/src/components/admin/users/showUpdateUserModal.tsx`**: botão "Fechar" (`variant="subtle"`, `type="button"`, `onClick={() => modals.closeAll()}`) junto ao "Salvar".
+- **`frontend/src/i18n/translations/pt-BR.ts`**: chave `common.button.close` = "Fechar".
+
+### Validado
+- `tsc --noEmit`/`eslint` frontend limpos; rebuild da imagem frontend no Docker.
+- Navegador: rodapé do modal exibe "Salvar nova senha", "Fechar" e "Salvar"; "Fechar" fecha o modal.
+
+---
+
 ## v1.2.14 — Admin não altera a própria senha via /admin/users + mensagem de sucesso visível (2026-08-18)
 
 ### Resumo

@@ -245,6 +245,13 @@ const Body = ({
         </Accordion>
       )}
       <Group justify="flex-end">
+        <Button
+          variant="subtle"
+          type="button"
+          onClick={() => modals.closeAll()}
+        >
+          <FormattedMessage id="common.button.close" />
+        </Button>
         <Button type="submit" form="accountForm">
           <FormattedMessage id="common.button.save" />
         </Button>
