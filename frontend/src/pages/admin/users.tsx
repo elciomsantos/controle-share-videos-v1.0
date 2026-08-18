@@ -8,6 +8,7 @@ import ManageUserTable from "../../components/admin/users/ManageUserTable";
 import showCreateUserModal from "../../components/admin/users/showCreateUserModal";
 import useConfig from "../../hooks/config.hook";
 import useTranslate from "../../hooks/useTranslate.hook";
+import useUser from "../../hooks/user.hook";
 import userService from "../../services/user.service";
 import User from "../../types/user.type";
 import toast from "../../utils/toast.util";
@@ -19,6 +20,7 @@ const Users = () => {
   const config = useConfig();
   const modals = useModals();
   const t = useTranslate();
+  const { user: currentUser } = useUser();
 
   const getUsers = () => {
     setIsLoading(true);
@@ -78,6 +80,7 @@ const Users = () => {
         getUsers={getUsers}
         deleteUser={deleteUser}
         isLoading={isLoading}
+        currentUser={currentUser}
       />
       <Space h="xl" />
     </>

@@ -12,11 +12,13 @@ const ManageUserTable = ({
   getUsers,
   deleteUser,
   isLoading,
+  currentUser,
 }: {
   users: User[];
   getUsers: () => void;
   deleteUser: (user: User) => void;
   isLoading: boolean;
+  currentUser?: User | null;
 }) => {
   const modals = useModals();
   const t = useTranslate();
@@ -65,7 +67,7 @@ const ManageUserTable = ({
                           color="blue"
                           size={25}
                           onClick={() =>
-                            showUpdateUserModal(modals, user, getUsers)
+                            showUpdateUserModal(modals, user, getUsers, currentUser)
                           }
                         >
                           <TbEdit />

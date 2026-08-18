@@ -7,6 +7,25 @@
 
 ---
 
+## v1.2.13 — Feedback de troca de senha em /admin/users (reauth com TOTP em modal) (2026-08-18)
+
+### Resumo
+Relato do usuário: em `/admin/users`, o acordeão "Alterar senha" (modal de editar usuário) não mostrava mensagem de confirmação. Reproduzido com sessão de admin: com reautenticação recente o toast de sucesso aparecia, mas **com a janela de reauth expirada (SEC-1.2/15.4, padrão 5 min)** o fluxo quebrava: o `PATCH /users/:id` retornava 403 e o modal "Confirme sua identidade" abria **sem o campo TOTP** — mesmo com TOTP ativo no admin — fazendo o `reauthenticate` retornar 500 ("Token must be 6 digits, got 0"). Resultado: o modal de reauth ficava preso, a senha nunca era alterada e nenhuma confirmação aparecia.
+
+### Causa raiz
+No Mantine v9, `ModalsProvider` renderiza o conteúdo do modal como **irmão** dos `children` (o app): `<ModalsContext><Modal>{content}</Modal>{children}</ModalsContext>`. Como `UserContext.Provider` fica **dentro** de `children`, `useUser()` executado **dentro do conteúdo de um modal** retorna o default `{ user: null }`. Em `showUpdateUserModal.tsx` o `hasTotp` do modal de reauth era calculado com esse contexto (`!!currentUser?.totpVerified` → `false`), então o `PinInput` de TOTP nunca era renderizado. Em `/account/change-password` o mesmo cálculo ocorre no escopo da **página** (contexto correto) — por isso funcionava lá e quebrava no admin.
+
+### Correções aplicadas
+- **`frontend/src/pages/admin/users.tsx`**: página lê o `currentUser` no escopo correto (`useUser()`) e o repassa como prop.
+- **`frontend/src/components/admin/users/ManageUserTable.tsx`**: aceita `currentUser` e o passa a `showUpdateUserModal`.
+- **`frontend/src/components/admin/users/showUpdateUserModal.tsx`**: remove o `useUser()` de dentro do modal e usa o `currentUser` recebido por prop para `hasTotp` do modal de reauth (`!!currentUser?.totpVerified`).
+
+### Validado
+- `tsc --noEmit` e `eslint` frontend: 0 erros; vitest **14/14**.
+- Reprodução no navegador (Docker, admin com TOTP ativo, reauth expirada): `PATCH /users/:id` → 403 → modal de reauth agora **com PinInput TOTP** → `reauthenticate` 200 → re-submit 200 → toasts "Identidade confirmada" + "Senha alterada com sucesso". Caminho direto (reauth válida): `PATCH` 200 + toast de sucesso.
+
+---
+
 ## v1.2.12 — Feedback visível na troca de senha (loading + confirmação + redirect adiado) (2026-08-18)
 
 ### Resumo

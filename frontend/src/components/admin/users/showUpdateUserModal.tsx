@@ -13,7 +13,6 @@ import { useModals } from "@mantine/modals";
 import { FormattedMessage, useIntl } from "react-intl";
 import * as yup from "yup";
 import useTranslate from "../../../hooks/useTranslate.hook";
-import useUser from "../../../hooks/user.hook";
 import userService from "../../../services/user.service";
 import showReauthModal from "../../auth/showReauthModal";
 import User from "../../../types/user.type";
@@ -25,6 +24,7 @@ const showUpdateUserModal = (
   modals: ModalsContextProps,
   user: User,
   getUsers: () => void,
+  currentUser?: User | null,
 ) => {
   return modals.openModal({
     title: (
@@ -34,7 +34,12 @@ const showUpdateUserModal = (
       />
     ),
     children: (
-      <Body modals={modals} user={user} getUsers={getUsers} />
+      <Body
+        modals={modals}
+        user={user}
+        getUsers={getUsers}
+        currentUser={currentUser}
+      />
     ),
   });
 };
@@ -43,14 +48,15 @@ const Body = ({
   modals,
   user,
   getUsers,
+  currentUser,
 }: {
   modals: ModalsContextProps;
   user: User;
   getUsers: () => void;
+  currentUser?: User | null;
 }) => {
   const t = useTranslate();
   const intl = useIntl();
-  const { user: currentUser } = useUser();
 
   // SEC-1.2/15.4: operações críticas exigem reautenticação recente. Ao receber
   // 403, abre o modal de confirmação e re-submete após sucesso.
