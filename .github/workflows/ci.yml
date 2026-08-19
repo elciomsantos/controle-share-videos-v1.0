@@ -206,6 +206,16 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Run Trivy vulnerability scanner (Backend image)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          scan-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:test'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
       - name: Build frontend image
         uses: docker/build-push-action@v5
         with:
@@ -217,6 +227,16 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Run Trivy vulnerability scanner (Frontend image)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          scan-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:test'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
       - name: Build combined image
         uses: docker/build-push-action@v5
         with:
@@ -227,33 +247,6 @@ jobs:
           load: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  security-scan:
-    name: Security Scan (Docker, Secrets)
-    runs-on: ubuntu-latest
-    needs: [backend, frontend, docker-build]
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Run Trivy vulnerability scanner (Backend image)
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'image'
-          scan-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:test'
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          severity: 'CRITICAL,HIGH'
-
-      - name: Run Trivy vulnerability scanner (Frontend image)
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'image'
-          scan-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:test'
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          severity: 'CRITICAL,HIGH'
 
       - name: Run Trivy vulnerability scanner (Combined image)
         uses: aquasecurity/trivy-action@master
@@ -330,7 +323,7 @@ jobs:
   deploy:
     name: Deploy (produção)
     runs-on: ubuntu-latest
-    needs: [backend, frontend, e2e, security-scan]
+    needs: [backend, frontend, e2e, docker-build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     concurrency:
       group: deploy-prod
