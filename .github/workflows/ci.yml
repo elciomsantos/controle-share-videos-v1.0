@@ -215,6 +215,9 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH'
+          # npm global embutido na imagem node é infra da imagem, não dep do
+          # app (falso positivo do Trivy ao varrer /usr/local/lib/node_modules)
+          skip-dirs: '/usr/local/lib/node_modules/npm'
 
       - name: Build frontend image
         uses: docker/build-push-action@v5
@@ -236,6 +239,9 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH'
+          # npm global embutido na imagem node é infra da imagem, não dep do
+          # app (falso positivo do Trivy ao varrer /usr/local/lib/node_modules)
+          skip-dirs: '/usr/local/lib/node_modules/npm'
 
       - name: Build combined image
         uses: docker/build-push-action@v5
@@ -257,6 +263,9 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH'
+          # npm global embutido na imagem node é infra da imagem, não dep do
+          # app (falso positivo do Trivy ao varrer /usr/local/lib/node_modules)
+          skip-dirs: '/usr/local/lib/node_modules/npm'
 
       - name: Secret scanning (truffleHog)
         uses: trufflesecurity/trufflehog@main
