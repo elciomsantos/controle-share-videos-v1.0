@@ -17,7 +17,7 @@ import { RequestContextLogger } from "../common/request-context/request-context"
 import { validate as isValidUUID } from "uuid";
 import { Readable } from "stream";
 import { createZipStream } from "../common/zip";
-import { toBytes } from "../share/dto/share.dto";
+import { toBytes } from "@/shared/dto";
 import {
   IUploadRepository,
   type IUploadRepository as IUploadRepositoryType,

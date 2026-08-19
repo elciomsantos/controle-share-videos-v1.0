@@ -26,6 +26,12 @@
     "esModuleInterop": true,
     "useDefineForClassFields": false,
     "ignoreDeprecations": "6.0",
-    "types": ["multer", "node"]
-  }
+    "types": ["multer", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.spec.ts"]
 }

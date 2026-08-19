@@ -294,9 +294,9 @@ export class FileController {
     res.set({
       "Content-Type": "application/pdf",
       "Content-Length": metaData.size,
-      "Content-Security-Policy": "sandbox",
+      "Content-Security-Policy": "sandbox allow-scripts allow-same-origin",
       "Cache-Control": "no-store",
-      "Content-Disposition": contentDisposition(metaData.name),
+      "Content-Disposition": contentDisposition(metaData.name, { type: "inline" }),
     });
 
     return new StreamableFile(file);

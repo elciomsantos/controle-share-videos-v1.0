@@ -1,0 +1,23 @@
+{
+  "entry": [
+    "backend/src/main.ts",
+    "frontend/src/pages/_app.tsx"
+  ],
+  "project": [
+    "backend/src/**/*.ts",
+    "frontend/src/**/*.tsx",
+    "packages/shared/src/**/*.ts"
+  ],
+  "ignore": [
+    "backend/src/**/*.spec.ts",
+    "frontend/src/**/*.spec.tsx",
+    "backend/prisma/**/*",
+    "backend/scripts/**/*",
+    "frontend/src/pages/**/*.tsx"
+  ],
+  "ignoreDependencies": [
+    "@types/*",
+    "jest",
+    "@nestjs/testing"
+  ]
+}

@@ -1,6 +1,5 @@
 import { Expose, plainToClass, Type } from "class-transformer";
-import { ShareDTO } from "./share.dto";
-import { FileDTO } from "../../file/dto/file.dto";
+import { ShareDTO, FileDTO } from "@/shared/dto";
 import { OmitType } from "@nestjs/swagger";
 import { MyShareSecurityDTO } from "./myShareSecurity.dto";
 
@@ -19,8 +18,8 @@ export class MyShareDTO extends OmitType(ShareDTO, [
   recipients!: string[];
 
   @Expose()
-  @Type(() => OmitType(FileDTO, ["share", "from"] as const))
-  files!: Omit<FileDTO, "share" | "from">[];
+  @Type(() => OmitType(FileDTO, ["shareId", "from"] as const))
+  files!: Omit<FileDTO, "shareId" | "from">[];
 
   @Expose()
   security?: MyShareSecurityDTO;

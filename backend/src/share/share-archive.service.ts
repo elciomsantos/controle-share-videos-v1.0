@@ -7,7 +7,7 @@ import {
 import { ConfigService } from "../config/config.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { createZipStream } from "../common/zip";
-import { toBytes } from "./dto/share.dto";
+import { toBytes } from "@/shared/dto";
 import { LocalFileService } from "../file/local.service";
 import {
   IUploadRepository,

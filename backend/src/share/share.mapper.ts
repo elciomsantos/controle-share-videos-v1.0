@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { toBytes } from "./dto/share.dto";
+import { toBytes } from "@/shared/dto";
 import { File, ShareRecipient, ShareSecurity } from "../../prisma/generated/prisma/client";
 
 interface ShareLike {
