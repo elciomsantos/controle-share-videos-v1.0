@@ -72,5 +72,8 @@
     "serwist": "^9.5.12",
     "typescript": "^6.0.3",
     "vitest": "^4.1.10"
+  },
+  "allowScripts": {
+    "unrs-resolver@1.12.2": true
   }
 }

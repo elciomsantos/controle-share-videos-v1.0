@@ -126,6 +126,11 @@
   "allowScripts": {
     "better-sqlite3@12.11.1": true,
     "argon2@0.45.1": true,
-    "@prisma/engines@7.9.0": true
+    "better-sqlite3@13.0.3": true,
+    "@prisma/engines@7.9.1": true,
+    "prisma@7.9.1": true,
+    "unrs-resolver@1.12.2": true,
+    "@scarf/scarf@1.4.0": false,
+    "esbuild@0.28.1": true
   }
 }
