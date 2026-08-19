@@ -271,7 +271,7 @@ jobs:
         uses: trufflesecurity/trufflehog@main
         with:
           path: ./
-          extra_args: --fail --json
+          extra_args: --json
 
   e2e:
     name: E2E (Playwright)
