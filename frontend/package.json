@@ -74,6 +74,7 @@
     "vitest": "^4.1.10"
   },
   "allowScripts": {
-    "unrs-resolver@1.12.2": true
+    "unrs-resolver@1.12.2": true,
+    "fsevents@2.3.3": true
   }
 }

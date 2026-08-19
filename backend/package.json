@@ -131,6 +131,7 @@
     "prisma@7.9.1": true,
     "unrs-resolver@1.12.2": true,
     "@scarf/scarf@1.4.0": false,
-    "esbuild@0.28.1": true
+    "esbuild@0.28.1": true,
+    "fsevents@2.3.3": true
   }
 }
