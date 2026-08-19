@@ -9,7 +9,10 @@
       { "tsconfig": "<rootDir>/tsconfig.spec.json", "isolatedModules": true }
     ]
   },
-  "moduleNameMapper": { "^file-type$": "<rootDir>/test/stubs/file-type.ts" },
+  "moduleNameMapper": {
+    "^file-type$": "<rootDir>/test/stubs/file-type.ts",
+    "^@/(.*)$": "<rootDir>/src/$1"
+  },
   "setupFiles": ["<rootDir>/test/setup-e2e.ts"],
   "transformIgnorePatterns": ["node_modules/(?!(?:@scure|@noble|@otplib)/)"],
   "globalSetup": "<rootDir>/test/global-setup.ts",
