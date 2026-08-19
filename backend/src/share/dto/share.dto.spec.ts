@@ -1,4 +1,4 @@
-import { toBytes } from "./share.dto";
+import { toBytes } from "@/shared/dto";
 
 describe("toBytes", () => {
   it("returns 0 for null and undefined", () => {
