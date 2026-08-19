@@ -38,11 +38,12 @@ services:
       - /tmp:size=256M
       - /run:size=16M
       - /var/cache:size=32M
-    # Hardening: capabilities, no-new-privileges (Phase 1)
+    # Hardening: capabilities, no-new-privileges, seccomp (Phase 1)
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
+      - seccomp=./docker/seccomp/default.json
     # Environment from secrets (INFRA-MED-04)
     environment:
       - NODE_ENV=production
@@ -113,11 +114,12 @@ services:
     tmpfs:
       - /tmp:size=64M
       - /run:size=8M
-    # Hardening: capabilities, no-new-privileges (Phase 1)
+    # Hardening: capabilities, no-new-privileges, seccomp (Phase 1)
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
+      - seccomp=./docker/seccomp/default.json
     environment:
       - NODE_ENV=production
       - PORT=3333
@@ -168,7 +170,7 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=64M
-    # Hardening: capabilities, no-new-privileges (Phase 1)
+    # Hardening: capabilities, no-new-privileges, seccomp (Phase 1)
     # Caddy needs NET_BIND_SERVICE for binding to privileged ports 80/443
     cap_drop:
       - ALL
@@ -176,6 +178,7 @@ services:
       - NET_BIND_SERVICE
     security_opt:
       - no-new-privileges:true
+      - seccomp=./docker/seccomp/default.json
     volumes:
       # CADDYFILE seleciona a config do Caddy: prod (TLS Let's Encrypt,
       # default) | ip (HTTP/IP, Caddyfile.ip) | local (porta 3000).

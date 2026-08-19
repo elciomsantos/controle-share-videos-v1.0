@@ -21,11 +21,12 @@ services:
       - /tmp:size=256M
       - /run:size=16M
       - /var/cache:size=32M
-    # Hardening: capabilities, no-new-privileges
+    # Hardening: capabilities, no-new-privileges, seccomp
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
+      - seccomp=./docker/seccomp/default.json
     # Resource limits
     deploy:
       resources:
@@ -49,11 +50,12 @@ services:
     tmpfs:
       - /tmp:size=64M
       - /run:size=8M
-    # Hardening: capabilities, no-new-privileges
+    # Hardening: capabilities, no-new-privileges, seccomp
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
+      - seccomp=./docker/seccomp/default.json
     # Resource limits
     deploy:
       resources:
@@ -76,7 +78,7 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=64M
-    # Hardening: capabilities, no-new-privileges
+    # Hardening: capabilities, no-new-privileges, seccomp
     # Caddy needs NET_BIND_SERVICE for binding to privileged ports 80/443
     cap_drop:
       - ALL
@@ -84,6 +86,7 @@ services:
       - NET_BIND_SERVICE
     security_opt:
       - no-new-privileges:true
+      - seccomp=./docker/seccomp/default.json
     # Resource limits
     deploy:
       resources:
