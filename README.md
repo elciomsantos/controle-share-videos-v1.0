@@ -1,11 +1,11 @@
 <div align="center">
   <img src="/frontend/public/img/images/logo-programer.png" alt="Logo" width="300">
 
-  <h1>Sistema de controle e compartilhamento de videos</h1>
+  <h1>Sistema de controle e compartilhamento de vídeos</h1>
 
   <p align="center">
 
-  **Controle Share Videos v1.0** — compartilhamento seguro de arquivos para uso interno restrito.
+  **Controle Share Videos v2.7.0** — compartilhamento seguro de arquivos para uso interno restrito.
 
   </p>
 </div>
@@ -14,11 +14,26 @@
 
 Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-BR. Fork independente do Pingvin Share X v1.21.1, adaptado para upload exclusivamente pelo dono autenticado e armazenamento apenas local (servidor Ubuntu).
 
-> **Documentação:** ver `docs/Visao-geral.md` (visão arquitetural),
+> **Documentação:** ver `docs/VISAO-GERAL.md` (visão arquitetural),
 > `docs/operacional/DEPLOY.md` (guia de implantação),
 > `docs/auditoria/AUDIT_REPORT.md` (auditoria completa).
 > Para implantar do zero em um servidor Linux, siga a seção
 > **"Implantação em servidor Linux (passo a passo)"** abaixo.
+
+---
+
+## Status do Projeto
+
+| Item | Status |
+|------|--------|
+| **Versão** | **2.7.0** |
+| **Estado** | **Em Produção (Docker)** |
+| **Auditoria** | ✅ Completa (nota 7.5/10, aprovado para produção) |
+| **Segurança** | ✅ 9.0/10 (OWASP Top 10 coberto, hardening Docker aplicado) |
+| **Hardening Docker** | ✅ 100% itens críticos/altos implementados |
+| **Spec Segurança Sessões** | ✅ v1.2 — 17/17 correções aplicadas (7 fases) |
+| **Testes** | ✅ Unit + E2E + Playwright no CI |
+| **CI/CD** | ✅ GitHub Actions (lint, build, test, audit, deploy SSH) |
 
 ---
 
@@ -33,7 +48,7 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 - **Geração automática de senha forte** (comprimento configurável via `share.generatedPasswordLength`) exibida separadamente no modal de upload completado
 - Limites por share: máximo de visualizações, máximo de downloads, expiração
 - Página exclusiva de visualização por link (sem cabeçalho/rodapé do painel admin)
-- Destinatários de e-mail (smtp opcional)
+- Destinatários de e-mail (SMTP opcional)
 - **Preview de vídeo com tarja de proteção persistente em tela cheia** — botão customizado coloca o wrapper (vídeo + tarja) em fullscreen (v1.2.3)
 
 ### Upload e armazenamento
@@ -48,6 +63,7 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 - Log completo de views e downloads (IP, user-agent, timestamp, sucesso/falha)
 - Dashboard admin em `/admin/download-logs` com filtros (shareId, usuário, evento, período, status) e paginação
 - Eventos auditados: `view` (acesso via link) e `download` (arquivo único ou ZIP), incluindo tentativas com falha
+- **Auditoria de eventos de segurança** (`AuditLog`): 17 eventos mínimos (login, MFA, sessões, senha, permissões, shares) — dashboard `/admin/audit-logs` (admin+auditor)
 
 ### Usuários e permissões (RBAC)
 
@@ -56,6 +72,9 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 - Senha temporária forte (12 chars) exibida uma única vez no modal, ou enviada por e-mail se SMTP habilitado
 - **Troca obrigatória de senha no primeiro login** (`passwordMustChange` + Guard)
 - Detecção de usuário duplicado com inline field error + debounce pre-validation (admin/signup)
+- **MFA (TOTP)** opcional por usuário; **obrigatório para admins** (TotpAuthGuard)
+- **Recovery codes** de uso único
+- **Reautenticação recente** para operações críticas (troca de senha, e-mail, permissões, revogação)
 
 ### UX de erro
 
@@ -65,14 +84,31 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 - Helper reutilizável `showBlockingErrorModal` em `frontend/src/components/core/`
 - Lacunas i18n corrigidas (PT-BR em `common.error.unknown`, `verify.*`, `signin.*`, `upload.dropzone.description`, `share.notify.copy-*`)
 
+### Segurança (implementado)
+
+- **Sessões opacas server-side** (token 256-bit, apenas SHA-256 persistido, validação por requisição: revogado → expirado → usuário ativo → autorização)
+- **Idle timeout 30min + expiração absoluta 8h** (atualização condicional de `last_activity_at`)
+- **Refresh tokens** como hash com rotação + detecção de reuso (família revogada)
+- **Share tokens** opacos com `token_hash` + `revoked_at`
+- **Argon2id** para senhas (memoryCost=128MB, timeCost=4, parallelism=2)
+- **JWT rotação híbrida** (kid + timeline, AES-256-GCM, mutex)
+- **Rate limiting**: global (100 req/60s), login por conta+IP (5/60s), endpoints de share/admin com limites específicos, edge no Caddy (dynamic 100/10s, auth 10/60s)
+- **CSP estrito** no Caddy (self-only, `unsafe-inline` apenas em style-src para Mantine)
+- **Headers de segurança**: HSTS preload, X-Frame-Options DENY, X-Content-Type-Options nosniff, COOP/COEP/CORP, Permissions-Policy
+- **Docker Hardening**: non-root (UID 1002), `cap_drop: ALL`, `no-new-privileges:true`, `read_only: true` + tmpfs, `pids_limit: 512`, rede `internal: true` para backend, seccomp custom (fail-closed 428 syscalls), imagem pinada por digest, Trivy no CI/CD
+- **Docker Secrets** em todos os serviços (backend, frontend, caddy, grafana)
+- **Caddy** com TLS automático (Let's Encrypt), filtro `pwd=` em query string/logs
+
 ### Outros
 
 - PWA (Service Worker via Serwist, instalação offline-first)
-- Painel administrativo (shares, usuários, logs, configurações, saúde do sistema)
-- Configuração persistida no banco (categorias: general, appearance, share, cache, email, smtp, legal)
-- Healthcheck em `/api/health`, Swagger em `/api/swagger` (dev only)
+- Painel administrativo (shares, usuários, logs, configurações, saúde do sistema, sessões ativas)
+- Configuração persistida no banco (categorias: general, appearance, share, cache, email, smtp, legal, initUser)
+- Healthcheck em `/api/health`, `/api/system/info` (admin), Swagger em `/api/swagger` (dev only)
 - Cron jobs de limpeza (shares expirados, arquivos temporários, tokens, usuários não ativados)
 - PT-BR como único idioma ativo
+- Internacionalização (infra i18n mantida)
+- Métricas Prometheus em `/api/metrics` (restrito a redes internas)
 
 ---
 
@@ -140,7 +176,7 @@ docker compose -f docker-compose.prod.yml up -d
 #### Backend (porta `8080`)
 
 1. Entre na pasta `backend`
-2. Instale as dependências com `npm install`
+2. Instale as dependências com `npm ci` (usa `package-lock.json` para reprodutibilidade)
 3. Aplique o schema ao banco com `npx prisma db push`
 4. Popule o banco com `npx prisma db seed`
 5. Inicie o backend com `npm run dev`
@@ -149,7 +185,7 @@ docker compose -f docker-compose.prod.yml up -d
 
 1. Inicie o backend primeiro
 2. Entre na pasta `frontend`
-3. Instale as dependências com `npm install` (use `--legacy-peer-deps` em instalação limpa)
+3. Instale as dependências com `npm ci` (use `--legacy-peer-deps` em instalação limpa se necessário)
 4. Inicie o frontend com `npm run dev`
 
 Pronto! Acesse **http://localhost:3000** (o frontend faz proxy de `/api/*` para `http://localhost:8080`).
@@ -162,11 +198,11 @@ Copie `config.example.yaml` para `config.yaml` na raiz do repositório e ajuste 
 
 - `npm run lint` (na raiz roda em `backend` e `frontend`)
 - `npm run build` (em cada workspace: `backend` e `frontend`)
-- Observação: o Prisma Client precisa ser regenerado após mudanças no `schema.prisma` (`npx prisma generate` no `backend`)
+- Observação: o Prisma Client precisa ser regenerado após mudanças no `schema.prisma` (`npx prisma generate` no `backend`); `postinstall` do backend já roda `prisma generate` automaticamente no `npm ci`
 
 #### Testes
 
-Há testes unitários e E2E (backend) e unitários (frontend), com cobertura ≥60% e CI em `.github/workflows/ci.yml` (Node 24, lint/build/unit/coverage/e2e + `npm audit --omit=dev` blocking).
+Há testes unitários e E2E (backend) e unitários (frontend), com cobertura ≥60% e CI em `.github/workflows/ci.yml` (Node 24, lint/build/unit/coverage/e2e + **auditoria de segurança completa**).
 
 ```bash
 # Backend
@@ -180,7 +216,27 @@ npm run test           # vitest run
 npm run test:unit      # vitest run (mesma coisa)
 ```
 
-Requisitos: backend precisa do `prisma generate` antes do primeiro run (Postinstall automático em `npm install`); e2e usa DB efêmero próprio. Para detalhes de cobertura e critérios ver `docs/auditoria/TEST_PLAN.md`.
+**Auditoria de segurança (reproduzível localmente):**
+```bash
+# Backend
+cd backend && npm audit --audit-level=high
+npm audit signatures
+# Verificar deps Git/URL externos (bloqueia no CI)
+node -e "
+const fs = require('fs');
+const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+function checkDeps(deps) { if (!deps) return []; return Object.entries(deps).filter(([_, v]) => { if (typeof v !== 'string') return false; if (/^file:\.\.?\//.test(v)) return false; return /^(git\+https?|git\+ssh|https?|file):/.test(v); }); }
+const issues = [...checkDeps(pkg.dependencies), ...checkDeps(pkg.devDependencies), ...checkDeps(pkg.optionalDependencies), ...checkDeps(lock.dependencies), ...checkDeps(lock.packages)];
+if (issues.length > 0) { console.log('Git/URL dependencies found:'); issues.forEach(([name, version]) => console.log('  ' + name + ': ' + version)); process.exit(1); }
+console.log('No Git/URL dependencies detected');
+"
+
+# Frontend (mesmo procedimento)
+cd frontend && npm audit --audit-level=high && npm audit signatures
+```
+
+Requisitos: backend precisa do `prisma generate` antes do primeiro run (Postinstall automático em `npm ci`); e2e usa DB efêmero próprio. Para detalhes de cobertura e critérios ver `docs/auditoria/TEST_PLAN.md`.
 
 ---
 
@@ -355,7 +411,7 @@ docker compose up -d --build
 | `docker-compose.yml` | Produção padrão (backend, frontend, caddy; admin e TLS via variáveis de ambiente — `DOMAIN`, `ACME_EMAIL`, `ADMIN_*`, `JWT_SECRET`) |
 | `docker-compose.local.yml` | Ambiente de teste local — container único (backend + frontend + Caddy) com `.env.local` |
 | `docker-compose.prod.yml` | Produção com secrets externos (Docker Swarm), TLS via Caddy 2.9 e dados em RAID6 (`/srv/controle-share-videos`) |
-| `docker-compose.monitoring.yml` | Observabilidade (prometheus, grafana, loki, promtail) |
+| `docker-compose.monitoring.yml` | Observabilidade (prometheus, grafana, loki, promtail, node-exporter) |
 
 O serviço `caddy` monta `Caddyfile.${CADDYFILE:-prod}` em
 `/etc/caddy/Caddyfile`:
@@ -389,15 +445,17 @@ Detalhes em `docs/operacional/DEPLOY.md` §6.3.
 
 ### Arquitetura e implantação
 
-- `docs/Visao-geral.md` — visão arquitetural completa
+- `docs/VISAO-GERAL.md` — visão arquitetural completa
 - `docs/operacional/DEPLOY.md` — guia de implantação (modelo final de produção)
 - `docs/operacional/MONITORAMENTO.md` — healthchecks, logs, alertas
 - `docs/operacional/BACKUP_RESTORE.md` — procedimentos de backup/restauração
 - `docs/operacional/RUNBOOKS.md` — resposta a incidentes
+- `docs/PLANO-DOMINIO.md` — configuração de domínio No-IP/próprio/IP
+- `docs/PLANO-IMPLANTACAO.md` — plano de ajuste para modelo final de implantação
 
 ### Auditoria e análise
 
-- `docs/auditoria/AUDIT_REPORT.md` — relatório final consolidado (nota 9.0/10)
+- `docs/auditoria/AUDIT_REPORT.md` — relatório final consolidado (nota 7.5/10)
 - `docs/auditoria/SECURITY_REPORT.md` — segurança (9.0/10, OWASP A05 ✅)
 - `docs/auditoria/PERFORMANCE_REPORT.md` — performance
 - `docs/auditoria/DEPENDENCY_AUDIT.md` — dependências (8.5/10)
@@ -411,6 +469,22 @@ Detalhes em `docs/operacional/DEPLOY.md` §6.3.
 - `docs/auditoria/DISCOVERY.md` — descoberta inicial
 - `docs/auditoria/EVIDENCE_INDEX.md` — índice de evidências
 
+### Segurança
+
+- `docs/ESPECIFICACAO-SEGURANCA.md` — spec v1.2 (sessões, autenticação, tokens, compartilhamento)
+- `docs/ESPECIFICACAO_SEGURANCA_DOCKER_HOST_v1.0.md` — hardening obrigatório Linux + Docker
+- `docs/Relatorio/PLANO_HARDENING_DOCKER.md` — plano de execução priorizado (100% crítico/alto implementado)
+- `docs/SEGURANCA-CORRECTIONS-SUMMARY.md` — resumo de todas as 17 correções (7 fases, 100%)
+- `docs/SEGURANCA-CORRECTIONS-TRACKER.md` — tracker detalhado por arquivo/linha
+- `docs/PLANO-CORRECOES-SEGURANCA.md` — plano original de correções
+- `docs/POLITICA-SEGURANCA-NPM.md` — política de segurança de dependências npm
+
+### Funcionalidades específicas
+
+- `docs/CERTIFICADO.md` — certificado SHA-256 automático (PDF + QR Code + metadados embutidos no vídeo)
+- `docs/PLANO-CERTIFICADO.md` — plano original do certificado
+- `docs/PLANO-LIMPEZA.md` — política de limpeza de shares/arquivos
+
 ---
 
 ## Segurança — Hardening e Limitações Conhecidas
@@ -423,7 +497,7 @@ Detalhes em `docs/operacional/DEPLOY.md` §6.3.
 | Secrets | ✅ Docker secrets | `docker-compose.prod.yml` — `*_FILE` vars + secrets externos; `docker-compose.yml` — variáveis `.env` |
 | Sessão opaca server-side | ✅ Ativo (Fase 4) | Access token opaco 256-bit (apenas SHA-256 persistido); validação por requisição §10 (revogado → expirado → inativo); idle 30min + absoluta 8h; refresh token como hash §26.3 com rotação + detecção de reuso; share tokens opacos com `token_hash` + `revoked_at` §23 |
 | SQLite | ⚠️ Monitorado | Produção pequena (≤ 500 users simultâneos); migração PostgreSQL em v1.3 se necessário |
-| Redis cache | 📦 Backlog v1.3 | Backend já tem `@keyv/redis` + fallback in-memory; ativar = subir Redis + flag |
+| Redis cache | 📦 Backlog v1.3 | Backend já tem `@keyv/redis` + fallback in-memory; ativar = subir serviço + flag |
 | S3/MinIO storage | 📦 Backlog v1.4 | `S3UploadRepository` interface pronta (R02); acionar se > 100 GB uploads |
 | Auditoria de views/downloads | ✅ Completa | Dashboard `/admin/download-logs` com filtros e paginação |
 | Auditoria de eventos (§29.4) | ✅ Ativo (Fase 5) | `AuditLog` estruturado (IP/UA/requestId) com 17 eventos mínimos (login, MFA, sessões, senha, permissões, shares); admin `/admin/audit-logs` (admin+auditor) |
@@ -431,6 +505,18 @@ Detalhes em `docs/operacional/DEPLOY.md` §6.3.
 | Swagger | 🔒 Dev only | Habilitado apenas em `docker-compose.local.yml` (`SWAGGER_ENABLED=true`) |
 
 > Ver `docs/auditoria/SECURITY_REPORT.md` e `docs/auditoria/AUDIT_REPORT.md` para detalhes técnicos e evidências.
+
+---
+
+## Roadmap Pós-v2.7
+
+| Versão | Foco | Principais itens |
+|---|---|---|
+| **v1.1** (curto) | Estabilização | R01 AuthService decomposto ✅, R02 UploadRepository ✅, CSP ✅, E2E Playwright ✅, restore test ✅, Docker Secrets ✅, rate limit edge ✅ |
+| **v1.2** (médio) | SRE | Alertas Prometheus/Grafana, distributed tracing (OpenTelemetry), runbooks completos, chaos testing |
+| **v1.3** (médio-longo) | Escala | Redis cache opcional, migração PostgreSQL/MySQL se SQLite contencionar, otimizações de query |
+| **v1.4** (longo) | Cloud | Storage S3/MinIO via `IUploadRepository` (interface já existe), multi-região |
+| **v2.0** (longo) | Modernização | Avaliar Next.js App Router, NestJS 12+, Prisma 8+, arquitetura modular |
 
 ---
 

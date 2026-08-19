@@ -7,6 +7,7 @@
 **Status:** Em Produção (Docker)
 **Base histórica:** Fork independente do Pingvin Share X v1.21.1, renomeado e adaptado para uso interno restrito PT-BR
 **Padronização:** Tema 1 — `docs/Padronizacao.md`; Tema 2 — `docs/Padronizacao-02-link-seguro.md`; Tema 3 — `docs/Padronizacao-03-auditoria-logs.md`; Tema 4 — `docs/Padronizacao-04-usuarios-permissoes.md`; Tema 5 — `docs/Padronizacao-05-limite-tamanho.md`; Tema 7 — `docs/Padronizacao-07-clamav.md` (**Rejeitado** — fora de escopo, sem código); Tema 10 — `docs/Padronizacao-10-popups-erro.md` (Executado); Tema 11 — `docs/Padronizacao-11-usuario-duplicado.md` (Executado)
+**Segurança:** Spec v1.2 completa — 17/17 correções aplicadas (7 fases); Hardening Docker 100% itens críticos/altos; Auditoria 7.5/10 (produção), Segurança 9.0/10 (OWASP Top 10)
 
 ---
 
@@ -28,13 +29,13 @@ Todo o gerenciamento é centralizado em uma interface web administrativa desenvo
 
 O sistema garante:
 
-* Segurança no compartilhamento (JWT + Argon2id + TOTP opcional)
+* **Segurança no compartilhamento**: Sessões opacas server-side (token 256-bit, apenas SHA-256 persistido), validação por requisição (revogado → expirado → usuário ativo → autorização), idle timeout 30min + expiração absoluta 8h, refresh tokens como hash com rotação + detecção de reuso, share tokens opacos com `token_hash` + `revoked_at`, Argon2id para senhas, JWT rotação híbrida (kid + timeline, AES-256-GCM, mutex), MFA (TOTP) obrigatório para admins, recovery codes de uso único, reautenticação recente para operações críticas
 * Controle de acesso granular por share (público, senha, expiração, limite de views/downloads)
-* Registro completo de auditoria (download logs com usuário/IP/timestamp)
+* Registro completo de auditoria (download logs com usuário/IP/timestamp + `AuditLog` com 17 eventos mínimos: login, MFA, sessões, senha, permissões, shares)
 * Upload nativo via navegador (chunked, multipart, resumível) — **somente pelo dono** do share (autenticado)
 * Integração com **ClamAV** para varredura antivírus — **rejeitada** (fora de escopo; ver `docs/Padronizacao-07-clamav.md` §0)
 * **Armazenamento apenas local** no servidor Ubuntu (drive D:), sem buckets S3 externos
-* Facilidade de administração via painel web
+* Facilidade de administração via painel web (shares, usuários, logs, configurações, saúde, sessões ativas, auditoria)
 * Escalabilidade horizontal via containers Docker
 * Alta disponibilidade com healthchecks e restart automático
 * Facilidade de manutenção (logs estruturados, migrações Prisma, seed idempotente)
@@ -46,6 +47,9 @@ O sistema garante:
 * Apenas o usuário admin será criado via painel; os demais usuários serão criados pelo admin e, ao acessarem o sistema pela primeira vez, poderão trocar a senha criada por uma nova (**Padronizado** — roles `admin`/`operador`/`auditor`, flag `passwordMustChange` com Guard, troca obrigatória no primeiro acesso, ver `docs/Padronizacao-04-usuarios-permissoes.md`)
 * Popups de erro honestos em três camadas — inline field error (credenciais inválidas, link em uso), modal bloqueante (conta não ativada, rate-limit 429 com countdown, falha de servidor, `completeShare` 500, erro de rede em `isShareIdAvailable`) e toast persistente agrupado para falha de chunks ("Falha ao enviar N. Toque para detalhes"). Helper reutilizável `showBlockingErrorModal` em `components/core/`. Corrigidas lacunas i18n (PT-BR). (**Padronizado** — ver `docs/Padronizacao-10-popups-erro.md`)
 * Detecção de usuário duplicado com inline field error + debounce pre-validation (admin) — contrato `field` no backend, debounce 500ms nos formulários de criação/edição de usuário (admin) e signup, i18n `admin.users.error.duplicated-username`/`duplicated-email`. (**Padronizado** — ver `docs/Padronizacao-11-usuario-duplicado.md`)
+* **Hardening Docker completo**: non-root (UID 1002), `cap_drop: ALL`, `no-new-privileges:true`, `read_only: true` + tmpfs, `pids_limit: 512`, rede `internal: true` para backend, seccomp custom (fail-closed 428 syscalls), imagem pinada por digest (SHA-256), Trivy no CI/CD (CRITICAL/HIGH bloqueia), Docker Bench Security semanal, live-restore, Docker Secrets em todos os serviços
+* **Rate limiting**: global (100 req/60s), login por conta+IP (5/60s), endpoints share/admin com limites específicos, edge no Caddy (dynamic 100/10s, auth 10/60s)
+* **CSP estrito + Security Headers**: HSTS preload, X-Frame-Options DENY, X-Content-Type-Options nosniff, COOP/COEP/CORP, Permissions-Policy, filtro `pwd=` em query string/logs no Caddy
 ---
 
 # 3. Problema a Ser Resolvido
@@ -168,15 +172,15 @@ Permissões:
 * **Prisma ORM 7** com adapter `@prisma/adapter-better-sqlite3`
 * **@nestjs/passport** + `passport-jwt` + `passport-local` (estratégias JWT access/refresh + local)
 * **Argon2id** (`argon2@0.45.1`) para hash de senhas (memoryCost=128MB, timeCost=4, parallelism=2)
-* **TOTP** via `otplib@13.3.0` + `qrcode-svg` (2FA opcional por usuário)
-* **@nestjs/jwt** para tokens assinados (RS256/HS256 configurável)
-* **@nestjs/throttler** rate limiting (default 100 req/60s global, 5/60s login)
+* **TOTP** via `otplib@13.3.0` + `qrcode-svg` (2FA opcional por usuário; **obrigatório para admins**)
+* **@nestjs/jwt** para tokens assinados (RS256/HS256 configurável) — **legado**, sessões usam token opaco server-side
+* **@nestjs/throttler** rate limiting (default 100 req/60s global, 5/60s login por conta+IP)
 * **@nestjs/cache-manager** + `@keyv/redis` + `cacheable` (Redis opcional)
 * **@nestjs/schedule** cron jobs (limpeza automática)
 * **@nestjs/swagger** documentação OpenAPI em `/api/swagger` (dev only, gated)
 * **Helmet** + CSP/COEP/COOP custom + Permissions-Policy headers
 * **CORS** configurável via `CORS_ORIGIN` (credentials: true)
-* **Cookie-parser** (HttpOnly, Secure, SameSite=lax)
+* **Cookie-parser** (HttpOnly, Secure, SameSite=Strict, prefixo `__Host-`)
 * **ValidationPipe** global com `class-validator` + `nestjs-i18n` (mensagens PT-BR)
 * **ClamAV** via `clamscan` — **removido** (decisão: uploads exclusivamente por operadores autenticados e conhecidos); módulo, dependência e daemon excluídos do código e dos compose
 * **Nodemailer** emails transacionais (SMTP configurável, templates PT-BR)
@@ -190,6 +194,11 @@ Permissões:
 * **dayjs** manipulação de datas
 * **check-disk-space** monitoramento de espaço em disco
 * **content-disposition** headers seguros para download
+* **Sessões opacas server-side**: `SessionService` (token 256-bit CSPRNG, SHA-256 persistido, validação §10, idle 30min + 8h absoluta, last_activity_at condicional)
+* **Refresh tokens**: hash persistido, rotação + detecção reuso (família revogada)
+* **Share tokens**: opacos, `token_hash` + `revoked_at` + `expires_at` (§23)
+* **MFA/Reautenticação**: `TotpAuthGuard` (admins), `ReauthGuard` (operações críticas), `RecoveryCodeService` (uso único)
+* **Auditoria**: `AuditService` + `AdminSessionsService` (17 eventos §29.4, dashboard `/admin/audit-logs`, `/admin/sessions`)
 
 ## Frontend
 
@@ -200,20 +209,24 @@ Permissões:
 * **Axios** cliente HTTP com interceptors (auth, refresh token automático)
 * **react-intl** i18n (PT-BR único ativo, infra mantida)
 * **Serwist 9** (Workbox) — PWA, Service Worker, cache offline
-* **jose** + **jwt-decode** manipulação de JWT no cliente
+* **jose** + **jwt-decode** manipulação de JWT no cliente (middleware edge)
 * **yup** validação de formulários (schema shared com backend via types)
 * **qrcode** geração de QR codes para shares/TOTP
 * **@uiw/react-md-editor** editor Markdown para páginas legais
 * **cookies-next** gestão de cookies (SSR + client)
 * **file-saver** download de arquivos no browser
 * **dayjs** + **react-icons** + **markdown-to-jsx** + **mime-types** + **p-limit**
+* **DOMPurify** sanitização XSS (ALLOWED_TAGS:[])
+* **MarkdownRenderer** customizado (markdown-to-jsx sanitizado)
+* **UPLOAD_CONCURRENCY=3** limite de uploads simultâneos
 
 ## Banco de Dados
 
-* **SQLite** (arquivo local `./data/controle-videos.db`) via **better-sqlite3** (padrão)
+* **SQLite** (arquivo local `./data/controle-videos.db`) via **better-sqlite3** (padrão, WAL mode)
 * **Prisma 7** (schema em `backend/prisma/schema.prisma`, migrations versionadas)
-* **Models:** User, RefreshToken, LoginToken, ResetPasswordToken, Share, ShareRecipient, File, ShareSecurity, Config, DownloadLog (10 models — `ReverseShare` removido)
+* **Models:** User, RefreshToken, LoginToken, ResetPasswordToken, Share, ShareRecipient, File, ShareSecurity, Config, DownloadLog, AuditLog, Session, RecoveryCode (12 models — `ReverseShare` removido; Session + RecoveryCode adicionados Fase 4/5)
 * Suporte nativo a **PostgreSQL/MySQL** trocando apenas `datasource provider` e `DATABASE_URL` (Prisma multi-provider)
+* **Índices**: `token_hash` UNIQUE em sessions/shares, `user_id`, `expires_at`, `revoked_at` para performance
 
 ## Servidor Web / Reverse Proxy
 
@@ -485,15 +498,15 @@ Não há job específico de expiração de certificados — o ciclo de vida é o
 
 O sistema implementa defesa em profundidade:
 
-* **Confidencialidade**: Arquivos nunca servidos sem token válido + validações; senhas Argon2id; JWT HS256/RS256; cookies HttpOnly+Secure+SameSite
-* **Integridade**: Hash de arquivos no upload; validação de chunks; Prisma transactions
-* **Disponibilidade**: Healthchecks Docker; restart `unless-stopped`; cron limpeza; monitoramento de disco; rate limiting (throttler)
-* **Autenticação forte**: Local user/pass + Argon2id + JWT access (15min) + refresh (7d) + rotação + TOTP opcional
-* **Autorização granular**: Guards `JwtAuthGuard`, `OwnerGuard`, `AdminGuard`, `ShareAccessGuard` (token+pwd+expiração+limites)
-* **Auditoria completa**: `DownloadLog` (user/IP/UA/timestamp/share/file); logs de erro estruturados; Swagger gated (dev only)
-* **Proteção web**: Helmet (CSP, HSTS, COEP, COOP, CORP, Permissions-Policy); CORS restrito; body parser limits; validation pipe whitelist
-* **Segurança de containers**: Non-root user (PUID/PGID), `readOnlyRootFilesystem` onde possível, drop capabilities, no-new-privileges
-* **Atualizações controladas**: Apenas patches/minors de dependências (renovate/dependabot config), majors via revisão manual
+* **Confidencialidade**: Arquivos nunca servidos sem token válido + validações; senhas Argon2id; tokens opacos 256-bit (apenas SHA-256 persistido); cookies `__Host-` HttpOnly+Secure+SameSite=Strict; TLS 1.2/1.3 (Caddy Let's Encrypt)
+* **Integridade**: Hash SHA-256 de arquivos no upload + certificado PDF automático; validação de chunks; Prisma transactions; metadados embutidos no vídeo via ffmpeg
+* **Disponibilidade**: Healthchecks Docker; restart `unless-stopped`; cron limpeza; monitoramento de disco; rate limiting (throttler global + login por conta+IP + edge Caddy); live-restore daemon
+* **Autenticação forte**: Local user/pass + Argon2id + **sessões opacas server-side** (idle 30min + absoluta 8h, validação §10) + refresh tokens hash com rotação + detecção reuso + **MFA TOTP obrigatório para admins** + recovery codes uso único + reautenticação recente operações críticas
+* **Autorização granular**: Guards `JwtAuthGuard` (fail-closed), `OwnerGuard`, `AdminGuard`, `AdminOrAuditor`, `OperatorOrAbove`, `TotpAuthGuard`, `ReauthGuard`, `ShareAccessGuard` (token+pwd+expiração+limites), `ShareOwnerGuard` (fail-closed), `DownloadLimitGuard` (atômico)
+* **Auditoria completa**: `DownloadLog` (user/IP/UA/timestamp/share/file/evento); `AuditLog` (17 eventos mínimos §29.4: LOGIN_SUCCESS, SESSION_REVOKED, PASSWORD_CHANGED, SHARE_REVOKED, REFRESH_TOKEN_REUSE_DETECTED, etc.); dashboards `/admin/download-logs`, `/admin/audit-logs`, `/admin/sessions`; logs de erro estruturados; Swagger gated (dev only)
+* **Proteção web**: Helmet + **CSP estrito** (self-only, `unsafe-inline` apenas style-src Mantine) + HSTS preload + COEP/COOP/CORP + Permissions-Policy + X-Frame-Options DENY + X-Content-Type-Options nosniff; CORS restrito; body parser limits; validation pipe whitelist; filtro `pwd=` no Caddy
+* **Segurança de containers**: Non-root user (UID 1002), `read_only: true` + tmpfs, `cap_drop: ALL`, `no-new-privileges:true`, `pids_limit: 512`, rede `internal: true` backend, seccomp custom fail-closed (428 syscalls), imagem pinada por digest SHA-256, Trivy CI/CD (CRITICAL/HIGH bloqueia), Docker Bench Security semanal, Docker Secrets todos serviços
+* **Atualizações controladas**: Apenas patches/minors de dependências (renovate/dependabot config), majors via revisão manual; **auditoria completa no CI**: `npm audit --audit-level=high` + `npm audit signatures` + verificação de deps Git/URL externos (bloqueia high/critical)
 
 ---
 
@@ -562,14 +575,16 @@ A stack tecnológica consolidada é:
 |--------|------------|
 | API Backend | NestJS 11 + TypeScript 6 + Prisma 7 |
 | Frontend | Next.js 16 + React 19 + Mantine 9 |
-| Banco | SQLite (better-sqlite3) / PostgreSQL / MySQL via Prisma |
-| Proxy / TLS | Caddy 2 (auto-HTTPS) |
-| Container | Docker multi-stage (Alpine) + Compose |
-| Auth | JWT + Argon2id + TOTP (opcional) |
+| Banco | SQLite (better-sqlite3, WAL) / PostgreSQL / MySQL via Prisma |
+| Proxy / TLS | Caddy 2 (auto-HTTPS, Let's Encrypt) |
+| Container | Docker multi-stage (Alpine, non-root UID 1002) + Compose |
+| Auth | **Sessões opacas server-side** (256-bit, SHA-256 persistido) + Argon2id + TOTP (obrigatório admin) + Refresh hash + Reautenticação |
 | Storage | Local FS apenas (servidor Ubuntu, drive D:) — S3 removido |
 | Antivírus | ClamAV — removido do escopo (ver `docs/Padronizacao-07-clamav.md`) |
 | PWA | Serwist (Workbox) |
 | i18n | PT-BR único (nestjs-i18n + react-intl) |
+| Segurança | CSP estrito, Rate limit (app+edge), Docker Hardening completo, Docker Secrets, Auditoria 17 eventos |
+| Observabilidade | Prometheus + Grafana + Loki + Promtail + node-exporter |
 
 Os próximos documentos detalham:
 * Regras de negócio e matriz de permissões
@@ -581,4 +596,4 @@ Os próximos documentos detalham:
 
 ---
 
-*Documento gerado a partir da análise do código-fonte em `main` (Jul/2026). Atualizado em 2026-08-15 para refletir os Temas 1–5, 10, 11 executados, o Tema 7 rejeitado (sem implementação de código) e o certificado de autenticidade (v1.2.x) — ver `docs/Padronizacao.md` e `docs/CERTIFICADO.md`.*
+*Documento gerado a partir da análise do código-fonte em `main` (Jul/2026). Atualizado em 2026-08-19 para refletir: Temas 1–5, 10, 11 executados; Tema 7 rejeitado; Certificado SHA-256 (v1.2.x); **Spec Segurança v1.2 completa (17/17 correções, 7 fases)**; **Hardening Docker 100% itens críticos/altos**; **Auditoria 7.5/10 (produção), Segurança 9.0/10**; v2.7.0 Em Produção — ver `docs/Padronizacao.md`, `docs/CERTIFICADO.md`, `docs/SEGURANCA-CORRECTIONS-SUMMARY.md`, `docs/Relatorio/PLANO_HARDENING_DOCKER.md`, `docs/auditoria/AUDIT_REPORT.md`, `docs/auditoria/SECURITY_REPORT.md`.*
