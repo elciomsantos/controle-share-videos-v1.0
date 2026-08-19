@@ -395,6 +395,7 @@ trivy image controle-share-videos-backend
 | **Redis cache disabled** | Backend supports `@keyv/redis` + in-memory fallback; enable when scale > 500 users | Backlog v1.3 |
 | **S3/MinIO storage not implemented** | Interface `IUploadRepository` ready (R02); activate if uploads > 100 GB | Backlog v1.4 |
 | **No external pentest** | Planned annual (ROADMAP §6) | Backlog |
+| **Rootless Docker rejected** | Incompatible with Docker Secrets + bind mounts UID 1002 + ports 80/443; items 1-5 already mitigate the root attack vector | Rejected (PLANO_HARDENING item 12) |
 
 ---
 
