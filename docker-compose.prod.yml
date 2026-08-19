@@ -6,9 +6,9 @@ services:
       dockerfile: Dockerfile
       target: runner
     restart: unless-stopped
-    # Use bridge network (default) for isolation (INFRA-HIGH-02)
+    # Internal network only — no direct external access (INFRA-HIGH-02)
     networks:
-      - app-network
+      - backend-net
     # Health check for orchestrator (INFRA-HIGH-02)
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://127.0.0.1:8080/api/health"]
@@ -32,6 +32,12 @@ services:
       options:
         max-size: "10m"
         max-file: "5"
+    # Hardening: read-only root filesystem (Phase 2)
+    read_only: true
+    tmpfs:
+      - /tmp:size=256M
+      - /run:size=16M
+      - /var/cache:size=32M
     # Hardening: capabilities, no-new-privileges (Phase 1)
     cap_drop:
       - ALL
@@ -74,7 +80,7 @@ services:
       target: frontend-runner
     restart: unless-stopped
     networks:
-      - app-network
+      - backend-net
     # Start the Next.js standalone server (runtime stage does not define a CMD)
     command: ["sh", "-c", "cd /opt/app/frontend && PORT=3333 HOSTNAME=0.0.0.0 node server.js"]
     healthcheck:
@@ -97,6 +103,11 @@ services:
       options:
         max-size: "10m"
         max-file: "5"
+    # Hardening: read-only root filesystem (Phase 2)
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M
+      - /run:size=8M
     # Hardening: capabilities, no-new-privileges (Phase 1)
     cap_drop:
       - ALL
@@ -121,7 +132,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     networks:
-      - app-network
+      - backend-net
     ports:
       - "80:80"
       - "443:443"
@@ -146,6 +157,10 @@ services:
       options:
         max-size: "10m"
         max-file: "5"
+    # Hardening: read-only root filesystem (Phase 2)
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M
     # Hardening: capabilities, no-new-privileges (Phase 1)
     # Caddy needs NET_BIND_SERVICE for binding to privileged ports 80/443
     cap_drop:
@@ -169,11 +184,13 @@ services:
       - DOMAIN_FILE=/run/secrets/domain
 
 networks:
-  app-network:
+  # Internal network — containers can communicate but have no internet access
+  # and no direct external exposure. Only Caddy receives traffic via published
+  # host ports (80/443).
+  backend-net:
     driver: bridge
-    name: controle-share-videos-app
-    # Internal network - no external access except via Caddy
-    internal: false
+    name: controle-share-videos-backend
+    internal: true
 
 # Bind mounts replace named volumes so persistent data lives on the RAID6
 # disk (/srv/controle-share-videos/data) rather than in

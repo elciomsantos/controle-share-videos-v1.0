@@ -10,6 +10,10 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
   backend:
     name: Backend (lint, build, unit, e2e)
@@ -35,8 +39,54 @@ jobs:
           npm ci
           npm run build
 
-      - name: Audit (produção)
-        run: npm audit --omit=dev
+      - name: Security audit @controle-share/shared
+        working-directory: packages/shared
+        run: npm audit --audit-level=high
+
+      - name: Security audit (block high/critical)
+        run: npm audit --audit-level=high
+
+      - name: Verify signatures and provenance
+        run: npm audit signatures
+
+      - name: Check for Git/URL dependencies
+        run: |
+          # Check only dependencies sections for git/url protocols
+          # Allow file: dependencies that are relative paths (internal monorepo packages)
+          if node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+            
+            function checkDeps(deps) {
+              if (!deps) return [];
+              return Object.entries(deps).filter(([_, v]) => {
+                if (typeof v !== 'string') return false;
+                // Allow file: relative paths (internal packages like file:../packages/shared)
+                if (/^file:\.\.?\//.test(v)) return false;
+                return /^(git\+https?|git\+ssh|https?|file):/.test(v);
+              });
+            }
+            
+            const issues = [
+              ...checkDeps(pkg.dependencies),
+              ...checkDeps(pkg.devDependencies),
+              ...checkDeps(pkg.optionalDependencies),
+              ...checkDeps(lock.dependencies),
+              ...checkDeps(lock.packages)
+            ];
+            
+            if (issues.length > 0) {
+              console.log('Git/URL dependencies found:');
+              issues.forEach(([name, version]) => console.log(\`  \${name}: \${version}\`));
+              process.exit(1);
+            }
+          "; then
+            echo "No Git/URL dependencies detected"
+          else
+            echo "::warning::Git/URL dependencies detected - review required"
+            exit 1
+          fi
 
       - name: Lint
         run: npm run lint
@@ -77,8 +127,54 @@ jobs:
           npm ci
           npm run build
 
-      - name: Audit (produção)
-        run: npm audit --omit=dev
+      - name: Security audit @controle-share/shared
+        working-directory: packages/shared
+        run: npm audit --audit-level=high
+
+      - name: Security audit (block high/critical)
+        run: npm audit --audit-level=high
+
+      - name: Verify signatures and provenance
+        run: npm audit signatures
+
+      - name: Check for Git/URL dependencies
+        run: |
+          # Check only dependencies sections for git/url protocols
+          # Allow file: dependencies that are relative paths (internal monorepo packages)
+          if node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+            
+            function checkDeps(deps) {
+              if (!deps) return [];
+              return Object.entries(deps).filter(([_, v]) => {
+                if (typeof v !== 'string') return false;
+                // Allow file: relative paths (internal packages like file:../packages/shared)
+                if (/^file:\.\.?\//.test(v)) return false;
+                return /^(git\+https?|git\+ssh|https?|file):/.test(v);
+              });
+            }
+            
+            const issues = [
+              ...checkDeps(pkg.dependencies),
+              ...checkDeps(pkg.devDependencies),
+              ...checkDeps(pkg.optionalDependencies),
+              ...checkDeps(lock.dependencies),
+              ...checkDeps(lock.packages)
+            ];
+            
+            if (issues.length > 0) {
+              console.log('Git/URL dependencies found:');
+              issues.forEach(([name, version]) => console.log(\`  \${name}: \${version}\`));
+              process.exit(1);
+            }
+          "; then
+            echo "No Git/URL dependencies detected"
+          else
+            echo "::warning::Git/URL dependencies detected - review required"
+            exit 1
+          fi
 
       - name: Lint
         run: npm run lint
@@ -88,6 +184,94 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  docker-build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          target: backend-runner
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:test
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          target: frontend-runner
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:test
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build combined image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          target: runner
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/combined:test
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  security-scan:
+    name: Security Scan (Docker, Secrets)
+    runs-on: ubuntu-latest
+    needs: [backend, frontend, docker-build]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Run Trivy vulnerability scanner (Backend image)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          scan-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:test'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+      - name: Run Trivy vulnerability scanner (Frontend image)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          scan-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:test'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+      - name: Run Trivy vulnerability scanner (Combined image)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          scan-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/combined:test'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+      - name: Secret scanning (truffleHog)
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --fail --json
 
   e2e:
     name: E2E (Playwright)
@@ -146,7 +330,7 @@ jobs:
   deploy:
     name: Deploy (produção)
     runs-on: ubuntu-latest
-    needs: [backend, frontend, e2e]
+    needs: [backend, frontend, e2e, security-scan]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     concurrency:
       group: deploy-prod

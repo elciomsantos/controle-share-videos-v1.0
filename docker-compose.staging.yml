@@ -1,0 +1,109 @@
+# =============================================================================
+# docker-compose.staging.yml — Overlay de hardening para testes locais
+#
+# Espelha as configs de segurança de docker-compose.prod.yml usando volumes
+# nomeados (não bind mounts) e variáveis de ambiente (não Docker secrets).
+#
+# Uso:
+#   1. cp .env.local.example .env.local && editor .env.local
+#   2. docker compose --env-file .env.local \
+#        -f docker-compose.local.yml \
+#        -f docker-compose.staging.yml \
+#        up --build
+#   3. Acesse http://localhost:3000
+# =============================================================================
+
+services:
+  backend:
+    # Hardening: read-only root filesystem
+    read_only: true
+    tmpfs:
+      - /tmp:size=256M
+      - /run:size=16M
+      - /var/cache:size=32M
+    # Hardening: capabilities, no-new-privileges
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "2"
+          pids: 512
+        reservations:
+          memory: 512M
+          cpus: "0.5"
+    # Logging with rotation
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  frontend:
+    # Hardening: read-only root filesystem
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M
+      - /run:size=8M
+    # Hardening: capabilities, no-new-privileges
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+          pids: 512
+        reservations:
+          memory: 128M
+          cpus: "0.1"
+    # Logging with rotation
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  caddy:
+    # Hardening: read-only root filesystem
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M
+    # Hardening: capabilities, no-new-privileges
+    # Caddy needs NET_BIND_SERVICE for binding to privileged ports 80/443
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+          pids: 512
+        reservations:
+          memory: 64M
+          cpus: "0.05"
+    # Logging with rotation
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  # Internal network — containers can communicate but have no internet access
+  local-network:
+    driver: bridge
+    name: controle-videos-local
+    internal: true

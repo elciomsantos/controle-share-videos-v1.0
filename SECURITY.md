@@ -107,8 +107,64 @@ This document summarizes the security posture of Controle Share Videos v1.0
 |---|---|
 | **Docker** | Multi-stage (8 stages), base `node:24-alpine`, **non-root UID 1002**, no secrets in images |
 | **Compose (prod)** | **Docker Secrets** for all services (backend, frontend, caddy); `*_FILE` env vars |
-| **Network** | Single bridge `app-network`; external access only via Caddy |
+| **Capabilities** | `cap_drop: ALL` em todos; `cap_add: NET_BIND_SERVICE` apenas no Caddy (80/443) |
+| **Privilege** | `no-new-privileges:true` em todos os containers |
+| **Filesystem** | `read_only: true` + `tmpfs` em todos (Backend: /tmp:256M, /run:16M, /var/cache:32M) |
+| **PIDs** | `pids_limit: 512` em todos os containers |
+| **Network** | Rede `backend-net` com `internal: true`; acesso externo apenas via Caddy |
 | **Caddy (prod)** | Let's Encrypt TLS 1.2/1.3, HSTS preload (2yr), strict CSP, rate limit, `pwd=` log redaction |
+
+#### Docker Security Controls (2026-08-18)
+
+```yaml
+# docker-compose.prod.yml
+services:
+  backend:
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs: [/tmp:size=256M, /run:size=16M, /var/cache:size=32M]
+    pids_limit: 512
+    networks: [backend-net]
+
+  frontend:
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs: [/tmp:size=64M, /run:size=8M]
+    pids_limit: 512
+    networks: [backend-net]
+
+  caddy:
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs: [/tmp:size=64M]
+    pids_limit: 512
+    networks: [backend-net]
+
+networks:
+  backend-net:
+    driver: bridge
+    internal: true
+```
+
+#### NPM Security Policy (2026-08-18)
+
+```ini
+# .npmrc (root, backend, frontend, packages/shared)
+registry=https://registry.npmjs.org/
+package-lock=true
+save=false
+ignore-scripts=true
+strict-ssl=true
+audit=true
+```
+
+- `ignore-scripts=true`: Bloqueia execução automática de scripts pós-install
+- `allow-scripts` no `backend/package.json`: Permite scripts para `better-sqlite3`, `argon2`, `@prisma/engines` (nativos)
+- CI: `npm audit --audit-level=high` + `npm audit signatures` + verificação de dependências Git/URL
 
 #### Caddy Security Headers (from `reverse-proxy/Caddyfile.prod`)
 
@@ -282,13 +338,34 @@ docker exec controle-share-videos-backend \
 
 The CI pipeline (`.github/workflows/ci.yml`) runs:
 
-| Job | Tools |
-|---|---|
-| `lint` | ESLint (security rules) |
-| `test:unit` | Jest (backend) + Vitest (frontend) |
-| `test:e2e` | Playwright (critical auth/upload flows) |
-| `audit` | `npm audit` (0 CVE required) |
-| `build` | Multi-stage Docker (verifies non-root, no secrets) |
+| Job | Tools | Status |
+|---|---|---|
+| `lint` | ESLint (security rules) | ✅ |
+| `test:unit` | Jest (backend) + Vitest (frontend) | ✅ |
+| `test:e2e` | Playwright (critical auth/upload flows) | ✅ |
+| `audit` | `npm audit` (0 CVE required) | ✅ |
+| `security-scan` | Trivy (CRITICAL/HIGH CVEs) + TruffleHog (secrets) | ✅ (new) |
+| `docker-build` | Multi-stage Docker (verifies non-root, no secrets) | ✅ (new) |
+| `build` | Multi-stage Docker (verifies non-root, no secrets) | ✅ |
+| `deploy` | Depends on `security-scan` | ✅ (new) |
+
+#### CI Security Checks (2026-08-18)
+
+```yaml
+# npm security checks
+- npm ci (with ignore-scripts=true)
+- npm audit --audit-level=high (0 vulnerabilities required)
+- npm audit signatures (verify package signatures)
+- Git/URL dependency check (blocks GitHub/GitLab URLs, allows internal file: deps)
+
+# Docker security scanning
+- Trivy scan: CRITICAL + HIGH severity (fails build if found)
+- TruffleHog: Git history secret scanning
+
+# Docker build verification
+- Backend, Frontend, Combined images built and tested
+- Health checks verified
+```
 
 To run locally:
 
@@ -302,6 +379,10 @@ cd frontend && npm run lint && npm run test
 # E2E (requires Docker)
 docker compose -f docker-compose.local.yml up -d --build
 cd frontend && npm run test:e2e
+
+# Docker security scanning (local)
+docker build --target runner -t controle-share-videos-backend .
+trivy image controle-share-videos-backend
 ```
 
 ---
@@ -328,6 +409,9 @@ cd frontend && npm run test:e2e
 | `docs/operacional/RUNBOOKS.md` | Incident response (12 scenarios) |
 | `docs/operacional/MONITORAMENTO.md` | Healthchecks, logs, alerting |
 | `reverse-proxy/Caddyfile.prod` | Authoritative TLS/CSP/rate-limit config |
+| `docs/Relatorio/PLANO_HARDENING_DOCKER.md` | Docker hardening plan (items 1-5 implemented) |
+| `docs/Relatorio/POLITICA-SEGURANCA-NPM.md` | npm security policy |
+| `docker-compose.staging.yml` | Staging overlay for local hardening tests |
 
 ---
 
@@ -339,4 +423,4 @@ cd frontend && npm run test:e2e
 
 ---
 
-*Last updated: 2026-08-12 — all audit findings resolved, score revised 8.5 → 9.0/10*
+*Last updated: 2026-08-18 — Docker hardening (items 1-5) + NPM security policy implemented*
