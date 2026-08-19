@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
 # Hardening Script for Controle Share Videos Host Server
-# INFRA-MED-03: firewall (UFW), fail2ban, SSH hardening
+# INFRA-MED-03: firewall (UFW), fail2ban, SSH hardening, Docker Bench cron
 # Run as root on the production host before or during initial deployment.
 # =============================================================================
 set -euo pipefail
@@ -106,12 +106,30 @@ sed -i 's/^#\?MaxSessions .*/MaxSessions 10/' /etc/ssh/sshd_config
 
 systemctl reload sshd
 
+# ---------------------------------------------------------------------------
+# 4. Docker Bench Security — auditoria CIS semanal (INFRA-MED-03, item 15)
+# ---------------------------------------------------------------------------
+echo "[4/4] Configuring Docker Bench Security weekly audit..."
+# Garante que o script existe no deploy (definido em deploy-prod.sh)
+BENCH_SCRIPT="/opt/controle-share-videos-v1.0/scripts/security/docker-bench.sh"
+if [ -f "$BENCH_SCRIPT" ]; then
+    chmod +x "$BENCH_SCRIPT"
+    # Remove entradas antigas para idempotência antes de reinstalar
+    crontab -l 2>/dev/null | grep -v "docker-bench.sh" | crontab -
+    ( crontab -l 2>/dev/null; \
+      echo "30 5 * * 1 $BENCH_SCRIPT >> /var/log/controle-share-videos-docker-bench.log 2>&1" ) | crontab -
+    echo "Cron instalado: seg 05:30 (docker-bench.sh)"
+else
+    echo "WARN: $BENCH_SCRIPT não encontrado — pule a instalação do cron (deploy completo primeiro)."
+fi
+
 echo ""
 echo "=== Host hardening complete ==="
 echo "Actions taken:"
 echo "  - UFW firewall: only ports 22, 80, 443 open"
 echo "  - Fail2ban: SSH (3 retries, 24h ban), HTTP auth (20 retries, 1h ban)"
 echo "  - SSH: root login disabled, password auth disabled, key-only"
+echo "  - Docker Bench Security: weekly CIS audit (Mon 05:30)"
 echo ""
 echo "Next steps:"
 echo "  1. Add your SSH public key: ssh-copy-id user@host"
