@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "esModuleInterop": true,
-    "moduleResolution": "node10"
+    "moduleResolution": "bundler"
   },
-  "include": ["/**/*.ts", "generate-example-config.ts"],
+  "include": ["*.ts", "generate-example-config.ts"],
   "exclude": ["node_modules"]
 }
