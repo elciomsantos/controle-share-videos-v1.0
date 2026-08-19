@@ -64,7 +64,12 @@ services:
       - domain
       - jwt_secret
     # Bind mounts to RAID6 — data lives outside the container lifecycle.
-    # Host paths are owned by UID/GID 1002:1002 (see docs/Implantacao/Implantacao.md).
+    # (PLANO_HARDENING_DOCKER item 11) UID/GID consistente: host 1002:1002 =
+    # container 1002:1002 (create-user.sh defaults PUID=1002/PGID=1002; runner
+    # stage cria controle-user UID 1002). SELinux desativado no host → :z é
+    # no-op; mantém-se :z (label compartilhado) e não :Z porque backend e
+    # frontend montam o MESMO diretório images — :Z (private) causaria conflito
+    # de relabeling entre os dois containers em hosts SELinux.
     volumes:
       - /srv/controle-share-videos/data:/opt/app/backend/data:rw,z
       - /srv/controle-share-videos/data/images:/opt/app/frontend/public/img:rw,z
@@ -121,7 +126,9 @@ services:
     secrets:
       - domain
       - jwt_secret
-    # Bind mount to RAID6 — images shared with backend (host: 1002:1002)
+    # Bind mount to RAID6 — images shared with backend (host: 1002:1002).
+    # (PLANO_HARDENING_DOCKER item 11) :z (compartilhado) e não :Z porque o
+    # mesmo diretório também é montado pelo backend.
     volumes:
       - /srv/controle-share-videos/data/images:/opt/app/frontend/public/img:rw,z
 

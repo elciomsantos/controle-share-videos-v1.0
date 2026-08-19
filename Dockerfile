@@ -1,11 +1,19 @@
 # =============================================================================
+# Supply chain hardening (PLANO_HARDENING_DOCKER item 7): base image pinned by
+# digest instead of tag. Digest do manifest multi-arch node:24-alpine
+# (linux/amd64 + linux/arm64/v8). Renovar via Renovate/Dependabot
+# (config: dockerfile base image digest pins).
+# =============================================================================
+ARG NODE_BASE_IMAGE=node@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43
+
+# =============================================================================
 # Stage 0: Build @controle-share/shared (ARQ-03)
 # The backend and frontend depend on it via `file:../packages/shared`. npm
 # installs it as a relative symlink (node_modules/@controle-share/shared →
 # ../../../packages/shared), so the directory layout inside the image must
 # mirror the repo: /opt/app/{frontend,backend,packages}. See commit 499e2fd.
 # =============================================================================
-FROM node:24-alpine AS shared-builder
+FROM ${NODE_BASE_IMAGE} AS shared-builder
 WORKDIR /opt/app/packages/shared
 COPY packages/shared/package.json packages/shared/package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --prefer-offline
@@ -16,7 +24,7 @@ RUN npm run build
 # =============================================================================
 # Stage 1: Frontend dependencies
 # =============================================================================
-FROM node:24-alpine AS frontend-dependencies
+FROM ${NODE_BASE_IMAGE} AS frontend-dependencies
 WORKDIR /opt/app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --prefer-offline
@@ -24,7 +32,7 @@ RUN --mount=type=cache,target=/root/.npm npm ci --prefer-offline
 # =============================================================================
 # Stage 2: Build frontend (Next.js standalone)
 # =============================================================================
-FROM node:24-alpine AS frontend-builder
+FROM ${NODE_BASE_IMAGE} AS frontend-builder
 ARG API_URL
 ENV API_URL=${API_URL:-http://localhost:3000}
 WORKDIR /opt/app/frontend
@@ -37,7 +45,7 @@ RUN npm run build
 # =============================================================================
 # Stage 3: Backend dependencies
 # =============================================================================
-FROM node:24-alpine AS backend-dependencies
+FROM ${NODE_BASE_IMAGE} AS backend-dependencies
 # python3 + make + g++ are required for node-gyp (better-sqlite3, argon2 native
 # addons). Installed as a virtual package so they can be purged after `npm ci`
 # finishes, keeping the layer lean (P3 INFRA-LOW-01).
@@ -56,7 +64,7 @@ RUN --mount=type=cache,target=/root/.npm \
 # =============================================================================
 # Stage 4: Build backend
 # =============================================================================
-FROM node:24-alpine AS backend-builder
+FROM ${NODE_BASE_IMAGE} AS backend-builder
 RUN apk add --no-cache openssl
 WORKDIR /opt/app/backend
 COPY ./backend .
@@ -69,7 +77,7 @@ RUN npm run build && npm prune --production
 # =============================================================================
 # Stage 5: Frontend runner (standalone Next.js)
 # =============================================================================
-FROM node:24-alpine AS frontend-runner
+FROM ${NODE_BASE_IMAGE} AS frontend-runner
 ENV NODE_ENV=production
 WORKDIR /opt/app/frontend
 COPY --from=frontend-builder /opt/app/frontend/public ./public
@@ -80,7 +88,7 @@ COPY --from=frontend-builder /opt/app/frontend/public/img /tmp/img
 # =============================================================================
 # Stage 6: Backend runner (NestJS)
 # =============================================================================
-FROM node:24-alpine AS backend-runner
+FROM ${NODE_BASE_IMAGE} AS backend-runner
 ENV NODE_ENV=production
 # ffmpeg: embute o certificado (PDF/hash) como metadados inseparáveis do vídeo
 RUN apk add --no-cache ffmpeg
@@ -103,7 +111,7 @@ USER appuser
 # =============================================================================
 # Stage 7: Final combined image (Caddy + Backend + Frontend)
 # =============================================================================
-FROM node:24-alpine AS runner
+FROM ${NODE_BASE_IMAGE} AS runner
 ENV NODE_ENV=docker
 
 # Install runtime dependencies: curl (healthcheck), caddy (reverse proxy), su-exec (user switching)
