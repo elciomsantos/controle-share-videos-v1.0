@@ -169,7 +169,8 @@ jobs:
       - name: Build (backend)
         if: matrix.language == 'typescript'
         run: |
-          cd backend && npm ci --ignore-scripts && npx prisma generate && npm run build
+          cd packages/shared && npm ci --ignore-scripts && npm run build
+          cd ../../backend && npm ci --ignore-scripts && npx prisma generate && npm run build
 
       - name: Build (frontend)
         if: matrix.language == 'javascript'
@@ -314,6 +315,24 @@ jobs:
 
       - name: Install @cyclonedx/cyclonedx-npm
         run: npm install -g @cyclonedx/cyclonedx-npm
+
+      # cyclonedx-npm resolves the dependency tree from node_modules, so every
+      # project must be installed first (shared before backend/frontend: file:
+      # workspace dependency).
+      - name: Install dependencies (shared)
+        working-directory: ./packages/shared
+        run: npm ci --ignore-scripts
+
+      - name: Install dependencies (backend)
+        working-directory: ./backend
+        run: npm ci --ignore-scripts
+
+      - name: Install dependencies (frontend)
+        working-directory: ./frontend
+        run: npm ci --ignore-scripts
+
+      - name: Install dependencies (root)
+        run: npm ci --ignore-scripts
 
       - name: Generate SBOM (backend)
         working-directory: ./backend
