@@ -313,6 +313,60 @@ export default {
   "admin.auditLogs.empty": "Nenhum evento encontrado.",
   // END /admin/audit-logs
 
+  // /admin/access-review
+  "admin.accessReview.title": "Revisão de acesso trimestral",
+  "admin.accessReview.description":
+    "Certifique o acesso de cada usuário. Revisões vencem a cada 90 dias.",
+  "admin.accessReview.stats.total": "Total de usuários",
+  "admin.accessReview.stats.overdue": "Revisões atrasadas",
+  "admin.accessReview.stats.neverReviewed": "Nunca revisados",
+  "admin.accessReview.stats.mfaDisabled": "Admins sem MFA",
+  "admin.accessReview.alert.overdue.title": "Revisões atrasadas",
+  "admin.accessReview.alert.overdue.body":
+    "{count} usuário(s) com revisão vencida (mais de 90 dias). Ação imediata recomendada.",
+  "admin.accessReview.alert.mfaDisabled.title": "Admins sem MFA",
+  "admin.accessReview.alert.mfaDisabled.body":
+    "{count} administrador(es) sem autenticação de dois fatores ativa. Risco crítico.",
+  "admin.accessReview.filters.search": "Buscar por e-mail ou nome de usuário...",
+  "admin.accessReview.filters.role": "Filtrar por papel",
+  "admin.accessReview.filters.status": "Filtrar por status",
+  "admin.accessReview.filters.riskLevel": "Filtrar por nível de risco",
+  "admin.accessReview.export": "Exportar CSV",
+  "admin.accessReview.table.user": "Usuário",
+  "admin.accessReview.table.role": "Papel",
+  "admin.accessReview.table.status": "Status",
+  "admin.accessReview.table.lastLogin": "Último login",
+  "admin.accessReview.table.shares": "Shares",
+  "admin.accessReview.table.lastReviewed": "Última revisão",
+  "admin.accessReview.table.risk": "Risco",
+  "admin.accessReview.status.current": "Em dia",
+  "admin.accessReview.status.overdue": "Atrasado",
+  "admin.accessReview.status.never_reviewed": "Nunca revisado",
+  "admin.accessReview.risk.low": "Baixo",
+  "admin.accessReview.risk.medium": "Médio",
+  "admin.accessReview.risk.high": "Alto",
+  "admin.accessReview.mfa.active": "Ativo",
+  "admin.accessReview.mfa.critical": "Crítico",
+  "admin.accessReview.mfa.inactive": "Inativo",
+  "admin.accessReview.login.never": "Nunca",
+  "admin.accessReview.review.never": "Nunca",
+  "admin.accessReview.review.by": "por {name}",
+  "admin.accessReview.review.action": "Revisar",
+  "admin.accessReview.empty": "Nenhum registro encontrado.",
+  "admin.accessReview.modal.title": "Registrar revisão — {email}",
+  "admin.accessReview.modal.certify":
+    "Confirmo que o acesso do usuário é apropriado para sua função",
+  "admin.accessReview.modal.certify.help":
+    "Verifique shares, permissões e configuração de MFA antes de certificar.",
+  "admin.accessReview.modal.notes": "Observações da revisão",
+  "admin.accessReview.modal.notes.help":
+    "Obrigatório. Registre achados, exceções aprovadas ou justificativas.",
+  "admin.accessReview.modal.notes.placeholder":
+    "Descreva achados, ações tomadas, exceções aprovadas...",
+  "admin.accessReview.modal.submit": "Registrar revisão",
+  "admin.accessReview.toast.success": "Revisão registrada com sucesso",
+  // END /admin/access-review
+
   // /admin/sessions
   "admin.sessions.title": "Sessões ativas",
   "admin.sessions.filters.userId": "ID do usuário",
@@ -659,6 +713,7 @@ export default {
   "common.button.submit": "Submeter",
   "common.button.delete": "Excluir",
   "common.button.cancel": "Cancelar",
+  "common.all": "Todos",
   "common.button.close": "Fechar",
   "common.button.confirm": "Confirmar",
   "common.button.disable": "Desativar",
