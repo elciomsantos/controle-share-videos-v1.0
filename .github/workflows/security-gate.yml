@@ -79,9 +79,13 @@ jobs:
         run: npm audit --audit-level=high --json > npm-audit-frontend.json || true
 
       - name: Run OSV Scanner (all)
-        uses: google/osv-scanner@v1/actions
+        uses: google/osv-scanner-action/osv-scanner-action@6e4298ebc4db23e847df9b2e2de2939d6f066c67 # v2.5.1
         with:
-          args: --recursive --format=json --output=osv-results.json .
+          scan-args: |-
+            --recursive
+            --format=json
+            --output=osv-results.json
+            .
 
       - name: Check for HIGH/CRITICAL vulnerabilities
         run: |
@@ -393,11 +397,19 @@ jobs:
           cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.event.release.tag_name }}
           cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.event.release.tag_name }}
 
-      - name: Generate SLSA Provenance
-        uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.9.0
-        with:
-          base64-subjects: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.event.release.tag_name }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.event.release.tag_name }}"
-          provenance-name: provenance.intoto.jsonl
+  # SLSA Provenance (reusable workflow MUST be called at job level, never as a
+  # step). Generates attestation for the release image digests.
+  provenance:
+    name: Generate SLSA Provenance
+    needs: [container-scan]
+    if: github.event_name == 'release'
+    permissions:
+      contents: read
+      id-token: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.9.0
+    with:
+      base64-subjects: "ghcr.io/${{ github.repository }}-backend:${{ github.event.release.tag_name }},ghcr.io/${{ github.repository }}-frontend:${{ github.event.release.tag_name }}"
+      upload-assets: true
 
   # =============================================================================
   # 8. PRODUCTION READINESS CHECK (final gate)
@@ -427,7 +439,7 @@ jobs:
   notify-failure:
     name: Notify on Failure
     runs-on: ubuntu-latest
-    needs: [secret-scan, dependency-audit, sast, codeql, dockerfile-lint, container-scan, sbom, prod-readiness]
+    needs: [secret-scan, dependency-audit, sast, codeql, dockerfile-lint, container-scan, sbom, prod-readiness, provenance]
     if: failure()
     steps:
       - name: Send Slack notification
