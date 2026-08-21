@@ -1,106 +1,433 @@
-# GAP-06: Prometheus alerting rules grouped under a single file for simplicity.
-# Loaded by prometheus.yml `rule_files`. Alertmanager is wired up via the
-# `alerting` block in prometheus.yml; until an Alertmanager target exists
-# these rules emit alerts visible in the Prometheus UI only.
+# Prometheus Alerting Rules for controle-share-videos
+# Apply: kubectl apply -f alerts.yml (or add to Prometheus config)
+# 
+# Groups: security, availability, performance, infrastructure
+# Severities: critical (pages immediately), warning (pages in business hours), info (logs only)
 
 groups:
-  - name: controle-share-videos-availability
+  # =============================================================================
+  # SECURITY ALERTS (Critical - Page immediately)
+  # =============================================================================
+  - name: security-critical
     interval: 30s
     rules:
-      - alert: BackendDown
-        expr: up{job="backend"} == 0
+      # Authentication failures spike - possible brute force
+      - alert: AuthFailureSpike
+        expr: |
+          sum(rate(http_requests_total{status=~"401|403",path=~"/api/auth/.*"}[5m])) by (path)
+          > 10
         for: 2m
         labels:
           severity: critical
-          service: backend
+          category: security
         annotations:
-          summary: "Backend is down"
-          description: "NestJS app backend has been unreachable by Prometheus for {{ $value }}s (instance {{ $labels.instance }})."
+          summary: "High authentication failure rate on {{ $labels.path }}"
+          description: "Authentication failures exceeding 10/min on {{ $labels.path }}. Possible brute force or credential stuffing attack."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/runbooks/incident-response.md#61-vazamento-de-credencial"
 
-      - alert: NodeExporterDown
-        expr: up{job="node"} == 0
+      # Successful logins from new countries/ASNs (geo anomaly)
+      - alert: AuthFromNewGeo
+        expr: |
+          sum by (country) (rate(auth_login_total{country!="BR"}[1h])) > 0
         for: 5m
-        labels:
-          severity: warning
-          service: node-exporter
-        annotations:
-          summary: "node-exporter down"
-          description: "node-exporter has been unreachable for {{ $value }}s — check host agent."
-
-  - name: controle-share-videos-resources
-    interval: 30s
-    rules:
-      - alert: HighCpuUsage
-        expr: 100 - (avg(rate(node_cpu_seconds_total{job="node",mode="idle"}[5m])) * 100) > 90
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High CPU usage"
-          description: "Host CPU > 90% for 10 minutes. Current: {{ $value }}%."
-
-      - alert: HighMemoryUsage
-        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 90
-        for: 10m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High memory usage"
-          description: "Host memory > 90% for 10 minutes. Current: {{ $value }}%."
-
-      - alert: DiskSpaceLow
-        expr: 100 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"} * 100) > 90
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Disk space low"
-          description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is above 90% full."
-
-      - alert: DiskSpaceCritical
-        expr: 100 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"} * 100) > 95
-        for: 2m
         labels:
           severity: critical
+          category: security
         annotations:
-          summary: "Disk space critical"
-          description: "Filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} is above 95% full."
+          summary: "Login from unusual geographic location: {{ $labels.country }}"
+          description: "Successful authentication from {{ $labels.country }} detected. Verify if legitimate."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/runbooks/incident-response.md#61-vazamento-de-credencial"
 
-  - name: controle-share-videos-application
-    interval: 30s
-    rules:
-      - alert: High5xxRate
-        # Backend exports per-status counters (http_requests_total{status}).
-        # Caddy's metrics endpoint was dropped because it requires enabling the
-        # admin API (admin off is a deliberate INFRA hardening).
-        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) by (status) > 1
-        for: 5m
+      # JWT secret rotation overdue
+      - alert: JwtSecretRotationOverdue
+        expr: |
+          time() - jwt_secret_last_rotated_timestamp > 7776000  # 90 days
+        for: 1h
         labels:
-          severity: warning
-          service: backend
+          severity: critical
+          category: security
         annotations:
-          summary: "Elevated HTTP 5xx rate"
-          description: "Backend is serving status {{ $labels.status }} at {{ $value }} req/s for 5 minutes."
+          summary: "JWT secret rotation overdue (> 90 days)"
+          description: "JWT signing secret has not been rotated in over 90 days. Rotate immediately using rotate-jwt-secret.sh"
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/scripts/security/rotate-jwt-secret.sh"
 
-      - alert: HighLatencyP99
-        expr: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 2
-        for: 10m
+      # Admin without MFA
+      - alert: AdminWithoutMFA
+        expr: |
+          count(users{is_admin="true", mfa_enabled="false"}) > 0
+        for: 1h
         labels:
-          severity: warning
-          service: backend
+          severity: critical
+          category: security
         annotations:
-          summary: "High p99 latency"
-          description: "Backend p99 latency is above 2s for 10 minutes. Current: {{ $value }}s."
+          summary: "{{ $value }} admin user(s) without MFA enabled"
+          description: "Admin accounts must have MFA enabled per security policy. Immediate remediation required."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/runbooks/incident-response.md"
 
-      - alert: SqliteIntegrityFailure
-        # Exported by the backend (MetricsService) at GET /api/metrics — the
-        # PRAGMA integrity_check gauge from backend/src/metrics/. 0 means OK,
-        # >0 means the integrity check raised a problem.
-        expr: sqlite_integrity_check_failed > 0
+      # Access review overdue
+      - alert: AccessReviewOverdue
+        expr: |
+          count(users{last_reviewed_at < time() - 7776000}) > 0  # 90 days
+        for: 1h
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "{{ $value }} user(s) with access review overdue (> 90 days)"
+          description: "Quarterly access reviews are overdue. Run access review process immediately."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/frontend/src/pages/admin/access-review"
+
+      # TLS certificate expiring soon
+      - alert: TLSCertExpiringSoon
+        expr: |
+          caddy_tls_certificate_expiry_timestamp - time() < 2592000  # 30 days
+        for: 1h
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "TLS certificate expiring in < 30 days"
+          description: "Certificate for {{ $labels.domain }} expires on {{ $value | humanizeDate }}. Renewal may have failed."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/runbooks/incident-response.md#64-certificado-tls-expirado--comprometido"
+
+      # TLS certificate expired
+      - alert: TLSCertExpired
+        expr: |
+          caddy_tls_certificate_expiry_timestamp - time() < 0
         for: 1m
         labels:
           severity: critical
-          service: sqlite
+          category: security
         annotations:
-          summary: "SQLite integrity check failed"
-          description: "Backend reported a failing PRAGMA integrity_check on the share database. Restore from backup immediately."
+          summary: "TLS certificate EXPIRED for {{ $labels.domain }}"
+          description: "Certificate has expired! Site showing 'Not Secure'. Immediate manual renewal required."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/runbooks/incident-response.md#64-certificado-tls-expirado--comprometido"
+
+      # Backup health check failed
+      - alert: BackupHealthCheckFailed
+        expr: |
+          backup_health_check_status != 1
+        for: 1h
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Backup health check failed"
+          description: "Offsite backup verification failed. Data recoverability at risk. Check backup-health-check.sh logs."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/scripts/backup/health-check.sh"
+
+      # Backup age exceeded RPO
+      - alert: BackupAgeExceededRPO
+        expr: |
+          time() - backup_last_success_timestamp > 3600  # 1 hour for DB (RPO=1h)
+        for: 15m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Backup age exceeds RPO (1 hour)"
+          description: "Last successful backup was {{ $value | humanizeDuration }} ago. RPO is 1 hour for database."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/scripts/backup/health-check.sh"
+
+      # Files backup age exceeded RPO
+      - alert: FilesBackupAgeExceededRPO
+        expr: |
+          time() - files_backup_last_success_timestamp > 86400  # 24 hours for files (RPO=24h)
+        for: 1h
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Files backup age exceeds RPO (24 hours)"
+          description: "Last successful files backup was {{ $value | humanizeDuration }} ago. RPO is 24 hours for uploads."
+
+      # Audit log integrity check failed
+      - alert: AuditLogIntegrityCheckFailed
+        expr: |
+          audit_log_integrity_check_status != 1
+        for: 1h
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Audit log integrity check failed - possible tampering"
+          description: "Hash chain verification failed. Audit logs may have been tampered with. Immediate forensic investigation required."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/scripts/security/audit-worm.ts"
+
+      # Container running as root
+      - alert: ContainerRunningAsRoot
+        expr: |
+          container_security_context_run_as_user == 0
+        for: 1h
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Container {{ $labels.container }} running as root"
+          description: "Container {{ $labels.container }} in pod {{ $labels.pod }} is running as root user (UID 0)."
+
+      # Privileged container
+      - alert: PrivilegedContainer
+        expr: |
+          container_security_context_privileged == 1
+        for: 1m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Privileged container detected: {{ $labels.container }}"
+          description: "Container {{ $labels.container }} is running in privileged mode. Immediate remediation required."
+
+  # =============================================================================
+  # AVAILABILITY ALERTS (Critical - Page immediately)
+  # =============================================================================
+  - name: availability-critical
+    interval: 30s
+    rules:
+      # Service down
+      - alert: ServiceDown
+        expr: |
+          up{job=~"controle-share-.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.job }} has been down for more than 1 minute."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/runbooks/incident-response.md"
+
+      # Health check failing
+      - alert: HealthCheckFailing
+        expr: |
+          http_requests_total{path="/api/health",status!="200"}[5m] > 0
+        for: 2m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Health check failing for {{ $labels.job }}"
+          description: "Health endpoint returning non-200 status. Service may be degraded."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/runbooks/incident-response.md"
+
+      # Database connection pool exhausted
+      - alert: DatabaseConnectionPoolExhausted
+        expr: |
+          prisma_connection_pool_used / prisma_connection_pool_max > 0.9
+        for: 5m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Database connection pool > 90% utilized"
+          description: "Prisma connection pool at {{ $value | humanizePercentage }}. Requests may queue or fail."
+
+      # Disk space critical
+      - alert: DiskSpaceCritical
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/opt/app/backend/data"} / node_filesystem_size_bytes{mountpoint="/opt/app/backend/data"}) < 0.1
+        for: 5m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Disk space < 10% on backend data volume"
+          description: "Only {{ $value | humanizePercentage }} free on /opt/app/backend/data. Uploads and database at risk."
+
+      # Memory usage critical
+      - alert: MemoryUsageCritical
+        expr: |
+          (container_memory_usage_bytes / container_spec_memory_limit_bytes) > 0.9
+        for: 5m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Container {{ $labels.container }} memory > 90%"
+          description: "Memory usage at {{ $value | humanizePercentage }} of limit. Risk of OOM kill."
+
+      # CPU throttling
+      - alert: CPUThrottlingHigh
+        expr: |
+          rate(container_cpu_cfs_throttled_periods_total[5m]) / rate(container_cpu_cfs_periods_total[5m]) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "CPU throttling > 50% for {{ $labels.container }}"
+          description: "Container {{ $labels.container }} is being throttled. Consider increasing CPU limits."
+
+  # =============================================================================
+  # PERFORMANCE ALERTS (Warning - Page in business hours)
+  # =============================================================================
+  - name: performance-warning
+    interval: 60s
+    rules:
+      # High latency (p95 > 2s)
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, path, job)) > 2
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "High latency (p95 > 2s) on {{ $labels.path }}"
+          description: "p95 latency is {{ $value | humanizeDuration }}s for {{ $labels.path }} in {{ $labels.job }}"
+
+      # High error rate (5xx > 1%)
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) by (job) / sum(rate(http_requests_total[5m])) by (job) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          category: availability
+        annotations:
+          summary: "Error rate > 1% for {{ $labels.job }}"
+          description: "{{ $value | humanizePercentage }} of requests returning 5xx errors"
+
+      # Slow database queries
+      - alert: SlowDatabaseQueries
+        expr: |
+          histogram_quantile(0.95, sum(rate(prisma_query_duration_seconds_bucket[5m])) by (le, model, operation)) > 1
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "Slow database queries (p95 > 1s)"
+          description: "Prisma {{ $labels.operation }} on {{ $labels.model }} has p95 latency of {{ $value | humanizeDuration }}s"
+
+      # Upload throughput low
+      - alert: UploadThroughputLow
+        expr: |
+          rate(upload_bytes_total[5m]) < 1048576  # < 1 MB/s
+        for: 10m
+        labels:
+          severity: info
+          category: performance
+        annotations:
+          summary: "Upload throughput unusually low"
+          description: "Upload throughput dropped below 1 MB/s. May indicate network or storage issues."
+
+      # Download throughput low
+      - alert: DownloadThroughputLow
+        expr: |
+          rate(download_bytes_total[5m]) < 1048576  # < 1 MB/s
+        for: 10m
+        labels:
+          severity: info
+          category: performance
+        annotations:
+          summary: "Download throughput unusually low"
+          description: "Download throughput dropped below 1 MB/s. May indicate network or CDN issues."
+
+  # =============================================================================
+  # INFRASTRUCTURE ALERTS (Warning/Info)
+  # =============================================================================
+  - name: infrastructure
+    interval: 60s
+    rules:
+      # Container restart loop
+      - alert: ContainerRestartLoop
+        expr: |
+          rate(container_restart_count[15m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "Container {{ $labels.container }} restarting frequently"
+          description: "Container {{ $labels.container }} in {{ $labels.pod }} has restarted {{ $value | humanize }} times in 15 minutes"
+
+      # Kubernetes pod not ready
+      - alert: PodNotReady
+        expr: |
+          kube_pod_status_ready{condition="true"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "Pod {{ $labels.pod }} not ready"
+          description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has been not ready for 5 minutes"
+
+      # Node disk pressure
+      - alert: NodeDiskPressure
+        expr: |
+          kube_node_status_condition{condition="DiskPressure",status="true"} == 1
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "Node {{ $labels.node }} under disk pressure"
+          description: "Kubernetes node {{ $labels.node }} reports disk pressure condition"
+
+      # Node memory pressure
+      - alert: NodeMemoryPressure
+        expr: |
+          kube_node_status_condition{condition="MemoryPressure",status="true"} == 1
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "Node {{ $labels.node }} under memory pressure"
+          description: "Kubernetes node {{ $labels.node }} reports memory pressure condition"
+
+      # Certificate manager issues
+      - alert: CertManagerCertificateIssuing
+        expr: |
+          certmanager_certificate_ready{condition="Ready",status="False"} == 1
+        for: 10m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Certificate {{ $labels.certificate }} not ready"
+          description: "Certificate {{ $labels.certificate }} in namespace {{ $labels.namespace }} has been not ready for 10 minutes"
+
+  # =============================================================================
+  # BUSINESS METRICS ALERTS (Info - Log only)
+  # =============================================================================
+  - name: business-metrics
+    interval: 300s
+    rules:
+      # Daily active users drop
+      - alert: DailyActiveUsersDrop
+        expr: |
+          (daily_active_users / daily_active_users offset 7d) < 0.5
+        for: 1h
+        labels:
+          severity: info
+          category: business
+        annotations:
+          summary: "Daily active users dropped > 50% week-over-week"
+          description: "DAU dropped from {{ daily_active_users offset 7d }} to {{ daily_active_users }}"
+
+      # Share creation rate drop
+      - alert: ShareCreationRateDrop
+        expr: |
+          rate(shares_created_total[1h]) < (rate(shares_created_total[1h] offset 7d) * 0.5)
+        for: 1h
+        labels:
+          severity: info
+          category: business
+        annotations:
+          summary: "Share creation rate dropped > 50%"
+          description: "Share creation rate significantly lower than last week"
+
+      # Storage growth rate
+      - alert: StorageGrowthRateHigh
+        expr: |
+          (storage_used_bytes - storage_used_bytes offset 7d) / storage_used_bytes offset 7d > 0.2
+        for: 1h
+        labels:
+          severity: info
+          category: infrastructure
+        annotations:
+          summary: "Storage growth > 20% in 7 days"
+          description: "Storage grew from {{ storage_used_bytes offset 7d | humanizeBytes }} to {{ storage_used_bytes | humanizeBytes }} in 7 days"

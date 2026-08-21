@@ -1,0 +1,190 @@
+# Data Classification Matrix - LGPD Compliance
+**Versão:** 1.0  
+**Data:** 2026-08-21  
+**Responsável:** Security Lead + Legal/DPO  
+**Revisão:** Semestral ou quando houver mudança de processo
+
+---
+
+## Legenda de Classificação (LGPD)
+
+| Categoria | Definição LGPD | Artigo | Exemplos |
+|-----------|----------------|--------|----------|
+| **DADO_PESSOAL** | Informação relacionada a pessoa natural identificada ou identificável | Art. 5º, I | Email, Nome, IP, Username, Device ID |
+| **DADO_SENSIVEL** | Dado sobre origem racial/étnica, convicção religiosa, opinião política, filiação sindical, saúde, vida sexual, genético/biométrico | Art. 5º, II | TOTP secret (biométrico), Dados saúde se houver |
+| **DADO_ANONIMIZADO** | Dado que não permite identificação, considerando meios técnicos razoáveis | Art. 5º, III | Métricas agregadas, Hashes irreversíveis |
+| **DADO_PSEUDONIMIZADO** | Dado que não permite identificação direta, mas permite via informação adicional | Art. 5º, §1º | User ID interno (precisa de lookup table) |
+
+---
+
+## Matriz de Classificação por Campo/Tabela
+
+### Tabela: `User` (Prisma Model)
+
+| Campo | Tipo Prisma | Categoria LGPD | Base Legal (Art. 7) | Finalidade | Retenção | Criptografia | Compartilhamento | DPIA Necessária? |
+|-------|-------------|----------------|---------------------|------------|----------|--------------|------------------|------------------|
+| id | String (UUID) | DADO_PSEUDONIMIZADO | Legítimo interesse (Art. 7º, IX) | Identificação única interna | 7 anos pós-inativação | Em trânsito (TLS) | Interno (backend) | Não |
+| email | String (unique) | DADO_PESSOAL | Consentimento (Art. 7º, I) / Contrato (Art. 7º, V) | Autenticação, comunicação, notificações | 7 anos pós-inativação | Em trânsito + Em repouso (hash index) | Interno + SMTP (envio email) | Não |
+| username | String (unique) | DADO_PESSOAL | Consentimento / Legítimo interesse | Identificação amigável, URL shares | 7 anos pós-inativação | Em trânsito | Interno | Não |
+| password | String? (hash Argon2) | DADO_SENSIVEL (credencial) | Obrigação legal - Segurança (Art. 7º, II) | Autenticação | Até rotação/remoção | Argon2id (hash) + TLS | **NUNCA** compartilhado | Sim (credencial) |
+| isAdmin | Boolean | DADO_PESSOAL | Legítimo interesse | Controle de acesso (RBAC) | 7 anos pós-inativação | Em trânsito | Interno | Não |
+| role | String | DADO_PESSOAL | Legítimo interesse | Controle de acesso (RBAC) | 7 anos pós-inativação | Em trânsito | Interno | Não |
+| shareSizeLimit | BigInt? | DADO_PESSOAL | Contrato / Legítimo interesse | Quota de armazenamento | 7 anos pós-inativação | Em trânsito | Interno | Não |
+| passwordMustChange | Boolean | DADO_PESSOAL | Obrigação legal - Segurança | Força troca senha | Até troca | Em trânsito | Interno | Não |
+| totpEnabled | Boolean | DADO_PESSOAL | Obrigação legal - Segurança | Status MFA | 7 anos pós-inativação | Em trânsito | Interno | Não |
+| totpVerified | Boolean | DADO_PESSOAL | Obrigação legal - Segurança | Status MFA verificado | 7 anos pós-inativação | Em trânsito | Interno | Não |
+| totpSecret | String? | **DADO_SENSIVEL** (biométrico/segredo) | **Obrigação legal - Segurança (Art. 7º, II)** | **Geração códigos TOTP (MFA)** | **Até desabilitar MFA** | **Em repouso (hash) + TLS** | **NUNCA** | **SIM** |
+| resetPasswordToken | Relation (1:1) | DADO_SENSIVEL (token) | Legítimo interesse / Segurança | Recuperação de senha | 1 hora (expiração) | Token hash + TLS | Interno (email link) | Não |
+| isActivated | Boolean | DADO_PESSOAL | Consentimento / Contrato | Controle ativação conta | 7 anos pós-inativação | Em trânsito | Interno | Não |
+| activationToken | String? | DADO_SENSIVEL (token) | Consentimento | Verificação email inicial | 24 horas (expiração) | Token hash + TLS | Interno (email link) | Não |
+| activationTokenExpiresAt | DateTime? | DADO_PESSOAL | Consentimento | Expiração token | 24 horas | Em trânsito | Interno | Não |
+| createdAt | DateTime | DADO_PESSOAL | Legítimo interesse | Auditoria, compliance | 7 anos | Em trânsito | Interno | Não |
+| updatedAt | DateTime | DADO_PESSOAL | Legítimo interesse | Auditoria | 7 anos | Em trânsito | Interno | Não |
+
+---
+
+### Tabela: `Share` (Prisma Model)
+
+| Campo | Tipo Prisma | Categoria LGPD | Base Legal | Finalidade | Retenção | Criptografia | Compartilhamento | DPIA? |
+|-------|-------------|----------------|------------|------------|----------|--------------|------------------|-------|
+| id | String (UUID) | DADO_PSEUDONIMIZADO | Legítimo interesse | Identificação share | Config `fileRetentionPeriod` | Em trânsito | Interno + Destinatários | Não |
+| name | String? | DADO_PESSOAL (pode conter) | Consentimento | Nome amigável do share | Igual ao share | Em trânsito | Destinatários + Auditoria | Avaliar |
+| description | String? | DADO_PESSOAL (pode conter) | Consentimento | Descrição livre | Igual ao share | Em trânsito | Destinatários + Auditoria | Avaliar |
+| creatorId | String? | DADO_PSEUDONIMIZADO | Legítimo interesse | Ownership, auditoria | Igual ao share | Em trânsito | Interno + Destinatários | Não |
+| expiration | DateTime? | DADO_PESSOAL | Consentimento / Contrato | Controle de acesso temporal | Até expiração + retenção | Em trânsito | Interno | Não |
+| uploadLocked | Boolean | DADO_PESSOAL | Legítimo interesse | Estado do share | Igual ao share | Em trânsito | Interno | Não |
+| storageProvider | String | - | - | Configuração técnica | - | - | - | Não |
+
+---
+
+### Tabela: `File` (Prisma Model)
+
+| Campo | Tipo Prisma | Categoria LGPD | Base Legal | Finalidade | Retenção | Criptografia | Compartilhamento | DPIA? |
+|-------|-------------|----------------|------------|------------|----------|--------------|------------------|-------|
+| id | String (UUID) | DADO_PSEUDONIMIZADO | Legítimo interesse | Identificação arquivo | Config `fileRetentionPeriod` | Em trânsito | Destinatários do share | Não |
+| name | String | **DADO_PESSOAL (potencial)** | Consentimento | Nome original do arquivo | Igual ao arquivo | Em trânsito | Destinatários + Auditoria | **Avaliar caso a caso** |
+| size | BigInt | DADO_PESSOAL (metadado) | Legítimo interesse | Quota, exibição | Igual ao arquivo | Em trânsito | Interno + Destinatários | Não |
+| description | String? | **DADO_PESSOAL (potencial)** | Consentimento | Descrição livre do usuário | Igual ao arquivo | Em trânsito | Destinatários + Auditoria | **Avaliar caso a caso** |
+| sha256 | String? | DADO_ANONIMIZADO (hash) | Legítimo interesse | Integridade, certificado, dedup | Igual ao arquivo | Em trânsito | Interno (auditoria) | Não |
+| shareId | String | DADO_PSEUDONIMIZADO | Legítimo interesse | Relacionamento share-arquivo | Igual ao arquivo | Em trânsito | Interno | Não |
+
+---
+
+### Tabela: `ShareSecurity` (Prisma Model)
+
+| Campo | Tipo Prisma | Categoria LGPD | Base Legal | Finalidade | Retenção | Criptografia | Compartilhamento | DPIA? |
+|-------|-------------|----------------|------------|------------|----------|--------------|------------------|-------|
+| password | String? | **DADO_SENSIVEL** (credencial share) | Consentimento / Legítimo interesse | Proteção acesso share | Até expiração share | **Argon2id (hash) + TLS** | **NUNCA** | Não |
+| maxViews | Int? | DADO_PESSOAL | Legítimo interesse | Controle uso | Igual ao share | Em trânsito | Interno | Não |
+| maxDownloads | Int? | DADO_PESSOAL | Legítimo interesse | Controle uso | Igual ao share | Em trânsito | Interno | Não |
+
+---
+
+### Tabela: `ShareToken` (Prisma Model)
+
+| Campo | Tipo Prisma | Categoria LGPD | Base Legal | Finalidade | Retenção | Criptografia | Compartilhamento | DPIA? |
+|-------|-------------|----------------|------------|------------|----------|--------------|------------------|-------|
+| tokenHash | String | **DADO_SENSIVEL** (token acesso) | Consentimento / Legítimo interesse | Acesso anônimo a share | Até expiração/revogação | **SHA-256 (opaco)** | **NUNCA** (token opaco) | Não |
+| ipAddress | String? | DADO_PESSOAL | Legítimo interesse (segurança) | Auditoria acesso | 1 ano | Em trânsito | Interno (auditoria) | Não |
+| userAgent | String? | DADO_PESSOAL | Legítimo interesse (segurança) | Auditoria acesso | 1 ano | Em trânsito | Interno (auditoria) | Não |
+
+---
+
+### Tabela: `AuditLog` (Prisma Model)
+
+| Campo | Tipo Prisma | Categoria LGPD | Base Legal | Finalidade | Retenção | Criptografia | Compartilhamento | DPIA? |
+|-------|-------------|----------------|------------|------------|----------|--------------|------------------|-------|
+| eventType | String | DADO_PESSOAL (metadado) | Obrigação legal - Segurança (Art. 7º, II) | Auditoria, compliance | **7 anos** (Art. 16 LGPD) | Em trânsito + Em repouso (WORM) | Interno (admin) | Não |
+| userId | String? | DADO_PSEUDONIMIZADO | Obrigação legal | Vincular evento a usuário | 7 anos | Em trânsito | Interno | Não |
+| sessionId | String? | DADO_PSEUDONIMIZADO | Obrigação legal | Vincular a sessão | 7 anos | Em trânsito | Interno | Não |
+| resource | String? | DADO_PESSOAL (metadado) | Obrigação legal | Identificar recurso acessado | 7 anos | Em trânsito | Interno | Não |
+| result | String? | DADO_PESSOAL (metadado) | Obrigação legal | Sucesso/falha | 7 anos | Em trânsito | Interno | Não |
+| metadata | String? (JSON) | **DADO_PESSOAL (potencial)** | Obrigação legal | Contexto adicional | 7 anos | Em trânsito + WORM | Interno (admin) | **Avaliar** |
+| ipAddress | String? | DADO_PESSOAL | Obrigação legal - Segurança | Geolocalização, detecção anomalia | 7 anos | Em trânsito | Interno | Não |
+| userAgent | String? | DADO_PESSOAL | Obrigação legal - Segurança | Device fingerprinting | 7 anos | Em trânsito | Interno | Não |
+| requestId | String? | DADO_PSEUDONIMIZADO | Obrigação legal | Correlation ID | 7 anos | Em trânsito | Interno | Não |
+
+---
+
+### Tabela: `DownloadLog` (Prisma Model)
+
+| Campo | Tipo Prisma | Categoria LGPD | Base Legal | Finalidade | Retenção | Criptografia | Compartilhamento | DPIA? |
+|-------|-------------|----------------|------------|------------|----------|--------------|------------------|-------|
+| shareId | String | DADO_PSEUDONIMIZADO | Legítimo interesse | Vincular download a share | Config `downloadLogRetentionDays` | Em trânsito | Interno + Criador share | Não |
+| fileId | String? | DADO_PSEUDONIMIZADO | Legítimo interesse | Identificar arquivo | Igual ao log | Em trânsito | Interno + Criador | Não |
+| fileName | String | **DADO_PESSOAL (potencial)** | Legítimo interesse | Exibição relatório | Igual ao log | Em trânsito | Interno + Criador | Avaliar |
+| userId | String? | DADO_PSEUDONIMIZADO | Legítimo interesse | Identificar quem baixou | Igual ao log | Em trânsito | Interno | Não |
+| username | String? | DADO_PESSOAL | Legítimo interesse | Exibição relatório | Igual ao log | Em trânsito | Interno | Não |
+| ip | String | DADO_PESSOAL | Obrigação legal - Segurança | Geolocalização, anomalia | Igual ao log | Em trânsito | Interno | Não |
+| userAgent | String? | DADO_PESSOAL | Obrigação legal - Segurança | Device info | Igual ao log | Em trânsito | Interno | Não |
+| success | Boolean | DADO_PESSOAL (metadado) | Legítimo interesse | Estatísticas | Igual ao log | Em trânsito | Interno | Não |
+| reason | String? | DADO_PESSOAL (metadado) | Legítimo interesse | Debug falhas | Igual ao log | Em trânsito | Interno | Não |
+
+---
+
+### Tabela: `RefreshToken` / `Session` / `LoginToken` / `RecoveryCode` / `ResetPasswordToken` / `ActivationToken`
+
+| Entidade | Categoria LGPD | Base Legal | Finalidade | Retenção | Criptografia | Observação |
+|----------|----------------|------------|------------|----------|--------------|------------|
+| RefreshToken.token (hash) | **DADO_SENSIVEL** (credencial) | Contrato / Legítimo interesse | Sessão persistente | Até expiração/revogação | **SHA-256 + Argon2** | Token opaco |
+| Session.tokenHash | **DADO_SENSIVEL** (credencial) | Contrato / Legítimo interesse | Sessão acesso (curta) | Até expiração/idle/revogação | **SHA-256** | Token opaco |
+| LoginToken.token | **DADO_SENSIVEL** (credencial temporária) | Contrato / Legítimo interesse | 2FA flow | 5 min / uso único | **UUID v4 (opaco)** | Single-use |
+| RecoveryCode.codeHash | **DADO_SENSIVEL** (credencial MFA) | Obrigação legal - Segurança | Backup MFA | Até uso/regeneração | **SHA-256** | Single-use |
+| ResetPasswordToken.token | **DADO_SENSIVEL** (credencial) | Legítimo interesse / Segurança | Reset senha | 1 hora | **SHA-256** | Single-use |
+| ActivationToken | **DADO_SENSIVEL** (credencial) | Consentimento | Verificação email | 24 horas | **SHA-256** | Single-use |
+
+---
+
+## Resumo de Controles por Categoria
+
+| Categoria LGPD | Criptografia Em Repouso | Criptografia Em Trânsito | Acesso Restrito | Retenção Máxima | DPIA Obrigatória |
+|----------------|------------------------|-------------------------|-----------------|-----------------|------------------|
+| **DADO_SENSIVEL** | **OBRIGATÓRIA** (AES-256 / Argon2 / SHA-256) | **OBRIGATÓRIA** (TLS 1.2+) | **Need-to-know + MFA** | Conforme finalidade | **SIM** |
+| **DADO_PESSOAL** | Recomendada (volume encrypted) | **OBRIGATÓRIA** (TLS 1.2+) | Role-based (RBAC) | 7 anos pós-fim finalidade | Avaliar caso a caso |
+| **DADO_PSEUDONIMIZADO** | Opcional | **OBRIGATÓRIA** (TLS 1.2+) | Role-based | Conforme finalidade | Não |
+| **DADO_ANONIMIZADO** | Não necessária | Recomendada | Público (se agregado) | Indefinida | Não |
+
+---
+
+## Checklist de Conformidade por Campo
+
+### Para CADA campo classificado como **DADO_SENSIVEL**:
+- [ ] Criptografia em repouso implementada (AES-256 / Argon2 / SHA-256)
+- [ ] Criptografia em trânsito (TLS 1.2+)
+- [ ] Acesso restrito (RBAC + MFA para admin)
+- [ ] Logs de acesso auditados
+- [ ] Retenção definida e automatizada
+- [ ] DPIA concluída e aprovada
+- [ ] Plano de resposta a incidente específico
+
+### Para CADA campo classificado como **DADO_PESSOAL**:
+- [ ] Base legal documentada (Art. 7 LGPD)
+- [ ] Finalidade específica e legítima
+- [ ] Criptografia em trânsito (TLS)
+- [ ] Controle de acesso (RBAC)
+- [ ] Retenção definida (máx 7 anos pós-fim)
+- [ ] Direito do titular implementado (DSR endpoint)
+- [ ] Compartilhamento terceiros com contrato (Art. 7º, VII)
+
+---
+
+## Próximos Passos (Action Items)
+
+- [ ] **Legal/DPO** revisar e aprovar bases legais
+- [ ] **Security** implementar criptografia em repouso para `totpSecret` (já hash) e validar `File.name/description`
+- [ ] **Backend** implementar endpoint DSR (`/api/privacy/dsr`) - export/delete
+- [ ] **DevOps** habilitar WORM no bucket de backup + Object Lock
+- [ ] **Security** completar DPIA para `totpSecret` e metadados de arquivo
+- [ ] **Todos** validar matriz com donos dos dados
+- [ ] **Legal** elaborar/atualizar Política de Privacidade (Art. 9 LGPD)
+- [ ] **Legal** elaborar Termo de Consentimento (se aplicável)
+- [ ] **Security** registrar ROP (Registro de Atividades de Processamento) - Art. 37 LGPD
+
+---
+
+## Referências Normativas
+
+- **LGPD** - Lei 13.709/2018 (Arts. 5, 7, 9, 16, 18, 37, 48)
+- **ANPD** - Guias de Boas Práticas (DPIA, DSR, Encarregado)
+- **ISO 27001** - A.8.2 (Classificação da Informação), A.18.1 (Compliance)
+- **NIST SP 800-53** - SI-12 (Information Handling), MP-6 (Media Sanitization)

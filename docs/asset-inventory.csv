@@ -1,0 +1,82 @@
+# Asset Inventory - controle-share-videos
+**Versão:** 1.0  
+**Data:** 2026-08-21  
+**Responsável:** Security Lead  
+**Revisão:** Trimestral
+
+---
+
+## Instruções de Preenchimento
+
+| Campo | Descrição | Valores Válidos |
+|-------|-----------|-----------------|
+| **Componente** | Nome identificador do ativo | Nome único, sem espaços |
+| **Tipo** | Categoria do ativo | SERVICE, DATABASE, STORAGE, NETWORK, IDENTITY, COMPUTE, EXTERNAL |
+| **Ambiente** | Onde roda | PRODUCTION, STAGING, DEVELOPMENT |
+| **Dono** | Equipe/pessoa responsável | security, backend, devops, frontend, infra |
+| **Criticidade** | Impacto se comprometido | CRITICAL (negócio para), HIGH (degradação grave), MEDIUM (parcial), LOW (mínimo) |
+| **Dados Processados** | Tipos de dados que manipula | Ver classificação LGPD abaixo |
+| **Integrações Externas** | Sistemas terceiros conectados | Lista separada por ; |
+| **Exposição** | Acesso de rede | INTERNET, VPC_ONLY, INTERNAL, LOCALHOST |
+| **Backup** | Tem backup? | YES/NO + frequência |
+| **Monitoramento** | Tem alertas? | YES/NO + ferramenta |
+| **Compliance** | Requisitos regulatórios | LGPD, PCI, SOX, etc. |
+| **Última Revisão** | Data da última atualização | YYYY-MM-DD |
+
+---
+
+## Inventário de Ativos
+
+| Componente | Tipo | Ambiente | Dono | Criticidade | Dados Processados | Integrações Externas | Exposição | Backup | Monitoramento | Compliance | Última Revisão |
+|------------|------|----------|------|-------------|-------------------|---------------------|-----------|--------|---------------|------------|----------------|
+| backend-api | SERVICE | PRODUCTION | backend | CRITICAL | PII, Credenciais, Metadados, Audit Logs | SMTP (email), S3 (backup) | VPC_ONLY | YES (daily) | YES (Prometheus) | LGPD | 2026-08-21 |
+| frontend-web | SERVICE | PRODUCTION | frontend | HIGH | PII (visualização), Tokens sessão | CDN (imagens) | INTERNET | YES (daily) | YES (Prometheus) | LGPD | 2026-08-21 |
+| sqlite-db | DATABASE | PRODUCTION | backend | CRITICAL | PII, Credenciais hash, TOTP secrets, Audit Logs, Metadados arquivos | - | LOCALHOST | YES (daily + WAL) | YES (Prometheus) | LGPD | 2026-08-21 |
+| uploads-volume | STORAGE | PRODUCTION | backend | HIGH | Arquivos usuários (podem conter PII) | S3 (backup) | VPC_ONLY | YES (daily) | YES (disk space) | LGPD | 2026-08-21 |
+| frontend-img-volume | STORAGE | PRODUCTION | frontend | MEDIUM | Imagens estáticas (logos, avatars) | S3 (backup) | VPC_ONLY | YES (weekly) | YES (disk space) | - | 2026-08-21 |
+| caddy-proxy | NETWORK | PRODUCTION | devops | CRITICAL | TLS certs, Access logs (IP, UA) | Let's Encrypt, DNS | INTERNET (80/443) | YES (config) | YES (Prometheus) | LGPD | 2026-08-21 |
+| smtp-service | EXTERNAL | PRODUCTION | backend | HIGH | Emails usuários (PII) | Provedor SMTP externo | INTERNET | N/A | YES (health check) | LGPD | 2026-08-21 |
+| github-actions | COMPUTE | PRODUCTION | devops | HIGH | Source code, Secrets (JWT, AWS, SMTP) | GitHub, Docker Hub | INTERNET | N/A | YES (workflow runs) | - | 2026-08-21 |
+| docker-registry | EXTERNAL | PRODUCTION | devops | MEDIUM | Imagens container | Docker Hub / GHCR | INTERNET | N/A | YES | - | 2026-08-21 |
+| monitoring-stack | SERVICE | PRODUCTION | devops | MEDIUM | Métricas sistema (sem PII) | Prometheus, Grafana, Alertmanager | VPC_ONLY | YES (config) | YES (self-monitor) | - | 2026-08-21 |
+| dns-domain | NETWORK | PRODUCTION | devops | HIGH | Domínio, Subdomínios | Registrar DNS, Cloudflare | INTERNET | N/A | YES (cert expiry) | - | 2026-08-21 |
+| backup-bucket | STORAGE | PRODUCTION | devops | CRITICAL | Backups criptografados (DB + arquivos) | S3/GCS, KMS | VPC_ONLY | N/A (é backup) | YES (size, age) | LGPD | 2026-08-21 |
+
+---
+
+## Matriz de Criticidade por Tipo de Dado
+
+| Tipo de Dado | Exemplos | Criticidade Mínima do Ativo |
+|--------------|----------|----------------------------|
+| Credenciais/Secrets | JWT secret, AWS keys, SMTP password, DB password | CRITICAL |
+| PII Sensível (LGPD Art. 5º II) | TOTP secret, Biometria, Dados saúde | CRITICAL |
+| PII Comum (LGPD Art. 5º I) | Email, Nome, IP, Username, Device info | HIGH |
+| Metadados de Arquivo | Nome, Tamanho, Hash, Dono, Timestamps | HIGH |
+| Logs de Auditoria | Ações usuários, IP, User-Agent, Resultado | HIGH |
+| Arquivos de Usuário | Uploads (podem conter qualquer coisa) | HIGH |
+| Configuração Não-Sensível | Theme, Language, Preferences | MEDIUM |
+| Métricas Agregadas | Contadores, Latência, Throughput | LOW |
+| Assets Estáticos | Logos, CSS, JS bundles (públicos) | LOW |
+
+---
+
+## Dependências Críticas (Single Points of Failure)
+
+| Ativo | Depende de | Risco se Indisponível | Mitigação |
+|-------|------------|----------------------|-----------|
+| backend-api | sqlite-db | Falha total | Multi-AZ SQLite (futuro PostgreSQL) |
+| backend-api | caddy-proxy | Inacessível externamente | Health check + auto-restart |
+| caddy-proxy | dns-domain | Inalcançável | DNS secundário, TTL baixo |
+| backend-api | smtp-service | Sem emails (verificação, reset) | Queue local + retry |
+| backup-bucket | KMS | Impossível restaurar | KMS multi-region, backup DEK |
+| github-actions | GitHub | Deploy/CI paralisado | Self-hosted runner backup |
+
+---
+
+## Próximos Passos (Action Items)
+
+- [ ] Validar com donos de cada ativo
+- [ ] Completar dados faltantes (últimas revisões, frequência backup)
+- [ ] Mapear fluxos de dados entre ativos (Data Flow Diagram)
+- [ ] Identificar ativos shadow IT (ferramentas não oficial)
+- [ ] Classificar cada campo de dado na planilha LGPD (próxima aba)

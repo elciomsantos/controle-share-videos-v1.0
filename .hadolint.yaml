@@ -1,0 +1,146 @@
+# hadolint configuration for Dockerfile security
+# Rules: https://github.com/hadolint/hadolint/blob/master/docs/rules.md
+
+# Ignored rules (with justification)
+ignored:
+  # DL3008: Pin versions in apt get install - we use base image with pinned versions
+  - DL3008
+  # DL3015: Avoid additional packages - we need some for runtime
+  - DL3015
+  # DL3042: Avoid cache directory - we clean up in same RUN
+  - DL3042
+
+# Trusted registries for FROM images
+trustedRegistries:
+  - docker.io
+  - ghcr.io
+  - gcr.io
+  - quay.io
+
+# Required labels
+requiredLabels:
+  - org.opencontainers.image.source
+  - org.opencontainers.image.version
+  - org.opencontainers.image.created
+
+# Severity overrides
+override:
+  # Require non-root user
+  DL3002: error
+  # Use COPY instead of ADD
+  DL3003: error
+  # Don't use sudo
+  DL3004: error
+  # Don't use apt-get upgrade
+  DL3005: error
+  # Add HEALTHCHECK
+  DL3007: error
+  # Pin versions in apt get install
+  DL3008: warn
+  # Clean up apt cache
+  DL3009: error
+  # Use COPY --chown
+  DL3010: error
+  # Valid UNIX ports
+  DL3011: error
+  # HEALTHCHECK parameters
+  DL3012: warn
+  # Pin versions in apk add
+  DL3013: warn
+  # Use -y for apt-get
+  DL3014: error
+  # Additional packages
+  DL3015: warn
+  # Pin versions in pip
+  DL3016: warn
+  # Don't use apk add --update
+  DL3018: error
+  # Use --no-cache-dir for pip
+  DL3019: error
+  # Use COPY --from
+  DL3020: error
+  # COPY with multiple sources
+  DL3021: error
+  # COPY from non-existent
+  DL3022: error
+  # COPY with --chown
+  DL3023: error
+  # WORKDIR absolute path
+  DL3024: error
+  # ARG before FROM
+  DL3025: error
+  # Use --chown
+  DL3026: error
+  # Use COPY --link
+  DL3027: warn
+  # Use .dockerignore
+  DL3028: warn
+  # Use --mount=type=cache
+  DL3029: warn
+  # Use --mount=type=bind
+  DL3030: warn
+
+# Custom rules for our security requirements
+customRules:
+  # Require non-root user
+  - id: SEC001
+    message: "Container must run as non-root user"
+    severity: error
+    pattern: "USER (root|0)"
+    inverse: true
+
+  # Require read-only root filesystem
+  - id: SEC002
+    message: "Container should use read-only root filesystem"
+    severity: warn
+    pattern: "read-only"
+    context: "securityOpt"
+
+  # No privileged mode
+  - id: SEC003
+    message: "Container must not run in privileged mode"
+    severity: error
+    pattern: "privileged.*true"
+    inverse: true
+
+  # No host network
+  - id: SEC004
+    message: "Container must not use host network"
+    severity: error
+    pattern: "network_mode.*host"
+    inverse: true
+
+  # No host PID
+  - id: SEC005
+    message: "Container must not use host PID namespace"
+    severity: error
+    pattern: "pid.*host"
+    inverse: true
+
+  # No host IPC
+  - id: SEC006
+    message: "Container must not use host IPC namespace"
+    severity: error
+    pattern: "ipc.*host"
+    inverse: true
+
+  # Capabilities dropped
+  - id: SEC007
+    message: "Container should drop all capabilities"
+    severity: warn
+    pattern: "cap_drop.*ALL"
+    context: "cap_drop"
+
+  # Security options
+  - id: SEC008
+    message: "Container should have security options (no-new-privileges)"
+    severity: warn
+    pattern: "no-new-privileges"
+    context: "securityOpt"
+
+  # Resource limits
+  - id: SEC009
+    message: "Container should have resource limits (memory, cpu)"
+    severity: warn
+    pattern: "(mem_limit|cpus|nano_cpus)"
+    context: "deploy.resources.limits"

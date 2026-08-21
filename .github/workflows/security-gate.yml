@@ -1,0 +1,446 @@
+# GitHub Actions Workflow - Security Gate for Production
+# Triggered on: push to main, pull_request to main, release published
+# Fails build on: CRITICAL/HIGH vulnerabilities, secret leaks, SAST findings
+
+name: Security Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '24'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # =============================================================================
+  # 1. SECRET SCANNING (gitleaks)
+  # =============================================================================
+  secret-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for gitleaks
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: --verbose --redact --fail-on-leak
+
+  # =============================================================================
+  # 2. DEPENDENCY AUDIT (npm audit + OSV Scanner)
+  # =============================================================================
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies (backend)
+        working-directory: ./backend
+        run: npm ci --ignore-scripts
+
+      - name: Install dependencies (frontend)
+        working-directory: ./frontend
+        run: npm ci --ignore-scripts
+
+      - name: Install dependencies (root)
+        run: npm ci --ignore-scripts
+
+      - name: Run npm audit (backend)
+        working-directory: ./backend
+        run: npm audit --audit-level=high --json > npm-audit-backend.json || true
+
+      - name: Run npm audit (frontend)
+        working-directory: ./frontend
+        run: npm audit --audit-level=high --json > npm-audit-frontend.json || true
+
+      - name: Run OSV Scanner (all)
+        uses: google/osv-scanner@v1/actions
+        with:
+          args: --recursive --format=json --output=osv-results.json .
+
+      - name: Check for HIGH/CRITICAL vulnerabilities
+        run: |
+          CRITICAL_COUNT=$(jq '[.results[].packages[].vulnerabilities[] | select(.severity == "CRITICAL")] | length' osv-results.json 2>/dev/null || echo 0)
+          HIGH_COUNT=$(jq '[.results[].packages[].vulnerabilities[] | select(.severity == "HIGH")] | length' osv-results.json 2>/dev/null || echo 0)
+          
+          if [ "$CRITICAL_COUNT" -gt 0 ] || [ "$HIGH_COUNT" -gt 0 ]; then
+            echo "::error::Found $CRITICAL_COUNT CRITICAL and $HIGH_COUNT HIGH vulnerabilities"
+            cat osv-results.json | jq '.results[].packages[] | select(.vulnerabilities[]?.severity == "CRITICAL" or .vulnerabilities[]?.severity == "HIGH") | {package: .package.name, version: .package.version, vulnerabilities: .vulnerabilities[] | select(.severity == "CRITICAL" or .severity == "HIGH") | {id: .id, severity: .severity, summary: .summary}}'
+            exit 1
+          fi
+          
+          echo "✅ No CRITICAL/HIGH vulnerabilities found"
+
+      - name: Upload audit reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit-reports
+          path: |
+            backend/npm-audit-backend.json
+            frontend/npm-audit-frontend.json
+            osv-results.json
+
+  # =============================================================================
+  # 3. SAST (semgrep + CodeQL)
+  # =============================================================================
+  sast:
+    name: Static Analysis (SAST)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    strategy:
+      matrix:
+        language: [typescript, javascript]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/secrets
+            p/typescript
+            p/nodejs
+          generateSarif: true
+
+      - name: Upload semgrep results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+  # CodeQL Analysis
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [typescript, javascript]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: +security-extended,+security-and-quality
+
+      - name: Build (backend)
+        if: matrix.language == 'typescript'
+        run: |
+          cd backend && npm ci --ignore-scripts && npm run build
+
+      - name: Build (frontend)
+        if: matrix.language == 'javascript'
+        run: |
+          cd frontend && npm ci --ignore-scripts && npm run build
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{matrix.language}}"
+
+  # =============================================================================
+  # 4. DOCKERFILE SECURITY (hadolint + dockerfilelint)
+  # =============================================================================
+  dockerfile-lint:
+    name: Dockerfile Security Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          recursive: true
+          failure-threshold: error
+          config: .hadolint.yaml
+
+      - name: Run dockerfilelint (custom rules)
+        run: |
+          npm install -g dockerfilelint
+          cat > .dockerfilelintrc <<'EOF'
+          {
+            "rules": {
+              "user": "error",
+              "latest-tag": "error",
+              "workdir": "warn",
+              "expose": "warn",
+              "cmd-allowed": ["node", "npm", "sh", "bash"],
+              "entrypoint-allowed": ["node", "npm", "sh", "bash"],
+              "shell": "error",
+              "apt-get-install": "error",
+              "yum-install": "error"
+            }
+          }
+          EOF
+          dockerfilelint Dockerfile || true
+          dockerfilelint backend/Dockerfile || true
+
+  # =============================================================================
+  # 5. CONTAINER IMAGE SCAN (Trivy) - on Docker build
+  # =============================================================================
+  container-scan:
+    name: Container Image Scan (Trivy)
+    runs-on: ubuntu-latest
+    needs: [dockerfile-lint]
+    if: github.event_name == 'push' || github.event_name == 'release'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          target: runner
+          load: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          target: frontend-runner
+          load: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy scanner (backend)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:test
+          format: 'sarif'
+          output: 'trivy-backend.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+
+      - name: Run Trivy scanner (frontend)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:test
+          format: 'sarif'
+          output: 'trivy-frontend.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-backend.sarif
+          category: trivy-backend
+
+      - name: Upload Trivy results (frontend)
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-frontend.sarif
+          category: trivy-frontend
+
+  # =============================================================================
+  # 6. SBOM GENERATION (CycloneDX)
+  # =============================================================================
+  sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    needs: [dependency-audit]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install @cyclonedx/bom
+        run: npm install -g @cyclonedx/bom
+
+      - name: Generate SBOM (backend)
+        working-directory: ./backend
+        run: |
+          cyclonedx-bom -o ../sbom-backend.json --json
+
+      - name: Generate SBOM (frontend)
+        working-directory: ./frontend
+        run: |
+          cyclonedx-bom -o ../sbom-frontend.json --json
+
+      - name: Generate SBOM (root)
+      run: |
+          cyclonedx-bom -o ../sbom-root.json --json
+
+      - name: Sign SBOMs with cosign (keyless)
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.2.0'
+
+      - name: Sign SBOMs
+        run: |
+          cosign sign-blob --yes --blob sbom-backend.json --output-signature sbom-backend.json.sig
+          cosign sign-blob --yes --blob sbom-frontend.json --output-signature sbom-frontend.json.sig
+          cosign sign-blob --yes --blob sbom-root.json --output-signature sbom-root.json.sig
+
+      - name: Verify SBOM signatures
+        run: |
+          cosign verify-blob --blob sbom-backend.json --signature sbom-backend.json.sig
+          cosign verify-blob --blob sbom-frontend.json --signature sbom-frontend.json.sig
+          cosign verify-blob --blob sbom-root.json --signature sbom-root.json.sig
+
+      - name: Upload SBOMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: |
+            sbom-*.json
+            sbom-*.json.sig
+
+  # =============================================================================
+  # 7. ARTIFACT SIGNING (cosign) - on release
+  # =============================================================================
+  sign-artifacts:
+    name: Sign Release Artifacts
+    runs-on: ubuntu-latest
+    needs: [container-scan, sbom]
+    if: github.event_name == 'release'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          target: runner
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.event.release.tag_name }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          target: frontend-runner
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.event.release.tag_name }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign images (keyless)
+        run: |
+          cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.event.release.tag_name }}
+          cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.event.release.tag_name }}
+
+      - name: Generate SLSA Provenance
+        uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v1.9.0
+        with:
+          base64-subjects: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.event.release.tag_name }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.event.release.tag_name }}"
+          provenance-name: provenance.intoto.jsonl
+
+  # =============================================================================
+  # 8. PRODUCTION READINESS CHECK (final gate)
+  # =============================================================================
+  prod-readiness:
+    name: Production Readiness Check
+    runs-on: ubuntu-latest
+    needs: [secret-scan, dependency-audit, sast, codeql, dockerfile-lint, container-scan, sbom]
+    if: github.event_name == 'release' || github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run production readiness script
+        run: |
+          chmod +x scripts/ci/prod-readiness-check.sh
+          ./scripts/ci/prod-readiness-check.sh
+
+      - name: Check all required checks passed
+        run: |
+          echo "✅ All security gates passed!"
+          echo "🚀 Ready for production deployment"
+
+  # =============================================================================
+  # NOTIFICATIONS
+  # =============================================================================
+  notify-failure:
+    name: Notify on Failure
+    runs-on: ubuntu-latest
+    needs: [secret-scan, dependency-audit, sast, codeql, dockerfile-lint, container-scan, sbom, prod-readiness]
+    if: failure()
+    steps:
+      - name: Send Slack notification
+        if: env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@v1.23.0
+        with:
+          payload: |
+            {
+              "text": "🚨 *Security Gate FAILED*",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Repository:* ${{ github.repository }}\n*Workflow:* ${{ github.workflow }}\n*Branch:* ${{ github.ref }}\n*Commit:* ${{ github.sha }}\n*Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
