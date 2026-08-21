@@ -355,15 +355,15 @@ jobs:
 
       - name: Sign SBOMs
         run: |
-          cosign sign-blob --yes --blob sbom-backend.json --output-signature sbom-backend.json.sig --bundle sbom-backend.json.bundle
-          cosign sign-blob --yes --blob sbom-frontend.json --output-signature sbom-frontend.json.sig --bundle sbom-frontend.json.bundle
-          cosign sign-blob --yes --blob sbom-root.json --output-signature sbom-root.json.sig --bundle sbom-root.json.bundle
+          cosign sign-blob --yes sbom-backend.json --output-signature sbom-backend.json.sig --bundle sbom-backend.json.bundle
+          cosign sign-blob --yes sbom-frontend.json --output-signature sbom-frontend.json.sig --bundle sbom-frontend.json.bundle
+          cosign sign-blob --yes sbom-root.json --output-signature sbom-root.json.sig --bundle sbom-root.json.bundle
 
       - name: Verify SBOM signatures
         run: |
-          cosign verify-blob --yes --blob sbom-backend.json --signature sbom-backend.json.sig --bundle sbom-backend.json.bundle
-          cosign verify-blob --yes --blob sbom-frontend.json --signature sbom-frontend.json.sig --bundle sbom-frontend.json.bundle
-          cosign verify-blob --yes --blob sbom-root.json --signature sbom-root.json.sig --bundle sbom-root.json.bundle
+          cosign verify-blob --yes sbom-backend.json --signature sbom-backend.json.sig --bundle sbom-backend.json.bundle
+          cosign verify-blob --yes sbom-frontend.json --signature sbom-frontend.json.sig --bundle sbom-frontend.json.bundle
+          cosign verify-blob --yes sbom-root.json --signature sbom-root.json.sig --bundle sbom-root.json.bundle
 
       - name: Upload SBOMs
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
