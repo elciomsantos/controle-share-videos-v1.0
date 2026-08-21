@@ -118,7 +118,7 @@ Sintoma Observado (Alert/Report)
 
 ## 9. Follow-up
 
-- [ ] Action items criados no GitHub
+- [ ] Action items criados no GitHub (label `postmortem-action`, owner + due date)
 - [ ] Runbook atualizado (se aplicável)
 - [ ] Alertas ajustados (se aplicável)
 - [ ] Treinamento agendado (se aplicável)
@@ -131,6 +131,16 @@ Sintoma Observado (Alert/Report)
 - [ ] Screenshots de dashboards/alertas
 - [ ] Commits/PRs relacionados
 - [ ] Comunicações externas (emails, tickets suporte)
+
+### 10.1 Evidências Forenses (SEC-4.6)
+
+| Artefato | Localização | Hash MANIFEST | Custody Log |
+|----------|-------------|---------------|-------------|
+| Snapshot completo | `s3://…/evidence/INC-XXX_data/` | `[primeiros 16 chars]` | Transferência nº |
+| Export de auditoria | [caminho] | [hash] | Transferência nº |
+
+> Procedimento de custódia: `docs/forensics.md`. Evidências analisadas **apenas sobre cópias**;
+> originais permanecem no repositório imutável até encerramento legal.
 
 ---
 

@@ -18,6 +18,11 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
+permissions:
+  contents: read
+  id-token: write
+  packages: read
+
 jobs:
   # =============================================================================
   # 1. SECRET SCANNING (gitleaks)
@@ -27,12 +32,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           fetch-depth: 0  # Full history for gitleaks
 
       - name: Run gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@bcfb9cce635345aac9996cedc19b2de8e01b894f # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -46,10 +51,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@ae0d4ed08881f17d1511386f5be3e62356acd4a6 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -92,7 +97,7 @@ jobs:
           echo "✅ No CRITICAL/HIGH vulnerabilities found"
 
       - name: Upload audit reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
         with:
           name: dependency-audit-reports
           path: |
@@ -114,10 +119,10 @@ jobs:
         language: [typescript, javascript]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Run semgrep
-        uses: returntocorp/semgrep-action@v1
+        uses: returntocorp/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
         with:
           config: >-
             p/security-audit
@@ -127,7 +132,7 @@ jobs:
           generateSarif: true
 
       - name: Upload semgrep results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@486fec2a3ea2626afcd8c7e9208b4f515078dd7e # v3
         with:
           sarif_file: semgrep.sarif
           category: semgrep
@@ -145,10 +150,10 @@ jobs:
         language: [typescript, javascript]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@486fec2a3ea2626afcd8c7e9208b4f515078dd7e # v3
         with:
           languages: ${{ matrix.language }}
           queries: +security-extended,+security-and-quality
@@ -164,7 +169,7 @@ jobs:
           cd frontend && npm ci --ignore-scripts && npm run build
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@486fec2a3ea2626afcd8c7e9208b4f515078dd7e # v3
         with:
           category: "/language:${{matrix.language}}"
 
@@ -176,7 +181,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Run hadolint
         uses: hadolint/hadolint-action@v3.1.0
@@ -216,13 +221,13 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'release'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196803ccdf7f5f0e # v3
 
       - name: Build backend image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@2ca78c6bec76527009825f31aae0532b4d40d820 # v5
         with:
           context: .
           file: Dockerfile
@@ -233,7 +238,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build frontend image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@2ca78c6bec76527009825f31aae0532b4d40d820 # v5
         with:
           context: .
           file: Dockerfile
@@ -244,7 +249,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Run Trivy scanner (backend)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:test
           format: 'sarif'
@@ -255,7 +260,7 @@ jobs:
           vuln-type: 'os,library'
 
       - name: Run Trivy scanner (frontend)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:test
           format: 'sarif'
@@ -266,13 +271,13 @@ jobs:
           vuln-type: 'os,library'
 
       - name: Upload Trivy results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@486fec2a3ea2626afcd8c7e9208b4f515078dd7e # v3
         with:
           sarif_file: trivy-backend.sarif
           category: trivy-backend
 
       - name: Upload Trivy results (frontend)
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@486fec2a3ea2626afcd8c7e9208b4f515078dd7e # v3
         with:
           sarif_file: trivy-frontend.sarif
           category: trivy-frontend
@@ -286,10 +291,10 @@ jobs:
     needs: [dependency-audit]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@ae0d4ed08881f17d1511386f5be3e62356acd4a6 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -308,11 +313,11 @@ jobs:
           cyclonedx-bom -o ../sbom-frontend.json --json
 
       - name: Generate SBOM (root)
-      run: |
+        run: |
           cyclonedx-bom -o ../sbom-root.json --json
 
       - name: Sign SBOMs with cosign (keyless)
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@874852de93c66509b01dc7cd80f7a5385182d017 # v3
         with:
           cosign-release: 'v2.2.0'
 
@@ -329,7 +334,7 @@ jobs:
           cosign verify-blob --blob sbom-root.json --signature sbom-root.json.sig
 
       - name: Upload SBOMs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
         with:
           name: sbom
           path: |
@@ -346,20 +351,20 @@ jobs:
     if: github.event_name == 'release'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196803ccdf7f5f0e # v3
 
       - name: Login to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@af63523ba5f55733d817da0fdb813e660152c72c # v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push backend
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@2ca78c6bec76527009825f31aae0532b4d40d820 # v5
         with:
           context: .
           file: Dockerfile
@@ -370,7 +375,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest
 
       - name: Build and push frontend
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@2ca78c6bec76527009825f31aae0532b4d40d820 # v5
         with:
           context: .
           file: Dockerfile
@@ -381,7 +386,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v3
+        uses: sigstore/cosign-installer@874852de93c66509b01dc7cd80f7a5385182d017 # v3
 
       - name: Sign images (keyless)
         run: |
@@ -404,7 +409,7 @@ jobs:
     if: github.event_name == 'release' || github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Run production readiness script
         run: |

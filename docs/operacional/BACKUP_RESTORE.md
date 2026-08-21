@@ -137,4 +137,4 @@ curl -fs http://127.0.0.1:8080/api/health      # 200
 | Backup criptografado | `scripts/backup.sh` | Diário (cron) + pré-deploy |
 | Restore test (integridade do backup) | `scripts/restore-test.sh` | Semanal (cron) |
 | Integridade do banco vivo | `scripts/verify-db.sh` / alerta Prometheus | Contínuo |
-| Teste de restore manual (DR drill) | §4 | Trimestral |
+| Teste de restore manual (DR drill) | §4 + `docs/runbooks/dr-drill.md` | Trimestral |

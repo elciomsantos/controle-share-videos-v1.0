@@ -185,6 +185,40 @@ export async function configureApp(
     next();
   });
 
+  // API Versioning middleware — supports /api/v{N}/ prefix and Accept header
+  // version negotiation. Adds X-API-Version and optional Sunset headers.
+  const VERSION_PATTERN = /^\/api\/v(\d+)\//;
+  const SUPPORTED_VERSIONS = ["1"];
+  const DEPRECATED_VERSIONS: Record<string, string> = {};
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    let version = "1";
+    const urlMatch = req.path.match(VERSION_PATTERN);
+    if (urlMatch) {
+      version = urlMatch[1];
+    } else {
+      const accept = req.headers["accept"] || "";
+      const acceptMatch = accept.match(/application\/vnd\.cs\.v(\d+)\+json/);
+      if (acceptMatch) version = acceptMatch[1];
+    }
+    res.setHeader("X-API-Version", version);
+    if (!SUPPORTED_VERSIONS.includes(version)) {
+      res.status(400).json({
+        statusCode: 400,
+        message: `unsupported_api_version`,
+        supportedVersions: SUPPORTED_VERSIONS,
+      });
+      return;
+    }
+    if (DEPRECATED_VERSIONS[version]) {
+      res.setHeader("X-API-Deprecated", "true");
+      res.setHeader("Sunset", DEPRECATED_VERSIONS[version]);
+    }
+    if (urlMatch) {
+      req.url = req.url.replace(VERSION_PATTERN, "/api/");
+    }
+    next();
+  });
+
   await fs.promises.mkdir(`${DATA_DIRECTORY}/uploads/_temp`, {
     recursive: true,
   });

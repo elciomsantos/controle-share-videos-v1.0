@@ -7,6 +7,29 @@
 
 ---
 
+## v1.2.20 — Fase 4 (Low Gaps): API Versioning, CI hardening, forense, postmortem, DR drill e pentest (2026-08-21)
+
+### Resumo
+Implementação dos 6 itens selecionados da **Fase 4 (Low Gaps)** do `docs/SECURITY-GAPS-IMPLEMENTATION-PLAN.md` (issues #28–#35, milestone #39): 4.1 versionamento de API, 4.4 hardening de runners CI, 4.6 preservação de evidências forenses, 4.7 análise pós-incidente, 4.8 teste de recuperação (DR drill) e 4.3 escopo de pentest externo.
+
+### Implementado
+- **4.1 API Versioning** (`backend/src/main.ts`, novo `docs/api-versioning.md`): middleware de versão inline (padrão do projeto) — suporta prefixo `/api/v{N}/` (rewrite preservando o global prefix `/api`) e negociação via header `Accept: application/vnd.cs.v{N}+json`; responde `X-API-Version`; rejeita fail-closed com 400 `unsupported_api_version` + `supportedVersions`; headers `X-API-Deprecated`/`Sunset` para versões deprecadas. Política de ciclo de vida documentada (janela N-1 por 12 meses, Sunset 6 meses).
+- **4.4 CI Runner Hardening** (`.github/workflows/ci.yml`, `security-gate.yml`): bloco `permissions:` mínimo no topo (`contents: read`, `id-token: write`, `packages: read`) e **todas as actions pinadas por SHA** (checkout v5/v4, setup-node, docker buildx/build-push/login, trivy, trufflehog, gitleaks, semgrep, codeql, cosign, upload-artifact). Corrigido bug pré-existente de indentação YAML no step "Generate SBOM (root)". Runners GitHub-hosted já são efêmeros (critério atendido).
+- **4.6 Evidence Preservation** (novo `scripts/incident/forensic-snapshot.sh`, novo `docs/forensics.md`): snapshot forense padrão — estado volátil (ps/ss/docker inspect/logs), DB SQLite consistente via `.backup`, tar de uploads preservando metadados, upload opcional S3 imutável (`--upload` + `$EVIDENCE_BUCKET`), `MANIFEST.sha256` + `manifest.json` para chain of custody. Documento de custódia com template de log e checklist SEV-1. Integrado ao runbook IR §5.3 (substitui comandos AWS genéricos).
+- **4.7 Post-Incident Analysis** (`docs/runbooks/postmortem-template.md`): mandato já existia no runbook IR §5.12–5.13; adicionada seção §10.1 "Evidências Forenses" ao template (tabela artefato/localização/hash/custody log, integração com SEC-4.6).
+- **4.8 Recovery Testing** (novo `docs/runbooks/dr-drill.md`): runbook de DR drill trimestral em ambiente limpo — fases A–F cronometradas (provisionar → restaurar DB → arquivos → stack → validação E2E → medição), formulário de registro com RTO/RPO reais vs alvos (**RTO ≤ 4h, RPO DB ≤ 24h, RPO arquivos ≤ 24h**), critérios de aprovação e processo pós-drill (findings → issues → atualização de runbooks). Checklist de `BACKUP_RESTORE.md` atualizado para referenciar o drill.
+- **4.3 Pen Testing** (novo `docs/pentest-scope.md`): escopo para contratação de pentest externo — OWASP ASVS Level 2, componentes em/fora de escopo, cenários obrigatórios alinhados aos testes internos §35, regras de engajamento (staging exclusivo, dados sintéticos, NDA), critérios de seleção de fornecedor, fluxo de remediação (CRITICAL/HIGH bloqueiam deploy até re-teste) e checklist de prontidão.
+- Removidos arquivos mortos `backend/src/common/api-version/*` (middleware standalone não usado — implementação final é inline em main.ts).
+
+### Validado
+- `tsc --noEmit` limpo; `eslint` backend sem erros (6 warnings pré-existentes em admin-access-review.controller.ts); `nest build` OK.
+- Nova suíte E2E `test/api-version.e2e-spec.ts`: **6/6 passam** (health com header, rewrite `/api/v1/…`→`/api/…`, 400 unsupported via path e Accept, negociação vnd.cs.v1+json, `*/*` não bloqueia).
+- Jest unitário **248/248** (24 suítes); E2E auth-share **16/16** isolada; security E2E OK.
+- YAML dos dois workflows validado (`yaml.safe_load`).
+- Nota: conflito pré-existente entre suítes E2E quando rodadas todas juntas (auth-share espera ser o 1º usuário do DB compartilhado) — reproduzido também sem as mudanças desta versão; não bloqueante (CI roda suítes separadas).
+
+---
+
 ## v1.2.19 — Função Ativar/Desativar usuário (mantém logs e compartilhamentos) (2026-08-18)
 
 ### Resumo

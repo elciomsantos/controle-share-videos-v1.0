@@ -125,19 +125,27 @@ SEV-4: TL (backlog)
 
 #### 5.3 Evidências Iniciais (Forensics)
 ```bash
-# Capturar estado atual (não alterar sistema!)
-# 1. Snapshot de volumes (AWS/GCP)
-aws ec2 create-snapshot --volume-id vol-xxx --description "IR-SEV1-$(date +%s)"
+# CAPTURA PADRONIZADA (SEC-4.6) — executar ANTES da contenção.
+# O script captura estado volátil, DB consistente, volumes e gera
+# manifest com hashes SHA-256 (baseline da cadeia de custódia).
+sudo ./scripts/incident/forensic-snapshot.sh \
+  --incident INC-2026-001 \
+  --output /var/evidence
 
-# 2. Exportar logs recentes (últimas 24h)
-sqlite3 /opt/app/backend/data/controle-videos.db \
-  "SELECT * FROM audit_log WHERE createdAt > datetime('now', '-1 day');" > audit_export_$(date +%s).csv
+# Upload para bucket imutável de evidências (opcional, se disponível)
+sudo EVIDENCE_BUCKET=controle-share-evidence ./scripts/incident/forensic-snapshot.sh \
+  --incident INC-2026-001 --upload
+```
 
-# 3. Capturar conexões de rede atuais
-ss -tunap > netstat_$(date +%s).txt
+Procedimento completo de custódia: **`docs/forensics.md`** (coleta → transferência →
+armazenamento imutável → análise sobre cópias). Registrar coleta no Custody Log.
 
-# 4. Processos em execução
-ps auxf > processes_$(date +%s).txt
+Complementos manuais, quando necessário:
+```bash
+# Exportar auditoria recente (sobre a cópia do snapshot, não no original!)
+sqlite3 /var/evidence/INC-2026-001_*/database/controle-videos-snapshot.db \
+  "SELECT * FROM AuditLog WHERE createdAt > datetime('now', '-1 day');" \
+  > audit_export_$(date +%s).csv
 ```
 
 ---
