@@ -361,9 +361,18 @@ jobs:
 
       - name: Verify SBOM signatures
         run: |
-          cosign verify-blob sbom-backend.json --signature sbom-backend.json.sig --bundle sbom-backend.json.bundle
-          cosign verify-blob sbom-frontend.json --signature sbom-frontend.json.sig --bundle sbom-frontend.json.bundle
-          cosign verify-blob sbom-root.json --signature sbom-root.json.sig --bundle sbom-root.json.bundle
+          cosign verify-blob \
+            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            sbom-backend.json --signature sbom-backend.json.sig --bundle sbom-backend.json.bundle
+          cosign verify-blob \
+            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            sbom-frontend.json --signature sbom-frontend.json.sig --bundle sbom-frontend.json.bundle
+          cosign verify-blob \
+            --certificate-identity-regexp "^https://github.com/${{ github.repository }}/" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            sbom-root.json --signature sbom-root.json.sig --bundle sbom-root.json.bundle
 
       - name: Upload SBOMs
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
