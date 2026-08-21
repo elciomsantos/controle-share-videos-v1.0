@@ -85,6 +85,13 @@ COPY --from=frontend-builder /opt/app/frontend/.next/standalone ./
 COPY --from=frontend-builder /opt/app/frontend/.next/static ./.next/static
 COPY --from=frontend-builder /opt/app/frontend/public/img /tmp/img
 
+# Remove npm/npx: not needed to run the standalone Next.js server, and the
+# npm bundle ships vulnerable transitive deps (undici/tar/ip-address/...)
+# that image scanners flag. Same rationale as P3 INFRA-Low-01 in the runner
+# stage below.
+RUN rm -rf /usr/local/lib/node_modules/npm \
+        /usr/local/bin/npm /usr/local/bin/npx /root/.npm
+
 # =============================================================================
 # Stage 6: Backend runner (NestJS)
 # =============================================================================

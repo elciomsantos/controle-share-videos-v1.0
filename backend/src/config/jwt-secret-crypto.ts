@@ -11,6 +11,7 @@ import * as crypto from "crypto";
  */
 
 const ENCRYPTED_PREFIX = "enc:v1:";
+const GCM_TAG_LENGTH = 16;
 
 export function hasEncryptionKey(): boolean {
   const key = process.env.JWT_SECRET_ENCRYPTION_KEY?.trim();
@@ -26,7 +27,11 @@ export function encryptSecret(value: string): string {
   if (!hasEncryptionKey()) return value;
   const key = Buffer.from(process.env.JWT_SECRET_ENCRYPTION_KEY!.trim(), "base64");
   const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  // authTagLength pinned at creation so both cipher and decipher reject tags
+  // with unexpected length (GCM tag truncation hardening).
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv, {
+    authTagLength: GCM_TAG_LENGTH,
+  });
   const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
   const tag = cipher.getAuthTag();
   return ["enc", "v1", iv.toString("base64"), tag.toString("base64"), encrypted.toString("base64")].join(":");
@@ -45,6 +50,7 @@ export function decryptSecret(value: string): string {
       "aes-256-gcm",
       key,
       Buffer.from(ivB64, "base64"),
+      { authTagLength: GCM_TAG_LENGTH },
     );
     decipher.setAuthTag(Buffer.from(tagB64, "base64"));
     return Buffer.concat([
