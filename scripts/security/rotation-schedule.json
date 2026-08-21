@@ -1,0 +1,26 @@
+{
+  "jwt": {
+    "interval_days": 90,
+    "last_rotated": null,
+    "script": "/opt/scripts/security/rotate-jwt-secret.sh",
+    "description": "JWT signing secret - rotate every 90 days automatically"
+  },
+  "smtp": {
+    "interval_days": 180,
+    "last_rotated": null,
+    "manual": true,
+    "description": "SMTP credentials - rotate every 180 days (manual process)"
+  },
+  "db": {
+    "interval_days": 365,
+    "last_rotated": null,
+    "manual": true,
+    "description": "Database password - rotate annually (manual process)"
+  },
+  "tls": {
+    "interval_days": 90,
+    "last_rotated": null,
+    "auto": true,
+    "description": "TLS certificates - auto-renewed by Caddy/Let's Encrypt, monitor expiry"
+  }
+}
