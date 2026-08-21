@@ -346,7 +346,7 @@ jobs:
 
       - name: Generate SBOM (root)
         run: |
-          cyclonedx-npm --output-file ../sbom-root.json
+          cyclonedx-npm --output-file sbom-root.json
 
       - name: Sign SBOMs with cosign (keyless)
         uses: sigstore/cosign-installer@874852de93c66509b01dc7cd80f7a5385182d017 # v3
