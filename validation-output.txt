@@ -1,0 +1,4 @@
+[2026-08-21 13:41:42] === STAGING VALIDATION STARTED (mode: --quick) ===
+[2026-08-21 13:41:42] === 1. BACKUP & RESTORE VALIDATION ===
+[2026-08-21 13:41:42]   [INFO] Checking SQLite backup script...
+[2026-08-21 13:41:42]   [PASS] SQLite backup script exists and executable
