@@ -1,4 +1,4 @@
-import api from "./api.service";
+import api, { refreshSession } from "./api.service";
 
 const signIn = async (emailOrUsername: string, password: string) => {
   const emailOrUsernameBody = emailOrUsername.includes("@")
@@ -74,13 +74,14 @@ const signOut = async () => {
 
 // SEC-1.2/§10 (Fase 4): o access token é opaco e httpOnly — o client não
 // consegue ler `exp` nem a sessão. A rotação é delegada ao backend (cookie de
-// refresh httpOnly) e o 401-handler do api.service já faz refresh deduplicado
-// sob demanda. Aqui o refresh é apenas proativo (keep-alive): sem refresh
-// cookie, o backend responde 401 e o erro é ignorado.
+// refresh httpOnly) e o refresh é SEMPRE feito via `refreshSession()` do
+// api.service (promise deduplicada) — chamar `/auth/token` diretamente aqui
+// burlaria o dedup e, com o token de uso único, duas chamadas concorrentes
+// acionariam a detecção de reuso que revoga todas as sessões.
 const refreshAccessToken = async () => {
   try {
-    await api.post("/auth/token");
-  } catch (e) {
+    await refreshSession();
+  } catch {
     console.info("No active session; refresh skipped");
   }
 };

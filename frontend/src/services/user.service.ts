@@ -5,7 +5,6 @@ import {
   UpdateUser,
 } from "../types/user.type";
 import api from "./api.service";
-import authService from "./auth.service";
 
 const list = async () => {
   return (await api.get("/users")).data;
@@ -33,7 +32,11 @@ const removeCurrentUser = async () => {
 
 const getCurrentUser = async (): Promise<CurrentUser | null> => {
   try {
-    await authService.refreshAccessToken();
+    // Sem refresh explícito aqui: o interceptor do api.service já faz o
+    // refresh deduplicado no 401 de `users/me` e reenvia a requisição. O
+    // refresh explícito anterior causava um segundo `/auth/token` por chamada
+    // (visível como 401 duplicado no console) e disputava o mesmo refresh
+    // token de uso único.
     return (await api.get("users/me")).data;
   } catch {
     return null;

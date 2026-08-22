@@ -269,17 +269,55 @@ export class AuthController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
-    if (!request.cookies.refresh_token) throw new UnauthorizedException();
+    if (!request.cookies.refresh_token) {
+      this.expireSessionCookies(response);
+      throw new UnauthorizedException();
+    }
 
-    const result = await this.authService.refreshAccessToken(
-      request.cookies.refresh_token,
-    );
-    this.authService.addTokensToResponse(
-      response,
-      result.refreshToken,
-      result.accessToken,
-    );
-    return new TokenDTO().from({ accessToken: result.accessToken });
+    try {
+      const result = await this.authService.refreshAccessToken(
+        request.cookies.refresh_token,
+      );
+      this.authService.addTokensToResponse(
+        response,
+        result.refreshToken,
+        result.accessToken,
+      );
+      return new TokenDTO().from({ accessToken: result.accessToken });
+    } catch (e) {
+      // Falha definitiva de renovação (token expirado, revogado ou reuso
+      // SEC-07): expira os cookies httpOnly aqui, no servidor. O client não
+      // consegue remover cookies httpOnly via JS — sem isso o browser segue
+      // enviando o refresh token morto e o cliente entra em loop de 401
+      // (keep-alive do _app + refreshUser das páginas).
+      this.expireSessionCookies(response);
+      throw e;
+    }
+  }
+
+  /**
+   * Expira os cookies de sessão com os MESMOS paths usados na emissão
+   * (token.service.addTokensToResponse): cookie de sessão em Path=/ e refresh
+   * token em Path=/api/auth/token.
+   */
+  private expireSessionCookies(response: Response) {
+    const isSecure = this.config.getBoolean("general.secureCookies");
+    const sessionCookieName = getSessionCookieName(isSecure);
+    response.setHeader("Cache-Control", "no-store");
+    response.cookie(sessionCookieName, "", {
+      path: "/",
+      httpOnly: true,
+      sameSite: "strict",
+      maxAge: -1,
+      secure: isSecure,
+    });
+    response.cookie(REFRESH_COOKIE_NAME, "", {
+      path: "/api/auth/token",
+      httpOnly: true,
+      sameSite: "strict",
+      maxAge: -1,
+      secure: isSecure,
+    });
   }
 
   @Post("signOut")

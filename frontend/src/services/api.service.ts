@@ -6,6 +6,24 @@ const CSRF_HEADER = "X-CSRF-Token";
 let csrfToken: string | null = null;
 let csrfFetchPromise: Promise<string> | null = null;
 
+// Cookies httpOnly de sessão emitidos pelo backend (token.service.ts). O
+// `refresh_token` usa Path=/api/auth/token — só pode ser removido/sobrescrito
+// com o MESMO path. Limpar com Path=/ não o apaga, deixando um cookie morto
+// que gera 401 em loop em cada keep-alive/refreshUser.
+const SESSION_COOKIE_NAMES = ["__Host-SID", "access_token"];
+const REFRESH_COOKIE_NAME = "refresh_token";
+
+const clearCookie = (name: string, path: string) => {
+  document.cookie = `${name}=; Path=${path}; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict`;
+};
+
+// Remove todos os cookies de sessão (incluindo o refresh com Path restrito).
+// Chamado quando a renovação de sessão falha de forma definitiva.
+export const clearSessionCookies = () => {
+  SESSION_COOKIE_NAMES.forEach((name) => clearCookie(name, "/"));
+  clearCookie(REFRESH_COOKIE_NAME, "/api/auth/token");
+};
+
 const fetchCsrfToken = async (): Promise<string> => {
   if (csrfToken) return csrfToken;
   if (csrfFetchPromise) return csrfFetchPromise;
@@ -45,7 +63,17 @@ async function refreshAccessToken(): Promise<boolean> {
     try {
       await api.post("/auth/token");
       return true;
-    } catch {
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.response?.status === 401) {
+        if (typeof window !== "undefined") {
+          clearSessionCookies();
+          const currentPath = window.location.pathname;
+          if (!currentPath.startsWith("/auth/")) {
+            window.location.href = `/auth/signIn?redirect=${encodeURIComponent(currentPath)}`;
+          }
+        }
+      }
       return false;
     } finally {
       refreshPromise = null;
@@ -53,6 +81,14 @@ async function refreshAccessToken(): Promise<boolean> {
   })();
   return refreshPromise;
 }
+
+// Ponto ÚNICO de renovação para quem está fora do interceptor (keep-alive do
+// _app, getCurrentUser). Reaproveita a mesma promise deduplicada: chamar
+// `api.post("/auth/token")` diretamente (caminho antigo do auth.service)
+// burlava o dedup e, com o refresh token sendo de uso único, duas chamadas
+// concorrentes acionavam a detecção de reuso SEC-07 que revoga todas as
+// sessões do usuário.
+export const refreshSession = (): Promise<boolean> => refreshAccessToken();
 
 const api = axios.create({
   baseURL: "/api",

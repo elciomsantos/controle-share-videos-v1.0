@@ -199,14 +199,17 @@ function App({ Component, pageProps }: AppProps) {
     setRoute(router.pathname);
   }, [router.pathname]);
 
+  // Keep-alive da sessão: só faz sentido com usuário logado. Sem sessão, cada
+  // tick produziria um POST /auth/token → 401 desnecessário no console.
   useEffect(() => {
+    if (!user) return;
     const interval = setInterval(
       async () => await authService.refreshAccessToken(),
       2 * 60 * 1000,
     );
 
     return () => clearInterval(interval);
-  }, []);
+  }, [user]);
 
   // FRN-05: Fix potential infinite reload loop due to language mismatch
   // Instead of location.reload(), use router.replace to avoid full page reload
