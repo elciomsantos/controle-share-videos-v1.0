@@ -34,6 +34,12 @@ cp .env.local.example .env.local
 docker compose --env-file .env.local -f docker-compose.local.yml up -d --build
 ```
 
+Ou em duas etapas (build e depois subir):
+```bash
+docker compose -f docker-compose.local.yml --env-file .env.local build
+docker compose -f docker-compose.local.yml --env-file .env.local up -d
+```
+
 ### Acessar
 - **Frontend + API unificada:** http://localhost:3000
 - **Backend direto (Swagger):** http://localhost:8080/api/swagger (se `SWAGGER_ENABLED=true`)
