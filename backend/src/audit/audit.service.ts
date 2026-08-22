@@ -3,42 +3,15 @@ import { RequestContextLogger } from "../common/request-context/request-context"
 import { getRequestContext } from "../common/request-context/request-context";
 import { Prisma } from "../../prisma/generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import {
+  AuditEvent,
+  AuditEventType,
+  AuditRecordInput,
+} from "./audit-events";
+import { AuditWormService } from "./audit-worm.service";
 
-/**
- * Eventos mínimos de auditoria (§29.4). Nomes preservados para estabilidade do
- * dashboard; adicione novos eventos aqui e use nas chamadas de `record`.
- */
-export const AuditEvent = {
-  LOGIN_SUCCESS: "LOGIN_SUCCESS",
-  LOGIN_FAILURE: "LOGIN_FAILURE",
-  LOGOUT: "LOGOUT",
-  SESSION_CREATED: "SESSION_CREATED",
-  SESSION_REVOKED: "SESSION_REVOKED",
-  PASSWORD_CHANGED: "PASSWORD_CHANGED",
-  PASSWORD_RESET_REQUESTED: "PASSWORD_RESET_REQUESTED",
-  PASSWORD_RESET_COMPLETED: "PASSWORD_RESET_COMPLETED",
-  MFA_ENABLED: "MFA_ENABLED",
-  MFA_DISABLED: "MFA_DISABLED",
-  MFA_FAILED: "MFA_FAILED",
-  PERMISSION_CHANGED: "PERMISSION_CHANGED",
-  ROLE_CHANGED: "ROLE_CHANGED",
-  SHARE_CREATED: "SHARE_CREATED",
-  SHARE_REVOKED: "SHARE_REVOKED",
-  SHARE_ACCESS: "SHARE_ACCESS",
-  SHARE_DOWNLOAD: "SHARE_DOWNLOAD",
-  REFRESH_TOKEN_REUSE_DETECTED: "REFRESH_TOKEN_REUSE_DETECTED",
-  ADMIN_SESSION_REVOKED: "ADMIN_SESSION_REVOKED",
-} as const;
-
-export type AuditEventType = (typeof AuditEvent)[keyof typeof AuditEvent];
-
-export interface AuditRecordInput {
-  userId?: string | null;
-  sessionId?: string | null;
-  resource?: string | null;
-  result?: string | null;
-  metadata?: Record<string, unknown> | null;
-}
+// Reexportado p/ estabilidade dos consumidores existentes.
+export { AuditEvent, AuditEventType, AuditRecordInput };
 
 /**
  * SEC-1.2/§29 (Fase 5) — Trilha de auditoria.
@@ -47,12 +20,19 @@ export interface AuditRecordInput {
  * principal. IP/User-Agent/requestId vêm do request context (§29.3/§30);
  * userId pode ser sobrescrito explicitamente quando o evento ocorre antes do
  * guard popular o contexto (ex.: login).
+ *
+ * GENESIS (#10): a escrita é delegada ao AuditWormService, que encadeia cada
+ * evento com hash (2.3.2), espelha em NDJSON append-only (2.3.1) e alimenta
+ * o job diário de integridade (2.3.3).
  */
 @Injectable()
 export class AuditService {
   private readonly logger = new RequestContextLogger(AuditService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private worm: AuditWormService,
+  ) {}
 
   async record(
     eventType: AuditEventType,
@@ -60,20 +40,15 @@ export class AuditService {
   ): Promise<void> {
     try {
       const ctx = getRequestContext();
-      await this.prisma.auditLog.create({
-        data: {
-          eventType,
-          userId: fields?.userId ?? ctx?.userId ?? null,
-          sessionId: fields?.sessionId ?? null,
-          resource: fields?.resource ?? null,
-          result: fields?.result ?? null,
-          metadata: fields?.metadata
-            ? JSON.stringify(fields.metadata)
-            : null,
-          ipAddress: ctx?.ip ?? null,
-          userAgent: ctx?.userAgent ?? null,
-          requestId: ctx?.requestId ?? null,
-        },
+      await this.worm.record(eventType, {
+        userId: fields?.userId ?? ctx?.userId ?? null,
+        sessionId: fields?.sessionId ?? null,
+        resource: fields?.resource ?? null,
+        result: fields?.result ?? null,
+        metadata: fields?.metadata ?? null,
+        ipAddress: ctx?.ip ?? null,
+        userAgent: ctx?.userAgent ?? null,
+        requestId: ctx?.requestId ?? null,
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "unknown error";

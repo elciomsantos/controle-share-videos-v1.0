@@ -64,6 +64,19 @@ groups:
           description: "Admin accounts must have MFA enabled per security policy. Immediate remediation required."
           runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/runbooks/incident-response.md"
 
+      # Audit log hash chain broken (WORM, issue #10)
+      - alert: AuditLogHashChainBroken
+        expr: |
+          audit_log_hash_chain_broken == 1
+        for: 5m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Audit log hash chain verification failed"
+          description: "The daily audit log integrity verification detected a broken hash chain (or could not run). Possible tampering with audit evidence. Treat as a security incident and preserve the NDJSON mirror under data/audit-worm/."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/runbooks/incident-response.md"
+
       # Access review overdue
       - alert: AccessReviewOverdue
         expr: |

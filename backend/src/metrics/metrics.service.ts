@@ -63,9 +63,16 @@ export class MetricsService implements OnModuleInit {
     registers: [this.registry],
   });
 
+  private readonly auditChainBroken = new Gauge({
+    name: "audit_log_hash_chain_broken",
+    help: "1 when the daily audit log hash chain verification failed (tampering or read error), 0 when OK (exported by the backend)",
+    registers: [this.registry],
+  });
+
   onModuleInit() {
     collectDefaultMetrics({ register: this.registry });
     this.sqliteIntegrityFailed.set(0);
+    this.auditChainBroken.set(0);
   }
 
   /** Renders all registered metrics in the Prometheus text exposition format. */
@@ -97,5 +104,9 @@ export class MetricsService implements OnModuleInit {
 
   setSqliteIntegrityFailed(failed: boolean): void {
     this.sqliteIntegrityFailed.set(failed ? 1 : 0);
+  }
+
+  setAuditChainBroken(broken: boolean): void {
+    this.auditChainBroken.set(broken ? 1 : 0);
   }
 }

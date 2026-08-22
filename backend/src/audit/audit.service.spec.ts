@@ -1,26 +1,34 @@
 import { BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { AuditWormService } from "./audit-worm.service";
 import { AuditService } from "./audit.service";
 
 describe("AuditService", () => {
   let prisma: {
     auditLog: {
-      create: jest.Mock;
       findMany: jest.Mock;
       count: jest.Mock;
     };
+  };
+  let worm: {
+    record: jest.Mock;
   };
   let service: AuditService;
 
   beforeEach(() => {
     prisma = {
       auditLog: {
-        create: jest.fn(),
         findMany: jest.fn(),
         count: jest.fn(),
       },
     };
-    service = new AuditService(prisma as unknown as PrismaService);
+    worm = {
+      record: jest.fn().mockResolvedValue(undefined),
+    };
+    service = new AuditService(
+      prisma as unknown as PrismaService,
+      worm as unknown as AuditWormService,
+    );
   });
 
   afterEach(() => {
@@ -28,35 +36,37 @@ describe("AuditService", () => {
   });
 
   describe("record", () => {
-    it("grava evento com contexto e campos informados (§29.3)", async () => {
+    it("delega ao AuditWormService com contexto e campos informados (§29.3)", async () => {
       await service.record("LOGIN_FAILURE", {
         userId: "u1",
         result: "invalid_credentials",
         resource: "user@x.com",
+        metadata: { attempt: 1 },
       });
 
-      const data = prisma.auditLog.create.mock.calls[0][0].data;
-      expect(data.eventType).toBe("LOGIN_FAILURE");
-      expect(data.userId).toBe("u1");
-      expect(data.result).toBe("invalid_credentials");
-      expect(data.resource).toBe("user@x.com");
+      expect(worm.record).toHaveBeenCalledWith(
+        "LOGIN_FAILURE",
+        expect.objectContaining({
+          userId: "u1",
+          result: "invalid_credentials",
+          resource: "user@x.com",
+          metadata: { attempt: 1 },
+        }),
+      );
     });
 
-    it("serializa metadata como JSON", async () => {
-      await service.record("ROLE_CHANGED", {
-        userId: "u1",
-        metadata: { from: "operador", to: "admin" },
-      });
+    it("preenche userId do request context quando não informado (§29.3)", async () => {
+      // Sem request context ativo, userId segue nulo.
+      await service.record("SHARE_CREATED", {});
 
-      const data = prisma.auditLog.create.mock.calls[0][0].data;
-      expect(JSON.parse(data.metadata)).toEqual({
-        from: "operador",
-        to: "admin",
-      });
+      expect(worm.record).toHaveBeenCalledWith(
+        "SHARE_CREATED",
+        expect.objectContaining({ userId: null }),
+      );
     });
 
     it("nunca lança quando a escrita falha (BKD-04)", async () => {
-      prisma.auditLog.create.mockRejectedValue(new Error("db down"));
+      worm.record.mockRejectedValue(new Error("db down"));
 
       await expect(
         service.record("MFA_FAILED", { userId: "u1" }),

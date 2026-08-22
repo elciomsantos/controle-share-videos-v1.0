@@ -301,6 +301,12 @@ model AuditLog {
   userAgent String?
   requestId String?
 
+  // WORM (issue #10, 2.3.2): hash chain p/ tamper-evidence.
+  // Linhas anteriores à migração ficam com NULL e ficam fora da chain.
+  sequenceNumber Int?   @unique
+  previousHash   String?
+  currentHash    String?
+
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   // BDB-02: admin de auditoria filtra por (createdAt) e (eventType);
@@ -309,4 +315,5 @@ model AuditLog {
   @@index([eventType])
   @@index([userId])
   @@index([requestId])
+  @@index([previousHash, currentHash])
 }
