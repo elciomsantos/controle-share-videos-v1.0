@@ -130,7 +130,63 @@ docker compose -f docker-compose.prod.yml ps   # backend healthy
 curl -fs http://127.0.0.1:8080/api/health      # 200
 ```
 
-## 5. Checklist Operacional
+## 6. Proteção contra Deleção de Backups (Issue #32 — 4.5.x)
+
+O bucket remoto de backups (`s3://controle-share-videos-backups`) é protegido
+contra deleção acidental/maliciosa (ex.: credenciais comprometidas):
+
+| Mecanismo | Efeito |
+|---|---|
+| **Object Versioning** | toda escrita cria uma nova versão; delete sem `version-id` apenas cria *delete marker* — nada é perdido |
+| **MFA Delete** | destruição permanente de qualquer versão exige cabeçalho MFA (serial + token) da conta proprietária |
+| **Lifecycle → Glacier (90d)** | versões atuais e não-atuais migram para GLACIER após 90 dias (custo); expiração de não-atuais em ~10 anos; multipart abortado em 7d |
+
+### 6.1 Provisionamento (uma vez, idempotente)
+
+```bash
+AWS_PROFILE=root \
+BACKUP_BUCKET_NAME=controle-share-videos-backups \
+MFA_SERIAL=arn:aws:iam::<account>:mfa/<user> \
+MFA_TOKEN=<código-6-dígitos> \
+./scripts/provision/backup-bucket-protection.sh
+```
+
+Fail-closed: o script re-verifica (`get-bucket-versioning`,
+`get-bucket-lifecycle-configuration`) e sai com **1** se a configuração final
+não conferir.
+
+### 6.2 Teste de deleção sem MFA (4.5.3)
+
+Simula credenciais comprometidas: faz upload de um canário, tenta destruir a
+versão **sem** MFA (deve falhar com `AccessDenied`/MFA required) e, se
+`MFA_SERIAL`/`MFA_TOKEN` forem fornecidos, valida que a deleção **com** MFA
+funciona:
+
+```bash
+AWS_PROFILE=prod BACKUP_BUCKET_NAME=controle-share-videos-backups \
+  ./scripts/backup/test-deletion-protection.sh
+```
+
+Se a deleção sem MFA conseguir destruir a versão, o script sai com **1**
+(alerta imediato). Agendar mensalmente no cron:
+
+```
+0 6 1 * * /opt/controle-share-videos-v1.0/scripts/backup/test-deletion-protection.sh \
+  >> /var/log/controle-share-videos-backup-protection-test.log 2>&1
+```
+
+### 6.3 Implicações operacionais
+
+- A rotação/remoção de backups antigos no S3 é feita **somente** pelo lifecycle
+  (`NoncurrentVersionExpiration`); os scripts de backup nunca deletam objetos.
+- Restore de versões antigas continua possível via `scripts/backup/restore.sh`
+  (leitura não é afetada).
+- Em incidente, confirmar MFA Delete ativo:
+  `aws s3api get-bucket-versioning --bucket controle-share-videos-backups`
+  → `"Status": "Enabled", "MFADelete": "Enabled"` (ver também
+  `docs/runbooks/incident-response.md`).
+
+## 7. Checklist Operacional
 
 | Item | Ferramenta | Frequência |
 |---|---|---|
@@ -138,3 +194,5 @@ curl -fs http://127.0.0.1:8080/api/health      # 200
 | Restore test (integridade do backup) | `scripts/restore-test.sh` | Semanal (cron) |
 | Integridade do banco vivo | `scripts/verify-db.sh` / alerta Prometheus | Contínuo |
 | Teste de restore manual (DR drill) | §4 + `docs/runbooks/dr-drill.md` | Trimestral |
+| Proteção do bucket (Versioning/MFA Delete/Lifecycle) | `scripts/provision/backup-bucket-protection.sh` | Uma vez + pós-mudanças de infra |
+| Teste de deleção sem MFA (4.5.3) | `scripts/backup/test-deletion-protection.sh` | Mensal (cron) |
