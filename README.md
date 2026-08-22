@@ -16,7 +16,7 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 
 > **Documentação:** ver `docs/VISAO-GERAL.md` (visão arquitetural),
 > `docs/operacional/DEPLOY.md` (guia de implantação),
-> `docs/auditoria/AUDIT_REPORT.md` (auditoria completa).
+> `docs/auditoria/CHECKLIST-SEGURANCA-FINAL.md` (checklist de segurança verificado).
 > Para implantar do zero em um servidor Linux, siga a seção
 > **"Implantação em servidor Linux (passo a passo)"** abaixo.
 
@@ -185,7 +185,7 @@ Para produção com Docker Swarm/secrets externos e dados em RAID6 (`/srv`):
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-> Guia completo em `docs/operacional/DEPLOY.md` e `docs/auditoria/ROADMAP.md`.
+> Guia completo em `docs/operacional/DEPLOY.md`.
 
 ### Setup manual (desenvolvimento)
 
@@ -469,6 +469,7 @@ Detalhes em `docs/operacional/DEPLOY.md` §6.3.
 
 ### Arquitetura e implantação
 
+- `docs/DIAGRAMA-SISTEMA.md` — diagramas Mermaid (implantação, fluxo de share, camadas de segurança)
 - `docs/VISAO-GERAL.md` — visão arquitetural completa
 - `docs/operacional/DEPLOY.md` — guia de implantação (modelo final de produção)
 - `docs/GOLIVE-CHECKLIST.md` — checklist executável de go-live (5 fases com evidências)
@@ -480,43 +481,27 @@ Detalhes em `docs/operacional/DEPLOY.md` §6.3.
 - `docs/runbooks/dr-drill.md` — drill trimestral de disaster recovery
 - `docs/operacional/RUNBOOKS.md` — resposta a incidentes
 - `docs/forensics.md` — preservação de evidências e chain of custody
-- `docs/PLANO-DOMINIO.md` — configuração de domínio No-IP/próprio/IP
-- `docs/PLANO-IMPLANTACAO.md` — plano de ajuste para modelo final de implantação
 
 ### Auditoria e análise
 
-- `docs/auditoria/AUDIT_REPORT.md` — relatório final consolidado (nota 7.5/10)
-- `docs/auditoria/SECURITY_REPORT.md` — segurança (9.0/10, OWASP A05 ✅)
+- `docs/auditoria/CHECKLIST-SEGURANCA-FINAL.md` — checklist final de segurança (15 itens verificados no código)
 - `docs/auditoria/PENTEST-SHARE-LINK-2026-08-22.md` — pentest black-box de links de compartilhamento (achados, correção #40, plano)
 - `docs/pentest-scope.md` — escopo para pen test externo (OWASP ASVS L2)
-- `docs/SECURITY-GAPS-IMPLEMENTATION-PLAN-PTBR.md` — plano das 4 fases de lacunas (35 issues, 100% fechados)
-- `docs/auditoria/PERFORMANCE_REPORT.md` — performance
-- `docs/auditoria/DEPENDENCY_AUDIT.md` — dependências (8.5/10)
-- `docs/auditoria/TECH_DEBT.md` — dívida técnica
 - `docs/auditoria/TEST_PLAN.md` — plano de testes
-- `docs/auditoria/ARCHITECTURE_REVIEW.md` — revisão arquitetural
-- `docs/auditoria/REFACTORING_PLAN.md` — plano de refatoração
-- `docs/auditoria/ROADMAP.md` — roadmap pós-v1.0 (v1.1–v2.0)
 - `docs/auditoria/CHANGELOG.md` — changelog da auditoria
-- `docs/auditoria/AUDIT_MATRIX.md` — matriz de achados (19/19 verde/aceito)
-- `docs/auditoria/DISCOVERY.md` — descoberta inicial
-- `docs/auditoria/EVIDENCE_INDEX.md` — índice de evidências
+
+> Os relatórios históricos de auditoria (notas, matrizes, planos de execução) e os
+> planos concluídos foram retirados do repositório e arquivados separadamente.
 
 ### Segurança
 
 - `docs/ESPECIFICACAO-SEGURANCA.md` — spec v1.2 (sessões, autenticação, tokens, compartilhamento)
 - `docs/ESPECIFICACAO_SEGURANCA_DOCKER_HOST_v1.0.md` — hardening obrigatório Linux + Docker
-- `docs/Relatorio/PLANO_HARDENING_DOCKER.md` — plano de execução priorizado (100% crítico/alto implementado)
-- `docs/SEGURANCA-CORRECTIONS-SUMMARY.md` — resumo de todas as 17 correções (7 fases, 100%)
-- `docs/SEGURANCA-CORRECTIONS-TRACKER.md` — tracker detalhado por arquivo/linha
-- `docs/PLANO-CORRECOES-SEGURANCA.md` — plano original de correções
-- `docs/POLITICA-SEGURANCA-NPM.md` — política de segurança de dependências npm
+- `docs/operacional/SAMBA-SEGURANCA.md` — segurança do compartilhamento SMB [videos]
 
 ### Funcionalidades específicas
 
 - `docs/CERTIFICADO.md` — certificado SHA-256 automático (PDF + QR Code + metadados embutidos no vídeo)
-- `docs/PLANO-CERTIFICADO.md` — plano original do certificado
-- `docs/PLANO-LIMPEZA.md` — política de limpeza de shares/arquivos
 
 ---
 
@@ -551,7 +536,7 @@ repositório `DEPLOY_ENABLED=true` está definida junto com os secrets
 Gate** roda em todo push: secret scanning, hadolint, audit de dependências,
 CodeQL (JS+TS), semgrep, Trivy, SBOM e production readiness check.
 
-> Ver `docs/auditoria/SECURITY_REPORT.md` e `docs/auditoria/AUDIT_REPORT.md` para detalhes técnicos e evidências.
+> Ver `docs/auditoria/CHECKLIST-SEGURANCA-FINAL.md` para a verificação item a item.
 
 ---
 

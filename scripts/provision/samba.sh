@@ -47,7 +47,7 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 if [ ! -d "${SHARE_PATH}" ]; then
   echo "[error] ${SHARE_PATH} does not exist." >&2
-  echo "        Create the RAID6 data tree first (see docs/Implantacao/Implantacao.md)." >&2
+  echo "        Create the RAID6 data tree first (see docs/operacional/HOST-PROVISIONING-ONPREMISE.md)." >&2
   exit 1
 fi
 
