@@ -47,7 +47,14 @@ export const isFileSystemAccessSupported = () =>
 export const pickDirectory = async (): Promise<FileSystemDirectoryHandle | null> => {
   const win = fileSystemWindow();
   if (!win?.showDirectoryPicker) return null;
-  return await win.showDirectoryPicker({ mode: "readwrite" });
+  try {
+    return await win.showDirectoryPicker({ mode: "readwrite" });
+  } catch (e) {
+    // O usuário fechou/cancelou o seletor — o navegador lança AbortError
+    // ("The user aborted a request"). Tratamos como "nenhum diretório".
+    if (e instanceof DOMException && e.name === "AbortError") return null;
+    throw e;
+  }
 };
 
 const ensureWritePermission = async (
