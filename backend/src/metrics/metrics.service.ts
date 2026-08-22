@@ -86,10 +86,19 @@ export class MetricsService implements OnModuleInit {
     registers: [this.registry],
   });
 
+  // Access review (#11/#24): exported daily by AccessReviewService so the
+  // AccessReviewOverdue alert has real data behind it.
+  private readonly accessReviewOverdueUsers = new Gauge({
+    name: "access_review_overdue_users",
+    help: "Number of users whose access review is overdue (>90 days) or has never been done",
+    registers: [this.registry],
+  });
+
   onModuleInit() {
     collectDefaultMetrics({ register: this.registry });
     this.sqliteIntegrityFailed.set(0);
     this.auditChainBroken.set(0);
+    this.accessReviewOverdueUsers.set(0);
   }
 
   /** Renders all registered metrics in the Prometheus text exposition format. */
@@ -136,5 +145,9 @@ export class MetricsService implements OnModuleInit {
   setTlsProbeFailed(domain: string): void {
     this.tlsProbeSuccess.set({ domain }, 0);
     this.tlsCertificateExpiryTimestamp.remove({ domain });
+  }
+
+  setUserAccessReviewOverdue(count: number): void {
+    this.accessReviewOverdueUsers.set(count);
   }
 }

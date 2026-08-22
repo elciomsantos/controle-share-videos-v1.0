@@ -77,10 +77,10 @@ groups:
           description: "The daily audit log integrity verification detected a broken hash chain (or could not run). Possible tampering with audit evidence. Treat as a security incident and preserve the NDJSON mirror under data/audit-worm/."
           runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/runbooks/incident-response.md"
 
-      # Access review overdue
+      # Access review overdue (#11/#24: gauge exported daily by the backend)
       - alert: AccessReviewOverdue
         expr: |
-          count(users{last_reviewed_at < time() - 7776000}) > 0  # 90 days
+          access_review_overdue_users > 0
         for: 1h
         labels:
           severity: critical
@@ -100,7 +100,7 @@ groups:
           category: security
         annotations:
           summary: "TLS certificate expiring in < 30 days"
-          description: "Certificate for {{ $labels.domain }} expires on {{ $value | humanizeDate }}. Renewal may have failed."
+          description: "Certificate for {{ $labels.domain }} expires in less than 30 days (unix expiry: {{ $value }}). Renewal may have failed."
           runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/runbooks/incident-response.md#64-certificado-tls-expirado--comprometido"
 
       # TLS certificate expired
@@ -153,6 +153,7 @@ groups:
         annotations:
           summary: "Files backup age exceeds RPO (24 hours)"
           description: "Last successful files backup was {{ $value | humanizeDuration }} ago. RPO is 24 hours for uploads."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/operacional/BACKUP_RESTORE.md"
 
       # Audit log integrity check failed
       - alert: AuditLogIntegrityCheckFailed
@@ -178,6 +179,7 @@ groups:
         annotations:
           summary: "Container {{ $labels.container }} running as root"
           description: "Container {{ $labels.container }} in pod {{ $labels.pod }} is running as root user (UID 0)."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/ESPECIFICACAO_SEGURANCA_DOCKER_HOST_v1.0.md"
 
       # Privileged container
       - alert: PrivilegedContainer
@@ -190,6 +192,7 @@ groups:
         annotations:
           summary: "Privileged container detected: {{ $labels.container }}"
           description: "Container {{ $labels.container }} is running in privileged mode. Immediate remediation required."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/ESPECIFICACAO_SEGURANCA_DOCKER_HOST_v1.0.md"
 
   # =============================================================================
   # AVAILABILITY ALERTS (Critical - Page immediately)
@@ -213,7 +216,7 @@ groups:
       # Health check failing
       - alert: HealthCheckFailing
         expr: |
-          http_requests_total{path="/api/health",status!="200"}[5m] > 0
+          sum(rate(http_requests_total{path="/api/health",status=~"5.."}[5m])) by (job) > 0
         for: 2m
         labels:
           severity: critical
@@ -234,6 +237,7 @@ groups:
         annotations:
           summary: "Database connection pool > 90% utilized"
           description: "Prisma connection pool at {{ $value | humanizePercentage }}. Requests may queue or fail."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/runbooks/incident-response.md"
 
       # Disk space critical
       - alert: DiskSpaceCritical
@@ -246,6 +250,7 @@ groups:
         annotations:
           summary: "Disk space < 10% on backend data volume"
           description: "Only {{ $value | humanizePercentage }} free on /opt/app/backend/data. Uploads and database at risk."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/operacional/MONITORAMENTO.md"
 
       # Memory usage critical
       - alert: MemoryUsageCritical
@@ -258,6 +263,7 @@ groups:
         annotations:
           summary: "Container {{ $labels.container }} memory > 90%"
           description: "Memory usage at {{ $value | humanizePercentage }} of limit. Risk of OOM kill."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/operacional/MONITORAMENTO.md"
 
       # CPU throttling
       - alert: CPUThrottlingHigh
@@ -270,6 +276,7 @@ groups:
         annotations:
           summary: "CPU throttling > 50% for {{ $labels.container }}"
           description: "Container {{ $labels.container }} is being throttled. Consider increasing CPU limits."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/operacional/MONITORAMENTO.md"
 
   # =============================================================================
   # PERFORMANCE ALERTS (Warning - Page in business hours)
@@ -288,6 +295,7 @@ groups:
         annotations:
           summary: "High latency (p95 > 2s) on {{ $labels.path }}"
           description: "p95 latency is {{ $value | humanizeDuration }}s for {{ $labels.path }} in {{ $labels.job }}"
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/operacional/MONITORAMENTO.md"
 
       # High error rate (5xx > 1%)
       - alert: HighErrorRate
@@ -300,6 +308,7 @@ groups:
         annotations:
           summary: "Error rate > 1% for {{ $labels.job }}"
           description: "{{ $value | humanizePercentage }} of requests returning 5xx errors"
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/operacional/RUNBOOKS.md"
 
       # Slow database queries
       - alert: SlowDatabaseQueries
@@ -312,6 +321,7 @@ groups:
         annotations:
           summary: "Slow database queries (p95 > 1s)"
           description: "Prisma {{ $labels.operation }} on {{ $labels.model }} has p95 latency of {{ $value | humanizeDuration }}s"
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/operacional/MONITORAMENTO.md"
 
       # Upload throughput low
       - alert: UploadThroughputLow
@@ -324,6 +334,7 @@ groups:
         annotations:
           summary: "Upload throughput unusually low"
           description: "Upload throughput dropped below 1 MB/s. May indicate network or storage issues."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/operacional/MONITORAMENTO.md"
 
       # Download throughput low
       - alert: DownloadThroughputLow
@@ -336,6 +347,7 @@ groups:
         annotations:
           summary: "Download throughput unusually low"
           description: "Download throughput dropped below 1 MB/s. May indicate network or CDN issues."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/operacional/MONITORAMENTO.md"
 
   # =============================================================================
   # INFRASTRUCTURE ALERTS (Warning/Info)
@@ -354,6 +366,7 @@ groups:
         annotations:
           summary: "Container {{ $labels.container }} restarting frequently"
           description: "Container {{ $labels.container }} in {{ $labels.pod }} has restarted {{ $value | humanize }} times in 15 minutes"
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/operacional/RUNBOOKS.md"
 
       # Kubernetes pod not ready
       - alert: PodNotReady
@@ -366,6 +379,7 @@ groups:
         annotations:
           summary: "Pod {{ $labels.pod }} not ready"
           description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has been not ready for 5 minutes"
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/operacional/RUNBOOKS.md"
 
       # Node disk pressure
       - alert: NodeDiskPressure
@@ -378,6 +392,7 @@ groups:
         annotations:
           summary: "Node {{ $labels.node }} under disk pressure"
           description: "Kubernetes node {{ $labels.node }} reports disk pressure condition"
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/operacional/RUNBOOKS.md"
 
       # Node memory pressure
       - alert: NodeMemoryPressure
@@ -390,6 +405,7 @@ groups:
         annotations:
           summary: "Node {{ $labels.node }} under memory pressure"
           description: "Kubernetes node {{ $labels.node }} reports memory pressure condition"
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/operacional/RUNBOOKS.md"
 
       # Certificate manager issues
       - alert: CertManagerCertificateIssuing
@@ -402,6 +418,7 @@ groups:
         annotations:
           summary: "Certificate {{ $labels.certificate }} not ready"
           description: "Certificate {{ $labels.certificate }} in namespace {{ $labels.namespace }} has been not ready for 10 minutes"
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/runbooks/incident-response.md#64-certificado-tls-expirado--comprometido"
 
   # =============================================================================
   # BUSINESS METRICS ALERTS (Info - Log only)
@@ -419,7 +436,8 @@ groups:
           category: business
         annotations:
           summary: "Daily active users dropped > 50% week-over-week"
-          description: "DAU dropped from {{ daily_active_users offset 7d }} to {{ daily_active_users }}"
+          description: "DAU dropped more than 50% compared to 7 days ago."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/operacional/MONITORAMENTO.md"
 
       # Share creation rate drop
       - alert: ShareCreationRateDrop
@@ -432,6 +450,7 @@ groups:
         annotations:
           summary: "Share creation rate dropped > 50%"
           description: "Share creation rate significantly lower than last week"
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/operacional/MONITORAMENTO.md"
 
       # Storage growth rate
       - alert: StorageGrowthRateHigh
@@ -443,4 +462,5 @@ groups:
           category: infrastructure
         annotations:
           summary: "Storage growth > 20% in 7 days"
-          description: "Storage grew from {{ storage_used_bytes offset 7d | humanizeBytes }} to {{ storage_used_bytes | humanizeBytes }} in 7 days"
+          description: "Storage grew more than 20% in the last 7 days."
+          runbook_url: "https://github.com/elciomsantos/controle-share-videos-v1.0/docs/operacional/MONITORAMENTO.md"

@@ -1,0 +1,88 @@
+# =============================================================================
+# Alertmanager — controle-share-videos (issue #24, 3.8.2)
+#
+# TEMPLATE: os placeholders __SLACK_API_URL__ e __PAGERDUTY_ROUTING_KEY__ são
+# renderizados pelo entrypoint do serviço `alertmanager` no
+# docker-compose.monitoring.yml a partir dos secrets
+# scripts/secrets/slack_webhook_url e scripts/secrets/pagerduty_routing_key
+# (provisionados por scripts/provision/alertmanager-secrets.sh).
+#
+# Roteamento:
+#   critical -> PagerDuty + Slack (#alertas-criticos)
+#   warning  -> Slack (#alertas)
+#   info     -> Slack (#alertas) com repeat longo
+#
+# Inhibit rules reduzem ruído: certificado expirado inibe "expiring soon";
+# ServiceDown inibe sintomas derivados do mesmo job; critical na mesma
+# categoria inibe warning/info.
+# =============================================================================
+global:
+  resolve_timeout: 5m
+  slack_api_url: '__SLACK_API_URL__'
+
+route:
+  receiver: slack-default
+  group_by: ['alertname', 'category']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  routes:
+    # Critical: PagerDuty (page imediato) e continua para o Slack também.
+    - matchers:
+        - severity = "critical"
+      receiver: pagerduty-critical
+      continue: true
+    - matchers:
+        - severity = "critical"
+      receiver: slack-critical
+    # Info (business/performance): repetição longa, só visibilidade.
+    - matchers:
+        - severity = "info"
+      receiver: slack-default
+      group_wait: 5m
+      repeat_interval: 72h
+
+receivers:
+  - name: slack-default
+    slack_configs:
+      - channel: '#alertas'
+        send_resolved: true
+        title: '[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .CommonLabels.alertname }}{{ end }}] {{ .CommonLabels.summary }}'
+        text: >-
+          {{ range .Alerts }}{{ .Annotations.description }}
+          Runbook: {{ .Annotations.runbook_url }}
+          {{ end }}
+  - name: slack-critical
+    slack_configs:
+      - channel: '#alertas-criticos'
+        send_resolved: true
+        title: ':rotating_light: [{{ .CommonLabels.alertname }}] {{ .CommonLabels.summary }}'
+        text: >-
+          {{ range .Alerts }}{{ .Annotations.description }}
+          Runbook: {{ .Annotations.runbook_url }}
+          {{ end }}
+  - name: pagerduty-critical
+    pagerduty_configs:
+      - routing_key: '__PAGERDUTY_ROUTING_KEY__'
+        send_resolved: true
+        severity: critical
+
+inhibit_rules:
+  # Certificado já EXPIRADO inibe o aviso de "expirando em breve" do mesmo domínio.
+  - source_matchers:
+      - alertname = TLSCertExpired
+    target_matchers:
+      - alertname = TLSCertExpiringSoon
+    equal: ['domain']
+  # Serviço fora do ar inibe sintomas derivados do mesmo job.
+  - source_matchers:
+      - alertname = ServiceDown
+    target_matchers:
+      - alertname =~ "HealthCheckFailing|HighErrorRate|HighLatencyP95"
+    equal: ['job']
+  # Critical ativo na mesma categoria inibe warning/info correlatos.
+  - source_matchers:
+      - severity = "critical"
+    target_matchers:
+      - severity =~ "warning|info"
+    equal: ['category']

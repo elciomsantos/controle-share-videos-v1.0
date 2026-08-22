@@ -10,6 +10,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { JwtSecretService } from "../config/jwt-secret.service";
 import { EmailService } from "../email/email.service";
 import { AuditService } from "../audit/audit.service";
+import { MetricsService } from "../metrics/metrics.service";
 
 /**
  * Access review (issue #11) — revisão periódica de acessos.
@@ -59,6 +60,7 @@ export class AccessReviewService {
     private jwtSecretService: JwtSecretService,
     private emailService: EmailService,
     private auditService: AuditService,
+    private metrics: MetricsService,
   ) {}
 
   async list(): Promise<AccessReviewRecord[]> {
@@ -264,6 +266,36 @@ export class AccessReviewService {
     });
 
     return { success: true };
+  }
+
+  /**
+   * 3.8.1 (#24): alimenta o gauge `access_review_overdue_users` — base real
+   * do alerta `AccessReviewOverdue` no alerts.yml. Diário, antes do horário
+   * útil.
+   */
+  @Cron("40 5 * * *", { name: "access-review-overdue-gauge" })
+  async refreshOverdueGauge(): Promise<void> {
+    try {
+      const cutoff = new Date(Date.now() - REVIEW_PERIOD_DAYS * 86_400_000);
+      const overdue = await this.prisma.user.count({
+        where: {
+          isActivated: true,
+          OR: [{ lastReviewedAt: null }, { lastReviewedAt: { lt: cutoff } }],
+        },
+      });
+      this.metrics.setUserAccessReviewOverdue(overdue);
+      if (overdue > 0) {
+        this.logger.warn(
+          `${overdue} user(s) with overdue/never-done access review`,
+        );
+      }
+    } catch (err: unknown) {
+      this.logger.error(
+        `Failed to refresh access review gauge: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
   }
 
   /**

@@ -4,6 +4,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { JwtSecretService } from "../config/jwt-secret.service";
 import { EmailService } from "../email/email.service";
 import { AuditService } from "../audit/audit.service";
+import { MetricsService } from "../metrics/metrics.service";
 import { AccessReviewService } from "./access-review.service";
 
 const SECRET = "test-signing-secret";
@@ -17,6 +18,7 @@ describe("AccessReviewService", () => {
       findMany: jest.Mock;
       findUnique: jest.Mock;
       update: jest.Mock;
+      count: jest.Mock;
     };
     auditLog: { groupBy: jest.Mock };
     shareRecipient: { findMany: jest.Mock };
@@ -26,6 +28,7 @@ describe("AccessReviewService", () => {
   let jwtSecretService: { getCurrentSecret: jest.Mock };
   let emailService: { sendAccessReviewReminder: jest.Mock };
   let auditService: { record: jest.Mock };
+  let metrics: { setUserAccessReviewOverdue: jest.Mock };
   let service: AccessReviewService;
 
   const baseUser = {
@@ -58,6 +61,7 @@ describe("AccessReviewService", () => {
             );
           }),
         update: jest.fn().mockResolvedValue({}),
+        count: jest.fn().mockResolvedValue(0),
       },
       auditLog: {
         groupBy: jest
@@ -73,12 +77,14 @@ describe("AccessReviewService", () => {
       sendAccessReviewReminder: jest.fn().mockResolvedValue(undefined),
     };
     auditService = { record: jest.fn().mockResolvedValue(undefined) };
+    metrics = { setUserAccessReviewOverdue: jest.fn() };
 
     service = new AccessReviewService(
       prisma as unknown as PrismaService,
       jwtSecretService as unknown as JwtSecretService,
       emailService as unknown as EmailService,
       auditService as unknown as AuditService,
+      metrics as unknown as MetricsService,
     );
   });
 
@@ -294,6 +300,32 @@ describe("AccessReviewService", () => {
           metadata: expect.objectContaining({ recipients: 2, sent: 1 }),
         }),
       );
+    });
+  });
+
+  describe("gauge de revisões vencidas (#24)", () => {
+    it("exporta contagem de usuários vencidos/nunca revisados", async () => {
+      prisma.user.count.mockResolvedValue(3);
+
+      await service.refreshOverdueGauge();
+
+      expect(prisma.user.count).toHaveBeenCalledWith({
+        where: {
+          isActivated: true,
+          OR: [
+            { lastReviewedAt: null },
+            { lastReviewedAt: { lt: expect.any(Date) } },
+          ],
+        },
+      });
+      expect(metrics.setUserAccessReviewOverdue).toHaveBeenCalledWith(3);
+    });
+
+    it("nunca lança quando a consulta falha", async () => {
+      prisma.user.count.mockRejectedValue(new Error("db down"));
+
+      await expect(service.refreshOverdueGauge()).resolves.toBeUndefined();
+      expect(metrics.setUserAccessReviewOverdue).not.toHaveBeenCalled();
     });
   });
 });

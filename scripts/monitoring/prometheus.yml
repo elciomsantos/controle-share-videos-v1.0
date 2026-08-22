@@ -25,6 +25,7 @@ scrape_configs:
       - targets: ['node-exporter:9100']
 
 alerting:
+  # Issue #24 (3.8.2): Alertmanager provisioned in docker-compose.monitoring.yml.
   alertmanagers:
     - static_configs:
-        - targets: []
+        - targets: ['alertmanager:9093']
