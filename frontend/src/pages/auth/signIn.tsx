@@ -35,7 +35,6 @@ const SignIn = ({ redirectPath }: { redirectPath?: string | null }) => {
         setIsLoading(false);
       }
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (isLoading) return <LoadingOverlay visible zIndex={1000} />;

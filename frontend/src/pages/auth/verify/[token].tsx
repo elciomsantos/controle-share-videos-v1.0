@@ -6,7 +6,6 @@ import {
   Paper,
   Stack,
   Loader,
-  Center,
 } from "@mantine/core";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";

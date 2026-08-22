@@ -16,7 +16,6 @@ import { TbDeviceLaptop, TbMoon, TbSun } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
 import {
   AdminConfig,
-  AdminConfigGroupedByCategory,
   UpdateConfig,
 } from "../../../types/config.type";
 import { stringToTimespan, timespanToString } from "../../../utils/date.util";

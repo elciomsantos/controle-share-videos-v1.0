@@ -1,4 +1,4 @@
-import { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from "axios";
+import { AxiosError, AxiosResponse } from "axios";
 
 export interface ApiErrorResponse {
   message?: string | string[];

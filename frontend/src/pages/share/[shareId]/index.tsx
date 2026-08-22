@@ -54,7 +54,7 @@ const Share = ({ shareId }: { shareId: string }) => {
 
   const isDark = colorScheme === "dark";
   const primary = theme.colors[theme.primaryColor];
-  const surfaceColor = isDark ? theme.colors.dark[6] : theme.white;
+
   const borderColor = isDark ? theme.colors.dark[4] : theme.colors.gray[2];
 
   const heroBackground = isDark

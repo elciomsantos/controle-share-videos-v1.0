@@ -7,7 +7,6 @@ import {
   Text,
   Title,
   useComputedColorScheme,
-  useMantineTheme,
 } from "@mantine/core";
 import { modals, useModals } from "@mantine/modals";
 import Link from "next/link";
@@ -417,7 +416,6 @@ const ImagePreview = () => {
 const TextPreview = () => {
   const { shareId, fileId } = React.useContext(FilePreviewContext);
   const [text, setText] = useState<string>("");
-  const colorScheme = useComputedColorScheme("light");
 
   useEffect(() => {
     api
@@ -430,7 +428,6 @@ const TextPreview = () => {
 
 const PdfPreview = () => {
   const { shareId, fileId } = React.useContext(FilePreviewContext);
-  const [loaded, setLoaded] = useState(false);
 
   return (
     <iframe
@@ -439,7 +436,6 @@ const PdfPreview = () => {
       height="600px"
       style={{ border: "none", borderRadius: 8 }}
       title="PDF Preview"
-      onLoad={() => setLoaded(true)}
       sandbox="allow-scripts allow-same-origin"
     />
   );

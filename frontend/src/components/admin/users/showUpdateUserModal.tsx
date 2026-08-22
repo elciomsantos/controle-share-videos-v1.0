@@ -11,7 +11,7 @@ import {
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useModals } from "@mantine/modals";
-import { FormattedMessage, useIntl } from "react-intl";
+import { FormattedMessage } from "react-intl";
 import { useState } from "react";
 import { TbCheck } from "react-icons/tb";
 import * as yup from "yup";
@@ -59,7 +59,7 @@ const Body = ({
   currentUser?: User | null;
 }) => {
   const t = useTranslate();
-  const intl = useIntl();
+
 
   const VALID_ROLES = ["admin", "operador", "auditor"];
 

@@ -1,4 +1,4 @@
-import { Anchor, Title, useComputedColorScheme } from "@mantine/core";
+import { Title, useComputedColorScheme } from "@mantine/core";
 import Meta from "../../components/Meta";
 import useTranslate from "../../hooks/useTranslate.hook";
 import { FormattedMessage } from "react-intl";

@@ -1,11 +1,9 @@
-import { pathToFileURL } from "url";
 import * as path from "path";
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const BACKEND_DIR = path.join(ROOT, "backend");
 
 const BACKEND_PORT = 8181;
-const FRONTEND_PORT = 4199;
 
 const E2E_DATA_DIR = path.join(BACKEND_DIR, "data", "e2e-pw");
 const E2E_DB_PATH = path.join(E2E_DATA_DIR, "pw.db");

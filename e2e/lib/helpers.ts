@@ -1,4 +1,4 @@
-import { Page, test as base, expect } from "@playwright/test";
+import { Page, expect } from "@playwright/test";
 import { generate } from "otplib";
 import fs from "node:fs";
 import os from "node:os";

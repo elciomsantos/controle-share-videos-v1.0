@@ -1,4 +1,4 @@
-import { Button, Stack, Text, Collapse, useComputedColorScheme, useMantineTheme, Group, Divider } from "@mantine/core";
+import { Button, Stack, Text, Collapse, useComputedColorScheme, useMantineTheme, Divider } from "@mantine/core";
 import { useModals } from "@mantine/modals";
 type ModalsContextProps = ReturnType<typeof useModals>;
 import { useState } from "react";
@@ -53,7 +53,7 @@ const Body = ({
   const modals = useModals();
   const router = useRouter();
   const t = useTranslate();
-  const colorScheme = useComputedColorScheme("light");
+
   const theme = useMantineTheme();
 
   const [showQR, setShowQR] = useState(false);

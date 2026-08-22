@@ -1,9 +1,8 @@
-import { Alert, Button, PasswordInput, Stack, Text, Title } from "@mantine/core";
+import { Alert, Button, PasswordInput, Stack, Title } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { useModals } from "@mantine/modals";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import { useIntl } from "react-intl";
 import * as yup from "yup";
 import Head from "next/head";
 import { safeRedirectPath } from "../../utils/router.util";
@@ -17,7 +16,7 @@ import toast from "../../utils/toast.util";
 const ChangePassword = () => {
   const t = useTranslate();
   const router = useRouter();
-  const intl = useIntl();
+
   const modals = useModals();
   const { user } = useUser();
 

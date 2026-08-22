@@ -1,0 +1,23 @@
+# =============================================================================
+# Configuração do CodeQL (Security Gate) — issue #41.
+#
+# Exclusões de ruído:
+# - backend/prisma/generated: código gerado pelo `prisma generate`
+#   (regenerado a cada build; nunca editado à mão)
+# - backend/prisma/migrations: SQL gerado
+# - scripts: shell/TS operacional (parser default gera falsos "syntax-error"
+#   sobre sintaxe TS de scripts standalone)
+# - e2e: fixtures de teste Playwright (valores sintéticos por definição)
+# =============================================================================
+name: "Security Gate CodeQL Config"
+
+paths:
+  - "backend/src"
+  - "frontend/src"
+  - "packages/shared/src"
+
+paths-ignore:
+  - "backend/prisma/generated"
+  - "backend/prisma/migrations"
+  - "scripts"
+  - "e2e"

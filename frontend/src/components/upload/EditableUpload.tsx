@@ -11,7 +11,7 @@ import { showBlockingErrorModal } from "../core/showBlockingErrorModal";
 import useConfig from "../../hooks/config.hook";
 import useTranslate from "../../hooks/useTranslate.hook";
 import shareService from "../../services/share.service";
-import { FileListItem, FileMetaData, FileUpload, FileRecord } from "../../types/File.type";
+import { FileListItem, FileUpload, FileRecord } from "../../types/File.type";
 import toast from "../../utils/toast.util";
 import { getNormalizedFileName, filterDuplicateFiles } from "../../utils/file.util";
 import { createUploadLimiter } from "../../utils/concurrency";

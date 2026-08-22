@@ -1,4 +1,4 @@
-import { ActionIcon, Table, Group, Button, Box } from "@mantine/core";
+import { ActionIcon, Table, Group, Box } from "@mantine/core";
 import { useModals } from "@mantine/modals";
 import { TbTrash, TbEdit } from "react-icons/tb";
 import { GrUndo } from "react-icons/gr";
@@ -9,7 +9,6 @@ import { FormattedMessage } from "react-intl";
 import useTranslate from "../../hooks/useTranslate.hook";
 import { HoverTip } from "../core/HoverTip";
 import showTextEditorModal from "./modals/showTextEditorModal";
-import shareService from "../../services/share.service";
 
 const renderFileName = (name: string) => {
   const parts = name.split("/");

@@ -226,9 +226,6 @@ const AccessReview = () => {
     URL.revokeObjectURL(link.href);
   };
 
-  const sortIndicator = (key: SortKey) =>
-    sortConfig.key === key ? (sortConfig.direction === "asc" ? " ↑" : " ↓") : "";
-
   const statsCards = [
     { label: t("admin.accessReview.stats.total"), value: stats.total, color: "gray" },
     { label: t("admin.accessReview.stats.overdue"), value: stats.overdue, color: "red" },

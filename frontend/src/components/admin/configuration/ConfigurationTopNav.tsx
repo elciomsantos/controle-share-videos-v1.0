@@ -8,7 +8,7 @@ import {
   useComputedColorScheme,
   useMantineTheme,
 } from "@mantine/core";
-import { Dispatch, SetStateAction } from "react";
+
 import {
   TbAt,
   TbMail,
@@ -42,7 +42,7 @@ const ConfigurationTopNav = ({
   categoryId: string;
   onCategoryChange: (category: string) => void;
 }) => {
-  const theme = useMantineTheme();
+
   const colorScheme = useComputedColorScheme("light");
 
   return (

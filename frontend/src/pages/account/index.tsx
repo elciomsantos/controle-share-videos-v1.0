@@ -20,7 +20,6 @@ import * as yup from "yup";
 import Meta from "../../components/Meta";
 import ThemeSwitcher from "../../components/account/ThemeSwitcher";
 import showEnableTotpModal from "../../components/account/showEnableTotpModal";
-import useConfig from "../../hooks/config.hook";
 import useTranslate from "../../hooks/useTranslate.hook";
 import useUser from "../../hooks/user.hook";
 import authService from "../../services/auth.service";
@@ -31,7 +30,7 @@ const Account = () => {
   const { user, refreshUser } = useUser();
   const modals = useModals();
   const t = useTranslate();
-  const config = useConfig();
+
 
   const [passwordSaving, setPasswordSaving] = useState(false);
 

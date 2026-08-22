@@ -126,7 +126,6 @@ const Header = () => {
   ];
 
   const linkColor = "light-dark(" + theme.colors.gray[7] + ", " + theme.colors.dark[0] + ")";
-  const hoverBg = "light-dark(" + theme.colors.gray[0] + ", " + theme.colors.dark[6] + ")";
   const activeBg = "light-dark(" + theme.colors[theme.primaryColor][0] + ", rgba(" + theme.colors[theme.primaryColor][9] + ", 0.25))";
   const activeColor = theme.colors[theme.primaryColor][7];
 

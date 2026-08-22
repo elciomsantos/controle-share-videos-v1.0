@@ -165,6 +165,9 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           queries: security-extended,security-and-quality
+          # Escopo: apenas código-fonte real (issue #41) — exclui código
+          # gerado pelo Prisma, migrations, scripts operacionais e fixtures e2e.
+          config-file: ./.github/codeql/codeql-config.yml
 
       - name: Build (backend)
         if: matrix.language == 'typescript'

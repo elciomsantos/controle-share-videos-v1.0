@@ -1,4 +1,4 @@
-import { FileRecord, FileUpload } from "../types/File.type";
+import { FileRecord } from "../types/File.type";
 
 type FileLike = FileRecord & { webkitRelativePath?: string };
 

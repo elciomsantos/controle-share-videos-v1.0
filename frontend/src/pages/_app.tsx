@@ -94,8 +94,7 @@ const mixHexColors = (
   );
 };
 
-const createMantineScaleFromHex = (hex: string) =>
-  [
+const createMantineScaleFromHex = (hex: string) => [
     mixHexColors(hex, "#ffffff", 0.92),
     mixHexColors(hex, "#ffffff", 0.82),
     mixHexColors(hex, "#ffffff", 0.68),

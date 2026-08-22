@@ -11,8 +11,8 @@ import { FormattedMessage } from "react-intl";
 import userPreferences from "../../utils/userPreferences.util";
 
 const ThemeSwitcher = () => {
-  const { setColorScheme } = useMantineColorScheme();
-  const systemColorScheme = useComputedColorScheme("light");
+
+
   const value = userPreferences.get("colorScheme") ?? "system";
 
   return (

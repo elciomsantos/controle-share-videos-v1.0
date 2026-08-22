@@ -1,4 +1,4 @@
-import { Button, Center, Text, useMantineTheme } from "@mantine/core";
+import { Button, Center, useMantineTheme } from "@mantine/core";
 import React, { useEffect, useRef, useState } from "react";
 import { FormattedMessage } from "react-intl";
 import useTranslate from "../../hooks/useTranslate.hook";
@@ -26,7 +26,6 @@ const Dropzone = ({
   onFilesChanged: (files: FileUpload[]) => void;
 }) => {
   const t = useTranslate();
-  const theme = useMantineTheme();
   const folderInputRef = useRef<HTMLInputElement>(null);
 
   // Detectado no efeito (não no render) para evitar hydration mismatch:
