@@ -32,8 +32,10 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 | **Segurança** | ✅ 9.0/10 (OWASP Top 10 coberto, hardening Docker aplicado) |
 | **Hardening Docker** | ✅ 100% itens críticos/altos implementados |
 | **Spec Segurança Sessões** | ✅ v1.2 — 17/17 correções aplicadas (7 fases) |
-| **Testes** | ✅ Unit + E2E + Playwright no CI |
-| **CI/CD** | ✅ GitHub Actions (lint, build, test, audit, deploy SSH) |
+| **Lacunas de Segurança (Fases 1–4)** | ✅ 35/35 issues fechados (#1–#35) com evidência em commit/doc |
+| **Pentest de links de compartilhamento** | ✅ Executado (`docs/auditoria/PENTEST-SHARE-LINK-2026-08-22.md`) — 1 achado HIGH corrigido (#40), 11 controles aprovados |
+| **Testes** | ✅ Unit (backend 28 suites/286 testes) + E2E + Playwright + Security-E2E no CI |
+| **CI/CD** | ✅ GitHub Actions (lint, build, test, audit, Security Gate, SLSA/cosign; deploy SSH opt-in via `DEPLOY_ENABLED`) |
 
 ---
 
@@ -45,6 +47,7 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 - Tamanho de arquivo ilimitado (restrito apenas pelo espaço em disco)
 - Data de expiração configurável por share
 - Shares protegidos por senha + limite de visitantes e downloads
+- **Limites de view/download enforced server-side em TODA via de acesso** (streaming, ZIP, certificado) — token é revogado efetivamente ao esgotar qualquer limite (#40)
 - **Geração automática de senha forte** (comprimento configurável via `share.generatedPasswordLength`) exibida separadamente no modal de upload completado
 - Limites por share: máximo de visualizações, máximo de downloads, expiração
 - Página exclusiva de visualização por link (sem cabeçalho/rodapé do painel admin)
@@ -98,6 +101,19 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 - **Docker Hardening**: non-root (UID 1002), `cap_drop: ALL`, `no-new-privileges:true`, `read_only: true` + tmpfs, `pids_limit: 512`, rede `internal: true` para backend, seccomp custom (fail-closed 428 syscalls), imagem pinada por digest, Trivy no CI/CD
 - **Docker Secrets** em todos os serviços (backend, frontend, caddy, grafana)
 - **Caddy** com TLS automático (Let's Encrypt), filtro `pwd=` em query string/logs
+
+### Segurança — Hardening Fases 1–4 (issues #1–#35)
+
+- **Limites de share em todas as vias de acesso** (#40): `maxViews`/`maxDownloads` validados no `ShareSecurityGuard` a cada request público — streaming inline (Range), ZIP e certificado incluídos; token emitido antes do esgotamento é revogado efetivamente quando qualquer limite é atingido
+- **Auditoria WORM tamper-evident** (#10): trilha append-only NDJSON com hash chain SHA-256, verificação diária automática e endpoint `/api/admin/audit-logs/chain-status`
+- **Revisão de acesso periódica** (#11): `GET /api/admin/access-review` com nível de risco por usuário + cron trimestral enviando resumo aos admins e atestação assinada (HMAC) registrada no WORM
+- **Monitoramento de certificado TLS** (#15): gauge `caddy_tls_certificate_expiry_timestamp` exportado ao Prometheus; alertas <30d e expirado
+- **Alertmanager** (#24): roteamento crítico→PagerDuty/Slack, warning/info→Slack, regras de inibição; revisão trimestral de tuning (`docs/alert-tuning.md`)
+- **Proteção do bucket de backup** (#32): Object Versioning + MFA Delete + transição Glacier 90d + teste anti-deleção (`scripts/backup/test-deletion-protection.sh`)
+- **API versionada** (#28): prefixo `/api/v{N}` com negociação via header `Accept: application/vnd.cs.v{N}+json` e política de lifecycle (`docs/api-versioning.md`)
+- **Runners CI hardened** (#31): permissões mínimas, todas as actions pinadas por SHA
+- **Supply chain** (#18/#19): SBOM CycloneDX assinado (cosign keyless) + SLSA provenance level 3 na release
+- **Preservação de evidências forenses** (#33/#34): snapshot forense automatizado SEV-1 (`scripts/incident/forensic-snapshot.sh`) + chain of custody (`docs/forensics.md`) + postmortem sem culpa (`docs/runbooks/postmortem-template.md`)
 
 ### Outros
 
@@ -202,11 +218,11 @@ Copie `config.example.yaml` para `config.yaml` na raiz do repositório e ajuste 
 
 #### Testes
 
-Há testes unitários e E2E (backend) e unitários (frontend), com cobertura ≥60% e CI em `.github/workflows/ci.yml` (Node 24, lint/build/unit/coverage/e2e + **auditoria de segurança completa**).
+Há testes unitários e E2E (backend), unitários (frontend) e E2E de navegador (Playwright), com cobertura ≥60% e CI em `.github/workflows/ci.yml` (Node 24, lint/build/unit/coverage/e2e + **auditoria de segurança completa**).
 
 ```bash
 # Backend
-npm run test:unit      # jest — unitários (24 suites, 247 testes)
+npm run test:unit      # jest — unitários (28 suites, 286 testes)
 npm run test:e2e       # jest — e2e efêmero (DB dedicado, não destrutivo)
 npm run test:coverage  # jest com cobertura (thresholds ≥60%)
 npm test               # alias para test:unit
@@ -215,6 +231,14 @@ npm test               # alias para test:unit
 npm run test           # vitest run
 npm run test:unit      # vitest run (mesma coisa)
 ```
+
+**Suítes de segurança no CI:**
+
+- `security.e2e-spec.ts` (§35) — job dedicado `Security E2E`: valida rate limiting, CSRF, senha de share, tokens opacos e limites de view/download (cenário do pentest, incl. bypass via stream inline corrigido no issue #40 — spec em `src/share/guard/shareSecurity.guard.spec.ts`)
+- `api-version.e2e-spec.ts` (#28) — negociação `/api/v{N}` e headers de deprecação
+- **ZAP baseline semanal** (`zap-scan.yml`) — OWASP ZAP contra a imagem de produção; falha apenas em findings HIGH
+- **Pentest interno de shares** — metodologia black-box reproduzível em `docs/auditoria/PENTEST-SHARE-LINK-2026-08-22.md`
+- **SQL injection** — acesso ao banco 100% via Prisma parametrizado; zero uso de `$queryRawUnsafe`/`$executeRawUnsafe` (auditado em 2026-08-22)
 
 **Auditoria de segurança (reproduzível localmente):**
 ```bash
@@ -411,7 +435,7 @@ docker compose up -d --build
 | `docker-compose.yml` | Produção padrão (backend, frontend, caddy; admin e TLS via variáveis de ambiente — `DOMAIN`, `ACME_EMAIL`, `ADMIN_*`, `JWT_SECRET`) |
 | `docker-compose.local.yml` | Ambiente de teste local — container único (backend + frontend + Caddy) com `.env.local` |
 | `docker-compose.prod.yml` | Produção com secrets externos (Docker Swarm), TLS via Caddy 2.9 e dados em RAID6 (`/srv/controle-share-videos`) |
-| `docker-compose.monitoring.yml` | Observabilidade (prometheus, grafana, loki, promtail, node-exporter) |
+| `docker-compose.monitoring.yml` | Observabilidade (prometheus, alertmanager, grafana, loki, promtail, node-exporter) |
 
 O serviço `caddy` monta `Caddyfile.${CADDYFILE:-prod}` em
 `/etc/caddy/Caddyfile`:
@@ -447,9 +471,15 @@ Detalhes em `docs/operacional/DEPLOY.md` §6.3.
 
 - `docs/VISAO-GERAL.md` — visão arquitetural completa
 - `docs/operacional/DEPLOY.md` — guia de implantação (modelo final de produção)
-- `docs/operacional/MONITORAMENTO.md` — healthchecks, logs, alertas
+- `docs/GOLIVE-CHECKLIST.md` — checklist executável de go-live (5 fases com evidências)
+- `docs/operacional/HOST-PROVISIONING-ONPREMISE.md` — provisionamento do servidor on-premise (Swarm secrets, deploy key, backup)
+- `docs/api-versioning.md` — política de versionamento da API (`/api/v{N}`)
+- `docs/operacional/MONITORAMENTO.md` — healthchecks, logs, alertas, certificado TLS
+- `docs/alert-tuning.md` — revisão trimestral de tuning de alertas
 - `docs/operacional/BACKUP_RESTORE.md` — procedimentos de backup/restauração
+- `docs/runbooks/dr-drill.md` — drill trimestral de disaster recovery
 - `docs/operacional/RUNBOOKS.md` — resposta a incidentes
+- `docs/forensics.md` — preservação de evidências e chain of custody
 - `docs/PLANO-DOMINIO.md` — configuração de domínio No-IP/próprio/IP
 - `docs/PLANO-IMPLANTACAO.md` — plano de ajuste para modelo final de implantação
 
@@ -457,6 +487,9 @@ Detalhes em `docs/operacional/DEPLOY.md` §6.3.
 
 - `docs/auditoria/AUDIT_REPORT.md` — relatório final consolidado (nota 7.5/10)
 - `docs/auditoria/SECURITY_REPORT.md` — segurança (9.0/10, OWASP A05 ✅)
+- `docs/auditoria/PENTEST-SHARE-LINK-2026-08-22.md` — pentest black-box de links de compartilhamento (achados, correção #40, plano)
+- `docs/pentest-scope.md` — escopo para pen test externo (OWASP ASVS L2)
+- `docs/SECURITY-GAPS-IMPLEMENTATION-PLAN-PTBR.md` — plano das 4 fases de lacunas (35 issues, 100% fechados)
 - `docs/auditoria/PERFORMANCE_REPORT.md` — performance
 - `docs/auditoria/DEPENDENCY_AUDIT.md` — dependências (8.5/10)
 - `docs/auditoria/TECH_DEBT.md` — dívida técnica
@@ -502,7 +535,21 @@ Detalhes em `docs/operacional/DEPLOY.md` §6.3.
 | Auditoria de views/downloads | ✅ Completa | Dashboard `/admin/download-logs` com filtros e paginação |
 | Auditoria de eventos (§29.4) | ✅ Ativo (Fase 5) | `AuditLog` estruturado (IP/UA/requestId) com 17 eventos mínimos (login, MFA, sessões, senha, permissões, shares); admin `/admin/audit-logs` (admin+auditor) |
 | Admin de sessões (§34) | ✅ Ativo (Fase 5) | `/admin/sessions`: listagem com estado (ativa/ociosa/expirada/revogada), IP e User-Agent; revogação com reautenticação recente; `tokenHash` nunca exposto |
+| Auditoria WORM | ✅ Ativo (#10) | Hash chain SHA-256 append-only + verificação diária + alerta crítico `AuditLogHashChainBroken`; `/api/admin/audit-logs/chain-status` |
+| Revisão de acesso periódica | ✅ Ativo (#11) | `/api/admin/access-review` (nível de risco por usuário) + cron trimestral com atestação assinada no WORM |
+| Alertas Prometheus/Alertmanager | ✅ Ativo (#24) | 33 regras promtool-clean, rotas Slack/PagerDuty, inibições e tuning trimestral |
+| Certificado TLS monitorado | ✅ Ativo (#15) | Gauge de expiração exportado a cada 6h; alertas <30d e expirado |
+| SBOM + assinatura de artefatos | ✅ Ativo (#18/#19) | CycloneDX no CI assinado com cosign keyless; provenance SLSA3 na release |
 | Swagger | 🔒 Dev only | Habilitado apenas em `docker-compose.local.yml` (`SWAGGER_ENABLED=true`) |
+
+### CI/CD — deploy de produção
+
+O job `Deploy (produção)` é **opt-in**: só executa quando a variável de
+repositório `DEPLOY_ENABLED=true` está definida junto com os secrets
+`DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PORT` e `DEPLOY_SSH_KEY`. Sem isso o job
+é pulado com segurança (evita falha de SSH a cada push). O workflow **Security
+Gate** roda em todo push: secret scanning, hadolint, audit de dependências,
+CodeQL (JS+TS), semgrep, Trivy, SBOM e production readiness check.
 
 > Ver `docs/auditoria/SECURITY_REPORT.md` e `docs/auditoria/AUDIT_REPORT.md` para detalhes técnicos e evidências.
 
