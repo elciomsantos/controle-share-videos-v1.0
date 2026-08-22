@@ -73,6 +73,14 @@ COPY --from=backend-dependencies /opt/app/backend/node_modules ./node_modules
 COPY --from=shared-builder /opt/app/packages/shared /opt/app/packages/shared
 RUN npx prisma generate
 RUN npm run build && npm prune --production
+# Compile seed files (fora do src/, nest build não os inclui). Com
+# rootDir=., o import relativo ../../src/ do config.seed resolve em runtime
+# para dist/src/ (compilado pelo nest build acima).
+RUN npx tsc --ignoreConfig \
+    --ignoreDeprecations "6.0" --skipLibCheck --declaration false \
+    --esModuleInterop --module commonjs --moduleResolution node10 \
+    --types node --outDir dist --rootDir . \
+    prisma/seed/config.seed.ts prisma/seed/user.seed.ts
 
 # =============================================================================
 # Stage 5: Frontend runner (standalone Next.js)
