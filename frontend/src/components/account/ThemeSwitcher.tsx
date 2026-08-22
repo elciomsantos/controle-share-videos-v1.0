@@ -3,8 +3,6 @@ import {
   Center,
   SegmentedControl,
   Stack,
-  useMantineColorScheme,
-  useComputedColorScheme,
 } from "@mantine/core";
 import { TbDeviceLaptop, TbMoon, TbSun } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";

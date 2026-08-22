@@ -20,7 +20,6 @@ describe("safeRedirectPath (issue #41 — open redirect)", () => {
     "//evil.com",
     "///evil.com",
     "/\\evil.com",
-    "/%2F%2Fevil.com".replace("%2F", "/") + "", // coberto abaixo
   ])("rejeita protocol-relative: %s", (input) => {
     const result = safeRedirectPath(input);
     expect(result.startsWith("//")).toBe(false);

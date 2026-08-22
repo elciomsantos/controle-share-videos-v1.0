@@ -6,7 +6,6 @@ import {
   Stack,
   Text,
   Title,
-  useComputedColorScheme,
 } from "@mantine/core";
 import { modals, useModals } from "@mantine/modals";
 import Link from "next/link";

@@ -1,4 +1,4 @@
-import { Button, Center, useMantineTheme } from "@mantine/core";
+import { Button, Center } from "@mantine/core";
 import React, { useEffect, useRef, useState } from "react";
 import { FormattedMessage } from "react-intl";
 import useTranslate from "../../hooks/useTranslate.hook";

@@ -1,12 +1,11 @@
 import {
+  useComputedColorScheme,
   Box,
   Group,
   SegmentedControl,
   Stack,
   Text,
   ThemeIcon,
-  useComputedColorScheme,
-  useMantineTheme,
 } from "@mantine/core";
 
 import {
@@ -42,7 +41,6 @@ const ConfigurationTopNav = ({
   categoryId: string;
   onCategoryChange: (category: string) => void;
 }) => {
-
   const colorScheme = useComputedColorScheme("light");
 
   return (

@@ -1,4 +1,4 @@
-import { Button, Stack, Text, Collapse, useComputedColorScheme, useMantineTheme, Divider } from "@mantine/core";
+import { Button, Stack, Text, Collapse, useMantineTheme, Divider } from "@mantine/core";
 import { useModals } from "@mantine/modals";
 type ModalsContextProps = ReturnType<typeof useModals>;
 import { useState } from "react";

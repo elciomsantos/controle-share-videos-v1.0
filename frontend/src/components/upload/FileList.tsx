@@ -97,7 +97,6 @@ const FileList = ({ files, setFiles, isLoading }: {
   isLoading?: boolean;
 }) => {
   const modals = useModals();
-  const t = useTranslate();
 
   const handleRemove = (file: FileListItem) => {
     setFiles(files.map((f) => (f === file ? { ...f, deleted: true } : f)));
