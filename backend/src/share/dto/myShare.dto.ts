@@ -12,6 +12,9 @@ export class MyShareDTO extends OmitType(ShareDTO, [
   views!: number;
 
   @Expose()
+  downloads!: number;
+
+  @Expose()
   createdAt!: Date;
 
   @Expose()

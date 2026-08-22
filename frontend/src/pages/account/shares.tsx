@@ -91,6 +91,9 @@ const MyShares = () => {
                   <FormattedMessage id="account.shares.table.visitors" />
                 </th>
                 <th>
+                  <FormattedMessage id="account.shares.table.downloads" />
+                </th>
+                <th>
                   <FormattedMessage id="account.shares.table.expiresAt" />
                 </th>
                 <th></th>
@@ -122,6 +125,21 @@ const MyShares = () => {
                       />
                     ) : (
                       share.views
+                    )}
+                  </td>
+                  <td>
+                    {/* Contagem separada de downloads (não confunde com
+                        visualizações): cada operação tem seu próprio limite. */}
+                    {share.security?.maxDownloads ? (
+                      <FormattedMessage
+                        id="account.shares.table.download-count"
+                        values={{
+                          count: share.downloads ?? 0,
+                          max: share.security.maxDownloads,
+                        }}
+                      />
+                    ) : (
+                      (share.downloads ?? 0)
                     )}
                   </td>
                   <td>

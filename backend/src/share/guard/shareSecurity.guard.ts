@@ -87,34 +87,62 @@ export class ShareSecurityGuard extends JwtGuard {
         error: "share_token_required",
       });
 
-    // SEC (issue #40): os limites de views/downloads valem para TODA via de
-    // acesso público — inclusive streaming inline com Range (?download=false),
-    // zip e certificado — e não apenas na emissão do token e no download=true.
-    // Sem esta checagem, um token emitido antes do esgotamento continuava
-    // servindo o conteúdo indefinidamente após views/downloads atingirem o
-    // limite configurado pelo dono. Leitura a cada request = revogação efetiva.
-    // O incremento real de downloads permanece atômico no DownloadLimitGuard;
-    // aqui é defesa em profundidade para as demais rotas.
+    // SEC (issue #40, refinado): os limites continuam valendo para TODA via de
+    // acesso público (revogação efetiva a cada request), mas agora são
+    // SEPARADOS POR OPERAÇÃO — visualizar (streaming/play, ?download=false e
+    // POST /view) obedece apenas maxViews; baixar (download=true e zip)
+    // obedece apenas maxDownloads. Assistir não esgota download e vice-versa.
+    // O incremento real de downloads permanece atômico no DownloadLimitGuard.
     const maxViews = share.security?.maxViews;
-    if (maxViews != null && maxViews > 0 && share.views >= maxViews) {
+    const maxDownloads = share.security?.maxDownloads;
+
+    const viewExceeded = maxViews != null && maxViews > 0 && share.views >= maxViews;
+    const downloadExceeded =
+      maxDownloads != null && maxDownloads > 0 && share.downloads >= maxDownloads;
+
+    // Operação de visualização: streaming inline/Range (?download=false) e o
+    // registro de play (POST /view). Demais rotas públicas (download=true,
+    // /zip) são operações de download.
+    const isViewOperation =
+      request.method === "POST" || request.query?.download === "false";
+
+    if (!(isViewOperation ? viewExceeded : downloadExceeded)) return true;
+
+    // Isenção de certificado: abrir/baixar o PDF de certificado NUNCA consome
+    // nem é bloqueado pelos limites — a autenticidade do vídeo fica sempre
+    // verificável, mesmo com views/downloads esgotados.
+    if (await this.isCertificateRequest(request)) return true;
+
+    if (isViewOperation) {
       throw new ForbiddenException({
         message: this.i18n.t("share.maxViewsExceeded"),
         error: "share_max_views_exceeded",
       });
     }
 
-    const maxDownloads = share.security?.maxDownloads;
-    if (
-      maxDownloads != null &&
-      maxDownloads > 0 &&
-      share.downloads >= maxDownloads
-    ) {
-      throw new ForbiddenException({
-        message: this.i18n.t("share.maxDownloadsExceeded"),
-        error: "share_max_downloads_exceeded",
-      });
-    }
+    throw new ForbiddenException({
+      message: this.i18n.t("share.maxDownloadsExceeded"),
+      error: "share_max_downloads_exceeded",
+    });
+  }
 
-    return true;
+  /**
+   * Detecta requisições de certificado: rota dedicada (:fileId/certificate) ou
+   * arquivo genérico cujo nome termina com .certificado.pdf. A consulta ao
+   * arquivo só acontece quando um limite já foi excedido (caminho quente das
+   * streams dentro do limite não paga query extra).
+   */
+  private async isCertificateRequest(request: Request): Promise<boolean> {
+    const urlPath = (request.path ?? "").toLowerCase();
+    if (urlPath.endsWith("/certificate")) return true;
+
+    const fileId = request.params?.fileId as string | undefined;
+    if (!fileId) return false;
+
+    const file = await this.prisma.file.findUnique({
+      where: { id: fileId },
+      select: { name: true },
+    });
+    return !!file?.name.toLowerCase().endsWith(".certificado.pdf");
   }
 }
