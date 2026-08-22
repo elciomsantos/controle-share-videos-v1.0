@@ -18,6 +18,10 @@
 #   - hosts allow is restricted to private LAN ranges (RFC 1918). The
 #     matching UFW rules live in scripts/provision/hardening.sh.
 #   - Risky extensions (.bat/.exe/.scr/...) are vetoed as hygiene.
+#   - SMB3 minimum on the server side; SMB encryption REQUIRED and
+#     signing MANDATORY (anti-MITM/tamper) — requires Win8+ clients.
+#   - File operations audited via VFS full_audit → local7 →
+#     /var/log/samba/audit.log (rsyslog drop-in installed below).
 #
 # Run as root on the production host, AFTER hardening.sh and AFTER the
 # /srv/controle-share-videos/data tree exists and is chowned 1002:1002.
@@ -108,6 +112,12 @@ cat > /etc/samba/smb.conf << SMBCONF
 # Samba configuration for Controle Share Videos
 # Provisioned by scripts/provision/samba.sh — re-runnable.
 # Edit manually only if you also update the provisioning script.
+#
+# Hardening (docs/operacional/SAMBA-SEGURANCA.md):
+#   - SMB3 mínimo no servidor (bloqueia SMB1/EternalBlue)
+#   - Criptografia SMB obrigatória e assinatura mandatory (anti-MITM)
+#   - Veto ampliado de formatos de payload (.hta/.lnk/.iso/...)
+#   - Auditoria de operações de arquivo via VFS full_audit
 # =============================================================================
 
 [global]
@@ -117,6 +127,17 @@ cat > /etc/samba/smb.conf << SMBCONF
     map to guest      = never
     guest ok          = no
     encrypt passwords = yes
+    null passwords    = no
+
+    # --- Protocolo: sem SMB1 (EternalBlue/WannaCry); exige Win8+ nas estações.
+    server min protocol = SMB3
+    server max protocol = SMB3_11
+    client min protocol = SMB2
+
+    # --- Confidencialidade/integridade em trânsito (vídeos sensíveis na LAN).
+    # Requer estações Windows 8+/10+ para negociar criptografia SMB3.
+    server smb encrypt = required
+    server signing     = mandatory
 
     # Restrict to private LAN ranges (RFC 1918). Public IP is never
     # allowed — UFW on port 445 also enforces this (see hardening.sh).
@@ -148,13 +169,28 @@ cat > /etc/samba/smb.conf << SMBCONF
     force directory mode = 2775
     directory mask      = 2775
 
-    # Higiene — veto de executáveis perigosos (no-ops em video/mp4, mas
-    # impede que uma estação comprometida drope payload na share).
-    veto files      = /*.bat/*.exe/*.scr/*.com/*.cmd/*.vbs/*.js/*.jse/*.wsf/*.ps1*/
+    # Higiene — veto de executáveis/payload perigosos (no-ops em video/mp4,
+    # mas impede que uma estação comprometida drope payload na share).
+    # Cobre droppers clássicos: HTA, atalhos LNK, ISO/IMG montáveis,
+    # instaladores MSI/JAR, DLLs e applets CPL.
+    veto files      = /*.bat/*.exe/*.scr/*.com/*.cmd/*.vbs/*.js/*.jse/*.wsf/*.ps1/*.hta/*.lnk/*.iso/*.img/*.msi/*.jar/*.dll/*.cpl*/
 
-    # Não expor atributos/historico livre.
-    browseable      = yes
+    # Auditoria de operações de arquivo (quem/quando/de onde) — complementa
+    # a trilha WORM da aplicação. Enviada ao syslog facility local7;
+    # o rsyslog abaixo direciona para /var/log/samba/audit.log.
+    vfs objects              = full_audit
+    full_audit:prefix        = %u|%I|%S|%T
+    full_audit:success       = connect, disconnect, opendir, mkdir, rmdir, unlink, rename, pwrite
+    full_audit:failure       = connect
+    full_audit:facility      = local7
+    full_audit:priority      = notice
 SMBCONF
+
+# Roteia o facility local7 do VFS full_audit para arquivo dedicado.
+if [ ! -f /etc/rsyslog.d/30-samba-audit.conf ]; then
+  echo 'local7.*    /var/log/samba/audit.log' > /etc/rsyslog.d/30-samba-audit.conf
+  systemctl restart rsyslog || true
+fi
 
 # --- 6. Restart + verify ----------------------------------------------------
 echo "[6/6] Restarting smbd/nmbd and verifying..."
