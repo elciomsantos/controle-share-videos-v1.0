@@ -87,6 +87,34 @@ export class ShareSecurityGuard extends JwtGuard {
         error: "share_token_required",
       });
 
+    // SEC (issue #40): os limites de views/downloads valem para TODA via de
+    // acesso público — inclusive streaming inline com Range (?download=false),
+    // zip e certificado — e não apenas na emissão do token e no download=true.
+    // Sem esta checagem, um token emitido antes do esgotamento continuava
+    // servindo o conteúdo indefinidamente após views/downloads atingirem o
+    // limite configurado pelo dono. Leitura a cada request = revogação efetiva.
+    // O incremento real de downloads permanece atômico no DownloadLimitGuard;
+    // aqui é defesa em profundidade para as demais rotas.
+    const maxViews = share.security?.maxViews;
+    if (maxViews != null && maxViews > 0 && share.views >= maxViews) {
+      throw new ForbiddenException({
+        message: this.i18n.t("share.maxViewsExceeded"),
+        error: "share_max_views_exceeded",
+      });
+    }
+
+    const maxDownloads = share.security?.maxDownloads;
+    if (
+      maxDownloads != null &&
+      maxDownloads > 0 &&
+      share.downloads >= maxDownloads
+    ) {
+      throw new ForbiddenException({
+        message: this.i18n.t("share.maxDownloadsExceeded"),
+        error: "share_max_downloads_exceeded",
+      });
+    }
+
     return true;
   }
 }
