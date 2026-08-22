@@ -69,6 +69,23 @@ export class MetricsService implements OnModuleInit {
     registers: [this.registry],
   });
 
+  // TLS cert expiry (issue #15, 2.8.1): exported by TlsCertificateChecker,
+  // which probes the live HTTPS endpoint. The series only exists while the
+  // last probe succeeded — alerts stay quiet instead of firing on 0.
+  private readonly tlsCertificateExpiryTimestamp = new Gauge({
+    name: "caddy_tls_certificate_expiry_timestamp",
+    help: "Unix timestamp (seconds) when the public TLS certificate expires, per domain. Exported by the backend via live TLS handshake probe.",
+    labelNames: ["domain"] as const,
+    registers: [this.registry],
+  });
+
+  private readonly tlsProbeSuccess = new Gauge({
+    name: "tls_certificate_probe_success",
+    help: "1 when the last TLS handshake probe succeeded for the domain, 0 when it failed",
+    labelNames: ["domain"] as const,
+    registers: [this.registry],
+  });
+
   onModuleInit() {
     collectDefaultMetrics({ register: this.registry });
     this.sqliteIntegrityFailed.set(0);
@@ -108,5 +125,16 @@ export class MetricsService implements OnModuleInit {
 
   setAuditChainBroken(broken: boolean): void {
     this.auditChainBroken.set(broken ? 1 : 0);
+  }
+
+  setTlsCertificateExpiry(domain: string, expirySeconds: number): void {
+    this.tlsCertificateExpiryTimestamp.set({ domain }, expirySeconds);
+    this.tlsProbeSuccess.set({ domain }, 1);
+  }
+
+  /** Probe failed: drop the expiry series so expiry alerts stay quiet. */
+  setTlsProbeFailed(domain: string): void {
+    this.tlsProbeSuccess.set({ domain }, 0);
+    this.tlsCertificateExpiryTimestamp.remove({ domain });
   }
 }

@@ -4,6 +4,7 @@ import { HttpMetricsInterceptor } from "./http-metrics.interceptor";
 import { MetricsController } from "./metrics.controller";
 import { MetricsService } from "./metrics.service";
 import { SqliteIntegrityChecker } from "./sqlite-integrity.checker";
+import { TlsCertificateChecker } from "./tls-certificate.checker";
 
 @Global()
 @Module({
@@ -11,6 +12,7 @@ import { SqliteIntegrityChecker } from "./sqlite-integrity.checker";
   providers: [
     MetricsService,
     SqliteIntegrityChecker,
+    TlsCertificateChecker,
     {
       provide: APP_INTERCEPTOR,
       useClass: HttpMetricsInterceptor,

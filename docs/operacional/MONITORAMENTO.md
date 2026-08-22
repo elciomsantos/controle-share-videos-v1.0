@@ -175,10 +175,83 @@ DISK=$(df -P /srv/controle-share-videos 2>/dev/null | awk 'NR==2{gsub(/%/,"",$5)
 
 ---
 
-## 5. Referências
+## 5. Certificado TLS (issue #15 — 2.8.x)
+
+O TLS é terminado no Caddy com Let's Encrypt (auto-renovação). A expiração
+do certificado **público** é exportada pelo backend para o Prometheus e
+alerta 30 dias antes de vencer.
+
+### 5.1 Métrica exportada
+
+| Métrica | Labels | Significado |
+|---|---|---|
+| `caddy_tls_certificate_expiry_timestamp` | `domain` | Unix timestamp (s) do `notAfter` do cert público |
+| `tls_certificate_probe_success` | `domain` | 1 se o último handshake funcionou, 0 se falhou |
+
+- Exporter: `backend/src/metrics/tls-certificate.checker.ts` — faz handshake
+  real contra a porta 443 pública a cada **6 horas** (`cron 23 */6 * * *`)
+  e publica em `/api/metrics`.
+- Domínio alvo: `TLS_PROBE_DOMAINS` (lista separada por vírgula) → hostname
+  de `general.appUrl` → env `DOMAIN`.
+- Se o probe falha, a série de expiração é **removida** (os alertas de
+  expiração ficam quietos em vez de disparar com valor 0); o estado do probe
+  fica visível em `tls_certificate_probe_success == 0`.
+
+### 5.2 Alertas (definidos em `scripts/monitoring/alerts.yml`)
+
+| Alerta | Condição |
+|---|---|
+| `TLSCertExpiringSoon` (critical) | expiração − agora < 30 dias |
+| `TLSCertExpired` (critical) | expiração − agora < 0 |
+
+> O roteamento PagerDuty/Slack depende do Alertmanager provisionado
+> (ver issue #24).
+
+### 5.3 Verificação manual / teste automatizado
+
+```bash
+# Check pontual (mesma lógica do exporter, via openssl):
+./scripts/security/check-tls-cert.sh videos.example.org
+
+# Múltiplos domínios:
+TLS_PROBE_DOMAINS="a.com b.com" ./scripts/security/check-tls-cert.sh
+
+# Ver o que o Prometheus enxerga:
+curl -fs http://127.0.0.1:8080/api/metrics | grep tls_certificate
+```
+
+Exit code 1 = expira em menos de `TLS_MIN_DAYS` (default 30), expirado ou
+handshake falhou. Útil para cron externo ao backend:
+
+```
+0 6 * * * /opt/controle-share-videos-v1.0/scripts/security/check-tls-cert.sh \
+  $(grep -oP '(?<=TLS_PROBE_DOMAINS=)[^ ]*' /etc/environment) \
+  >> /var/log/tls-check.log 2>&1
+```
+
+### 5.4 Procedimento de renovação (runbook)
+
+Renovação normal é automática (Caddy + Let's Encrypt). Intervenha apenas se
+o alerta disparar:
+
+1. Confirmar estado: `docker logs controle-share-videos-caddy 2>&1 | grep -i "certificate\|obtain\|renew" | tail -20`
+2. Checar conectividade ACME: porta 80/443 acessível da internet e DNS do
+   domínio apontando para este host (`dig +short <dominio>`).
+3. Forçar renovação: `docker exec controle-share-videos-caddy caddy reload --config /etc/caddy/Caddyfile.prod`
+   (o Caddy re-tenta a emissão no reload; se persistir, `docker compose restart caddy`).
+4. Validar pós-ação: `./scripts/security/check-tls-cert.sh <dominio>` → `[OK]`.
+5. Se Let's Encrypt estiver rate-limited, documentar janela e seguir
+   `docs/runbooks/incident-response.md §6.4`.
+
+---
+
+## 6. Referências
 
 - `docs/operacional/DEPLOY.md` — healthchecks descritos no deploy (§5.1)
 - `docs/operacional/RUNBOOKS.md` — resposta a incidentes mencionados acima
+- `docs/runbooks/incident-response.md` §6.4 — certificado TLS expirado/comprometido
+- `backend/src/metrics/tls-certificate.checker.ts` — exporter da expiração TLS
+- `scripts/security/check-tls-cert.sh` — verificação manual/agendada
 - `docs/auditoria/ROADMAP.md` seção 2 — backlog de observabilidade (v1.2)
 - `backend/src/app.controller.ts:10` — implementação do `/api/health`
 - `backend/src/jobs/jobs.service.ts` — cron jobs de limpeza
