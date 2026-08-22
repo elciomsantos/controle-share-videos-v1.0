@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useIntl } from "react-intl";
 import * as yup from "yup";
 import Head from "next/head";
+import { safeRedirectPath } from "../../utils/router.util";
 import { TbAlertCircle, TbCheck } from "react-icons/tb";
 import useTranslate from "../../hooks/useTranslate.hook";
 import useUser from "../../hooks/user.hook";
@@ -56,12 +57,9 @@ const ChangePassword = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const nextPath =
-    typeof router.query.next === "string" &&
-    router.query.next.startsWith("/") &&
-    !router.query.next.startsWith("//")
-      ? router.query.next
-      : "/";
+  const nextPath = safeRedirectPath(
+    typeof router.query.next === "string" ? router.query.next : undefined,
+  );
 
   // Mantém a mensagem de sucesso visível antes de redirecionar.
   useEffect(() => {

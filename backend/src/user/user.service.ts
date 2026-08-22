@@ -36,10 +36,12 @@ export class UserService {
 
   private generateSecurePassword(length = 12): string {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-    const bytes = crypto.randomBytes(length);
-    return Array.from(bytes)
-      .map((b) => chars[b % chars.length])
-      .join("");
+    // randomInt é uniforme (rejection sampling interno) — sem o viés de
+    // módulo de bytes % len apontado pelo CodeQL (issue #41).
+    return Array.from(
+      { length },
+      () => chars[crypto.randomInt(0, chars.length)],
+    ).join("");
   }
 
   async create(dto: CreateUserDTO) {
