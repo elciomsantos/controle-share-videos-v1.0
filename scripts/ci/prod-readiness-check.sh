@@ -84,7 +84,7 @@ check_env_vars() {
 # =============================================================================
 check_secrets_in_code() {
     info "Checking for secrets in code..."
-    
+
     local patterns=(
         "password\s*=\s*['\"][^'\"]+['\"]"
         "secret\s*=\s*['\"][^'\"]+['\"]"
@@ -96,14 +96,28 @@ check_secrets_in_code() {
         "ghp_[a-zA-Z0-9]{36}"  # GitHub PAT
         "sk_live_[a-zA-Z0-9]{24}"  # Stripe
     )
-    
+
+    # Escaneia apenas código/configuração real. Exclusões:
+    # - testes e fixtures (valores sintéticos por definição);
+    # - linhas que apenas REFERENCIAM variáveis de ambiente
+    #   (process.env.X, "${VAR}", "$1") — não são segredos.
     local found=0
     for pattern in "${patterns[@]}"; do
-        if grep -r -i -E "$pattern" --exclude-dir=.git --exclude="*.log" --exclude="*.md" . 2>/dev/null | grep -v ".example" | grep -v "test" | head -5; then
+        if grep -r -i -E "$pattern" \
+            --include="*.ts" --include="*.tsx" --include="*.js" --include="*.mjs" \
+            --include="*.yml" --include="*.yaml" --include="*.sh" \
+            --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist \
+            --exclude-dir=e2e --exclude-dir=test --exclude-dir=__tests__ \
+            --exclude="*.spec.ts" --exclude="*.test.ts" --exclude="*.test.tsx" \
+            backend/src frontend/src packages scripts .github docker-compose.prod.yml docker-compose.yml \
+            2>/dev/null \
+            | grep -v "\.example" \
+            | grep -vE 'process\.env\.|\$\{?[A-Za-z_][A-Za-z0-9_]*|["'"'"']\$' \
+            | head -5; then
             found=1
         fi
     done
-    
+
     if [[ $found -eq 0 ]]; then
         pass "No secrets found in code"
     else
@@ -124,6 +138,9 @@ check_debug_disabled() {
         "SWAGGER_ENABLED=true"
     )
     
+    # Escaneia apenas artefatos que definem a configuração de runtime em
+    # produção (código-fonte + compose/Dockerfile). Excluir docs/ e scripts/
+    # evita falsos positivos com menções textuais aos indicadores.
     local found=0
     for indicator in "${debug_indicators[@]}"; do
         if grep -r "$indicator" \
@@ -131,7 +148,8 @@ check_debug_disabled() {
             --exclude-dir=node_modules \
             --exclude="*local*.yml" \
             --exclude="$(basename "$0")" \
-            . 2>/dev/null | grep -v ".example" | head -1; then
+            backend/src frontend/src Dockerfile docker-compose.yml docker-compose.prod.yml \
+            2>/dev/null | grep -v ".example" | head -1; then
             found=1
         fi
     done

@@ -382,7 +382,14 @@ jobs:
     name: Deploy (produção)
     runs-on: ubuntu-latest
     needs: [backend, frontend, e2e, docker-build]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # O deploy só roda quando a infraestrutura de produção está configurada:
+    # defina a variável de repositório DEPLOY_ENABLED=true e os secrets
+    # DEPLOY_HOST/DEPLOY_USER/DEPLOY_PORT/DEPLOY_SSH_KEY. Sem isso o job é
+    # pulado (evita falha de SSH exit 255 a cada push sem host de destino).
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      vars.DEPLOY_ENABLED == 'true'
     concurrency:
       group: deploy-prod
       cancel-in-progress: false
