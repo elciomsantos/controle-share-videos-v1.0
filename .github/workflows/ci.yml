@@ -108,6 +108,52 @@ jobs:
       - name: E2E tests
         run: npm run test:e2e
 
+  # Issue #12 (2.5.1): dedicated security-e2e job — runs ONLY
+  # security.e2e-spec.ts (§35 scenarios) and publishes the report as an
+  # artifact. The backend job keeps running the full e2e suite.
+  security-e2e:
+    name: Security E2E (§35)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v5
+
+      - uses: actions/setup-node@ae0d4ed08881f17d1511386f5be3e62356acd4a6 # v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build @controle-share/shared
+        working-directory: packages/shared
+        run: |
+          npm ci
+          npm run build
+
+      - name: Run security e2e suite (report + JSON results)
+        run: |
+          set -o pipefail
+          npx jest --config test/jest-e2e.json --ci --runInBand \
+            --testPathPatterns=security \
+            --json --outputFile=security-e2e-results.json \
+            2>&1 | tee security-e2e.log
+
+      - name: Upload security e2e report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        with:
+          name: security-e2e-report
+          path: |
+            backend/security-e2e-results.json
+            backend/security-e2e.log
+          retention-days: 30
+          if-no-files-found: error
+
   frontend:
     name: Frontend (lint, build, unit)
     runs-on: ubuntu-latest

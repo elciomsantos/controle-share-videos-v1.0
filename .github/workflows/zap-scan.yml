@@ -1,0 +1,92 @@
+# Issue #12 (2.5.2) — OWASP ZAP baseline scan (DAST), weekly.
+#
+# Spins up the production image (backend API on :8080), runs the ZAP
+# baseline scanner against it and FAILS the job when HIGH-risk alerts are
+# found (exit code 1 from zap-baseline.py). Warnings (-I) do not fail —
+# the report artifact is published for review either way.
+#
+# SAST counterpart (semgrep/CodeQL on PRs) lives in security-gate.yml.
+
+name: DAST (ZAP Baseline)
+
+on:
+  schedule:
+    # Mondays 03:00 UTC
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  zap-baseline:
+    name: ZAP Baseline Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v5
+
+      - name: Build production image
+        run: docker build --target runner -t csv-zap-target .
+
+      - name: Start target backend
+        run: |
+          ADMIN_PASS=$(openssl rand -base64 32)
+          docker run -d --name zap-target \
+            -e NODE_ENV=production \
+            -e BACKEND_PORT=8080 \
+            -e DATABASE_URL=file:/opt/app/backend/data/controle-videos.db \
+            -e CORS_ORIGIN=http://localhost:3000 \
+            -e ADMIN_EMAIL=admin@zap-scan.local \
+            -e ADMIN_USERNAME=admin \
+            -e ADMIN_PASSWORD="$ADMIN_PASS" \
+            -p 127.0.0.1:8080:8080 \
+            csv-zap-target
+
+      - name: Wait for /api/health
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8080/api/health >/dev/null 2>&1; then
+              echo "Target healthy after ${i} tries"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Backend did not become healthy before ZAP scan"
+          docker logs zap-target --tail 100
+          exit 1
+
+      - name: Run ZAP baseline scan
+        id: zap
+        run: |
+          mkdir -p "$PWD/zap-report"
+          set +e
+          docker run --rm --network host \
+            -v "$PWD/zap-report:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+              -t http://127.0.0.1:8080 \
+              -r zap-report.html \
+              -J zap-report.json \
+              -w zap-report.md \
+              -I
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          echo "ZAP exit code: $code (1 = HIGH-risk findings)"
+          exit 0
+
+      - name: Upload ZAP reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        with:
+          name: zap-baseline-report
+          path: zap-report/
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Fail on HIGH risk findings
+        run: |
+          code=${{ steps.zap.outputs.exit_code }}
+          if [ "$code" -ne 0 ]; then
+            echo "::error::OWASP ZAP baseline found HIGH-risk alerts (exit $code). See zap-baseline-report artifact."
+            exit 1
+          fi
+          echo "No HIGH-risk findings."
