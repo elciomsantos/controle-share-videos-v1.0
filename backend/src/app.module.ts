@@ -23,6 +23,7 @@ import { PrismaModule } from "./prisma/prisma.module";
 import { ShareModule } from "./share/share.module";
 import { SystemModule } from "./system/system.module";
 import { UserModule } from "./user/user.module";
+import { AccessReviewModule } from "./admin/access-review.module";
 import { JwtGuard } from "./auth/guard/jwt.guard";
 import { RolesGuard } from "./auth/guard/roles.guard";
 import { PasswordMustChangeGuard } from "./auth/guard/passwordMustChange.guard";
@@ -55,6 +56,7 @@ const i18nPath = existsSync(join(__dirname, "../i18n"))
     DownloadLogModule,
     MetricsModule,
     AuditModule,
+    AccessReviewModule,
     I18nModule.forRoot({
       fallbackLanguage: "pt-BR",
       loaderOptions: {

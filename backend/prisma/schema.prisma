@@ -28,6 +28,12 @@ model User {
   recoveryCodes RecoveryCode[]
   auditLogs     AuditLog[]
 
+  // Access review (issue #11, 2.4.2/2.4.3)
+  lastReviewedAt DateTime?
+  reviewedBy     String?
+
+  accessReviews AccessReview[]
+
   totpEnabled        Boolean             @default(false)
   totpVerified       Boolean             @default(false)
   totpSecret         String?
@@ -316,4 +322,23 @@ model AuditLog {
   @@index([userId])
   @@index([requestId])
   @@index([previousHash, currentHash])
+}
+
+// Access review (issue #11, 2.4.3): atestação assinada de revisão de acesso.
+model AccessReview {
+  id         String   @id @default(uuid())
+  createdAt  DateTime @default(now())
+  reviewedAt DateTime
+
+  userId     String
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewerId String
+  certified  Boolean
+  notes      String?
+
+  // HMAC-SHA256 do payload da atestação (chave do servidor)
+  signature String
+
+  @@index([userId])
+  @@index([reviewedAt])
 }

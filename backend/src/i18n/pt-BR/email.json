@@ -6,6 +6,12 @@
   "emailServiceDisabled": "Serviço de e-mail desativado",
   "testSubject": "E-mail de teste",
   "testText": "Este é um e-mail de teste",
+  "accessReviewSubject": "[Ação necessária] Revisão trimestral de acessos",
+  "accessReviewIntro": "A revisão trimestral de acessos está disponível. Revise e certifique os acessos dos usuários no painel administrativo (Revisão de Acesso).",
+  "accessReviewTotal": "Total de usuários",
+  "accessReviewOverdue": "Usuários com revisão vencida (>90 dias)",
+  "accessReviewNeverReviewed": "Usuários nunca revisados",
+  "accessReviewOutro": "As atestações ficam registradas na trilha de auditoria com assinatura.",
   "sendFailed": "Falha ao enviar e-mail",
   "locale": "pt-BR"
 }

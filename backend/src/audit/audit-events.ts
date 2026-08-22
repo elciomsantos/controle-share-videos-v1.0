@@ -28,6 +28,10 @@ export const AuditEvent = {
 
   // WORM (issue #10, 2.3.3): evidência da verificação diária da chain.
   AUDIT_INTEGRITY_CHECK: "AUDIT_INTEGRITY_CHECK",
+
+  // Access review (issue #11, 2.4.2/2.4.3)
+  ACCESS_REVIEW_CERTIFIED: "ACCESS_REVIEW_CERTIFIED",
+  ACCESS_REVIEW_QUARTERLY_REMINDER: "ACCESS_REVIEW_QUARTERLY_REMINDER",
 } as const;
 
 export type AuditEventType = (typeof AuditEvent)[keyof typeof AuditEvent];

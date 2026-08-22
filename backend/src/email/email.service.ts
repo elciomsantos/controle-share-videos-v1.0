@@ -209,4 +209,26 @@ export class EmailService {
         throw new InternalServerErrorException(e.message);
       });
   }
+
+  /**
+   * Access review (issue #11, 2.4.2): resumo trimestral enviado aos admins.
+   */
+  async sendAccessReviewReminder(
+    recipientEmail: string,
+    summary: { total: number; overdue: number; neverReviewed: number },
+  ) {
+    const subject = this.i18n.t("email.accessReviewSubject");
+    const text = `${this.i18n.t("email.accessReviewIntro")}
+
+- ${this.i18n.t("email.accessReviewTotal")}: ${summary.total}
+- ${this.i18n.t("email.accessReviewOverdue")}: ${summary.overdue}
+- ${this.i18n.t("email.accessReviewNeverReviewed")}: ${summary.neverReviewed}
+
+${this.i18n.t("email.accessReviewOutro")}`;
+
+    await this.sendMail(recipientEmail, subject, text).catch((e) => {
+      this.logger.error(e);
+      throw new InternalServerErrorException(e.message);
+    });
+  }
 }
