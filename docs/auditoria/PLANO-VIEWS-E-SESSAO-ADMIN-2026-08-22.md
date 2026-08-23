@@ -112,3 +112,38 @@ Riscos/observações:
 
 - 3 requests de stream do mesmo viewer = **1 view** (dedupe ✔); segundo viewer → view 2 ✔; terceiro → 403 na emissão de token E na stream ✔; viewer já contado continua assistindo (206) ✔; certificado acessível com limites esgotados (200) ✔.
 - Suítes: backend 296/296, frontend lint+tsc+22 testes.
+
+---
+
+## Evolução da semântica de views (2026-08-23) — estado final
+
+A implementação inicial (dedupe de 12h por hash de identidade) foi refinada em
+decisão de produto/segurança para o modelo definitivo:
+
+- **Contagem por abertura do player (visitantes):** request **sem** header
+  `Range` (probe/abertura fresca do `<video>`) conta sempre 1 nova view —
+  incremento atômico condicional (`updateMany` com `views < maxViews`); recusado →
+  `403 share_max_views_exceeded`.
+- **Chunks/seeks não contam:** request **com** `Range` nunca incrementa; apenas
+  renova a sessão deslizante em memória (`SESSION_GAP_MS = 2 min`) do
+  `StreamViewCounterService`. A deduplicação por identidade/12h foi substituída
+  por este modelo Range + janela deslizante.
+- **Privilegiados (criador/admin com `share.allowAdminAccessAllShares`):**
+  preview ilimitado e **não contado**, verificado server-side a cada request de
+  stream (`FileController.isPrivilegedAccess`). Isto substitui a diretriz original
+  do P0-1 ("toda visualização conta") por decisão de produto — mantendo o
+  espírito do achado SEC-V1, pois a decisão continua sendo do servidor (o bypass
+  antigo era client-side no `POST /view`). Alinhado ao plano do pentest #40
+  ("owner/admin continuam acessando normalmente após limites").
+- **Guard com limites esgotados:** bloqueia abertura fresca (emissão de token e
+  probe da stream), mas permite `Range` de sessão ativa (continuidade do playback
+  já iniciado) e acesso ao certificado.
+- **Preview nas listagens:** botão de prévia também em `/admin/shares`
+  (`AdminShareDTO` passou a expor `files`); dono/admin pré-visualizam shares
+  protegidos por senha/token sem cookie de visitante (`isPrivileged` no guard).
+
+**Validação ao vivo (share com maxViews=2):** visitante A abre → view 1;
+chunks `Range` → `206` sem contar; visitante B abre → view 2; visitante C →
+`403` na emissão de token E no probe; chunk da sessão ativa de B → `206`;
+dono/admin pré-visualizam o share esgotado repetidamente sem alterar `views`.
+Suítes: backend **309/309** (29 suites), frontend lint+tsc+22 testes.

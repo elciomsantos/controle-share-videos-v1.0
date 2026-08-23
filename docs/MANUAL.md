@@ -310,3 +310,25 @@ docker exec controle-share-videos-backend curl -fs http://127.0.0.1:8080/api/hea
 - Faça backup de dados importantes antes de realizar limpezas completas
 - Em produção, **sempre faça backup antes de atualizar** (`scripts/backup.sh`)
 - Valide o hardening no staging **antes** de promover para produção
+
+---
+
+## 13. Semântica de Views e Previews de Vídeo
+
+Como o contador de visualizações funciona (server-side, `StreamViewCounterService` + `ShareSecurityGuard`):
+
+| Ação | Conta view? | Observação |
+|------|-------------|------------|
+| Visitante abre o link e o player inicia | ✅ Sim (1 por abertura) | Incremento atômico; excedido `maxViews` → `403 share_max_views_exceeded` |
+| Chunks/seeks durante o playback (`Range`) | ❌ Não | Renova sessão deslizante de 2 min do mesmo playback |
+| Dono/admin pré-visualizando (listagem ou player) | ❌ Não | Ilimitado — decisão server-side (`isPrivilegedAccess`), independe do cliente |
+| Download único ou ZIP | — | Conta em `downloads` (limite próprio, anti-TOCTOU) |
+
+Notas operacionais:
+
+- Com limites esgotados: abertura nova é bloqueada (token e stream), mas o
+  playback já iniciado continua até fechar a aba (sessão de 2 min).
+- O certificado de autenticidade permanece acessível mesmo com limites esgotados.
+- Cada evento (sucesso/falha) aparece em `/admin/download-logs` (IP, UA, timestamp).
+- Para testar: crie um share com `maxViews` baixo (ex.: 2) e abra o link público
+  em navegadores/sessões anônimas diferentes.

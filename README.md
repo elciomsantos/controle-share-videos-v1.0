@@ -34,8 +34,8 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 | **Spec Segurança Sessões** | ✅ v1.2 — 17/17 correções aplicadas (7 fases) |
 | **Lacunas de Segurança (Fases 1–4)** | ✅ 35/35 issues fechados (#1–#35) com evidência em commit/doc |
 | **Pentest de links de compartilhamento** | ✅ Executado (`docs/auditoria/PENTEST-SHARE-LINK-2026-08-22.md`) — 1 achado HIGH corrigido (#40), 11 controles aprovados |
-| **Testes** | ✅ Unit (backend 28 suites/286 testes) + E2E + Playwright + Security-E2E no CI |
-| **CI/CD** | ✅ GitHub Actions (lint, build, test, audit, Security Gate, SLSA/cosign; deploy SSH opt-in via `DEPLOY_ENABLED`) |
+| **Testes** | ✅ Unit (backend 29 suites/309 testes) + E2E + Playwright + Security-E2E no CI |
+| **CI/CD** | ✅ GitHub Actions (lint, build, test, audit, Security Gate, SLSA/cosign; actions em Node 24; Dependabot para npm e pins de actions; deploy SSH opt-in via `DEPLOY_ENABLED`) |
 
 ---
 
@@ -47,12 +47,13 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 - Tamanho de arquivo ilimitado (restrito apenas pelo espaço em disco)
 - Data de expiração configurável por share
 - Shares protegidos por senha + limite de visitantes e downloads
-- **Limites de view/download enforced server-side em TODA via de acesso** (streaming, ZIP, certificado) — token é revogado efetivamente ao esgotar qualquer limite (#40)
+- **Limites de view/download enforced server-side em TODA via de acesso** (streaming e ZIP; certificado isento por design) — token é revogado efetivamente ao esgotar qualquer limite (#40); **cada abertura do player pelo visitante conta 1 view no servidor** (chunks/seeks via `Range` não contam — janela deslizante de 2 min por sessão de playback)
 - **Geração automática de senha forte** (comprimento configurável via `share.generatedPasswordLength`) exibida separadamente no modal de upload completado
 - Limites por share: máximo de visualizações, máximo de downloads, expiração
 - Página exclusiva de visualização por link (sem cabeçalho/rodapé do painel admin)
 - Destinatários de e-mail (SMTP opcional)
 - **Preview de vídeo com tarja de proteção persistente em tela cheia** — botão customizado coloca o wrapper (vídeo + tarja) em fullscreen (v1.2.3)
+- **Botão de preview nas listagens do dono e do admin** (`/account/shares` e `/admin/shares`) — criador/admin pré-visualizam qualquer share (mesmo protegido por senha/token) com visualização **ilimitada e não contada**, decisão sempre tomada server-side
 
 ### Upload e armazenamento
 
@@ -104,7 +105,7 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 
 ### Segurança — Hardening Fases 1–4 (issues #1–#35)
 
-- **Limites de share em todas as vias de acesso** (#40): `maxViews`/`maxDownloads` validados no `ShareSecurityGuard` a cada request público — streaming inline (Range), ZIP e certificado incluídos; token emitido antes do esgotamento é revogado efetivamente quando qualquer limite é atingido
+- **Limites de share em todas as vias de acesso** (#40): `maxViews`/`maxDownloads` validados no `ShareSecurityGuard` a cada request público — streaming inline e ZIP incluídos (certificado isento por design); token emitido antes do esgotamento é revogado efetivamente quando qualquer limite é atingido; playback já iniciado prossegue via `Range` com sessão ativa
 - **Auditoria WORM tamper-evident** (#10): trilha append-only NDJSON com hash chain SHA-256, verificação diária automática e endpoint `/api/admin/audit-logs/chain-status`
 - **Revisão de acesso periódica** (#11): `GET /api/admin/access-review` com nível de risco por usuário + cron trimestral enviando resumo aos admins e atestação assinada (HMAC) registrada no WORM
 - **Monitoramento de certificado TLS** (#15): gauge `caddy_tls_certificate_expiry_timestamp` exportado ao Prometheus; alertas <30d e expirado
@@ -222,7 +223,7 @@ Há testes unitários e E2E (backend), unitários (frontend) e E2E de navegador 
 
 ```bash
 # Backend
-npm run test:unit      # jest — unitários (28 suites, 286 testes)
+npm run test:unit      # jest — unitários (29 suites, 309 testes)
 npm run test:e2e       # jest — e2e efêmero (DB dedicado, não destrutivo)
 npm run test:coverage  # jest com cobertura (thresholds ≥60%)
 npm test               # alias para test:unit
@@ -534,7 +535,10 @@ repositório `DEPLOY_ENABLED=true` está definida junto com os secrets
 `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PORT` e `DEPLOY_SSH_KEY`. Sem isso o job
 é pulado com segurança (evita falha de SSH a cada push). O workflow **Security
 Gate** roda em todo push: secret scanning, hadolint, audit de dependências,
-CodeQL (JS+TS), semgrep, Trivy, SBOM e production readiness check.
+CodeQL (JS+TS), semgrep, Trivy, SBOM e production readiness check. Todas as
+actions estão pinadas por SHA em versões Node 24 (sem warnings de deprecação).
+O **Dependabot** (`.github/dependabot.yml`) mantém dependências npm dos 5
+projetos e os pins de GitHub Actions atualizados semanalmente.
 
 > Ver `docs/auditoria/CHECKLIST-SEGURANCA-FINAL.md` para a verificação item a item.
 
