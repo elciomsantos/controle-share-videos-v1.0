@@ -8,7 +8,7 @@ import {
 } from "@mantine/core";
 import { useModals } from "@mantine/modals";
 import { dayjs, isEpochZero } from "../../../utils/date.util";
-import { TbInfoCircle, TbLink, TbTrash } from "react-icons/tb";
+import { TbInfoCircle, TbLink, TbPlayerPlayFilled, TbTrash } from "react-icons/tb";
 import { FormattedMessage } from "react-intl";
 import useConfig from "../../../hooks/config.hook";
 import useTranslate from "../../../hooks/useTranslate.hook";
@@ -16,8 +16,10 @@ import { MyShare } from "../../../types/share.type";
 import { byteToHumanSizeString } from "../../../utils/fileSize.util";
 import toast from "../../../utils/toast.util";
 import { copyToClipboard } from "../../../utils/clipboard.util";
+import shareService from "../../../services/share.service";
 import showShareInformationsModal from "../../share/showShareInformationsModal";
 import showShareLinkModal from "../../account/showShareLinkModal";
+import showFilePreviewModal from "../../share/modals/showFilePreviewModal";
 import { HoverTip } from "../../core/HoverTip";
 
 const ManageShareTable = ({
@@ -66,6 +68,9 @@ const ManageShareTable = ({
             <th>
               <FormattedMessage id="account.shares.table.expiresAt" />
             </th>
+            <th>
+              <FormattedMessage id="account.shares.table.preview" />
+            </th>
             {fileRetentionEnabled ? (
               <th>
                 <FormattedMessage id="admin.shares.table.deletes" />
@@ -79,7 +84,11 @@ const ManageShareTable = ({
         <tbody>
           {isLoading
             ? skeletonRows
-            : shares.map((share) => (
+            : shares.map((share) => {
+                const previewableFile = share.files?.find((file) =>
+                  shareService.doesFileSupportPreview(file.name),
+                );
+                return (
                 <tr key={share.id}>
                   <td>{share.id}</td>
                   <td>{share.name}</td>
@@ -100,6 +109,26 @@ const ManageShareTable = ({
                     {isEpochZero(share.expiration)
                       ? "Never"
                       : dayjs(share.expiration).format("LLL")}
+                  </td>
+                  <td>
+                    {previewableFile ? (
+                      <HoverTip label={t("account.shares.button.preview")}>
+                        <ActionIcon
+                          color="teal"
+                          variant="light"
+                          size={25}
+                          onClick={() =>
+                            showFilePreviewModal(share.id, previewableFile, modals)
+                          }
+                        >
+                          <TbPlayerPlayFilled />
+                        </ActionIcon>
+                      </HoverTip>
+                    ) : (
+                      <Text color="dimmed" size="xs">
+                        <FormattedMessage id="account.shares.table.no-preview" />
+                      </Text>
+                    )}
                   </td>
                   {fileRetentionEnabled ? (
                     <td>
@@ -175,7 +204,8 @@ const ManageShareTable = ({
                     </Group>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
         </tbody>
       </Table>
     </Box>
@@ -197,6 +227,9 @@ const skeletonRows = [...Array(10)].map((v, i) => (
       <Skeleton key={i} height={20} />
     </td>
     <td className="hide-on-mobile">
+      <Skeleton key={i} height={20} />
+    </td>
+    <td>
       <Skeleton key={i} height={20} />
     </td>
     <td>

@@ -1,6 +1,6 @@
 import { OmitType } from "@nestjs/swagger";
-import { Expose, plainToClass } from "class-transformer";
-import { ShareDTO } from "./share.dto";
+import { Expose, plainToClass, Type } from "class-transformer";
+import { ShareDTO, FileDTO } from "@/shared/dto";
 import { MyShareSecurityDTO } from "./myShareSecurity.dto";
 
 export class AdminShareDTO extends OmitType(ShareDTO, [
@@ -19,6 +19,11 @@ export class AdminShareDTO extends OmitType(ShareDTO, [
 
   @Expose()
   recipients!: string[];
+
+  // Necessário para o botão de pré-visualização em /admin/shares.
+  @Expose()
+  @Type(() => OmitType(FileDTO, ["shareId", "from"] as const))
+  files!: Omit<FileDTO, "shareId" | "from">[];
 
   from(partial: Partial<AdminShareDTO>) {
     return plainToClass(AdminShareDTO, partial, {
