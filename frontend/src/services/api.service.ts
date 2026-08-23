@@ -7,21 +7,25 @@ let csrfToken: string | null = null;
 let csrfFetchPromise: Promise<string> | null = null;
 
 // Cookies httpOnly de sessão emitidos pelo backend (token.service.ts). O
-// `refresh_token` usa Path=/api/auth/token — só pode ser removido/sobrescrito
-// com o MESMO path. Limpar com Path=/ não o apaga, deixando um cookie morto
-// que gera 401 em loop em cada keep-alive/refreshUser.
+// `refresh_token` legado usa Path=/api/auth/token — só pode ser removido/
+// sobrescrito com o MESMO path. Limpar com Path=/ não o apaga, deixando um
+// cookie morto que gera 401 em loop em cada keep-alive/refreshUser. Com
+// secureCookies o backend usa __Host-refresh_token com Path=/ (VULN-13).
 const SESSION_COOKIE_NAMES = ["__Host-SID", "access_token"];
-const REFRESH_COOKIE_NAME = "refresh_token";
+const REFRESH_COOKIE_NAMES: Array<[string, string]> = [
+  ["refresh_token", "/api/auth/token"],
+  ["__Host-refresh_token", "/"],
+];
 
 const clearCookie = (name: string, path: string) => {
   document.cookie = `${name}=; Path=${path}; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict`;
 };
 
-// Remove todos os cookies de sessão (incluindo o refresh com Path restrito).
+// Remove todos os cookies de sessão (incluindo os refresh, nos dois formatos).
 // Chamado quando a renovação de sessão falha de forma definitiva.
 export const clearSessionCookies = () => {
   SESSION_COOKIE_NAMES.forEach((name) => clearCookie(name, "/"));
-  clearCookie(REFRESH_COOKIE_NAME, "/api/auth/token");
+  REFRESH_COOKIE_NAMES.forEach(([name, path]) => clearCookie(name, path));
 };
 
 const fetchCsrfToken = async (): Promise<string> => {

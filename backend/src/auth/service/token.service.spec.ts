@@ -170,10 +170,11 @@ describe("TokenService", () => {
         "access",
         expect.objectContaining({ httpOnly: true, sameSite: "strict" }),
       );
+      // VULN-13: em modo seguro o refresh usa __Host- com Path=/.
       expect(response.cookie).toHaveBeenCalledWith(
-        "refresh_token",
+        "__Host-refresh_token",
         "refresh",
-        expect.objectContaining({ path: "/api/auth/token" }),
+        expect.objectContaining({ path: "/", secure: true }),
       );
     });
 
@@ -187,6 +188,11 @@ describe("TokenService", () => {
         "access_token",
         "access",
         expect.objectContaining({ httpOnly: true, sameSite: "strict" }),
+      );
+      expect(response.cookie).toHaveBeenCalledWith(
+        "refresh_token",
+        "refresh",
+        expect.objectContaining({ path: "/api/auth/token" }),
       );
     });
   });

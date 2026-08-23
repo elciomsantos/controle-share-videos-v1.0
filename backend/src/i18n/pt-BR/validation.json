@@ -1,5 +1,6 @@
 {
   "usernamePattern": "O nome de usuário pode conter apenas letras, números, pontos e sublinhados",
   "idPattern": "O ID pode conter apenas letras, números, sublinhados e hífens",
-  "fileNamePattern": "O nome do arquivo não pode conter caminhos relativos (..), barra invertida ou caracteres de controle"
+  "fileNamePattern": "O nome do arquivo não pode conter caminhos relativos (..), barra invertida ou caracteres de controle",
+  "passwordPolicy": "A senha deve conter pelo menos uma letra e um número"
 }

@@ -235,7 +235,8 @@ export class ShareController {
     },
   })
   @Get("isShareIdAvailable/:id")
-  @Public()
+  // VULN-16: exige sessão autenticada — o endpoint é usado apenas na criação
+  // de shares e não pode servir de oráculo público para enumerar IDs.
   async isShareIdAvailable(@Param("id") id: string) {
     return this.shareService.isShareIdAvailable(id);
   }

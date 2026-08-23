@@ -35,6 +35,8 @@ export class AdminDownloadLogsController {
           : success === "false"
             ? false
             : undefined;
+    // VULN-17: clamp de paginação — NaN/valores negativos caem no default e o
+    // limite é tetoado para não permitir consultas de tamanho arbitrário.
     return this.downloadLogService.findAll({
       shareId,
       userId,
@@ -42,8 +44,8 @@ export class AdminDownloadLogsController {
       to,
       event,
       success: successBoolean,
-      page: page ? parseInt(page) : 1,
-      limit: limit ? parseInt(limit) : 50,
+      page: Math.max(parseInt(page ?? "") || 1, 1),
+      limit: Math.min(Math.max(parseInt(limit ?? "") || 50, 1), 500),
     });
   }
 }

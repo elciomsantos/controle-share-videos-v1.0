@@ -7,6 +7,8 @@ general:
   #On which URL Controle-share-videos-v1.0 is available
   appUrl: http://localhost:3000
   #Whether to set the secure flag on cookies. If enabled, the site will not function when accessed over HTTP.
+  #VULN-23: keep "true" in production (HTTPS) — required for __Host- cookies
+  #(VULN-13). Only use "false" for local development over plain HTTP.
   secureCookies: "false"
   #Whether to show the home page
   showHomePage: "true"
@@ -236,5 +238,7 @@ initUser:
   enabled: false
   username: admin
   email: admin@example.com
-  password: my-secure-password
+  #VULN-23: use a strong password (letters + digits, min. 8 chars) and rotate
+  #it right after the first login. Never ship this file with a real password.
+  password: CHANGE-ME-before-enabling-initUser
   isAdmin: true

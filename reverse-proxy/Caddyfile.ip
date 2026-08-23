@@ -3,6 +3,12 @@
 # Let's Encrypt NÃO emite certificado para IP nu, então este Caddyfile
 # não usa `tls {$ACME_EMAIL}` nem `https://{$DOMAIN}` (ver PLANO-IMPLANTACAO.md §2.1-C).
 #
+# ⚠️  VULN-22: o modo C1 (HTTP puro) trafega senhas, cookies de sessão e
+# conteúdo compartilhado SEM criptografia — qualquer ponto da rede observa
+# tudo e pode sequestrar a sessão. Use C1 apenas em rede confiável/homologação.
+# Em produção, PREFIRA um domínio com Caddyfile.prod (TLS ACME) ou, sem
+# domínio, a variante C2 (TLS autoassinado) + general.secureCookies=true.
+#
 # Duas variantes (escolha UMA descomentando):
 #   C1 — HTTP puro na porta 80 (recomendado para homologação/LAN)
 #   C2 — TLS autoassinado na porta 443 (certificado gerado pelo Caddy)

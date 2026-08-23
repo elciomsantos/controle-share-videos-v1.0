@@ -426,13 +426,22 @@ describe("Auth + Share (e2e)", () => {
   });
 
   describe("share id availability (e2e)", () => {
-    it("GET /api/shares/isShareIdAvailable/:id returns availability bool", async () => {
-      const res1 = await agent()
+    it("GET /api/shares/isShareIdAvailable/:id exige sessão (VULN-16)", async () => {
+      await agent()
+        .get("/api/shares/isShareIdAvailable/definitely-new-id-xyz")
+        .expect(401);
+    });
+
+    it("GET /api/shares/isShareIdAvailable/:id autenticado retorna disponibilidade", async () => {
+      const session = agent();
+      await signInTotp(session);
+
+      const res1 = await session
         .get("/api/shares/isShareIdAvailable/definitely-new-id-xyz")
         .expect(200);
       expect(res1.body.isAvailable).toBe(true);
 
-      const res2 = await agent()
+      const res2 = await session
         .get("/api/shares/isShareIdAvailable/e2eshare1")
         .expect(200);
       expect(typeof res2.body.isAvailable).toBe("boolean");

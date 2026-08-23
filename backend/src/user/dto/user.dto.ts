@@ -27,7 +27,12 @@ export class UserDTO {
   @Expose()
   hasPassword!: boolean;
 
+  // VULN-14: além do comprimento mínimo, exige ao menos uma letra e um
+  // dígito — bloqueia senhas puramente alfabéticas/numéricas triviais.
   @MinLength(8)
+  @Matches(/^(?=.*[A-Za-z])(?=.*\d)/, {
+    message: i18nValidationMessage("validation.passwordPolicy"),
+  })
   password!: string;
 
   @Expose()

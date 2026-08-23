@@ -1,6 +1,7 @@
 import { BadRequestException } from "@nestjs/common";
 import argon from "argon2";
 import { VerificationService } from "./verification.service";
+import { hashShareableToken } from "../../utils/token-hash.util";
 
 jest.mock("argon2", () => ({
   hash: jest.fn(),
@@ -117,7 +118,7 @@ describe("VerificationService", () => {
   });
 
   describe("requestResetPassword", () => {
-    it("cria token e envia e-mail", async () => {
+    it("cria token (hash no banco) e envia o bruto por e-mail (VULN-20)", async () => {
       prisma.user.findUnique.mockResolvedValue({
         id: "u1",
         email: "a@b.com",
@@ -127,10 +128,23 @@ describe("VerificationService", () => {
 
       await service.requestResetPassword("a@b.com");
 
-      expect(prisma.resetPasswordToken.create).toHaveBeenCalled();
-      expect(emailService.sendResetPasswordEmail).toHaveBeenCalledWith(
-        "a@b.com",
-        "rst",
+      expect(prisma.resetPasswordToken.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            token: expect.stringMatching(/^[0-9a-f]{64}$/),
+          }),
+        }),
+      );
+      const rawToken =
+        emailService.sendResetPasswordEmail.mock.calls[0][1] as string;
+      expect(rawToken).not.toBe("rst");
+      // O hash persistido corresponde ao token enviado por e-mail.
+      expect(prisma.resetPasswordToken.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            token: hashShareableToken(rawToken),
+          }),
+        }),
       );
     });
 
@@ -175,8 +189,9 @@ describe("VerificationService", () => {
       await expect(service.resetPassword("rst", "x")).rejects.toBeInstanceOf(
         BadRequestException,
       );
+      // VULN-20: a remoção usa o hash do token, não o valor bruto.
       expect(prisma.resetPasswordToken.delete).toHaveBeenCalledWith({
-        where: { token: "rst" },
+        where: { token: hashShareableToken("rst") },
       });
     });
   });

@@ -65,11 +65,11 @@ const signUp = async (email: string, username: string, password: string) => {
 };
 
 const signOut = async () => {
-  const response = await api.post("/auth/signOut");
-
-  if (URL.canParse(response.data?.redirectURI))
-    window.location.href = response.data.redirectURI;
-  else window.location.href = "/";
+  // VULN-12: nunca navegar para URL vinda do body da resposta — um valor
+  // manipulado (ex.: "javascript:...") viraria XSS. O backend não emite
+  // redirect; o destino pós-logout é sempre interno.
+  await api.post("/auth/signOut");
+  window.location.href = "/";
 };
 
 // SEC-1.2/§10 (Fase 4): o access token é opaco e httpOnly — o client não

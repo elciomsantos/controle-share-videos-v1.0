@@ -25,6 +25,14 @@ const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const CSRF_COOKIE_NAME = "csrf_token";
 const CSRF_HEADER_NAME = "x-csrf-token";
 
+// VULN-21: a imagem combinada (Caddy+backend+frontend) roda com
+// NODE_ENV=docker — um valor que não é "production" e silenciosamente habilita
+// detalhes de validação e o Swagger. Tratamos qualquer NODE_ENV de deploy
+// (production|docker|staging) como produção para esses flags.
+const PRODUCTION_LIKE_NODE_ENVS = new Set(["production", "docker", "staging"]);
+const isProductionLike = () =>
+  PRODUCTION_LIKE_NODE_ENVS.has(process.env.NODE_ENV ?? "");
+
 function generateNestJsLogLevels(): LogLevel[] {
   if (LOG_LEVEL_ENV) {
     const levelIndex = LOG_LEVEL_AVAILABLE.indexOf(LOG_LEVEL_ENV as LogLevel);
@@ -61,7 +69,7 @@ export async function configureApp(
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      disableErrorMessages: process.env.NODE_ENV === "production",
+      disableErrorMessages: isProductionLike(),
     }),
   );
   app.useGlobalFilters(
@@ -244,8 +252,7 @@ async function bootstrap() {
   const app = await createApp();
 
   const swaggerEnabled =
-    process.env.NODE_ENV !== "production" &&
-    process.env.SWAGGER_ENABLED === "true";
+    !isProductionLike() && process.env.SWAGGER_ENABLED === "true";
   if (swaggerEnabled) {
     const swaggerConfig = new DocumentBuilder()
       .setTitle("Controle Share Videos API")

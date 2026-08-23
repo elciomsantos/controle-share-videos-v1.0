@@ -35,7 +35,9 @@ import { UpdatePasswordDTO } from "./dto/updatePassword.dto";
 import { VerifyTotpDTO } from "./dto/verifyTotp.dto";
 import {
   REFRESH_COOKIE_NAME,
+  expireAuthCookies,
   getSessionCookieName,
+  getRefreshCookieName,
 } from "../utils/session-cookie.util";
 
 @Controller("auth")
@@ -71,7 +73,11 @@ export class AuthController {
       result.accessToken,
     );
 
-    return result;
+    // VULN-19: os tokens de sessão viajam apenas nos cookies httpOnly —
+    // nunca no body JSON, que é legível por qualquer JS da página.
+    if ("verificationRequired" in result) return result;
+    const { accessToken: _at, refreshToken: _rt, ...body } = result;
+    return body;
   }
 
   @Post("signIn")
@@ -90,12 +96,15 @@ export class AuthController {
   ) {
     const result = await this.authService.signIn(dto, ip ?? "");
 
-    if (result.accessToken && result.refreshToken) {
+    if ("accessToken" in result && "refreshToken" in result) {
+      // VULN-19: tokens só nos cookies httpOnly; o body fica sem credenciais.
       this.authService.addTokensToResponse(
         response,
         result.refreshToken,
         result.accessToken,
       );
+      const { accessToken: _at, refreshToken: _rt, ...body } = result;
+      return body;
     }
 
     return result;
@@ -270,14 +279,20 @@ export class AuthController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
-    if (!request.cookies.refresh_token) {
+    // VULN-13: o nome do cookie de refresh depende do modo seguro; aceita
+    // também o formato legado durante a migração de sessões existentes.
+    const isSecure = this.config.getBoolean("general.secureCookies");
+    const presentedRefreshToken =
+      request.cookies[getRefreshCookieName(isSecure)] ??
+      request.cookies[REFRESH_COOKIE_NAME];
+    if (!presentedRefreshToken) {
       this.expireSessionCookies(response);
       throw new UnauthorizedException();
     }
 
     try {
       const result = await this.authService.refreshAccessToken(
-        request.cookies.refresh_token,
+        presentedRefreshToken,
       );
       this.authService.addTokensToResponse(
         response,
@@ -298,27 +313,13 @@ export class AuthController {
 
   /**
    * Expira os cookies de sessão com os MESMOS paths usados na emissão
-   * (token.service.addTokensToResponse): cookie de sessão em Path=/ e refresh
-   * token em Path=/api/auth/token.
+   * (token.service.addTokensToResponse) — ver session-cookie.util.
    */
   private expireSessionCookies(response: Response) {
-    const isSecure = this.config.getBoolean("general.secureCookies");
-    const sessionCookieName = getSessionCookieName(isSecure);
-    response.setHeader("Cache-Control", "no-store");
-    response.cookie(sessionCookieName, "", {
-      path: "/",
-      httpOnly: true,
-      sameSite: "strict",
-      maxAge: -1,
-      secure: isSecure,
-    });
-    response.cookie(REFRESH_COOKIE_NAME, "", {
-      path: "/api/auth/token",
-      httpOnly: true,
-      sameSite: "strict",
-      maxAge: -1,
-      secure: isSecure,
-    });
+    expireAuthCookies(
+      response,
+      this.config.getBoolean("general.secureCookies"),
+    );
   }
 
   @Post("signOut")
@@ -333,21 +334,7 @@ export class AuthController {
       request.cookies?.[sessionCookieName] ?? request.cookies?.access_token,
     );
 
-    response.setHeader("Cache-Control", "no-store");
-    response.cookie(sessionCookieName, "", {
-      path: "/",
-      httpOnly: true,
-      sameSite: "strict",
-      maxAge: -1,
-      secure: isSecure,
-    });
-    response.cookie(REFRESH_COOKIE_NAME, "", {
-      path: "/api/auth/token",
-      httpOnly: true,
-      sameSite: "strict",
-      maxAge: -1,
-      secure: isSecure,
-    });
+    expireAuthCookies(response, isSecure);
   }
 
   @Post("logoutAll")

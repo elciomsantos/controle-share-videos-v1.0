@@ -3,6 +3,7 @@ import argon from "argon2";
 import dayjs from "dayjs";
 import { I18nService } from "nestjs-i18n";
 import { ARGON2_OPTIONS } from "../../constants";
+import { hashShareableToken } from "../../utils/token-hash.util";
 import { AuditEvent, AuditService } from "../../audit/audit.service";
 import { EmailService } from "../../email/email.service";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -21,8 +22,9 @@ export class VerificationService {
   ) {}
 
   async verifyAccount(token: string) {
+    // VULN-20: o banco guarda apenas o SHA-256 do token de ativação.
     const user = await this.prisma.user.findUnique({
-      where: { activationToken: token },
+      where: { activationToken: hashShareableToken(token) },
     });
 
     if (
@@ -56,6 +58,7 @@ export class VerificationService {
 
     if (!user || user.isActivated) return;
 
+    // VULN-20: token bruto só por e-mail; o banco recebe o hash.
     const activationToken = crypto.randomUUID();
     const activationTokenExpiresAt = dayjs().add(1, "day").toDate();
 
@@ -63,7 +66,7 @@ export class VerificationService {
       await tx.user.update({
         where: { id: user.id },
         data: {
-          activationToken,
+          activationToken: hashShareableToken(activationToken),
           activationTokenExpiresAt,
         },
       });
@@ -92,8 +95,11 @@ export class VerificationService {
         });
       }
 
-      const { token } = await tx.resetPasswordToken.create({
+      // VULN-20: token bruto só vai por e-mail; persistimos apenas o hash.
+      const resetToken = crypto.randomUUID();
+      await tx.resetPasswordToken.create({
         data: {
+          token: hashShareableToken(resetToken),
           expiresAt: dayjs().add(1, "hour").toDate(),
           user: { connect: { id: user.id } },
         },
@@ -103,13 +109,16 @@ export class VerificationService {
         userId: user.id,
         result: "success",
       });
-      await this.emailService.sendResetPasswordEmail(user.email, token);
+      await this.emailService.sendResetPasswordEmail(user.email, resetToken);
     });
   }
 
   async resetPassword(token: string, newPassword: string) {
+    // VULN-20: a busca e as remoções usam o hash — o valor bruto nunca tocou
+    // o banco.
+    const hashedToken = hashShareableToken(token);
     const user = await this.prisma.user.findFirst({
-      where: { resetPasswordToken: { token } },
+      where: { resetPasswordToken: { token: hashedToken } },
       include: { resetPasswordToken: true },
     });
 
@@ -120,7 +129,7 @@ export class VerificationService {
     // jobs — a leaked token must not be usable beyond expiresAt.
     if (dayjs().isAfter(user.resetPasswordToken?.expiresAt)) {
       await this.prisma.resetPasswordToken.delete({
-        where: { token },
+        where: { token: hashedToken },
       });
       throw new BadRequestException(this.i18n.t("auth.tokenInvalidOrExpired"));
     }
@@ -129,7 +138,7 @@ export class VerificationService {
 
     await this.prisma.$transaction(async (tx) => {
       await tx.resetPasswordToken.delete({
-        where: { token },
+        where: { token: hashedToken },
       });
 
       // SEC-1.2/16.4: alteração de credenciais revoga todas as sessões do

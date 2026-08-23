@@ -24,10 +24,7 @@ import { UpdateOwnUserDTO } from "./dto/updateOwnUser.dto";
 import { UpdateUserDto } from "./dto/updateUser.dto";
 import { UserDTO } from "./dto/user.dto";
 import { UserService } from "./user.service";
-import {
-  REFRESH_COOKIE_NAME,
-  getSessionCookieName,
-} from "../utils/session-cookie.util";
+import { expireAuthCookies } from "../utils/session-cookie.util";
 
 // SEC-1.2/22.4: endpoints administrativos de usuário com limite mais restritivo
 // que o global; rotas de perfil próprio ficam no limite global.
@@ -74,22 +71,7 @@ export class UserController {
     await this.userService.delete(user.id);
 
     const isSecure = this.config.getBoolean("general.secureCookies");
-    const sessionCookieName = getSessionCookieName(isSecure);
-
-    response.cookie(sessionCookieName, "", {
-      path: "/",
-      httpOnly: true,
-      sameSite: "strict",
-      maxAge: -1,
-      secure: isSecure,
-    });
-    response.cookie(REFRESH_COOKIE_NAME, "", {
-      path: "/api/auth/token",
-      httpOnly: true,
-      sameSite: "strict",
-      maxAge: -1,
-      secure: isSecure,
-    });
+    expireAuthCookies(response, isSecure);
   }
 
   // Global user operations (admin only)

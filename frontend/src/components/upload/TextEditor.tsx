@@ -2,12 +2,25 @@ import { useState } from "react";
 import { Button, Group, Box, useComputedColorScheme } from "@mantine/core";
 import dynamic from "next/dynamic";
 import { commands } from "@uiw/react-md-editor";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import { FormattedMessage } from "react-intl";
 
 const MDEditor = dynamic(
   () => import("@uiw/react-md-editor").then((mod) => mod.default),
   { ssr: false },
 );
+
+// VULN-18: o preview interno do editor renderiza o markdown do próprio autor
+// (self-XSS). Sanitizamos com schema estilo GitHub — remove <script>, handlers
+// on* e esquemas javascript:/data:. className é liberado para não quebrar o
+// realce de sintaxe (classes CSS não executam código).
+const sanitizeSchema = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    "*": [...(defaultSchema.attributes?.["*"] ?? []), ["className"]],
+  },
+};
 
 const TextEditor = ({
   initialText,
@@ -52,6 +65,7 @@ const TextEditor = ({
           onChange={setText}
           height={400}
           preview="live"
+          previewOptions={{ rehypePlugins: [[rehypeSanitize, sanitizeSchema]] }}
           extraCommands={[
             commands.codeEdit,
             commands.codeLive,

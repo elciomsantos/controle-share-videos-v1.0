@@ -9,8 +9,9 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { getRequestContext } from "../../common/request-context/request-context";
 import { timespanToMs } from "../../utils/timespan.util";
 import {
-  REFRESH_COOKIE_NAME,
+  LEGACY_REFRESH_COOKIE_PATH,
   getSessionCookieName,
+  getRefreshCookieName,
 } from "../../utils/session-cookie.util";
 
 /**
@@ -228,8 +229,11 @@ export class TokenService {
       const maxAge = dayjs(now)
         .add(sessionDuration.value, sessionDuration.unit)
         .diff(now);
-      response.cookie(REFRESH_COOKIE_NAME, refreshToken, {
-        path: "/api/auth/token",
+      // VULN-13: com secureCookies o refresh recebe prefixo __Host- (força
+      // Secure + Path=/ e bloqueia cookie-tossing de subdomínios); sem TLS
+      // mantém o nome legado com o Path restrito ao endpoint de renovação.
+      response.cookie(getRefreshCookieName(isSecure), refreshToken, {
+        path: isSecure ? "/" : LEGACY_REFRESH_COOKIE_PATH,
         httpOnly: true,
         sameSite: "strict",
         secure: isSecure,
