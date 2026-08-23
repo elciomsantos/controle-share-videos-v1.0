@@ -37,3 +37,18 @@ export async function createZipStream(options: {
     );
   }
 }
+/**
+ * SEC-ZIPSLIP (VULN-03): sanitiza o nome da entrada de um zip. Nomes vindos
+ * de uploads podem conter `..`, caminho absoluto ou barras invertidas — se
+ * forem gravados literalmente no central directory, ferramentas de extração
+ * vulneráveis escrevem arquivos fora do diretório de destino (Zip Slip).
+ * Componentes perigosos são descartados (não rejeitados), preservando a
+ * estrutura legítima de pastas e nomes já persistidos no banco.
+ */
+export function sanitizeZipEntryName(name: string, fallback = "arquivo"): string {
+  const parts = name
+    .replaceAll("\\", "/")
+    .split("/")
+    .filter((part) => part.length > 0 && part !== "." && part !== "..");
+  return parts.length > 0 ? parts.join("/") : fallback;
+}

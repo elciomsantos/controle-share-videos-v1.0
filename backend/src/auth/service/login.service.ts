@@ -12,6 +12,7 @@ import { AuditEvent, AuditService } from "../../audit/audit.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import { TokenService } from "./token.service";
 import { AuthSignInDTO } from "../dto/authSignIn.dto";
+import { ARGON2_TIMING_DUMMY_HASH } from "../../constants";
 
 /**
  * LoginService — verificação de credenciais e emissão da sessão inicial.
@@ -42,7 +43,16 @@ export class LoginService {
       },
     });
 
-    if (user?.password && (await argon.verify(user.password, dto.password))) {
+    // SEC-TIMING (VULN-04): quando o usuário não existe (ou não tem senha),
+    // o verify roda contra um hash dummy com custo idêntico — sem isso, a
+    // resposta rápida revelaria que o e-mail/username não está cadastrado.
+    const passwordMatches = user?.password
+      ? await argon.verify(user.password, dto.password)
+      : await argon
+          .verify(ARGON2_TIMING_DUMMY_HASH, dto.password)
+          .catch(() => false);
+
+    if (passwordMatches && user) {
       if (!user.isActivated) {
         // SEC-1.2/14.4: mensagem genérica — não revelar que a conta existe.
         this.logger.debug(

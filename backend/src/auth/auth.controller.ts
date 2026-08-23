@@ -167,6 +167,7 @@ export class AuthController {
   // SEC-1.2/15.4: reautenticação forte para operações críticas.
   @Post("reauthenticate")
   @Authenticated()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(200)
   async reauthenticate(
     @GetUser() user: User,
@@ -358,18 +359,21 @@ export class AuthController {
 
   @Post("totp/enable")
   @Authenticated()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async enableTotp(@GetUser() user: User, @Body() body: EnableTotpDTO) {
     return this.authTotpService.enableTotp(user, body.password);
   }
 
   @Post("totp/verify")
   @Authenticated()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async verifyTotp(@GetUser() user: User, @Body() body: VerifyTotpDTO) {
     return this.authTotpService.verifyTotp(user, body.password, body.code);
   }
 
   @Post("totp/disable")
   @Authenticated()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async disableTotp(@GetUser() user: User, @Body() body: VerifyTotpDTO) {
     return this.authTotpService.disableTotp(user, body.password, body.code);
   }
@@ -377,6 +381,7 @@ export class AuthController {
   // SEC-1.2/15.3: regeneração de recovery codes (uso único, exibidos uma vez).
   @Post("totp/recovery")
   @Authenticated()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async regenerateRecoveryCodes(
     @GetUser() user: User,
     @Body() body: VerifyTotpDTO,

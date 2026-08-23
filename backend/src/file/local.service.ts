@@ -16,7 +16,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { RequestContextLogger } from "../common/request-context/request-context";
 import { validate as isValidUUID } from "uuid";
 import { Readable } from "stream";
-import { createZipStream } from "../common/zip";
+import { createZipStream, sanitizeZipEntryName } from "../common/zip";
 import { toBytes } from "@/shared/dto";
 import {
   IUploadRepository,
@@ -308,8 +308,10 @@ export class LocalFileService {
     fileId: string,
     range?: { start: number; end: number },
   ) {
-    const fileMetaData = await this.prisma.file.findUnique({
-      where: { id: fileId },
+    // SEC-IDOR: o lookup é sempre escopado pelo share da URL — um fileId de
+    // outro share deve resolver como 404, nunca operar cross-tenant.
+    const fileMetaData = await this.prisma.file.findFirst({
+      where: { id: fileId, shareId },
     });
 
     if (!fileMetaData)
@@ -339,8 +341,10 @@ export class LocalFileService {
   }
 
   async getFileMetaData(shareId: string, fileId: string) {
-    const fileMetaData = await this.prisma.file.findUnique({
-      where: { id: fileId },
+    // SEC-IDOR: o lookup é sempre escopado pelo share da URL — um fileId de
+    // outro share deve resolver como 404, nunca operar cross-tenant.
+    const fileMetaData = await this.prisma.file.findFirst({
+      where: { id: fileId, shareId },
     });
 
     if (!fileMetaData)
@@ -353,8 +357,10 @@ export class LocalFileService {
    * Retorna o certificado PDF gerado para um arquivo do share.
    */
   async getCertificate(shareId: string, fileId: string) {
-    const fileMetaData = await this.prisma.file.findUnique({
-      where: { id: fileId },
+    // SEC-IDOR: o lookup é sempre escopado pelo share da URL — um fileId de
+    // outro share deve resolver como 404, nunca operar cross-tenant.
+    const fileMetaData = await this.prisma.file.findFirst({
+      where: { id: fileId, shareId },
     });
 
     if (!fileMetaData)
@@ -376,8 +382,10 @@ export class LocalFileService {
   }
 
   async remove(shareId: string, fileId: string) {
-    const fileMetaData = await this.prisma.file.findUnique({
-      where: { id: fileId },
+    // SEC-IDOR: o lookup é sempre escopado pelo share da URL — um fileId de
+    // outro share deve resolver como 404, nunca operar cross-tenant.
+    const fileMetaData = await this.prisma.file.findFirst({
+      where: { id: fileId, shareId },
     });
 
     if (!fileMetaData)
@@ -420,8 +428,10 @@ export class LocalFileService {
    * entry using only the file name when no folder was given.
    */
   async getFileZip(shareId: string, fileId: string): Promise<Readable> {
-    const fileMetaData = await this.prisma.file.findUnique({
-      where: { id: fileId },
+    // SEC-IDOR: o lookup é sempre escopado pelo share da URL — um fileId de
+    // outro share deve resolver como 404, nunca operar cross-tenant.
+    const fileMetaData = await this.prisma.file.findFirst({
+      where: { id: fileId, shareId },
     });
 
     if (!fileMetaData)
@@ -444,8 +454,9 @@ export class LocalFileService {
    * Verifica se existe um certificado PDF para o arquivo (pelo nome base).
    */
   async hasCertificate(shareId: string, fileId: string): Promise<boolean> {
-    const fileMetaData = await this.prisma.file.findUnique({
-      where: { id: fileId },
+    // SEC-IDOR: ver Achado em local.service — lookup escopado pelo share.
+    const fileMetaData = await this.prisma.file.findFirst({
+      where: { id: fileId, shareId },
       select: { name: true },
     });
 
@@ -470,8 +481,10 @@ export class LocalFileService {
     shareId: string,
     fileId: string,
   ): Promise<Readable> {
-    const fileMetaData = await this.prisma.file.findUnique({
-      where: { id: fileId },
+    // SEC-IDOR: o lookup é sempre escopado pelo share da URL — um fileId de
+    // outro share deve resolver como 404, nunca operar cross-tenant.
+    const fileMetaData = await this.prisma.file.findFirst({
+      where: { id: fileId, shareId },
     });
 
     if (!fileMetaData)
@@ -534,7 +547,8 @@ export class LocalFileService {
           for (const { entryName, diskPath } of entries) {
             archive.append(
               this.repository.createReadStream(diskPath),
-              { name: entryName },
+              // SEC-ZIPSLIP: nome saneado antes de entrar no central directory.
+              { name: sanitizeZipEntryName(entryName) },
             );
           }
 

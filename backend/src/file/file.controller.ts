@@ -23,6 +23,7 @@ import {
 } from "../share/decorator/share-guards.decorator";
 import { StreamViewCounterService } from "../share/domain/stream-view-counter.service";
 import { FileService } from "./file.service";
+import { UploadQueryDTO } from "./dto/uploadQuery.dto";
 import { DownloadLimitGuard } from "./guard/downloadLimit.guard";
 import mime from "mime-types";
 import range from "range-parser";
@@ -143,6 +144,22 @@ function getValidRecipientId(recipientId?: string): string | undefined {
   return VALID_ID_REGEX.test(recipientId) ? recipientId : undefined;
 }
 
+// SEC-XSS (VULN-06): tipos que embutem script/markup ativo (SVG/HTML/XML)
+// nunca são servidos inline — navegação direta força download. Previews do
+// frontend via <img>/<video> continuam funcionando: disposition não afeta
+// tags de mídia (e scripts em SVG não executam dentro de <img>).
+const ACTIVE_INLINE_TYPES = new Set([
+  "image/svg+xml",
+  "text/html",
+  "application/xhtml+xml",
+  "text/xml",
+  "application/xml",
+]);
+
+function inlineDispositionAllowed(fileName: string): boolean {
+  return !ACTIVE_INLINE_TYPES.has(mime.lookup(fileName) || "");
+}
+
 @Controller("shares/:shareId/files")
 export class FileController {
   constructor(
@@ -180,14 +197,9 @@ export class FileController {
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @StrictShareOwnerAccess()
   async create(
-    @Query()
-    query: {
-      id: string;
-      name: string;
-      chunkIndex: string;
-      totalChunks: string;
-      description?: string;
-    },
+    // SEC-ZIPSLIP (VULN-15): query params agora passam pelo ValidationPipe
+    // (antes eram interface TS pura, sem nenhuma validação).
+    @Query() query: UploadQueryDTO,
     @Body() body: string,
     @Param("shareId") shareId: string,
     @Req() req: Request,
@@ -197,12 +209,12 @@ export class FileController {
 
     const result = await this.fileService.create(
       body,
-      { index: parseInt(chunkIndex, 10), total: parseInt(totalChunks, 10) },
+      { index: chunkIndex, total: totalChunks },
       { id, name, description },
       shareId,
     );
 
-    if (parseInt(chunkIndex, 10) === parseInt(totalChunks, 10) - 1) {
+    if (chunkIndex === totalChunks - 1) {
       const startedAt = Date.now();
       let fileSize: string | null = null;
       let mimeType: string | null = null;
@@ -320,7 +332,10 @@ export class FileController {
     res.set({
       "Content-Type": "application/pdf",
       "Content-Length": metaData.size,
-      "Content-Security-Policy": "sandbox allow-scripts allow-same-origin",
+      // SEC-XSS (VULN-06): "allow-scripts allow-same-origin" anula o sandbox;
+      // PDF estático gerado pelo servidor não precisa deles.
+      "Content-Security-Policy": "sandbox",
+      "X-Content-Type-Options": "nosniff",
       "Cache-Control": "no-store",
       "Content-Disposition": contentDisposition(metaData.name, { type: "inline" }),
     });
@@ -517,9 +532,10 @@ export class FileController {
           "Content-Range": `bytes ${start}-${end}/${fullSize}`,
           "Accept-Ranges": "bytes",
           "Content-Security-Policy": "sandbox",
+          "X-Content-Type-Options": "nosniff",
           "Cache-Control": "no-store",
           "Content-Disposition": contentDisposition(meta.name, {
-            type: "inline",
+            type: inlineDispositionAllowed(meta.name) ? "inline" : "attachment",
           }),
         });
         return new StreamableFile(rangedFile.file);
@@ -532,10 +548,13 @@ export class FileController {
       "Content-Length": file.metaData.size,
       "Accept-Ranges": "bytes",
       "Content-Security-Policy": "sandbox",
+      "X-Content-Type-Options": "nosniff",
       "Cache-Control": "no-store",
       "Content-Disposition": contentDisposition(
         file.metaData.name,
-        isDownload ? undefined : { type: "inline" },
+        isDownload || !inlineDispositionAllowed(file.metaData.name)
+          ? undefined
+          : { type: "inline" },
       ),
     };
 

@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import * as path from "path";
 import {
   createReadStream,
   createWriteStream,
@@ -26,7 +27,15 @@ export class FilesystemUploadRepository implements IUploadRepository {
   private readonly root = SHARE_DIRECTORY;
 
   private resolve(relativePath: string): string {
-    return `${this.root}/${relativePath}`;
+    // SEC-PATH (VULN-05): containment check — todo caminho resolvido deve
+    // permanecer dentro do root de storage. Bloca traversal mesmo que um
+    // caller futuro esqueça de validar o input (defesa estrutural).
+    const root = path.resolve(this.root);
+    const abs = path.resolve(root, relativePath);
+    if (abs !== root && !abs.startsWith(root + path.sep)) {
+      throw new Error(`Path escape attempt blocked: ${relativePath}`);
+    }
+    return abs;
   }
 
   async statFile(relativePath: string): Promise<StoredFileStat> {

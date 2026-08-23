@@ -22,6 +22,10 @@ import { PrismaService } from "../prisma/prisma.service";
 import { LoginService } from "./service/login.service";
 import { TokenService } from "./service/token.service";
 import { RecoveryCodeService } from "./recovery-code.service";
+import {
+  decryptSecret,
+  encryptSecret,
+} from "../config/jwt-secret-crypto";
 import { AuthSignInTotpDTO } from "./dto/authSignInTotp.dto";
 
 const legacyGuardrails = createGuardrails({
@@ -97,7 +101,7 @@ export class AuthTotpService {
 
     const verified = await verify({
       token: dto.totp,
-      secret: user.totpSecret,
+      secret: decryptSecret(user.totpSecret),
       guardrails: legacyGuardrails,
     });
 
@@ -143,12 +147,17 @@ export class AuthTotpService {
       throw new BadRequestException(this.i18n.t("auth.totpAlreadyEnabled"));
     }
 
-    let secret = user.totpSecret;
+    // SEC-AT-REST (VULN-08): segredo TOTP é persistido criptografado
+    // (AES-256-GCM, mesma chave mestra dos segredos JWT). Sem a chave
+    // configurada, permanece plaintext (modo legado) — mesmo contrato do
+    // jwt-secret-crypto. Na leitura, decryptSecret passa adiante valores
+    // plaintext legados sem prefixo.
+    let secret = user.totpSecret ? decryptSecret(user.totpSecret) : null;
     if (!secret) {
       secret = generateSecret();
       await this.prisma.user.update({
         where: { id: user.id },
-        data: { totpEnabled: true, totpSecret: secret },
+        data: { totpEnabled: true, totpSecret: encryptSecret(secret) },
       });
     }
 
@@ -188,7 +197,7 @@ export class AuthTotpService {
 
     const verified = await verify({
       token: code,
-      secret: user.totpSecret,
+      secret: decryptSecret(user.totpSecret),
       guardrails: legacyGuardrails,
     });
 
@@ -240,7 +249,9 @@ export class AuthTotpService {
       where: { id: user.id },
       data: {
         totpEnabled: true,
-        totpSecret: secret,
+        // SEC-AT-REST (VULN-08): só o ciphertext vai para o banco; o valor
+        // plaintext retorna na resposta exclusivamente para o QR code.
+        totpSecret: encryptSecret(secret),
       },
     });
 
@@ -274,7 +285,7 @@ export class AuthTotpService {
 
     const verified = await verify({
       token: code,
-      secret: totpResult.totpSecret,
+      secret: decryptSecret(totpResult.totpSecret),
       guardrails: legacyGuardrails,
     });
 
@@ -316,7 +327,7 @@ export class AuthTotpService {
 
     const verified = await verify({
       token: code,
-      secret: disableResult.totpSecret,
+      secret: decryptSecret(disableResult.totpSecret),
       guardrails: legacyGuardrails,
     });
 
@@ -363,7 +374,7 @@ export class AuthTotpService {
 
     const verified = await verify({
       token: code,
-      secret: totpResult.totpSecret,
+      secret: decryptSecret(totpResult.totpSecret),
       guardrails: legacyGuardrails,
     });
 

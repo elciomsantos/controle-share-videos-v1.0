@@ -80,7 +80,7 @@ describe("ShareSecurityGuard — limites pós-token (issue #40)", () => {
           provide: PrismaService,
           useValue: {
             share: { findUnique: async () => share },
-            file: { findUnique: async () => file ?? null },
+            file: { findFirst: async () => file ?? null },
           },
         },
         {
@@ -121,7 +121,7 @@ describe("ShareSecurityGuard — limites pós-token (issue #40)", () => {
           provide: PrismaService,
           useValue: {
             share: { findUnique: async () => share },
-            file: { findUnique: async () => file ?? null },
+            file: { findFirst: async () => file ?? null },
           },
         },
         {

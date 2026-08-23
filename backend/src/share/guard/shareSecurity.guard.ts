@@ -163,8 +163,17 @@ export class ShareSecurityGuard extends JwtGuard {
     const fileId = request.params?.fileId as string | undefined;
     if (!fileId) return false;
 
-    const file = await this.prisma.file.findUnique({
-      where: { id: fileId },
+    const shareId = Object.prototype.hasOwnProperty.call(
+      request.params,
+      "shareId",
+    )
+      ? (request.params.shareId as string)
+      : (request.params.id as string);
+
+    // SEC-IDOR: escopado pelo share da URL, igual ao LocalFileService — um
+    // fileId de outro share não deve habilitar a isenção de certificado.
+    const file = await this.prisma.file.findFirst({
+      where: { id: fileId, shareId },
       select: { name: true },
     });
     return !!file?.name.toLowerCase().endsWith(".certificado.pdf");

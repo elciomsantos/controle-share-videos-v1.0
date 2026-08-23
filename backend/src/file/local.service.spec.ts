@@ -16,7 +16,7 @@ const fileTypeMock = fileTypeFromBuffer as unknown as jest.Mock;
 describe("LocalFileService (SEC-08)", () => {
   let prisma: {
     share: { findUnique: jest.Mock };
-    file: { create: jest.Mock; findUnique: jest.Mock };
+    file: { create: jest.Mock; findFirst: jest.Mock };
   };
   let config: {
     getBoolean: jest.Mock;
@@ -40,7 +40,7 @@ describe("LocalFileService (SEC-08)", () => {
     fileTypeMock.mockResolvedValue(undefined);
     prisma = {
       share: { findUnique: jest.fn() },
-      file: { create: jest.fn(), findUnique: jest.fn() },
+      file: { create: jest.fn(), findFirst: jest.fn() },
     };
     config = {
       getBoolean: jest.fn(),
@@ -142,7 +142,7 @@ describe("LocalFileService (SEC-08)", () => {
     };
 
     beforeEach(() => {
-      prisma.file.findUnique.mockResolvedValue(meta);
+      prisma.file.findFirst.mockResolvedValue(meta);
     });
 
     it("repassa o parâmetro de range para o createReadStream (stream parcial)", async () => {
@@ -172,7 +172,7 @@ describe("LocalFileService (SEC-08)", () => {
     });
 
     it("lança NotFoundException quando o arquivo não existe", async () => {
-      prisma.file.findUnique.mockResolvedValue(null);
+      prisma.file.findFirst.mockResolvedValue(null);
 
       await expect(service.get("s1", "missing")).rejects.toThrow("t:file.notFound");
     });

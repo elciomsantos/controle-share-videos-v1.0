@@ -21,6 +21,8 @@ import { LoginService } from "./service/login.service";
 import { TokenService } from "./service/token.service";
 import { RefreshService } from "./service/refresh.service";
 import { VerificationService } from "./service/verification.service";
+import { UserDTO } from "../user/dto/user.dto";
+import { decryptSecret } from "../config/jwt-secret-crypto";
 import {
   verify as verifyTotp,
   createGuardrails,
@@ -104,7 +106,15 @@ export class AuthService {
         );
 
         this.logger.log(`User ${user.email} signed up from IP ${ip}`);
-        return { accessToken, refreshToken: refreshToken.token, user };
+        // SEC-LEAK: nunca retornar a entidade crua — o campo `password`
+        // carrega o hash Argon2 e `activationToken` o segredo de ativação.
+        // A resposta passa pelo UserDTO (excludeExtraneousValues), mesmo
+        // padrão dos demais endpoints.
+        return {
+          accessToken,
+          refreshToken: refreshToken.token,
+          user: new UserDTO().from(user as unknown as Partial<UserDTO>),
+        };
       });
     } catch (e) {
       if (
@@ -221,7 +231,7 @@ export class AuthService {
 
       const verified = await verifyTotp({
         token: code ?? "",
-        secret: totpResult.totpSecret,
+        secret: decryptSecret(totpResult.totpSecret),
         guardrails: legacyGuardrails,
       });
       if (!verified.valid)

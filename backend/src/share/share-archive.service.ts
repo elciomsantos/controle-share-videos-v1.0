@@ -6,7 +6,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "../config/config.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { createZipStream } from "../common/zip";
+import { createZipStream, sanitizeZipEntryName } from "../common/zip";
 import { toBytes } from "@/shared/dto";
 import { LocalFileService } from "../file/local.service";
 import {
@@ -157,7 +157,8 @@ export class ShareArchiveService {
         );
         archive.append(
           this.repository.createReadStream(diskPath),
-          { name: file.name },
+          // SEC-ZIPSLIP: nome saneado antes de entrar no central directory.
+          { name: sanitizeZipEntryName(file.name, file.id) },
         );
       }
       await waitIfBackpressure();
@@ -173,7 +174,7 @@ export class ShareArchiveService {
       const friendlyName = videoNameById.get(originalId) ?? baseName;
       archive.append(
         this.repository.createReadStream(`${shareId}/${entry}`),
-        { name: `${friendlyName}.certificado.pdf` },
+        { name: sanitizeZipEntryName(`${friendlyName}.certificado.pdf`) },
       );
       await waitIfBackpressure();
     }

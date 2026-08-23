@@ -27,3 +27,11 @@ export const ARGON2_OPTIONS = {
   timeCost: 4,
   parallelism: 2,
 } as const;
+
+// SEC-TIMING (VULN-04): hash Argon2id pré-computado (mesmos parâmetros de
+// ARGON2_OPTIONS) verificado contra a senha informada quando o usuário não
+// existe — mantém a latência do login constante e elimina o oráculo de
+// enumeração via diferença de tempo. O valor não corresponde a nenhum
+// usuário; é apenas um alvo de custo.
+export const ARGON2_TIMING_DUMMY_HASH =
+  "$argon2id$v=19$m=131072,p=2,t=4$d6aXaeG5Jn47GUeYuTjtKQ$TSi89ms1dcRq/IFuZS5aWqnkQebzQUo1IUTIlLlZ8yk";

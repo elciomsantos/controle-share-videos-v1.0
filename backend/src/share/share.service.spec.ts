@@ -34,6 +34,13 @@ import {
 
 jest.mock("../common/zip", () => ({
   createZipStream: jest.fn(),
+  sanitizeZipEntryName: (name: string, fallback = "arquivo") => {
+    const parts = name
+      .replaceAll("\\", "/")
+      .split("/")
+      .filter((p) => p.length > 0 && p !== "." && p !== "..");
+    return parts.length > 0 ? parts.join("/") : fallback;
+  },
 }));
 
 jest.mock("argon2", () => ({
