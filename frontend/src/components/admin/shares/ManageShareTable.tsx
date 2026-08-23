@@ -111,24 +111,26 @@ const ManageShareTable = ({
                       : dayjs(share.expiration).format("LLL")}
                   </td>
                   <td>
-                    {previewableFile ? (
-                      <HoverTip label={t("account.shares.button.preview")}>
-                        <ActionIcon
-                          color="teal"
-                          variant="light"
-                          size={25}
-                          onClick={() =>
-                            showFilePreviewModal(share.id, previewableFile, modals)
-                          }
-                        >
-                          <TbPlayerPlayFilled />
-                        </ActionIcon>
-                      </HoverTip>
-                    ) : (
-                      <Text color="dimmed" size="xs">
-                        <FormattedMessage id="account.shares.table.no-preview" />
-                      </Text>
-                    )}
+                    <Group gap={4} wrap="nowrap">
+                      {previewableFile ? (
+                        <HoverTip label={t("account.shares.button.preview")}>
+                          <ActionIcon
+                            color="teal"
+                            variant="light"
+                            size={25}
+                            onClick={() =>
+                              showFilePreviewModal(share.id, previewableFile, modals)
+                            }
+                          >
+                            <TbPlayerPlayFilled />
+                          </ActionIcon>
+                        </HoverTip>
+                      ) : (
+                        <Text color="dimmed" size="xs">
+                          <FormattedMessage id="account.shares.table.no-preview" />
+                        </Text>
+                      )}
+                    </Group>
                   </td>
                   {fileRetentionEnabled ? (
                     <td>
@@ -146,7 +148,7 @@ const ManageShareTable = ({
                     <></>
                   )}
                   <td>
-                    <Group justify="flex-end">
+                    <Group justify="flex-end" wrap="nowrap" gap={4}>
                       <HoverTip label={t("common.button.info")}>
                         <ActionIcon
                           color="blue"

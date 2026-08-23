@@ -159,28 +159,33 @@ const MyShares = () => {
                       )}
                     </td>
                     <td>
-                      {previewableFile ? (
-                        <HoverTip label={t("account.shares.button.preview")}>
-                          <ActionIcon
-                            color="teal"
-                            variant="light"
-                            size={25}
-                            onClick={() =>
-                              showFilePreviewModal(share.id, previewableFile, modals)
-                            }
-                          >
-                            <TbPlayerPlayFilled />
-                          </ActionIcon>
-                        </HoverTip>
-                      ) : (
-                        <Text color="dimmed" size="xs">
-                          <FormattedMessage id="account.shares.table.no-preview" />
-                        </Text>
-                      )}
+                      <Group gap={4} wrap="nowrap">
+                        {previewableFile ? (
+                          <HoverTip label={t("account.shares.button.preview")}>
+                            <ActionIcon
+                              color="teal"
+                              variant="light"
+                              size={25}
+                              onClick={() =>
+                                showFilePreviewModal(share.id, previewableFile, modals)
+                              }
+                            >
+                              <TbPlayerPlayFilled />
+                            </ActionIcon>
+                          </HoverTip>
+                        ) : (
+                          <Text color="dimmed" size="xs">
+                            <FormattedMessage id="account.shares.table.no-preview" />
+                          </Text>
+                        )}
+                      </Group>
                     </td>
                     <td>
-                      <Group justify="flex-end">
-                        <Link href={`/share/${share.id}/edit`}>
+                      <Group justify="flex-end" wrap="nowrap" gap={4}>
+                        <Link
+                          href={`/share/${share.id}/edit`}
+                          style={{ display: "inline-flex" }}
+                        >
                           <HoverTip label={t("account.shares.button.edit")}>
                             <ActionIcon color="orange" variant="light" size={25}>
                               <TbPlusMinus />
