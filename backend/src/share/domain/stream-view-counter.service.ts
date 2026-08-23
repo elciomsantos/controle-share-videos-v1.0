@@ -5,12 +5,11 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { DownloadLogService } from "../../download-log/download-log.service";
 
 /**
- * Janela de SESSÃO DE REPRODUÇÃO por identidade: os requests de stream de um
- * MESMO playback (Range/chunks chegando em intervalos curtos) contam UMA
- * única view; reabrir o link depois de um intervalo maior que a janela inicia
- * uma nova sessão e consome outra view — o limite configurado pelo dono é
- * consumido a cada nova exibição, como esperado ("como estava antes" do
- * contador client-side), sem quebrar o streaming contínuo.
+ * Janela de SESSÃO DE STREAMING por identidade: serve APENAS para manter
+ * viva uma reprodução em andamento (chunks/Range requests de um mesmo
+ * playback). A contagem NÃO usa essa janela — cada request SEM header Range
+ * (probe/abertura do player) é uma NOVA exibição e consome o limite;
+ * requests COM Range (chunks, seeks) nunca contam, apenas renovam a sessão.
  * Sem Redis, o storage em memória segue o mesmo padrão do throttler local —
  * o backend roda como processo único.
  */
@@ -30,10 +29,11 @@ interface ActiveSession {
 
 /**
  * SEC-V1/V2: contagem de visualizações é server-side e acontece na entrega
- * de stream (`?download=false`) por identidade — hash do token do share, ou
- * usuário/IP em acessos autenticados. Nenhuma chamada do cliente é
- * necessária para contar (burlar exigiria forjar identidades novas a cada
- * sessão), e criador/admin TAMBÉM têm suas exibições contadas.
+ * de stream (`?download=false`). Cada request SEM header Range (abertura do
+ * player/probe) é uma nova exibição e consome o limite; requests COM Range
+ * (chunks/seeks do mesmo playback) nunca contam. Criador/admin NÃO passam
+ * por aqui — o controller não conta a exibição de acesso privilegiado, que
+ * é ilimitado por definição.
  *
  * O incremento usa semântica atômica condicional (`updateMany` com
  * `views < maxViews`): concorrência nunca ultrapassa o limite configurado.
@@ -52,15 +52,20 @@ export class StreamViewCounterService {
   async countStreamView(
     shareId: string,
     context: StreamViewContext & { identityKey: string },
+    opts?: { isRangeRequest?: boolean },
   ): Promise<void> {
     const key = this.keyOf(shareId, context.identityKey);
 
-    // Sessão ativa (requests de stream chegando dentro da janela): é o mesmo
-    // playback — não conta outra view, apenas renova a sessão.
-    if (this.hasActiveSession(key)) {
+    // Request COM Range = chunk/seek de uma reprodução já iniciada: nunca
+    // conta view, apenas mantém a sessão viva para o streaming continuar.
+    if (opts?.isRangeRequest) {
       this.touch(key);
       return;
     }
+
+    // Request SEM Range = nova exibição (probe/abertura do player): conta
+    // sempre, sujeita ao limite atômico. Não há dedupe por janela — reabrir
+    // o link consome outra view, como esperado.
 
     const share = await this.prisma.share.findUnique({
       where: { id: shareId },

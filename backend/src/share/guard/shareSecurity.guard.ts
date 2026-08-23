@@ -122,18 +122,20 @@ export class ShareSecurityGuard extends JwtGuard {
     // verificável, mesmo com views/downloads esgotados.
     if (await this.isCertificateRequest(request)) return true;
 
-    // Criador e admin (com permissão) podem exceder os limites, mas suas
-    // visualizações/downloads ainda são contados (no controller/guard).
+    // Criador e admin (com permissão) excedem limites sem serem bloqueados;
+    // no controller, a visualização privilegiada também NÃO é contada.
     if (isPrivileged) return true;
 
     if (isViewOperation) {
-      // SEC-V1/V2: identidade com SESSÃO DE STREAMING ativa (requests de um
-      // mesmo playback dentro da janela curta) continua assistindo — quem
-      // entrou na última vaga vê o vídeo inteiro; sessões novas são
-      // bloqueadas aqui e cada nova exibição é contada no controller
-      // (StreamViewCounterService).
+      // Request SEM Range = nova exibição (abertura do player/probe): com o
+      // limite esgotado, é bloqueada aqui. Requests COM Range (chunks/seeks)
+      // de uma reprodução já iniciada continuam enquanto a sessão estiver
+      // viva — quem entrou na última vaga vê o vídeo inteiro.
       const identityKey = this.streamViewCounter.identityFromRequest(request);
-      if (this.streamViewCounter.hasRecentView(share.id, identityKey)) {
+      if (
+        request.headers?.range &&
+        this.streamViewCounter.hasRecentView(share.id, identityKey)
+      ) {
         return true;
       }
       throw new ForbiddenException({

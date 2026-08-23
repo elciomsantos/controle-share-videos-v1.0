@@ -46,6 +46,7 @@ describe("ShareSecurityGuard — limites pós-token (issue #40)", () => {
       method?: string;
       fileId?: string;
       path?: string;
+      headers?: Record<string, string>;
       user?: { id: string; isAdmin: boolean } | null;
     },
   ) => {
@@ -54,6 +55,7 @@ describe("ShareSecurityGuard — limites pós-token (issue #40)", () => {
       path: opts?.path ?? `/api/shares/${shareId}/files/x`,
       params: { shareId, ...(opts?.fileId ? { fileId: opts.fileId } : {}) },
       query: opts?.query ?? {},
+      headers: opts?.headers ?? {},
       cookies: cookie ? { [`share_${shareId}_token`]: cookie } : {},
       user: opts?.user ?? undefined,
     } as unknown as Request;
@@ -228,7 +230,7 @@ describe("ShareSecurityGuard — limites pós-token (issue #40)", () => {
     );
   });
 
-  it("identidade já contada (dedupe) continua a stream mesmo com views esgotadas", async () => {
+  it("reabrir o link (sem Range) com views esgotadas é bloqueado mesmo com sessão ativa", async () => {
     const guard = await makeModule(
       buildShare(2, 0, { maxViews: 2, maxDownloads: null }),
       null,
@@ -236,7 +238,37 @@ describe("ShareSecurityGuard — limites pós-token (issue #40)", () => {
     );
     await expect(
       guard.canActivate(makeContext(validToken, { query: { download: "false" } })),
+    ).rejects.toThrow(
+      new ForbiddenException({ message: "share.maxViewsExceeded", error: "share_max_views_exceeded" }),
+    );
+  });
+
+  it("Range de sessão ativa continua a stream mesmo com views esgotadas", async () => {
+    const guard = await makeModule(
+      buildShare(2, 0, { maxViews: 2, maxDownloads: null }),
+      null,
+      { identityAlreadyCounted: true },
+    );
+    await expect(
+      guard.canActivate(
+        makeContext(validToken, {
+          query: { download: "false" },
+          headers: { range: "bytes=0-" },
+        }),
+      ),
     ).resolves.toBe(true);
+  });
+
+  it("Range sem sessão ativa é bloqueado com views esgotadas", async () => {
+    const guard = await makeModule(buildShare(2, 0, { maxViews: 2, maxDownloads: null }));
+    await expect(
+      guard.canActivate(
+        makeContext(validToken, {
+          query: { download: "false" },
+          headers: { range: "bytes=100-" },
+        }),
+      ),
+    ).rejects.toThrow(ForbiddenException);
   });
 
   it("permite acesso enquanto nenhum limite foi atingido", async () => {

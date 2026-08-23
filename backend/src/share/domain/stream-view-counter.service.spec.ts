@@ -5,10 +5,10 @@ import { DownloadLogService } from "../../download-log/download-log.service";
 import { I18nService } from "nestjs-i18n";
 
 /**
- * SEC-V1/V2 — contagem server-side de views por SESSÃO DE REPRODUÇÃO:
- * requests de um mesmo playback (Range/chunks dentro da janela curta) contam
- * UMA view; reabrir após o intervalo da janela consome OUTRA view, respeitando
- * o limite atômico. Sem bypass para criador/admin.
+ * SEC-V1/V2 — contagem server-side de views: cada request SEM header Range
+ * (abertura do player/probe) é uma NOVA exibição e consome o limite atômico;
+ * requests COM Range (chunks/seeks do mesmo playback) nunca contam, apenas
+ * mantêm a sessão de streaming viva.
  */
 describe("StreamViewCounterService", () => {
   const makeCounter = () => {
@@ -59,47 +59,35 @@ describe("StreamViewCounterService", () => {
     );
   });
 
-  it("requests de um mesmo playback (Range dentro da janela) contam UMA view", async () => {
+  it("cada abertura (sem Range) conta uma nova view", async () => {
     const { service, prisma } = makeCounter();
 
     await service.countStreamView("s1", context);
     await service.countStreamView("s1", context);
-    await service.countStreamView("s1", context);
 
-    expect(prisma.share.update).toHaveBeenCalledTimes(1);
-  });
-
-  it("reabrir após o intervalo da janela de sessão conta NOVA view", async () => {
-    const { service, prisma } = makeCounter();
-    const base = Date.now();
-    const nowSpy = jest.spyOn(Date, "now");
-
-    nowSpy.mockReturnValue(base);
-    await service.countStreamView("s1", context);
-    expect(prisma.share.update).toHaveBeenCalledTimes(1);
-
-    // Requests ainda dentro da janela (mesmo playback): não contam.
-    nowSpy.mockReturnValue(base + 60_000);
-    await service.countStreamView("s1", context);
-    expect(prisma.share.update).toHaveBeenCalledTimes(1);
-
-    // Gap maior que a janela de sessão (2 min): nova exibição.
-    nowSpy.mockReturnValue(base + 4 * 60_000);
-    await service.countStreamView("s1", context);
     expect(prisma.share.update).toHaveBeenCalledTimes(2);
-
-    nowSpy.mockRestore();
   });
 
-  it("hasRecentView reflete a sessão ativa e expira com o gap", async () => {
+  it("requests com Range (chunks/seeks) NUNCA contam e mantêm a sessão viva", async () => {
+    const { service, prisma } = makeCounter();
+
+    await service.countStreamView("s1", context, { isRangeRequest: true });
+    await service.countStreamView("s1", context, { isRangeRequest: true });
+
+    expect(prisma.share.findUnique).not.toHaveBeenCalled();
+    expect(prisma.share.update).not.toHaveBeenCalled();
+    expect(prisma.share.updateMany).not.toHaveBeenCalled();
+    // Sessão ativa: streaming pode continuar.
+    expect(service.hasRecentView("s1", context.identityKey)).toBe(true);
+  });
+
+  it("sessão expira após o gap; Range não reabre contagem", async () => {
     const { service } = makeCounter();
     const base = Date.now();
     const nowSpy = jest.spyOn(Date, "now");
 
-    expect(service.hasRecentView("s1", context.identityKey)).toBe(false);
-
     nowSpy.mockReturnValue(base);
-    await service.countStreamView("s1", context);
+    await service.countStreamView("s1", context, { isRangeRequest: true });
     expect(service.hasRecentView("s1", context.identityKey)).toBe(true);
 
     nowSpy.mockReturnValue(base + 4 * 60_000);
@@ -117,10 +105,10 @@ describe("StreamViewCounterService", () => {
     expect(prisma.share.update).toHaveBeenCalledTimes(2);
   });
 
-  it("criador/admin autenticado também tem a exibição contada (sem bypass)", async () => {
+  it("conta qualquer identidade que chegue até o serviço (o bypass do dono é no controller)", async () => {
     const { service, prisma } = makeCounter();
-    // O controller deriva identityKey de u:<userId> para sessões; o serviço
-    // apenas conta — não há caminho que ignore o incremento.
+    // O controller NÃO chama countStreamView para criador/admin (preview
+    // ilimitado); se uma sessão autenticada chegar aqui, é visitante e conta.
     await service.countStreamView("s1", {
       ...context,
       identityKey: "c".repeat(32),

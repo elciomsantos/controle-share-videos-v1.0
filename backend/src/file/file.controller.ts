@@ -30,6 +30,7 @@ import { HttpStatus } from "@nestjs/common";
 import { getRequestIp, getRequestUserAgent } from "../utils/request.util";
 import { GetUser } from "../auth/decorator/getUser.decorator";
 import { PrismaService } from "../prisma/prisma.service";
+import { ConfigService } from "../config/config.service";
 
 const VALID_ID_REGEX = /^[a-zA-Z0-9-]*={0,2}$/;
 
@@ -150,7 +151,30 @@ export class FileController {
     private downloadLogService: DownloadLogService,
     private streamViewCounter: StreamViewCounterService,
     private prisma: PrismaService,
+    private configService: ConfigService,
   ) {}
+
+  /**
+   * Acesso privilegiado ao conteúdo do share: criador ou admin com a
+   * permissão `share.allowAdminAccessAllShares`. Esses acessos não consomem
+   * nem são bloqueados pelos limites de views.
+   */
+  private async isPrivilegedAccess(
+    shareId: string,
+    user?: User | null,
+  ): Promise<boolean> {
+    if (!user) return false;
+    if (
+      user.isAdmin &&
+      this.configService.getBoolean("share.allowAdminAccessAllShares")
+    )
+      return true;
+    const share = await this.prisma.share.findUnique({
+      where: { id: shareId },
+      select: { creatorId: true },
+    });
+    return !!share && share.creatorId === user.id;
+  }
 
   @Post()
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
@@ -324,26 +348,34 @@ export class FileController {
     const isCertificate = fileMetaData.name.endsWith(".certificado.pdf");
     const isSignedVideo = /\.assinado\.\w+$/.test(fileMetaData.name);
 
-    // SEC-V1/V2: visualização é contada no servidor, na entrega da stream
-    // (download=false), uma vez por identidade (token do share / usuário / IP)
-    // por janela — independe de chamada client-side e vale também para o
-    // criador/admin. Certificado permanece isento de views e de limites.
+    // SEC-V1/V2: visualização de VISITANTE (via link) é contada no servidor,
+    // na entrega da stream (download=false): cada request SEM header Range
+    // (probe/abertura do player) consome uma view; chunks/seeks com Range
+    // apenas continuam a sessão. Criador/admin autenticado têm visualização
+    // ILIMITADA no sistema e não são contados. Certificado permanece isento.
     if (!isDownload && !isCertificate) {
       const sessionUser = (req as AuthenticatedRequest).user;
-      const shareToken = req.cookies?.[`share_${shareId}_token`] as
-        | string
-        | undefined;
-      await this.streamViewCounter.countStreamView(shareId, {
-        identityKey: this.streamViewCounter.identityFromRequest(req),
-        ip: getRequestIp(req),
-        userAgent: getRequestUserAgent(req),
-        authMethod: sessionUser
-          ? "session"
-          : shareToken
-            ? "shareToken"
-            : "anonymous",
-        referer: req.headers.referer ?? null,
-      });
+      const privileged = await this.isPrivilegedAccess(shareId, sessionUser);
+      if (!privileged) {
+        const shareToken = req.cookies?.[`share_${shareId}_token`] as
+          | string
+          | undefined;
+        await this.streamViewCounter.countStreamView(
+          shareId,
+          {
+            identityKey: this.streamViewCounter.identityFromRequest(req),
+            ip: getRequestIp(req),
+            userAgent: getRequestUserAgent(req),
+            authMethod: sessionUser
+              ? "session"
+              : shareToken
+                ? "shareToken"
+                : "anonymous",
+            referer: req.headers.referer ?? null,
+          },
+          { isRangeRequest: !!req.headers.range },
+        );
+      }
     }
 
     if (isDownload && !isCertificate) {
