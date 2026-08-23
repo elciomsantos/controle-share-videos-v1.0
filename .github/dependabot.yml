@@ -1,0 +1,39 @@
+# Dependabot — atualizações de versão por projeto (lockfiles independentes).
+# Security updates continuam ativos por padrão e passam a respeitar esta config.
+version: 2
+updates:
+  # Mantém os pins de actions (SHA) atualizados nas 3 workflows.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  # Backend NestJS
+  - package-ecosystem: npm
+    directory: /backend
+    schedule:
+      interval: weekly
+
+  # Frontend Next.js
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+
+  # Pacote compartilhado
+  - package-ecosystem: npm
+    directory: /packages/shared
+    schedule:
+      interval: weekly
+
+  # Suíte E2E (Playwright)
+  - package-ecosystem: npm
+    directory: /e2e
+    schedule:
+      interval: weekly
+
+  # Scripts de operação/deploy
+  - package-ecosystem: npm
+    directory: /scripts
+    schedule:
+      interval: weekly
