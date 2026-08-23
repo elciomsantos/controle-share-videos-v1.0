@@ -223,6 +223,8 @@ CREATE TABLE shares (
 23.3 Limites de views/downloads devem ser atualizados atomicamente.
 23.4 Token expirado ou revogado deve ser rejeitado.
 23.5 O endpoint de share deve possuir rate limiting.
+23.6 A contagem de views deve ocorrer no servidor, na entrega do conteúdo (primeira entrega da stream por identidade), nunca por chamada originada no cliente; o criador do share e administradores não são isentos da contagem.
+23.7 Identidade cuja view já foi contada não deve ser bloqueada em requisições subsequentes da mesma sessão de streaming (Range/206), apenas novas identidades após o limite esgotado.
 
 24. PROTEÇÃO DE ARQUIVOS E VÍDEOS
 24.1 Identificador do vídeo nunca deve conceder acesso por si só.
