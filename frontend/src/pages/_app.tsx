@@ -34,7 +34,11 @@ import userPreferences from "../utils/userPreferences.util";
 import Footer from "../components/footer/Footer";
 import { getDefaultConfig } from "../utils/defaultConfig.util";
 
-const excludeDefaultLayoutRoutes = ["/admin/config/[category]", "/share/[shareId]", "/account/change-password"];
+const excludeDefaultLayoutRoutes = [
+  "/admin/config/[category]",
+  "/share/[shareId]",
+  "/account/change-password",
+];
 const availableMantineColors = [
   "dark",
   "gray",
@@ -94,7 +98,8 @@ const mixHexColors = (
   );
 };
 
-const createMantineScaleFromHex = (hex: string) => [
+const createMantineScaleFromHex = (hex: string) =>
+  [
     mixHexColors(hex, "#ffffff", 0.92),
     mixHexColors(hex, "#ffffff", 0.82),
     mixHexColors(hex, "#ffffff", 0.68),
@@ -217,11 +222,14 @@ function App({ Component, pageProps }: AppProps) {
     window.addEventListener("pointerdown", markActivity);
     window.addEventListener("keydown", markActivity);
 
-    const interval = setInterval(() => {
-      if (document.visibilityState !== "visible") return;
-      if (Date.now() - lastActivity > ACTIVITY_WINDOW_MS) return;
-      void authService.refreshAccessToken();
-    }, 2 * 60 * 1000);
+    const interval = setInterval(
+      () => {
+        if (document.visibilityState !== "visible") return;
+        if (Date.now() - lastActivity > ACTIVITY_WINDOW_MS) return;
+        void authService.refreshAccessToken();
+      },
+      2 * 60 * 1000,
+    );
 
     return () => {
       clearInterval(interval);
@@ -252,7 +260,9 @@ function App({ Component, pageProps }: AppProps) {
     document.documentElement.lang = current.code;
   }, [pageProps.language]);
 
-  const colorSchemeResolvedRef = useRef<"light" | "dark" | undefined>(undefined);
+  const colorSchemeResolvedRef = useRef<"light" | "dark" | undefined>(
+    undefined,
+  );
   useEffect(() => {
     const userColorPreference = userPreferences.get("colorScheme");
     const resolved = user
@@ -336,7 +346,17 @@ function App({ Component, pageProps }: AppProps) {
                     >
                       <div>
                         <Header />
-                        <Container size={["/admin/download-logs", "/admin/audit-logs", "/admin/sessions"].includes(router.pathname) ? "xl" : undefined}>
+                        <Container
+                          size={
+                            [
+                              "/admin/download-logs",
+                              "/admin/audit-logs",
+                              "/admin/sessions",
+                            ].includes(router.pathname)
+                              ? "xl"
+                              : undefined
+                          }
+                        >
                           <Component {...pageProps} />
                         </Container>
                       </div>
@@ -400,6 +420,6 @@ App.getInitialProps = async ({ ctx }: { ctx: GetServerSidePropsContext }) => {
       ctx.req.cookies["language"] || defaultLanguage || requestLanguage;
   }
   return { pageProps };
-}
+};
 
 export default App;
