@@ -54,16 +54,14 @@ export class ShareSecurityGuard extends JwtGuard {
     await super.canActivate(context);
     const user = request.user as User;
 
-    // If the user is the creator of the share, allow access
-    if (user && share.creatorId === user.id) return true;
-
-    // If admin access is enabled and user is admin, allow access
-    if (
-      user?.isAdmin &&
-      this.configService.getBoolean("share.allowAdminAccessAllShares")
-    ) {
-      return true;
-    }
+    const isCreator = !!user && share.creatorId === user.id;
+    const isAdminAllowed =
+      !!user?.isAdmin &&
+      this.configService.getBoolean("share.allowAdminAccessAllShares");
+    // Criador e admin (com permissão) acessam o próprio conteúdo sem passar
+    // pelo fluxo de visitante: não precisam de token de share nem da senha —
+    // é o que permite, por exemplo, pré-visualizar o vídeo em /account/shares.
+    const isPrivileged = isCreator || isAdminAllowed;
 
     if (
       dayjs().isAfter(share.expiration) &&
@@ -72,22 +70,24 @@ export class ShareSecurityGuard extends JwtGuard {
       throw new NotFoundException(this.i18n.t("share.notFound"));
     }
 
-    if (share.security?.password && !shareToken)
-      throw new ForbiddenException({
-        message: this.i18n.t("file.passwordProtected"),
-        error: "share_password_required",
-      });
+    if (!isPrivileged) {
+      if (share.security?.password && !shareToken)
+        throw new ForbiddenException({
+          message: this.i18n.t("file.passwordProtected"),
+          error: "share_password_required",
+        });
 
-    if (
-      !(await this.shareTokenService.verifyShareToken(
-        { id: share.id },
-        shareToken,
-      ))
-    )
-      throw new ForbiddenException({
-        message: this.i18n.t("share.tokenRequired"),
-        error: "share_token_required",
-      });
+      if (
+        !(await this.shareTokenService.verifyShareToken(
+          { id: share.id },
+          shareToken,
+        ))
+      )
+        throw new ForbiddenException({
+          message: this.i18n.t("share.tokenRequired"),
+          error: "share_token_required",
+        });
+    }
 
     // SEC (issue #40, refinado): os limites continuam valendo para TODA via de
     // acesso público (revogação efetiva a cada request), mas agora são
@@ -102,11 +102,18 @@ export class ShareSecurityGuard extends JwtGuard {
     const downloadExceeded =
       maxDownloads != null && maxDownloads > 0 && share.downloads >= maxDownloads;
 
-    // Operação de visualização: streaming inline/Range (?download=false) e o
-    // registro de play (POST /view). Demais rotas públicas (download=true,
-    // /zip) são operações de download.
+    // Operação de visualização: streaming inline/Range (?download=false), o
+    // registro de play (POST /view) e as rotas de metadados/página do share
+    // (sem fileId e sem param download — carregar a página NÃO é download).
+    // Apenas rotas com alvo de arquivo sem ?download=false (?download=true,
+    // default do controller, e /zip) são operações de download.
+    const isFileRoute =
+      !!request.params?.fileId ||
+      (request.path ?? "").toLowerCase().endsWith("/zip");
     const isViewOperation =
-      request.method === "POST" || request.query?.download === "false";
+      !isFileRoute ||
+      request.method === "POST" ||
+      request.query?.download === "false";
 
     if (!(isViewOperation ? viewExceeded : downloadExceeded)) return true;
 
@@ -115,11 +122,16 @@ export class ShareSecurityGuard extends JwtGuard {
     // verificável, mesmo com views/downloads esgotados.
     if (await this.isCertificateRequest(request)) return true;
 
+    // Criador e admin (com permissão) podem exceder os limites, mas suas
+    // visualizações/downloads ainda são contados (no controller/guard).
+    if (isPrivileged) return true;
+
     if (isViewOperation) {
-      // SEC-V1/V2: identidade cuja view JÁ foi contada (dentro da janela de
-      // dedupe) continua a sessão de streaming — quem entrou na última vaga
-      // assiste o vídeo inteiro; novas identidades são bloqueadas aqui e a
-      // contagem nova acontece no StreamViewCounterService (controller).
+      // SEC-V1/V2: identidade com SESSÃO DE STREAMING ativa (requests de um
+      // mesmo playback dentro da janela curta) continua assistindo — quem
+      // entrou na última vaga vê o vídeo inteiro; sessões novas são
+      // bloqueadas aqui e cada nova exibição é contada no controller
+      // (StreamViewCounterService).
       const identityKey = this.streamViewCounter.identityFromRequest(request);
       if (this.streamViewCounter.hasRecentView(share.id, identityKey)) {
         return true;

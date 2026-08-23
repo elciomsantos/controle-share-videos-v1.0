@@ -5,9 +5,10 @@ import { DownloadLogService } from "../../download-log/download-log.service";
 import { I18nService } from "nestjs-i18n";
 
 /**
- * SEC-V1/V2 — contagem server-side de views: uma por identidade (hash do
- * token/usuário/IP) por janela, com incremento atômico condicional e sem
- * bypass para criador/admin.
+ * SEC-V1/V2 — contagem server-side de views por SESSÃO DE REPRODUÇÃO:
+ * requests de um mesmo playback (Range/chunks dentro da janela curta) contam
+ * UMA view; reabrir após o intervalo da janela consome OUTRA view, respeitando
+ * o limite atômico. Sem bypass para criador/admin.
  */
 describe("StreamViewCounterService", () => {
   const makeCounter = () => {
@@ -58,7 +59,7 @@ describe("StreamViewCounterService", () => {
     );
   });
 
-  it("deduplica a mesma identidade dentro da janela (Range requests não contam)", async () => {
+  it("requests de um mesmo playback (Range dentro da janela) contam UMA view", async () => {
     const { service, prisma } = makeCounter();
 
     await service.countStreamView("s1", context);
@@ -66,6 +67,45 @@ describe("StreamViewCounterService", () => {
     await service.countStreamView("s1", context);
 
     expect(prisma.share.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("reabrir após o intervalo da janela de sessão conta NOVA view", async () => {
+    const { service, prisma } = makeCounter();
+    const base = Date.now();
+    const nowSpy = jest.spyOn(Date, "now");
+
+    nowSpy.mockReturnValue(base);
+    await service.countStreamView("s1", context);
+    expect(prisma.share.update).toHaveBeenCalledTimes(1);
+
+    // Requests ainda dentro da janela (mesmo playback): não contam.
+    nowSpy.mockReturnValue(base + 60_000);
+    await service.countStreamView("s1", context);
+    expect(prisma.share.update).toHaveBeenCalledTimes(1);
+
+    // Gap maior que a janela de sessão (2 min): nova exibição.
+    nowSpy.mockReturnValue(base + 4 * 60_000);
+    await service.countStreamView("s1", context);
+    expect(prisma.share.update).toHaveBeenCalledTimes(2);
+
+    nowSpy.mockRestore();
+  });
+
+  it("hasRecentView reflete a sessão ativa e expira com o gap", async () => {
+    const { service } = makeCounter();
+    const base = Date.now();
+    const nowSpy = jest.spyOn(Date, "now");
+
+    expect(service.hasRecentView("s1", context.identityKey)).toBe(false);
+
+    nowSpy.mockReturnValue(base);
+    await service.countStreamView("s1", context);
+    expect(service.hasRecentView("s1", context.identityKey)).toBe(true);
+
+    nowSpy.mockReturnValue(base + 4 * 60_000);
+    expect(service.hasRecentView("s1", context.identityKey)).toBe(false);
+
+    nowSpy.mockRestore();
   });
 
   it("identidades diferentes contam separadamente", async () => {

@@ -5,12 +5,16 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { DownloadLogService } from "../../download-log/download-log.service";
 
 /**
- * Janela de dedupe por identidade: a mesma pessoa/token assistindo de novo
- * dentro da janela não consome outra view; reabrindo o link no dia seguinte,
- * sim. Sem Redis, o storage em memória segue o mesmo padrão do throttler
- * local — o backend roda como processo único.
+ * Janela de SESSÃO DE REPRODUÇÃO por identidade: os requests de stream de um
+ * MESMO playback (Range/chunks chegando em intervalos curtos) contam UMA
+ * única view; reabrir o link depois de um intervalo maior que a janela inicia
+ * uma nova sessão e consome outra view — o limite configurado pelo dono é
+ * consumido a cada nova exibição, como esperado ("como estava antes" do
+ * contador client-side), sem quebrar o streaming contínuo.
+ * Sem Redis, o storage em memória segue o mesmo padrão do throttler local —
+ * o backend roda como processo único.
  */
-const DEDUPE_TTL_MS = 12 * 60 * 60 * 1000;
+const SESSION_GAP_MS = 2 * 60 * 1000;
 const SWEEP_INTERVAL_MS = 60_000;
 
 interface StreamViewContext {
@@ -20,20 +24,23 @@ interface StreamViewContext {
   referer?: string | null;
 }
 
+interface ActiveSession {
+  lastSeen: number;
+}
+
 /**
- * SEC-V1/V2: contagem de visualizações é server-side e acontece na primeira
- * entrega de stream (`?download=false`) por identidade — hash do token do
- * share, ou usuário/IP em acessos autenticados. Nenhuma chamada do cliente é
+ * SEC-V1/V2: contagem de visualizações é server-side e acontece na entrega
+ * de stream (`?download=false`) por identidade — hash do token do share, ou
+ * usuário/IP em acessos autenticados. Nenhuma chamada do cliente é
  * necessária para contar (burlar exigiria forjar identidades novas a cada
- * janela), e criador/admin TAMBÉM têm suas exibições contadas.
+ * sessão), e criador/admin TAMBÉM têm suas exibições contadas.
  *
- * O incremento usa a mesma semântica atômica condicional que existia em
- * `ShareService.increaseViewCount` (`updateMany` com `views < maxViews`):
- * concorrência nunca ultrapassa o limite configurado.
+ * O incremento usa semântica atômica condicional (`updateMany` com
+ * `views < maxViews`): concorrência nunca ultrapassa o limite configurado.
  */
 @Injectable()
 export class StreamViewCounterService {
-  private readonly seen = new Map<string, number>();
+  private readonly sessions = new Map<string, ActiveSession>();
   private lastSweep = Date.now();
 
   constructor(
@@ -46,8 +53,14 @@ export class StreamViewCounterService {
     shareId: string,
     context: StreamViewContext & { identityKey: string },
   ): Promise<void> {
-    const key = `share:${shareId}:view:${context.identityKey}`;
-    if (this.hasRecentViewByKey(key)) return;
+    const key = this.keyOf(shareId, context.identityKey);
+
+    // Sessão ativa (requests de stream chegando dentro da janela): é o mesmo
+    // playback — não conta outra view, apenas renova a sessão.
+    if (this.hasActiveSession(key)) {
+      this.touch(key);
+      return;
+    }
 
     const share = await this.prisma.share.findUnique({
       where: { id: shareId },
@@ -101,7 +114,7 @@ export class StreamViewCounterService {
       });
     }
 
-    this.mark(key);
+    this.touch(key);
 
     void this.downloadLogService.record({ ...audit, success: true });
   }
@@ -134,32 +147,37 @@ export class StreamViewCounterService {
   }
 
   hasRecentView(shareId: string, identityKey: string): boolean {
-    return this.hasRecentViewByKey(`share:${shareId}:view:${identityKey}`);
+    return this.hasActiveSession(this.keyOf(shareId, identityKey));
   }
-  private hasRecentViewByKey(key: string): boolean {
+
+  private keyOf(shareId: string, identityKey: string): string {
+    return `share:${shareId}:view:${identityKey}`;
+  }
+
+  private hasActiveSession(key: string): boolean {
     this.sweep();
-    const expiresAt = this.seen.get(key);
-    if (expiresAt === undefined) return false;
-    if (expiresAt <= Date.now()) {
-      this.seen.delete(key);
+    const session = this.sessions.get(key);
+    if (!session) return false;
+    if (Date.now() - session.lastSeen > SESSION_GAP_MS) {
+      this.sessions.delete(key);
       return false;
     }
     return true;
   }
 
-  private mark(key: string): void {
-    this.seen.set(key, Date.now() + DEDUPE_TTL_MS);
+  private touch(key: string): void {
+    this.sessions.set(key, { lastSeen: Date.now() });
     this.sweep();
   }
 
   private sweep(): void {
     const now = Date.now();
-    if (now - this.lastSweep < SWEEP_INTERVAL_MS && this.seen.size < 10_000) {
+    if (now - this.lastSweep < SWEEP_INTERVAL_MS && this.sessions.size < 10_000) {
       return;
     }
     this.lastSweep = now;
-    for (const [key, expiresAt] of this.seen) {
-      if (expiresAt <= now) this.seen.delete(key);
+    for (const [key, session] of this.sessions) {
+      if (now - session.lastSeen > SESSION_GAP_MS) this.sessions.delete(key);
     }
   }
 }
