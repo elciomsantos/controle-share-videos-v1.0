@@ -21,6 +21,7 @@ import {
   StrictShareOwnerAccess,
   SharePublicAccess,
 } from "../share/decorator/share-guards.decorator";
+import { StreamViewCounterService } from "../share/domain/stream-view-counter.service";
 import { FileService } from "./file.service";
 import { DownloadLimitGuard } from "./guard/downloadLimit.guard";
 import mime from "mime-types";
@@ -147,6 +148,7 @@ export class FileController {
     private fileService: FileService,
     private downloadLimitGuard: DownloadLimitGuard,
     private downloadLogService: DownloadLogService,
+    private streamViewCounter: StreamViewCounterService,
     private prisma: PrismaService,
   ) {}
 
@@ -321,6 +323,28 @@ export class FileController {
     );
     const isCertificate = fileMetaData.name.endsWith(".certificado.pdf");
     const isSignedVideo = /\.assinado\.\w+$/.test(fileMetaData.name);
+
+    // SEC-V1/V2: visualização é contada no servidor, na entrega da stream
+    // (download=false), uma vez por identidade (token do share / usuário / IP)
+    // por janela — independe de chamada client-side e vale também para o
+    // criador/admin. Certificado permanece isento de views e de limites.
+    if (!isDownload && !isCertificate) {
+      const sessionUser = (req as AuthenticatedRequest).user;
+      const shareToken = req.cookies?.[`share_${shareId}_token`] as
+        | string
+        | undefined;
+      await this.streamViewCounter.countStreamView(shareId, {
+        identityKey: this.streamViewCounter.identityFromRequest(req),
+        ip: getRequestIp(req),
+        userAgent: getRequestUserAgent(req),
+        authMethod: sessionUser
+          ? "session"
+          : shareToken
+            ? "shareToken"
+            : "anonymous",
+        referer: req.headers.referer ?? null,
+      });
+    }
 
     if (isDownload && !isCertificate) {
       await this.downloadLimitGuard.canActivate({

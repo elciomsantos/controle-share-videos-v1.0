@@ -100,20 +100,49 @@ export class TokenService {
     reauthAt?: Date,
   ) {
     const prisma = tx || this.prisma;
-    const sessionDuration = this.config.getTimespan("general.sessionDuration");
     const plainToken = this.generateRefreshToken();
-    return prisma.refreshToken
-      .create({
-        data: {
-          userId,
-          token: this.hashToken(plainToken),
-          reauthenticatedAt: reauthAt ?? null,
-          expiresAt: dayjs()
-            .add(sessionDuration.value, sessionDuration.unit)
-            .toDate(),
-        },
-      })
-      .then((record) => ({ ...record, token: plainToken }));
+    return this.resolveSessionDuration(userId).then((sessionDuration) =>
+      prisma.refreshToken
+        .create({
+          data: {
+            userId,
+            token: this.hashToken(plainToken),
+            reauthenticatedAt: reauthAt ?? null,
+            expiresAt: dayjs()
+              .add(sessionDuration.value, sessionDuration.unit)
+              .toDate(),
+          },
+        })
+        .then((record) => ({ ...record, token: plainToken })),
+    );
+  }
+
+  /**
+   * SEC-A1 (P0-4): admins recebem teto absoluto de sessão próprio
+   * (`general.adminSessionDuration`, default 4h) — o menor entre ele e a
+   * duração global. Em bancos sem a nova config (instalações antigas), cai
+   * para a duração global sem falhar.
+   */
+  private async resolveSessionDuration(userId: string) {
+    const base = this.config.getTimespan("general.sessionDuration");
+    try {
+      const adminCeiling = this.config.getTimespan(
+        "general.adminSessionDuration",
+      );
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { isAdmin: true },
+      });
+      if (
+        user?.isAdmin &&
+        timespanToMs(adminCeiling) < timespanToMs(base)
+      ) {
+        return adminCeiling;
+      }
+    } catch {
+      // config ausente/inválida em bancos antigos — mantém a global
+    }
+    return base;
   }
 
   /**

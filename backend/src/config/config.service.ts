@@ -31,6 +31,7 @@ export type ConfigTypeMap = {
   "general.secureCookies": boolean;
   "general.showHomePage": boolean;
   "general.sessionDuration": Timespan;
+  "general.adminSessionDuration": Timespan;
   "general.sessionIdleTimeout": Timespan;
   "general.sessionMaxDuration": Timespan;
   "general.reauthWindow": Timespan;

@@ -39,6 +39,7 @@ import {
   ShareTokenAccess,
 } from "./decorator/share-guards.decorator";
 import { ShareService } from "./share.service";
+import { DownloadLogService } from "../download-log/download-log.service";
 import { CompletedShareDTO } from "./dto/shareComplete.dto";
 import { getRequestIp, getRequestUserAgent } from "../utils/request.util";
 import { ConfigService } from "../config/config.service";
@@ -52,6 +53,7 @@ import { normalizePagination } from "../pagination/pagination.util";
 export class ShareController {
   constructor(
     private shareService: ShareService,
+    private downloadLogService: DownloadLogService,
     private config: ConfigService,
   ) {}
 
@@ -111,23 +113,29 @@ export class ShareController {
   @Public()
   @SharePublicAccess()
   async recordView(@Param("id") id: string, @Req() req: Request) {
+    // SEC-V1/V2: a contagem oficial de views migrou para o servidor —
+    // StreamViewCounterService na entrega da stream (?download=false), uma vez
+    // por identidade, sem bypass para criador/admin. Este endpoint permanece
+    // apenas como sinal analítico (log do evento "view") e NÃO incrementa o
+    // contador; clientes antigos que ainda o chamam não causam dupla contagem.
     const share = (await this.shareService.get(id)) as Share & {
       name?: string | null;
       creator?: { username?: string } | null;
     };
     const user = req.user as User | undefined;
-    if (!user || (share.creatorId !== user.id && !user.isAdmin)) {
-      const shareToken = req.cookies?.[`share_${id}_token`] as
-        string | undefined;
-      await this.shareService.increaseViewCount(share as Share, {
-        ip: getRequestIp(req),
-        userAgent: getRequestUserAgent(req),
-        shareName: share.name ?? null,
-        creatorUsername: share.creator?.username ?? null,
-        authMethod: user ? "session" : shareToken ? "shareToken" : "anonymous",
-        referer: req.headers.referer ?? null,
-      });
-    }
+    const shareToken = req.cookies?.[`share_${id}_token`] as string | undefined;
+    void this.downloadLogService.record({
+      shareId: id,
+      fileName: share.name ?? id,
+      shareName: share.name ?? null,
+      creatorUsername: share.creator?.username ?? null,
+      ip: getRequestIp(req),
+      userAgent: getRequestUserAgent(req),
+      authMethod: user ? "session" : shareToken ? "shareToken" : "anonymous",
+      referer: req.headers.referer ?? null,
+      success: true,
+      event: "view",
+    });
     return { ok: true };
   }
 

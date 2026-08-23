@@ -52,7 +52,16 @@ export const configVariables = {
     },
     sessionDuration: {
       type: "timespan",
-      defaultValue: "3 months",
+      // SEC-A1: reduzido de "3 months" — TTL absoluto de meses com sessões
+      // persistentes é vetores de acesso em máquinas compartilhadas.
+      defaultValue: "24 hours",
+      secret: false,
+    },
+    // SEC-A1 (P0-4): admins têm teto próprio de sessão, mais curto que o
+    // global. Aplicado no createRefreshToken (min entre os dois).
+    adminSessionDuration: {
+      type: "timespan",
+      defaultValue: "4 hours",
       secret: false,
     },
     // SEC-1.2/§11 (Fase 4): timeout por inatividade e expiração absoluta da

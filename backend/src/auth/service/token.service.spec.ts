@@ -5,6 +5,7 @@ describe("TokenService", () => {
     refreshToken: { create: jest.Mock };
     session: { create: jest.Mock; findUnique: jest.Mock };
     loginToken: { create: jest.Mock; updateMany: jest.Mock };
+    user: { findUnique: jest.Mock };
     $transaction: jest.Mock;
   };
   let config: { getBoolean: jest.Mock; getTimespan: jest.Mock };
@@ -15,6 +16,7 @@ describe("TokenService", () => {
       refreshToken: { create: jest.fn() },
       session: { create: jest.fn(), findUnique: jest.fn() },
       loginToken: { create: jest.fn(), updateMany: jest.fn() },
+      user: { findUnique: jest.fn().mockResolvedValue(null) },
       $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
     };
     config = {
@@ -80,6 +82,44 @@ describe("TokenService", () => {
       expect(result.token).not.toBe(data.token);
       expect(service.hashToken(result.token)).toBe(data.token);
       expect(config.getTimespan).toHaveBeenCalledWith("general.sessionDuration");
+    });
+
+    it("SEC-A1: admin recebe teto próprio de sessão (menor que o global)", async () => {
+      prisma.refreshToken.create.mockResolvedValue({ id: "rt1" });
+      config.getTimespan.mockImplementation((key: string) =>
+        key === "general.adminSessionDuration"
+          ? { value: 4, unit: "hours" }
+          : { value: 24, unit: "hours" },
+      );
+      prisma.user.findUnique.mockResolvedValue({ isAdmin: true });
+      const before = Date.now();
+
+      await service.createRefreshToken("admin1");
+
+      const expiresAt = prisma.refreshToken.create.mock.calls[0][0].data
+        .expiresAt as Date;
+      const ttlMs = expiresAt.getTime() - before;
+      // ~4h com margem de execução do teste
+      expect(ttlMs).toBeGreaterThan(3.9 * 60 * 60 * 1000);
+      expect(ttlMs).toBeLessThan(4.1 * 60 * 60 * 1000);
+    });
+
+    it("usuário comum ignora o teto de admin", async () => {
+      prisma.refreshToken.create.mockResolvedValue({ id: "rt1" });
+      config.getTimespan.mockImplementation((key: string) =>
+        key === "general.adminSessionDuration"
+          ? { value: 4, unit: "hours" }
+          : { value: 24, unit: "hours" },
+      );
+      prisma.user.findUnique.mockResolvedValue({ isAdmin: false });
+      const before = Date.now();
+
+      await service.createRefreshToken("u1");
+
+      const expiresAt = prisma.refreshToken.create.mock.calls[0][0].data
+        .expiresAt as Date;
+      const ttlMs = expiresAt.getTime() - before;
+      expect(ttlMs).toBeGreaterThan(23.9 * 60 * 60 * 1000);
     });
   });
 

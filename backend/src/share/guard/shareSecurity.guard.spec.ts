@@ -5,6 +5,7 @@ import { Request } from "express";
 import { I18nService } from "nestjs-i18n";
 import { ShareSecurityGuard } from "./shareSecurity.guard";
 import { ShareTokenService } from "../domain/share-token.service";
+import { StreamViewCounterService } from "../domain/stream-view-counter.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ConfigService } from "../../config/config.service";
 import { SessionService } from "../../auth/service/session.service";
@@ -62,6 +63,7 @@ describe("ShareSecurityGuard — limites pós-token (issue #40)", () => {
   const makeModule = async (
     share: ReturnType<typeof buildShare>,
     file?: { name: string } | null,
+    opts?: { identityAlreadyCounted?: boolean },
   ) => {
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -72,6 +74,13 @@ describe("ShareSecurityGuard — limites pós-token (issue #40)", () => {
           useValue: {
             share: { findUnique: async () => share },
             file: { findUnique: async () => file ?? null },
+          },
+        },
+        {
+          provide: StreamViewCounterService,
+          useValue: {
+            identityFromRequest: () => "x".repeat(32),
+            hasRecentView: () => opts?.identityAlreadyCounted ?? false,
           },
         },
         { provide: ConfigService, useValue: { getBoolean: () => false } },
@@ -148,6 +157,17 @@ describe("ShareSecurityGuard — limites pós-token (issue #40)", () => {
     await expect(guard.canActivate(makeContext(validToken, { fileId: "file-1" }))).rejects.toThrow(
       new ForbiddenException({ message: "share.maxDownloadsExceeded", error: "share_max_downloads_exceeded" }),
     );
+  });
+
+  it("identidade já contada (dedupe) continua a stream mesmo com views esgotadas", async () => {
+    const guard = await makeModule(
+      buildShare(2, 0, { maxViews: 2, maxDownloads: null }),
+      null,
+      { identityAlreadyCounted: true },
+    );
+    await expect(
+      guard.canActivate(makeContext(validToken, { query: { download: "false" } })),
+    ).resolves.toBe(true);
   });
 
   it("permite acesso enquanto nenhum limite foi atingido", async () => {

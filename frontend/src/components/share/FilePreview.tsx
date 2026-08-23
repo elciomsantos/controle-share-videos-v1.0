@@ -33,57 +33,11 @@ const FilePreviewContext = React.createContext<{
 });
 
 /**
- * Show the "max views exceeded" modal once per preview session when the limit
- * is reached (triggered either by POST /view returning 403 or by a stream
- * request returning 403). This avoids stacking multiple modals when the player
- * tries to retry.
+ * SEC-V1/V2: a contagem de views é server-side (StreamViewCounterService na
+ * entrega da stream, uma vez por identidade). O frontend NÃO reporta mais o
+ * play — o antigo POST /view virou apenas log analítico no backend. O modal
+ * de limite é acionado pelo 403 `share_max_views_exceeded` do probe/stream.
  */
-const useViewLimitModal = (): ((error: string | undefined) => void) => {
-  const modals = useModals();
-  const t = useTranslate();
-  const shownRef = React.useRef(false);
-  return (error: string | undefined) => {
-    if (shownRef.current) return;
-    if (error !== "share_max_views_exceeded") return;
-    shownRef.current = true;
-    showErrorModal(
-      modals,
-      t("share.error.visitor-limit-exceeded.title"),
-      t("share.error.visitor-limit-exceeded.description"),
-      "stay",
-      "/img/images/fechado-down.png",
-    );
-  };
-}
-
-/**
- * Notify the backend that a media playback has started. Returns true if the
- * play is allowed (under the view limit), false if the limit was reached.
- *
- * Semantics: maxViews now counts *plays* rather than page loads — see
- * backend `POST /api/shares/:id/view`. The frontend calls this on the
- * <video>/<audio> `onPlay` event; on 403 (share_max_views_exceeded) the
- * caller pauses the player and shows the limit-exceeded modal.
- */
-const useRecordPlayView = (
-  shareId: string,
-  onError: (error: string | undefined) => void,
-): ((allowCallback: () => void) => Promise<void>) => {
-  return React.useCallback(
-    async (allowCallback: () => void) => {
-      try {
-        await api.post(`/shares/${shareId}/view`);
-        allowCallback();
-      } catch (e) {
-        const err = e as { response?: { data?: { error?: string } } };
-        const error = err?.response?.data?.error;
-        onError(error);
-      }
-    },
-    [shareId, onError],
-  );
-}
-
 /**
  * Probe the file endpoint with a HEAD-style GET request before mounting a
  * native media element (<video>/<img>/<audio>). If the backend rejects with
@@ -93,8 +47,8 @@ const useRecordPlayView = (
  * suportada".
  *
  * Returns true if the media element can be safely rendered (stream not yet
- * blocked); the per-play view accounting happens on `onPlay` via
- * useRecordPlayView.
+ * blocked). View accounting is fully server-side (one per identity per
+ * window, on the first stream delivery).
  */
 const useFileProbe = (
   shareId: string,
@@ -211,30 +165,13 @@ const AudioPreview = () => {
   const { shareId, fileId, setIsNotSupported } =
     React.useContext(FilePreviewContext);
   const allowed = useFileProbe(shareId, fileId, setIsNotSupported);
-  const showError = useViewLimitModal();
-  const recordView = useRecordPlayView(shareId, showError);
-  const audioRef = React.useRef<HTMLAudioElement>(null);
-  const recordingRef = React.useRef(false);
   if (!allowed) return null;
   return (
     <Center style={{ minHeight: 200 }}>
       <Stack align="center" gap={10} style={{ width: "100%" }}>
         <audio
-          ref={audioRef}
           controls
           style={{ width: "100%" }}
-          onPlay={async () => {
-            const a = audioRef.current;
-            if (!a || recordingRef.current) return;
-            recordingRef.current = true;
-            a.pause();
-            await recordView(() => {
-              a.play().catch(() => setIsNotSupported(true));
-            });
-            window.setTimeout(() => {
-              recordingRef.current = false;
-            }, 2000);
-          }}
           onError={() => setIsNotSupported(true)}
         >
           <source
@@ -273,11 +210,8 @@ const VideoPreview = () => {
   const { shareId, fileId, fileDescription, setIsNotSupported } =
     React.useContext(FilePreviewContext);
   const allowed = useFileProbe(shareId, fileId, setIsNotSupported);
-  const showError = useViewLimitModal();
-  const recordView = useRecordPlayView(shareId, showError);
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const wrapperRef = React.useRef<HTMLDivElement>(null);
-  const recordingRef = React.useRef(false);
   const wrapperFullscreenRef = React.useRef(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -330,18 +264,6 @@ const VideoPreview = () => {
         ref={videoRef}
         width="100%"
         controls
-        onPlay={async () => {
-          const v = videoRef.current;
-          if (!v || recordingRef.current) return;
-          recordingRef.current = true;
-          v.pause();
-          await recordView(() => {
-            v.play().catch(() => setIsNotSupported(true));
-          });
-          window.setTimeout(() => {
-            recordingRef.current = false;
-          }, 2000);
-        }}
         onPlaying={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onError={() => setIsNotSupported(true)}

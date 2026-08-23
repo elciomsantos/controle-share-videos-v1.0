@@ -201,14 +201,33 @@ function App({ Component, pageProps }: AppProps) {
 
   // Keep-alive da sessão: só faz sentido com usuário logado. Sem sessão, cada
   // tick produziria um POST /auth/token → 401 desnecessário no console.
+  //
+  // SEC-A1 (P0-3): o keep-alive NÃO pode sustentar a sessão indefinidamente —
+  // era isso que mantinha `lastActivityAt` sempre fresco e impedia o idle
+  // timeout do servidor (30 min) com qualquer aba aberta. Agora só renova
+  // enquanto a aba estiver visível E houve interação real nos últimos 5 min;
+  // fora disso, a sessão expira por inatividade como projetado (§11.2).
   useEffect(() => {
     if (!user) return;
-    const interval = setInterval(
-      async () => await authService.refreshAccessToken(),
-      2 * 60 * 1000,
-    );
+    const ACTIVITY_WINDOW_MS = 5 * 60 * 1000;
+    let lastActivity = Date.now();
+    const markActivity = () => {
+      lastActivity = Date.now();
+    };
+    window.addEventListener("pointerdown", markActivity);
+    window.addEventListener("keydown", markActivity);
 
-    return () => clearInterval(interval);
+    const interval = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - lastActivity > ACTIVITY_WINDOW_MS) return;
+      void authService.refreshAccessToken();
+    }, 2 * 60 * 1000);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("pointerdown", markActivity);
+      window.removeEventListener("keydown", markActivity);
+    };
   }, [user]);
 
   // FRN-05: Fix potential infinite reload loop due to language mismatch

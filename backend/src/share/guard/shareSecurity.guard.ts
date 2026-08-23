@@ -10,6 +10,7 @@ import dayjs from "dayjs";
 import { I18nService } from "nestjs-i18n";
 import { PrismaService } from "../../prisma/prisma.service";
 import { ShareTokenService } from "./../domain/share-token.service";
+import { StreamViewCounterService } from "../domain/stream-view-counter.service";
 import { ConfigService } from "../../config/config.service";
 import { SessionService } from "../../auth/service/session.service";
 import { JwtGuard } from "../../auth/guard/jwt.guard";
@@ -24,6 +25,7 @@ export class ShareSecurityGuard extends JwtGuard {
     private configService: ConfigService,
     sessionService: SessionService,
     private readonly i18n: I18nService,
+    private streamViewCounter: StreamViewCounterService,
     reflector: Reflector,
   ) {
     super(reflector, sessionService, configService);
@@ -114,6 +116,14 @@ export class ShareSecurityGuard extends JwtGuard {
     if (await this.isCertificateRequest(request)) return true;
 
     if (isViewOperation) {
+      // SEC-V1/V2: identidade cuja view JÁ foi contada (dentro da janela de
+      // dedupe) continua a sessão de streaming — quem entrou na última vaga
+      // assiste o vídeo inteiro; novas identidades são bloqueadas aqui e a
+      // contagem nova acontece no StreamViewCounterService (controller).
+      const identityKey = this.streamViewCounter.identityFromRequest(request);
+      if (this.streamViewCounter.hasRecentView(share.id, identityKey)) {
+        return true;
+      }
       throw new ForbiddenException({
         message: this.i18n.t("share.maxViewsExceeded"),
         error: "share_max_views_exceeded",

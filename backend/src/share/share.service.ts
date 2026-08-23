@@ -616,72 +616,9 @@ export class ShareService {
     return share?.uploadLocked ?? false;
   }
 
-  async increaseViewCount(
-    share: Share & { security?: { maxViews?: number | null } | null },
-    context?: {
-      ip?: string;
-      userAgent?: string | null;
-      shareName?: string | null;
-      creatorUsername?: string | null;
-      authMethod?: string | null;
-      referer?: string | null;
-    },
-  ) {
-    const ip = context?.ip ?? "unknown";
-    const maxViews = share.security?.maxViews;
-
-    let incremented: boolean;
-    if (maxViews && maxViews > 0) {
-      const result = await this.prisma.share.updateMany({
-        where: { id: share.id, views: { lt: maxViews } },
-        data: { views: { increment: 1 } },
-      });
-      incremented = result.count > 0;
-    } else {
-      await this.prisma.share.update({
-        where: { id: share.id },
-        data: { views: { increment: 1 } },
-      });
-      incremented = true;
-    }
-
-    if (!incremented) {
-      if (context) {
-        void this.downloadLogService.record({
-          shareId: share.id,
-          fileName: share.name ?? share.id,
-          shareName: context.shareName ?? share.name ?? null,
-          creatorUsername: context.creatorUsername ?? null,
-          authMethod: context.authMethod ?? null,
-          referer: context.referer ?? null,
-          ip,
-          userAgent: context.userAgent ?? null,
-          success: false,
-          reason: "maxViewsExceeded",
-          event: "view",
-        });
-      }
-      throw new ForbiddenException({
-        message: this.i18n.t("share.maxViewsExceeded"),
-        error: "share_max_views_exceeded",
-      });
-    }
-
-    if (context) {
-      void this.downloadLogService.record({
-        shareId: share.id,
-        fileName: share.name ?? share.id,
-        shareName: context.shareName ?? share.name ?? null,
-        creatorUsername: context.creatorUsername ?? null,
-        authMethod: context.authMethod ?? null,
-        referer: context.referer ?? null,
-        ip,
-        userAgent: context.userAgent ?? null,
-        success: true,
-        event: "view",
-      });
-    }
-  }
+  // SEC-V1/V2: `increaseViewCount` foi removido — a contagem de views é
+  // autoridade do StreamViewCounterService (entrega de stream, server-side,
+  // uma vez por identidade). POST /view permanece só como log analítico.
 
   async reloadShareViews(
     share: Share & { security?: { maxViews: number | null } | null },

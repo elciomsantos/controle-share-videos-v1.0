@@ -842,55 +842,8 @@ describe("ShareService", () => {
     });
   });
 
-  describe("increaseViewCount", () => {
-    it("incrementa via update quando não há maxViews", async () => {
-      const { service, prisma } = makeService();
-      prisma.share.update.mockResolvedValue(makeShare());
-
-      await service.increaseViewCount(makeShare() as never);
-
-      expect(prisma.share.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: "s1" },
-          data: { views: { increment: 1 } },
-        }),
-      );
-    });
-
-    it("usa updateMany com limite e registra log de sucesso", async () => {
-      const { service, prisma, downloadLogService } = makeService();
-      prisma.share.updateMany.mockResolvedValue({ count: 1 });
-
-      await service.increaseViewCount(
-        makeShare({ security: { maxViews: 5, views: 2 } }) as never,
-        { ip: "1.2.3.4", userAgent: "UA" },
-      );
-
-      expect(prisma.share.updateMany).toHaveBeenCalled();
-      expect(downloadLogService.record).toHaveBeenCalledWith(
-        expect.objectContaining({ success: true, event: "view" }),
-      );
-    });
-
-    it("lança Forbidden quando maxViews é atingido", async () => {
-      const { service, prisma, downloadLogService } = makeService();
-      prisma.share.updateMany.mockResolvedValue({ count: 0 });
-
-      await expect(
-        service.increaseViewCount(
-          makeShare({ security: { maxViews: 5 } }) as never,
-          { ip: "1.2.3.4" },
-        ),
-      ).rejects.toBeInstanceOf(ForbiddenException);
-
-      expect(downloadLogService.record).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false,
-          reason: "maxViewsExceeded",
-        }),
-      );
-    });
-  });
+  // SEC-V1/V2: os testes de contagem de views migraram para
+  // stream-view-counter.service.spec.ts (nova autoridade da contagem).
 
   describe("reloadShareViews", () => {
     it("recarrega views do banco", async () => {
