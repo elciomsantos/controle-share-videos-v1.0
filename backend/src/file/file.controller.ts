@@ -318,6 +318,54 @@ export class FileController {
     return new StreamableFile(zipStream);
   }
 
+  @Get("certificates-zip")
+  @Public()
+  @SharePublicAccess()
+  async getCertificatesZip(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+    @Param("shareId") shareId: string,
+  ) {
+    const zipStream = await this.fileService.getCertificatesZip(shareId);
+
+    res.set({
+      "Content-Type": "application/zip",
+      "Content-Security-Policy": "sandbox",
+      "Cache-Control": "no-store",
+      "Content-Disposition": contentDisposition(`${shareId}.certificados.zip`),
+    });
+
+    const user = (req as AuthenticatedRequest).user;
+    const startedAt = Date.now();
+    const context = await buildAuditContext(
+      this.prisma,
+      shareId,
+      req,
+      "application/zip",
+      {},
+    );
+    void this.downloadLogService.record(
+      makeAuditEntry(
+        {
+          shareId,
+          fileName: `${shareId}.certificados.zip`,
+          fileSize: null,
+          userId: user?.id,
+          username: user?.username,
+          ip: getRequestIp(req),
+          userAgent: getRequestUserAgent(req),
+          success: true,
+          event: "download",
+        },
+        context,
+        startedAt,
+        { httpStatus: HttpStatus.OK },
+      ),
+    );
+
+    return new StreamableFile(zipStream);
+  }
+
   @Get(":fileId/certificate")
   @Public()
   @SharePublicAccess()

@@ -452,10 +452,46 @@ export class LocalFileService {
   }
 
   /**
+   * Streams um zip contendo TODOS os PDFs de certificado do share,
+   * preservando a estrutura de pastas via o nome amigável do vídeo de
+   * origem. Usado no fluxo pós-upload: navegadores bloqueiam downloads
+   * automáticos múltiplos, então N certificados são entregues em UM
+   * único download.
+   */
+  async getCertificatesZip(shareId: string): Promise<Readable> {
+    const dirEntries = await this.repository.listDirectory(shareId);
+    const certEntries = dirEntries.filter((entry) =>
+      entry.endsWith(".certificado.pdf"),
+    );
+    if (certEntries.length === 0)
+      throw new NotFoundException(this.i18n.t("file.notFound"));
+
+    const rows = await this.prisma.file.findMany({
+      where: { shareId },
+      select: { id: true, name: true },
+    });
+    const videoNameById = new Map(
+      rows
+        .filter((f) => !f.name.endsWith(".certificado.pdf"))
+        .map((f) => [f.id, f.name]),
+    );
+
+    const entries = certEntries.map((entry) => {
+      const originalId = entry.slice(0, -".certificado.pdf".length);
+      const friendlyName = videoNameById.get(originalId) ?? originalId;
+      return {
+        entryName: `${friendlyName}.certificado.pdf`,
+        diskPath: `${shareId}/${entry}`,
+      };
+    });
+
+    return this.zipEntries(entries);
+  }
+
+  /**
    * Verifica se existe um certificado PDF para o arquivo (pelo nome base).
    */
-  async hasCertificate(shareId: string, fileId: string): Promise<boolean> {
-    // SEC-IDOR: ver Achado em local.service — lookup escopado pelo share.
+  async hasCertificate(shareId: string, fileId: string): Promise<boolean> {    // SEC-IDOR: ver Achado em local.service — lookup escopado pelo share.
     const fileMetaData = await this.prisma.file.findFirst({
       where: { id: fileId, shareId },
       select: { name: true },

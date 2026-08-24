@@ -470,6 +470,7 @@ export default {
   "upload.modal.completed.copy-all.error": "Erro ao copiar. Copie manualmente.",
   "upload.modal.completed.max-views": "Limite de visualizacoes: {count}",
   "upload.modal.completed.max-downloads": "Limite de downloads: {count}",
+  "upload.modal.completed.certificates-generated": "Certificados de autenticidade gerados: {count} (um por vídeo, inclusive dentro de pastas e subpastas).",
   // END /upload
 
   // /share/[id]

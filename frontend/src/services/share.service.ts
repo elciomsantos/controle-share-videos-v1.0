@@ -208,6 +208,41 @@ const downloadCertificate = async (shareId: string, fileId: string) => {
   window.URL.revokeObjectURL(blobUrl);
 };
 
+const fetchCertificatesZip = async (
+  shareId: string,
+): Promise<{ blob: Blob; fileName: string }> => {
+  const url = `${window.location.origin}/api/shares/${shareId}/files/certificates-zip`;
+
+  const response = await fetch(url, { credentials: "same-origin" });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const error = new Error(data.message || "Download failed") as Error & {
+      response?: { data: { error?: string; message?: string } };
+    };
+    error.response = { data };
+    throw error;
+  }
+
+  const blob = await response.blob();
+  return { blob, fileName: `${shareId}.certificados.zip` };
+};
+
+// SEC-UX/BUGFIX: navegadores bloqueiam downloads automáticos múltiplos —
+// disparar N <a download> em loop entrega apenas o primeiro. Com vários
+// vídeos, os certificados vão todos em UM zip preservando as pastas.
+const downloadCertificatesZip = async (shareId: string) => {
+  const { blob, fileName } = await fetchCertificatesZip(shareId);
+  const blobUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = blobUrl;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(blobUrl);
+};
+
 const removeFile = async (shareId: string, fileId: string) => {
   if (!isValidId(shareId)) throw new Error("Invalid Share ID");
   await api.delete(`shares/${shareId}/files/${fileId}`);
@@ -272,6 +307,8 @@ export default {
   isShareIdAvailable,
   downloadFile,
   downloadCertificate,
+  fetchCertificatesZip,
+  downloadCertificatesZip,
   fetchCertificate,
   removeFile,
   uploadFile,

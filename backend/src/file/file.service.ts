@@ -81,6 +81,10 @@ export class FileService {
     return await this.localFileService.getZip(shareId);
   }
 
+  async getCertificatesZip(shareId: string): Promise<Readable> {
+    return await this.localFileService.getCertificatesZip(shareId);
+  }
+
   async getFileZip(shareId: string, fileId: string): Promise<Readable> {
     return this.localFileService.getFileZip(shareId, fileId);
   }

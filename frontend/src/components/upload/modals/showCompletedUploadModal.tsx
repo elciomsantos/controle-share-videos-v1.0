@@ -128,50 +128,79 @@ const Body = ({
         </Text>
       )}
 
+      {share.files.some((file) => file.name.endsWith(".certificado.pdf")) && (
+        <Text size="xs" c="teal">
+          <FormattedMessage
+            id="upload.modal.completed.certificates-generated"
+            values={{
+              count: share.files.filter((file) =>
+                file.name.endsWith(".certificado.pdf"),
+              ).length,
+            }}
+          />
+        </Text>
+      )}
+
       <Button variant="light" onClick={handleCopyAll}>
         <FormattedMessage id="upload.modal.completed.copy-all.button" />
       </Button>
 
       <Button
         onClick={async () => {
-          const videoFiles = share.files.filter(
-            (file) =>
-              !file.name.endsWith(".certificado.pdf") &&
-              !/\.assinado\.\w+$/.test(file.name),
-          );
-          for (const video of videoFiles) {
-            const hasCert = share.files.some(
+          const isArtifact = (name: string) =>
+            name.endsWith(".certificado.pdf") || /\.assinado\.\w+$/.test(name);
+          const videos = share.files.filter((file) => !isArtifact(file.name));
+          const withCert = videos.filter((video) =>
+            share.files.some(
               (file) => file.name === `${video.name}.certificado.pdf`,
-            );
-            if (!hasCert) continue;
+            ),
+          );
 
+          // 1) Se o upload veio da File System API, grava cada certificado
+          //    direto na pasta local do vídeo (sem passar por downloads).
+          const fallbackVideos: typeof withCert = [];
+          for (const video of withCert) {
             const source = sourceFiles?.find(
               (file) => file.name === video.name,
             );
-
+            if (!source?.dirHandle) {
+              fallbackVideos.push(video);
+              continue;
+            }
             try {
-              if (source?.dirHandle) {
-                const { blob, fileName } = await shareService.fetchCertificate(
-                  share.id,
-                  video.id,
-                );
-                const certBaseName = fileName.split("/").pop() || fileName;
-                const saved = await writeBlobToRelativeDirectory(
-                  source.dirHandle,
-                  source.relativeDirPath ?? "",
-                  certBaseName,
-                  blob,
-                );
-                if (!saved) {
-                  await shareService.downloadCertificate(share.id, video.id);
-                }
-              } else {
-                await shareService.downloadCertificate(share.id, video.id);
-              }
-            } catch (e) {
-              toast.axiosError(e);
+              const { blob, fileName } = await shareService.fetchCertificate(
+                share.id,
+                video.id,
+              );
+              const certBaseName = fileName.split("/").pop() || fileName;
+              const saved = await writeBlobToRelativeDirectory(
+                source.dirHandle,
+                source.relativeDirPath ?? "",
+                certBaseName,
+                blob,
+              );
+              if (!saved) fallbackVideos.push(video);
+            } catch {
+              fallbackVideos.push(video);
             }
           }
+
+          // 2) Sem handle local: 1 certificado baixa individual; vários vão
+          //    num único zip (múltiplos downloads automáticos são bloqueados
+          //    pelo navegador).
+          try {
+            if (fallbackVideos.length === 1) {
+              await shareService.downloadCertificate(
+                share.id,
+                fallbackVideos[0].id,
+              );
+            } else if (fallbackVideos.length > 1) {
+              await shareService.downloadCertificatesZip(share.id);
+            }
+          } catch (e) {
+            toast.axiosError(e);
+          }
+
           modals.closeAll();
           router.push("/upload");
         }}
