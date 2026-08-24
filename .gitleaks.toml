@@ -1,0 +1,34 @@
+# Gitleaks — estende as regras padrão com allowlist de ocorrências revisadas.
+# Docs: https://github.com/gitleaks/gitleaks#configuration
+#
+# ATENÇÃO: cada entrada precisa de commits, paths ou regexes. Só adicione após
+# confirmar falsa positiva ou revogação do segredo. Allowlist não substitui rotação.
+
+[extend]
+useDefault = true
+
+# GitHub PAT exposto em opencode.json (commit efc3a63) — REVOGADO e confirmado
+# inativo via API em 2026-08-24 (HTTP 401). Escopo restrito ao commit histórico.
+[[allowlists]]
+description = "Vazamento histórico já revogado (commit efc3a63)"
+commits = ["efc3a63ddbcf00a6c57a563dc9f3df811077fd97"]
+
+# Secret fake usado apenas no ambiente de teste E2E (nunca em produção).
+[[allowlists]]
+description = "Secrets sintéticos do harness de testes E2E"
+paths = [
+  '''^e2e/lib/backend-env\.ts$''',
+  '''^e2e/lib/env\.ts$''',
+]
+
+# Exemplos de JWT malformado ("...invalid") na doc de testes de ataque.
+[[allowlists]]
+description = "Exemplos de JWT inválido em documentação"
+paths = ['''^SECURITY\.md$''']
+regexes = ['''eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.invalid''']
+
+# Alfabeto usado para gerar share IDs — não é credencial.
+[[allowlists]]
+description = "Alfabeto de geração de share IDs"
+paths = ['''^frontend/src/utils/shareId\.util\.ts$''']
+regexes = ['''ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789''']

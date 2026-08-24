@@ -99,3 +99,4 @@ secrets/
 # artefatos locais de validação
 validation-output.txt
 staging-validation.log
+gitleaks-report.json
