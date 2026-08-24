@@ -48,8 +48,9 @@ jobs:
       - name: Run gitleaks (release)
         if: github.event_name == 'release'
         run: |
+          # exit code 1 quando encontra leak (comportamento padrão do CLI)
           docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:v8.30.1 \
-            detect --source /repo --verbose --redact --fail-on-leak
+            detect --source /repo --verbose --redact
 
   # =============================================================================
   # 2. DEPENDENCY AUDIT (npm audit + OSV Scanner)
