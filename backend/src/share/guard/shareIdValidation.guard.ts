@@ -15,26 +15,30 @@ export class IdValidation implements CanActivate {
     context: ExecutionContext,
   ): boolean | Promise<boolean> | Observable<boolean> {
     const request = context.switchToHttp().getRequest();
-    let id: string;
+    const candidates: unknown[] = [];
     try {
-      id =
-        request.params?.id ||
-        request.query?.id ||
-        request.body?.id ||
-        request.params?.shareId;
+      candidates.push(
+        request.params?.id,
+        request.query?.id,
+        request.body?.id,
+        request.params?.shareId,
+        request.params?.fileId,
+      );
     } catch {
       throw new BadRequestException(this.i18n.t("file.invalidIdFormat"));
     }
 
-    if (!id) {
-      return true;
-    }
-
     // Regular expression to check for Base64
-    const isBase64 = /^[a-zA-Z0-9-]*={0,2}$/.test(id);
+    const isBase64 = (value: unknown) =>
+      /^[a-zA-Z0-9-]*={0,2}$/.test(String(value));
 
-    if (!isBase64) {
-      throw new BadRequestException(this.i18n.t("file.invalidIdFormat"));
+    for (const candidate of candidates) {
+      if (candidate === undefined || candidate === null || candidate === "") {
+        continue;
+      }
+      if (!isBase64(candidate)) {
+        throw new BadRequestException(this.i18n.t("file.invalidIdFormat"));
+      }
     }
 
     return true;
