@@ -40,7 +40,7 @@
 
 | # | Item | Como validar | Evidência |
 |---|---|---|---|
-| 3.1 | Deploy em staging com o compose de staging | `scripts/staging-validation.sh` verde | ☐ |
+| 3.1 | Deploy em staging com o compose de staging | `scripts/validation/staging-validation.sh` verde | ☐ |
 | 3.2 | Migrações Prisma aplicadas sem erro | log do container backend (`migrate deploy`) | ☐ |
 | 3.3 | Smoke E2E dos fluxos críticos: login → upload → share c/ senha → view → download → expiração | execução manual registrada ou suite Playwright apontando ao staging | ☐ |
 | 3.4 | Limites de share funcionando pós-fix #40 (view/download esgotado bloqueia stream) | repetir cenário do pentest em staging | ☐ |

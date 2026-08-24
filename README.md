@@ -34,7 +34,7 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 | **Spec Segurança Sessões** | ✅ v1.2 — 17/17 correções aplicadas (7 fases) |
 | **Lacunas de Segurança (Fases 1–4)** | ✅ 35/35 issues fechados (#1–#35) com evidência em commit/doc |
 | **Pentest de links de compartilhamento** | ✅ Executado (`docs/auditoria/PENTEST-SHARE-LINK-2026-08-22.md`) — 1 achado HIGH corrigido (#40), 11 controles aprovados |
-| **Testes** | ✅ Unit (backend 29 suites/309 testes) + E2E + Playwright + Security-E2E no CI |
+| **Testes** | ✅ Unit (backend 32 suites/335 testes) + E2E + Playwright + Security-E2E no CI |
 | **CI/CD** | ✅ GitHub Actions (lint, build, test, audit, Security Gate, SLSA/cosign; actions em Node 24; Dependabot para npm e pins de actions; deploy SSH opt-in via `DEPLOY_ENABLED`) |
 
 ---
@@ -223,7 +223,7 @@ Há testes unitários e E2E (backend), unitários (frontend) e E2E de navegador 
 
 ```bash
 # Backend
-npm run test:unit      # jest — unitários (29 suites, 309 testes)
+npm run test:unit      # jest — unitários (32 suites, 335 testes)
 npm run test:e2e       # jest — e2e efêmero (DB dedicado, não destrutivo)
 npm run test:coverage  # jest com cobertura (thresholds ≥60%)
 npm test               # alias para test:unit
