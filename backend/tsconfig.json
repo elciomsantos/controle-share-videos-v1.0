@@ -22,7 +22,7 @@
     "strictFunctionTypes": true,
     "noImplicitThis": true,
     "alwaysStrict": true,
-    "moduleResolution": "node10",
+    "moduleResolution": "bundler",
     "esModuleInterop": true,
     "useDefineForClassFields": false,
     "ignoreDeprecations": "6.0",
