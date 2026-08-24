@@ -332,3 +332,8 @@ Notas operacionais:
 - Cada evento (sucesso/falha) aparece em `/admin/download-logs` (IP, UA, timestamp).
 - Para testar: crie um share com `maxViews` baixo (ex.: 2) e abra o link público
   em navegadores/sessões anônimas diferentes.
+
+
+  Para editar os slides, altere o .md e regenere:
+CHROME_PATH=~/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome \
+  npx @marp-team/marp-cli docs/APRESENTACAO-ANALISTA-TI.md --pdf -o docs/APRESENTACAO-ANALISTA-TI.pdf
