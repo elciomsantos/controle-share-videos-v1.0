@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import configService from "./services/config.service";
 import { getDefaultConfig } from "./utils/defaultConfig.util";
+import { safeHttpUrl } from "./utils/safe-url.util";
 
 export const config = {
   matcher: "/((?!api|static|.*\\..*|_next).*)",
@@ -145,12 +146,18 @@ export default async function proxy(request: NextRequest) {
       path: "/upload",
     },
     {
-      condition: route == "/imprint" && !getConfig("legal.imprintText") && getConfig("legal.imprintUrl"),
-      path: getConfig("legal.imprintUrl"),
+      condition:
+        route == "/imprint" &&
+        !getConfig("legal.imprintText") &&
+        !!safeHttpUrl(getConfig("legal.imprintUrl")),
+      path: safeHttpUrl(getConfig("legal.imprintUrl")) ?? "/imprint",
     },
     {
-      condition: route == "/privacy" && !getConfig("legal.privacyPolicyText") && getConfig("legal.privacyPolicyUrl"),
-      path: getConfig("legal.privacyPolicyUrl"),
+      condition:
+        route == "/privacy" &&
+        !getConfig("legal.privacyPolicyText") &&
+        !!safeHttpUrl(getConfig("legal.privacyPolicyUrl")),
+      path: safeHttpUrl(getConfig("legal.privacyPolicyUrl")) ?? "/privacy",
     },
   ];
   for (const rule of rules) {

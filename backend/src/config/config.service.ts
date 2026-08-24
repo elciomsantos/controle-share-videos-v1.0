@@ -402,6 +402,26 @@ export class ConfigService extends EventEmitter {
         throw new BadRequestException(validation.message);
       }
     }
+
+    // SEC-URL: valores dessas chaves viram href/redirect no frontend — só
+    // http(s) é aceito para bloquear esquemas executáveis (ex.: javascript:).
+    const urlKeys = [
+      "general.appUrl",
+      "legal.imprintUrl",
+      "legal.privacyPolicyUrl",
+    ];
+    if (urlKeys.includes(key) && typeof value === "string") {
+      try {
+        const parsed = new URL(value);
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+          throw new Error("scheme not allowed");
+        }
+      } catch {
+        throw new BadRequestException(
+          this.t("config.urlSchemeValidation", "URL must be a valid http(s) URL"),
+        );
+      }
+    }
   }
 
   isEditAllowed(): boolean {

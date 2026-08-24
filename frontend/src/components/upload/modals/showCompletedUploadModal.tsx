@@ -13,6 +13,7 @@ import CopyTextField from "../CopyTextField";
 import QRCode from "../../share/QRCode";
 import toast from "../../../utils/toast.util";
 import { copyToClipboard } from "../../../utils/clipboard.util";
+import { safeShareLinkBase } from "../../../utils/safe-url.util";
 import shareService from "../../../services/share.service";
 import { FileUpload } from "../../../types/File.type";
 import { writeBlobToRelativeDirectory } from "../../../utils/fileSystem.util";
@@ -62,7 +63,7 @@ const Body = ({
     setShowQR(!showQR);
   };
 
-  const baseUrl = `${appUrl !== defaultAppUrl ? appUrl : window.location.origin}/share/${share.id}`;
+  const baseUrl = `${safeShareLinkBase(appUrl !== defaultAppUrl ? appUrl : undefined)}/share/${share.id}`;
   const link = baseUrl;
 
   const handleCopyAll = async () => {

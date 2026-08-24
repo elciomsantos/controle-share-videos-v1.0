@@ -16,6 +16,7 @@ import { MyShare } from "../../../types/share.type";
 import { byteToHumanSizeString } from "../../../utils/fileSize.util";
 import toast from "../../../utils/toast.util";
 import { copyToClipboard } from "../../../utils/clipboard.util";
+import { safeShareLinkBase } from "../../../utils/safe-url.util";
 import shareService from "../../../services/share.service";
 import showShareInformationsModal from "../../share/showShareInformationsModal";
 import showShareLinkModal from "../../account/showShareLinkModal";
@@ -175,7 +176,7 @@ const ManageShareTable = ({
                           variant="light"
                           size={25}
                           onClick={async () => {
-                            const link = `${config.get("general.appUrl") !== config.get("general.appUrl", true) ? config.get("general.appUrl") : window.location.origin}/share/${share.id}`;
+                            const link = `${safeShareLinkBase(config.get("general.appUrl") !== config.get("general.appUrl", true) ? config.get("general.appUrl") : undefined)}/share/${share.id}`;
                             if (window.isSecureContext) {
                               const ok = await copyToClipboard(link);
                               if (ok) toast.success(t("common.notify.copied-link"));

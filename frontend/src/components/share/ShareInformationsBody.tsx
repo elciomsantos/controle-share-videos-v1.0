@@ -17,6 +17,7 @@ import { byteToHumanSizeString } from "../../utils/fileSize.util";
 import CopyTextField from "../upload/CopyTextField";
 import QRCode from "./QRCode";
 import EditShareBody from "./EditShareBody";
+import { safeShareLinkBase } from "../../utils/safe-url.util";
 
 const ShareInformationsBody = ({
   share,
@@ -44,7 +45,7 @@ const ShareInformationsBody = ({
     setShowQR(!showQR);
   };
 
-  const link = `${appUrl !== defaultAppUrl ? appUrl : window.location.origin}/share/${currentShare.id}`;
+  const link = `${safeShareLinkBase(appUrl !== defaultAppUrl ? appUrl : undefined)}/share/${currentShare.id}`;
 
   const resolvedMaxShareSize = maxShareSize;
 

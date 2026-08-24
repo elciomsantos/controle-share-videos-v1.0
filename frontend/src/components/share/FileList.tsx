@@ -19,6 +19,7 @@ import { Share } from "../../types/share.type";
 import { byteToHumanSizeString } from "../../utils/fileSize.util";
 import toast from "../../utils/toast.util";
 import { copyToClipboard } from "../../utils/clipboard.util";
+import { safeShareLinkBase } from "../../utils/safe-url.util";
 import TableSortIcon, { TableSort } from "../core/SortIcon";
 import showFilePreviewModal from "./modals/showFilePreviewModal";
 import showErrorModal from "./showErrorModal";
@@ -87,7 +88,7 @@ const FileList = ({
     const recipientQuery = recipientId
       ? `?recipient=${encodeURIComponent(recipientId)}`
       : "";
-    const link = `${config.get("general.appUrl") !== config.get("general.appUrl", true) ? config.get("general.appUrl") : window.location.origin}/api/shares/${
+    const link = `${safeShareLinkBase(config.get("general.appUrl") !== config.get("general.appUrl", true) ? config.get("general.appUrl") : undefined)}/api/shares/${
       share.id
     }/files/${file.id}${recipientQuery}`;
 
