@@ -141,12 +141,16 @@ export async function configureApp(
       const headerToken = req.headers[CSRF_HEADER_NAME] as
         | string
         | undefined;
-      if (
-        !cookieToken ||
-        !headerToken ||
-        cookieToken.length < 32 ||
-        cookieToken !== headerToken
-      ) {
+      // Constant-time comparison (length checked first to avoid throwing).
+      const tokensMatch =
+        !!cookieToken &&
+        !!headerToken &&
+        cookieToken.length === headerToken.length &&
+        crypto.timingSafeEqual(
+          Buffer.from(cookieToken),
+          Buffer.from(headerToken),
+        );
+      if (!cookieToken || !headerToken || cookieToken.length < 32 || !tokensMatch) {
         res.status(403).json({ statusCode: 403, message: "csrf_invalid" });
         return;
       }
