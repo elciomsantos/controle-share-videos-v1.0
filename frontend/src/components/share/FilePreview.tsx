@@ -357,7 +357,7 @@ const PdfPreview = () => {
       height="600px"
       style={{ border: "none", borderRadius: 8 }}
       title="PDF Preview"
-      sandbox="allow-scripts allow-same-origin"
+      sandbox="allow-scripts"
     />
   );
 }
