@@ -31,7 +31,7 @@ export class FileService {
       description?: string;
     },
     shareId: string,
-  ) {
+  ): Promise<{ id: string; name: string; description?: string }> {
     await this.touchShare(shareId);
     return this.localFileService.create(data, chunk, file, shareId);
   }

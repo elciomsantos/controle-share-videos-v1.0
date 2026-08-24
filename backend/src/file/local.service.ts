@@ -40,12 +40,13 @@ export class LocalFileService {
     chunk: { index: number; total: number },
     file: { id?: string; name: string; description?: string },
     shareId: string,
-  ) {
+  ): Promise<{ id: string; name: string; description?: string }> {
     if (!file.id) {
       file.id = crypto.randomUUID();
     } else if (!isValidUUID(file.id)) {
       throw new BadRequestException(this.i18n.t("file.invalidIdFormat"));
     }
+    const fileId: string = file.id;
 
     // MIME-type allow-list for uploads (MED-06).
     // GAP-01: in addition to the extension allowlist, magic bytes are
@@ -211,7 +212,7 @@ export class LocalFileService {
       });
     }
 
-    return file;
+    return { ...file, id: fileId };
   }
 
   /**

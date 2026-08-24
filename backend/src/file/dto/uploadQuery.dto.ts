@@ -20,8 +20,12 @@ const SAFE_FILE_NAME =
   /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[^\p{Cc}\\]{1,255}$/u;
 
 export class UploadQueryDTO {
+  // Opcional por design: o primeiro chunk chega sem id e o FileService gera
+  // um UUID (local.service.ts). Chunks seguintes reenviam o id retornado,
+  // que é validado como UUID aqui e de novo no serviço.
+  @IsOptional()
   @IsUUID()
-  id!: string;
+  id?: string;
 
   @IsString()
   @Matches(SAFE_FILE_NAME, {

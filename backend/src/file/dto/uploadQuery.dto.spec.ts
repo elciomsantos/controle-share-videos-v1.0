@@ -45,6 +45,16 @@ describe("UploadQueryDTO (SEC-ZIPSLIP VULN-15)", () => {
     ).toContainEqual(["isInt"]);
   });
 
+  it("aceita primeiro chunk sem id (serviço gera UUID)", async () => {
+    const dto = plainToInstance(UploadQueryDTO, {
+      name: "video.mp4",
+      chunkIndex: "0",
+      totalChunks: "3",
+    });
+    const errors = await validate(dto, { whitelist: true });
+    expect(errors).toEqual([]);
+  });
+
   it("rejeita id que não é UUID", async () => {
     expect(await validateWith({ id: "../../etc" })).toContainEqual(["isUuid"]);
   });

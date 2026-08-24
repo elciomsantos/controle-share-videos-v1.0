@@ -219,7 +219,10 @@ export class FileController {
       let fileSize: string | null = null;
       let mimeType: string | null = null;
       try {
-        const meta = await this.fileService.getFileMetaData(shareId, id);
+        const meta = await this.fileService.getFileMetaData(
+          shareId,
+          result.id,
+        );
         fileSize = meta?.size != null ? meta.size.toString() : null;
         mimeType = mime.lookup(name) || null;
       } catch {
@@ -238,7 +241,7 @@ export class FileController {
         makeAuditEntry(
           {
             shareId,
-            fileId: id,
+            fileId: result.id,
             fileName: name,
             fileSize,
             userId: user?.id,
