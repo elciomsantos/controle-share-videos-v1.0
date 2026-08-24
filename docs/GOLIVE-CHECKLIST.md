@@ -10,7 +10,7 @@
 | # | Item | Como validar | Evidência |
 |---|---|---|---|
 | 0.1 | CI verde no commit de release | `gh run list --limit 2` → workflows `CI` e `Security Gate` concluídos (`✓`) | ☐ |
-| 0.2 | Tag de release criada (dispara SLSA provenance + assinatura cosign + SBOM) | `git tag vX.Y.Z && git push --tags`; artifacts na release | ☐ |
+| 0.2 | Tag de release criada (dispara SLSA provenance + assinatura cosign + SBOM) | `gh release create vX.Y.Z --target main` (publica tag + release; **push de tag isolado não dispara o pipeline** — jobs de assinatura rodam só em `release: published`) | ☐ |
 | 0.3 | Imagem publicada no registry com provenance SLSA3 + atestação cosign | `cosign verify-blob --bundle ...` ou check da release | ☐ |
 
 ## Fase 1 — Infraestrutura do host de produção
