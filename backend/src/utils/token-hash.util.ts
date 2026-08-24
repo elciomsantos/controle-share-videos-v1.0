@@ -1,4 +1,13 @@
-import { createHash } from "crypto";
+import { createHash, randomBytes } from "crypto";
+
+/**
+ * Gera um token "apresentável" (256 bits, CSPRNG, base64url) para ativação de
+ * conta e reset de senha. Sempre use com hashShareableToken() — o banco guarda
+ * apenas o hash.
+ */
+export function generateShareableToken(): string {
+  return randomBytes(32).toString("base64url");
+}
 
 /**
  * Hash determinístico (SHA-256 hex) para tokens "apresentáveis" armazenados no

@@ -3,7 +3,10 @@ import argon from "argon2";
 import dayjs from "dayjs";
 import { I18nService } from "nestjs-i18n";
 import { ARGON2_OPTIONS } from "../../constants";
-import { hashShareableToken } from "../../utils/token-hash.util";
+import {
+  generateShareableToken,
+  hashShareableToken,
+} from "../../utils/token-hash.util";
 import { AuditEvent, AuditService } from "../../audit/audit.service";
 import { EmailService } from "../../email/email.service";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -59,7 +62,7 @@ export class VerificationService {
     if (!user || user.isActivated) return;
 
     // VULN-20: token bruto só por e-mail; o banco recebe o hash.
-    const activationToken = crypto.randomUUID();
+    const activationToken = generateShareableToken();
     const activationTokenExpiresAt = dayjs().add(1, "day").toDate();
 
     await this.prisma.$transaction(async (tx) => {
@@ -96,7 +99,7 @@ export class VerificationService {
       }
 
       // VULN-20: token bruto só vai por e-mail; persistimos apenas o hash.
-      const resetToken = crypto.randomUUID();
+      const resetToken = generateShareableToken();
       await tx.resetPasswordToken.create({
         data: {
           token: hashShareableToken(resetToken),

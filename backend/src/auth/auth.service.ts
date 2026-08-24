@@ -23,7 +23,10 @@ import { RefreshService } from "./service/refresh.service";
 import { VerificationService } from "./service/verification.service";
 import { UserDTO } from "../user/dto/user.dto";
 import { decryptSecret } from "../config/jwt-secret-crypto";
-import { hashShareableToken } from "../utils/token-hash.util";
+import {
+  generateShareableToken,
+  hashShareableToken,
+} from "../utils/token-hash.util";
 import {
   verify as verifyTotp,
   createGuardrails,
@@ -71,7 +74,9 @@ export class AuthService {
       const needsVerification =
         !isFirstUser && !skipVerification && enableEmailVerification;
       // VULN-20: token bruto só é enviado por e-mail; o banco guarda o hash.
-      const activationToken = needsVerification ? crypto.randomUUID() : null;
+      const activationToken = needsVerification
+        ? generateShareableToken()
+        : null;
 
       return await this.prisma.$transaction(async (tx) => {
         const user = await tx.user.create({
