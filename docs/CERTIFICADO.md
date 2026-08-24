@@ -15,6 +15,8 @@ Ao **concluir um compartilhamento** (endpoint `POST /api/shares/:id/complete`), 
 - É **salvo no mesmo diretório do share**, junto ao arquivo.
 - É **registrado como um arquivo do share** (`File` no banco), portanto **aparece na listagem** da interface e é **baixável pelo mesmo endpoint** dos demais arquivos.
 
+> **Uploads com pastas e subpastas**: a geração varre **todos** os arquivos do share independentemente da profundidade — cada vídeo dentro de pastas/subpastas recebe seu próprio certificado, com o nome amigável preservando o caminho completo (ex.: `pasta/sub/video.mp4` → `pasta/sub/video.mp4.certificado.pdf`). Detalhes de entrega na seção [7.5](#75-uploads-com-pastas-e-subpastas).
+
 ---
 
 ## 2. Fluxo de Geração
@@ -212,6 +214,42 @@ Portanto herda a **mesma proteção** (`SharePublicAccess`):
 
 > **Exceção (regra de negócio)**: o certificado (`*.certificado.pdf`) **não passa pelo `DownloadLimitGuard`** — após liberar o acesso com a senha, o certificado fica sempre baixável, **não conta para o limite de downloads** e **não incrementa `share.downloads`**. Apenas o vídeo/arquivo original conta para `maxDownloads`.
 
+### 7.5 Uploads com pastas e subpastas
+
+Quando o dono envia uma pasta (via seletor de pasta ou File System API), os arquivos chegam com caminho relativo no nome (`pasta/sub/video-b.mp4`). No `complete()`, o loop de geração itera **todos** os `File` do share — a estrutura de pastas não interfere: **cada vídeo recebe seu próprio certificado**, e o nome registrado preserva o caminho original:
+
+```
+pasta/video-a.mp4                    → pasta/video-a.mp4.certificado.pdf
+pasta/sub/video-b.mp4                → pasta/sub/video-b.mp4.certificado.pdf
+```
+
+No disco o armazenamento permanece plano por UUID (`{shareId}/{fileId}.certificado.pdf`); o caminho vive apenas no nome lógico do `File`.
+
+#### Entrega dos certificados (modal de conclusão)
+
+Navegadores bloqueiam downloads automáticos múltiplos — disparar um `<a download>` por vídeo entregava apenas o primeiro certificado (que parecia "não gerado"). O botão **Concluir** do modal final agora:
+
+1. **File System API** (drag-and-drop de pasta com `dirHandle`): grava cada certificado **direto na pasta local** correspondente ao vídeo (`writeBlobToRelativeDirectory`), sem passar por downloads.
+2. **1 vídeo**: download individual (`GET /api/shares/:id/files/:videoId/certificate`).
+3. **Vários vídeos**: **um único zip** com todos os certificados, preservando as pastas.
+
+O modal também exibe o total gerado ("Certificados de autenticidade gerados: N").
+
+#### Endpoint do zip de certificados
+
+```
+GET /api/shares/:shareId/files/certificates-zip
+```
+
+| Aspecto | Comportamento |
+|---|---|
+| Implementação | `LocalFileService.getCertificatesZip()` → lista `{shareId}/*.certificado.pdf` no storage e nomeia cada entrada com o nome amigável do vídeo de origem |
+| Proteção | `@Public()` + `SharePublicAccess()` (mesma do `/zip`): exige senha/token quando o share é protegido |
+| Limites | **Isento** do `DownloadLimitGuard`, como todo artefato de certificado |
+| Resposta | `application/zip`, `Content-Disposition: attachment; {shareId}.certificados.zip`, `CSP: sandbox`, `Cache-Control: no-store` |
+| Auditoria | Registra evento `download` em `DownloadLog` (`{shareId}.certificados.zip`) |
+| Share sem certificados | 404 |
+
 ---
 
 ## 8. Ciclo de Vida e Limpeza
@@ -254,6 +292,15 @@ A funcionalidade não exige configuração adicional. Depende das seguintes depe
 3. `POST /api/shares/:id/complete` → completa (202)
 4. `GET /api/shares` → verifica que a lista inclui `{nome}.certificado.pdf`
 5. `GET /api/shares/:id/files/:certFileId` → download do certificado (200, PDF válido)
+
+### 11.1.1 E2E com pastas e subpastas (2026-08-24)
+
+Cenário: share com `pasta/video-a.mp4` e `pasta/sub/video-b.mp4` (vídeos reais, ffmpeg).
+
+- `complete()` → logs confirmam **um certificado por vídeo** (2/2), incluindo o da subpasta.
+- Listagem (`from-owner`): 4 registros — 2 vídeos + 2 certificados com caminho preservado no nome.
+- `GET .../files/certificates-zip`: 200, zip contém `pasta/video-a.mp4.certificado.pdf` e `pasta/sub/video-b.mp4.certificado.pdf`, ambos PDFs válidos (`%PDF`).
+- Acesso anônimo a share protegido: 403 `share_password_required` (mesmo comportamento do `/zip`).
 
 ### 11.2 Validação do conteúdo
 

@@ -60,7 +60,7 @@ Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-
 - Upload apenas pelo dono autenticado (sem reverse shares — removido intencionalmente)
 - Armazenamento **exclusivamente local** no servidor (sem buckets S3 — removido)
 - Upload chunked multipart com progresso e retomada
-- **Certificado de Autenticidade PDF automático** por arquivo ao concluir o share — contém hash SHA-256 (também em QR Code), metadados do arquivo/share/sistema e eventos; datas em horário de Brasília (UTC-3) independente do fuso do servidor (v1.2.4). Documentação em `docs/CERTIFICADO.md`
+- **Certificado de Autenticidade PDF automático por vídeo ao concluir o share** — a geração varre todos os arquivos do share, **incluindo vídeos dentro de pastas e subpastas** (upload de pasta): o nome do certificado preserva o caminho original (`pasta/sub/video.mp4` → `pasta/sub/video.mp4.certificado.pdf`). Cada certificado contém hash SHA-256 (também em QR Code), metadados do arquivo/share/sistema e eventos; datas em horário de Brasília (UTC-3) independente do fuso do servidor (v1.2.4). Entrega no modal final: exibe quantos certificados foram gerados; 1 vídeo → download individual; vários → **um único zip** (`{shareId}.certificados.zip`) com as pastas preservadas (evita o bloqueio do navegador a downloads automáticos múltiplos). Se o upload veio da File System API, cada certificado é gravado direto na pasta local do vídeo. Documentação em `docs/CERTIFICADO.md`
 
 ### Auditoria
 
@@ -502,7 +502,7 @@ Detalhes em `docs/operacional/DEPLOY.md` §6.3.
 
 ### Funcionalidades específicas
 
-- `docs/CERTIFICADO.md` — certificado SHA-256 automático (PDF + QR Code + metadados embutidos no vídeo)
+- `docs/CERTIFICADO.md` — certificado SHA-256 automático (PDF + QR Code + metadados embutidos no vídeo); um por vídeo, incluindo uploads com pastas e subpastas, com entrega em zip único
 
 ---
 
