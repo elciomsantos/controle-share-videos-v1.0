@@ -37,11 +37,19 @@ jobs:
           fetch-depth: 0  # Full history for gitleaks
 
       - name: Run gitleaks
+        if: github.event_name != 'release'
         uses: gitleaks/gitleaks-action@bcfb9cce635345aac9996cedc19b2de8e01b894f # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           args: --verbose --redact --fail-on-leak
+
+      # gitleaks-action v2 não suporta o evento `release`; roda o binário direto
+      - name: Run gitleaks (release)
+        if: github.event_name == 'release'
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:v8 \
+            detect --source /repo --verbose --redact --fail-on-leak
 
   # =============================================================================
   # 2. DEPENDENCY AUDIT (npm audit + OSV Scanner)
@@ -394,6 +402,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: [container-scan, sbom]
     if: github.event_name == 'release'
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    outputs:
+      subjects-b64: ${{ steps.subjects.outputs.b64 }}
     steps:
       - name: Checkout code
         uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v5
@@ -409,6 +423,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push backend
+        id: build-backend
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
@@ -420,6 +435,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest
 
       - name: Build and push frontend
+        id: build-frontend
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
@@ -438,11 +454,23 @@ jobs:
           cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.event.release.tag_name }}
           cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.event.release.tag_name }}
 
+      - name: Compute base64 subjects for SLSA provenance
+        id: subjects
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          {
+            printf '%s  %s\n' "${{ steps.build-backend.outputs.digest }}" "${REGISTRY}/${IMAGE_NAME}-backend:${TAG}"
+            printf '%s  %s\n' "${{ steps.build-frontend.outputs.digest }}" "${REGISTRY}/${IMAGE_NAME}-frontend:${TAG}"
+          } | sed 's/^sha256://' > subjects.txt
+          cat subjects.txt
+          echo "b64=$(base64 -w0 subjects.txt)" >> "$GITHUB_OUTPUT"
+
   # SLSA Provenance (reusable workflow MUST be called at job level, never as a
   # step). Generates attestation for the release image digests.
   provenance:
     name: Generate SLSA Provenance
-    needs: [container-scan]
+    needs: [sign-artifacts]
     if: github.event_name == 'release'
     permissions:
       actions: read
@@ -450,7 +478,7 @@ jobs:
       id-token: write
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     with:
-      base64-subjects: "ghcr.io/${{ github.repository }}-backend:${{ github.event.release.tag_name }},ghcr.io/${{ github.repository }}-frontend:${{ github.event.release.tag_name }}"
+      base64-subjects: ${{ needs.sign-artifacts.outputs.subjects-b64 }}
       upload-assets: true
 
   # =============================================================================
