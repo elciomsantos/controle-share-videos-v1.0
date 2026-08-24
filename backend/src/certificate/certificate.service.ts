@@ -12,7 +12,7 @@ import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import "dayjs/locale/pt-br";
 import { IUploadRepository } from "../storage/upload-repository.interface";
-import { CERTIFICATE_ASSETS_DIRECTORY, DATA_DIRECTORY } from "../constants";
+import { CERTIFICATE_ASSETS_DIRECTORY } from "../constants";
 import { PrismaService } from "../prisma/prisma.service";
 
 dayjs.extend(utc as PluginFunc);
@@ -131,8 +131,9 @@ export class CertificateService {
 
     const srcRelPath = `${shareId}/${fileId}`;
     const outRelPath = `${shareId}/${fileId}.signed-tmp${ext}`;
-    const srcPath = path.join(DATA_DIRECTORY, "uploads/shares", srcRelPath);
-    const outPath = path.join(DATA_DIRECTORY, "uploads/shares", outRelPath);
+    // SEC-PATH: resolução via repository para passar pelo containment check.
+    const srcPath = this.repository.resolveAbsoluteFile(srcRelPath);
+    const outPath = this.repository.resolveAbsoluteFile(outRelPath);
 
     const baseArgs = [
       "-y",
@@ -159,11 +160,11 @@ export class CertificateService {
           metaErr instanceof Error ? metaErr.message : String(metaErr)
         }`,
       );
-      await fs.promises.rm(outPath, { force: true }).catch(() => undefined);
+      await this.repository.unlinkIfExists(outRelPath);
       return undefined;
     }
 
-    const stats = await fs.promises.stat(outPath);
+    const stats = await this.repository.statFile(outRelPath);
     const finalHash = await this.sha256OfRelativePath(outRelPath);
 
     // Substitui o arquivo original pela versão com metadados (mesmo File record).
@@ -222,9 +223,7 @@ export class CertificateService {
         ? hashes.finalHash
         : undefined;
     const relativePath = `${shareId}/${fileId}.certificado.pdf`;
-    const absPath = path.join(DATA_DIRECTORY, "uploads/shares", relativePath);
-
-    await fs.promises.mkdir(path.dirname(absPath), { recursive: true });
+    this.repository.createShareDirectory(shareId);
 
     const now = dayjs();
     const nowLabel = now
@@ -236,7 +235,7 @@ export class CertificateService {
       .locale("pt-br")
       .format("DD [de] MMMM [de] YYYY, HH:mm:ss");
 
-    const stream = fs.createWriteStream(absPath);
+    const stream = this.repository.createWriteStream(relativePath);
     const doc = new PDFDocument({
       size: "A4",
       layout: "portrait",
@@ -514,7 +513,7 @@ export class CertificateService {
     });
 
     // Registrar certificado como File no banco para aparecer na UI
-    const stats = await fs.promises.stat(absPath);
+    const stats = await this.repository.statFile(relativePath);
     await this.prisma.file.create({
       data: {
         name: `${file.fileName}.certificado.pdf`,

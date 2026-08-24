@@ -70,4 +70,13 @@ export interface IUploadRepository {
 
   /** Lista os arquivos de um diretório. */
   listDirectory(dir: string): Promise<string[]>;
+
+  /**
+   * SEC-PATH: resolve um caminho relativo ao root de storage em caminho
+   * absoluto do filesystem, passando pelo containment check centralizado.
+   * Existe para ferramentas externas que exigem caminho real no disco
+   * (ex.: ffmpeg); implementações de object-storage devem materializar um
+   * arquivo temporário e devolver o caminho local correspondente.
+   */
+  resolveAbsoluteFile(relativePath: string): string;
 }

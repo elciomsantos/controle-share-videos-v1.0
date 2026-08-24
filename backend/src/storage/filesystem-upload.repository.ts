@@ -104,4 +104,8 @@ export class FilesystemUploadRepository implements IUploadRepository {
   async listDirectory(dir: string): Promise<string[]> {
     return fsp.readdir(this.resolve(dir));
   }
+
+  resolveAbsoluteFile(relativePath: string): string {
+    return this.resolve(relativePath);
+  }
 }
