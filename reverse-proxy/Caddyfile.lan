@@ -1,0 +1,109 @@
+# =============================================================================
+# Caddyfile.lan — homologação em rede interna (LAN) com TLS autoassinado (C2)
+#
+# Baseado na variante C2 do Caddyfile.ip. Mantém TODOS os controles de
+# segurança de produção: secureCookies=true funciona porque há TLS real
+# (certificado emitido pela CA local do Caddy para o IP da máquina).
+#
+# O navegador exibirá aviso de certificado não confiável na primeira visita.
+# Para eliminar o aviso, importe a CA root nas máquinas de teste:
+#   volume caddy-data:/data/caddy/pki/authorities/local/root.crt
+#
+# Uso (com docker-compose.local.yml + docker-compose.staging.yml):
+#   docker compose --env-file .env.local \
+#     -f docker-compose.local.yml \
+#     -f docker-compose.staging.yml \
+#     -f docker-compose.lan.yml up --build
+#
+# Após o boot, ajustar em Admin → Configurações:
+#   general.appUrl = https://<LAN_HOST>   (ex.: https://10.10.10.202)
+#   general.secureCookies permanece true — NÃO desabilitar.
+# =============================================================================
+
+# Global: navegadores/curl NÃO enviam SNI quando conectam por IP literal
+# (RFC 6066). default_sni faz o Caddy usar o certificado de {$LAN_HOST}
+# nessas conexões — sem isto o handshake falha com "internal error".
+{
+	default_sni {$LAN_HOST}
+}
+
+# Porta 80 — apenas redirect para HTTPS
+http://:80 {
+	redir https://{host}{uri} permanent
+}
+
+# Site declarado com hostname/IP explícitos para que a CA local do Caddy
+# emita certificado com os SANs corretos ({LAN_HOST} e {TLS_EXTRA_HOSTS}
+# vêm do .env.local via environment do overlay docker-compose.lan.yml;
+# TLS_EXTRA_HOSTS cobre IPs de teste diferentes do servidor final — ex.:
+# o IP atual da máquina de homologação antes do deploy em produção).
+https://{$LAN_HOST}, https://{$TLS_EXTRA_HOSTS}, https://localhost {
+	tls internal
+
+	# Security headers (mesmos do Caddyfile.prod, incluindo HSTS — há TLS)
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Cross-Origin-Opener-Policy "same-origin"
+		Cross-Origin-Resource-Policy "same-origin"
+		Cross-Origin-Embedder-Policy "require-corp"
+		Permissions-Policy "geolocation=(), camera=(), microphone=()"
+		-Server
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; media-src 'self' blob:; frame-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+	}
+
+	# Rate limiting no edge (INFRA-HIGH-01)
+	rate_limit {
+		zone dynamic {
+			key {remote_host}
+			events 100
+			window 10s
+		}
+		zone auth {
+			match {
+				path /api/auth/signIn /api/auth/signUp /api/auth/token /api/auth/resetPassword* /api/auth/verify* /api/auth/totp/*
+			}
+			key {remote_host}
+			events 10
+			window 60s
+		}
+	}
+
+	# Health check
+	@health path /api/health
+	handle @health {
+		respond "OK" 200
+	}
+
+	# API routes
+	handle /api/* {
+		reverse_proxy backend:8080 {
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Real-IP {remote_host}
+		}
+	}
+
+	# Frontend routes
+	handle {
+		reverse_proxy frontend:3333 {
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Real-IP {remote_host}
+		}
+	}
+
+	# Logs (SEC-05): mascara senha em query string (?pwd=...) nos access logs,
+	# caso share.includePasswordInShareLink=true. O filtro redige apenas o valor.
+	log {
+		output stdout
+		format filter {
+			request>uri query {
+				replace pwd REDACTED
+			}
+			wrap json
+		}
+	}
+}

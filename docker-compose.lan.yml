@@ -1,0 +1,53 @@
+# =============================================================================
+# docker-compose.lan.yml — overlay para homologação em rede interna (LAN)
+#
+# Empilha sobre docker-compose.local.yml + docker-compose.staging.yml.
+# NÃO altera nenhum hardening do staging (read_only, cap_drop, seccomp,
+# no-new-privileges, limites de recurso permanecem ativos).
+#
+# O que faz:
+#   1. Troca o Caddyfile do caddy pelo Caddyfile.lan (TLS autoassinado `tls
+#      internal` na :443 + redirect da :80) — mantém secureCookies=true e os
+#      cookies __Host- funcionando sem desligar controles de segurança.
+#   2. Publica as portas 80/443 e anexa o caddy à rede `lan-ingress`
+#      (bridge normal). A rede `local-network` continua `internal: true`
+#      (definida no staging overlay), então backend/frontend seguem sem
+#      acesso externo — só o caddy recebe tráfego da LAN.
+#
+# Uso (requer LAN_HOST em .env.local, ex.: LAN_HOST=10.10.10.202):
+#   docker compose --env-file .env.local \
+#     -f docker-compose.local.yml \
+#     -f docker-compose.staging.yml \
+#     -f docker-compose.lan.yml up --build
+#
+# Em WSL2 (modo NAT) as máquinas da LAN só alcançam as portas após o
+# portproxy no Windows: scripts/provision/wsl-lan-expose.ps1 (rodar como
+# administrador). Em servidor final nativo, não é necessário.
+# =============================================================================
+
+services:
+  caddy:
+    # LAN_HOST é interpolado no Caddyfile.lan (https://{$LAN_HOST}) para que
+    # a CA local emita certificado com o IP da máquina como SAN.
+    environment:
+      - LAN_HOST=${LAN_HOST:?LAN_HOST required in .env.local}
+      # Default = LAN_HOST (subject duplicado é inofensivo) evita placeholder
+      # vazio que quebraria o adapt do Caddyfile.
+      - TLS_EXTRA_HOSTS=${TLS_EXTRA_HOSTS:-${LAN_HOST}}
+    networks:
+      # Merge com a lista existente: caddy fica em local-network (alcançar
+      # backend/frontend) E em lan-ingress (receber tráfego da LAN).
+      - lan-ingress
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Sobrescreve a montagem do Caddyfile.local (mesmo target /etc/caddy/Caddyfile)
+      - ./reverse-proxy/Caddyfile.lan:/etc/caddy/Caddyfile:ro
+
+networks:
+  # Rede de ingresso — apenas o caddy é anexado a ela; backend/frontend
+  # permanecem exclusivamente na local-network (internal: true).
+  lan-ingress:
+    driver: bridge
+    name: controle-videos-lan-ingress
