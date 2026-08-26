@@ -337,3 +337,15 @@ Notas operacionais:
   Para editar os slides, altere o .md e regenere:
 CHROME_PATH=~/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome \
   npx @marp-team/marp-cli docs/APRESENTACAO-ANALISTA-TI.md --pdf -o docs/APRESENTACAO-ANALISTA-TI.pdf
+
+
+  docker compose --env-file .env.local \
+  -f docker-compose.local.yml \
+  -f docker-compose.staging.yml \
+  -f docker-compose.lan.yml up --build
+Ou em background (sem logs no terminal):
+docker compose --env-file .env.local \
+  -f docker-compose.local.yml \
+  -f docker-compose.staging.yml \
+  -f docker-compose.lan.yml up -d --build
+Acesso: https://192.168.0.246 (ou https://localhost na própria máquina). Se reiniciar o WSL antes, rode primeiro o wsl-lan-expose.ps1 no Windows.
