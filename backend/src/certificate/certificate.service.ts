@@ -466,7 +466,9 @@ export class CertificateService {
       ["ARQUIVO ENVIADO", `${nowLabel}\nSistema (upload finalizado)`],
       // Hash completo (64 caracteres hex) em fonte menor para caber inteiro na
       // largura disponível (230 até a margem direita) sem quebrar a linha.
-      ["CERTIFICADO GERADO", `${nowLabel}\nHash SHA-256: ${originalHash}`],
+      // Usa o hash pós-metadados (final) quando disponível — é o que o arquivo
+      // baixado tem e o que sha256sum confirma no destino.
+      ["CERTIFICADO GERADO", `${nowLabel}\nHash SHA-256: ${finalHash ?? originalHash}`],
     ];
     for (const [event, details] of eventEntries) {
       doc.fillColor("#2E8B8B").font(FONT_BOLD).fontSize(10).text(event, 65, y);
@@ -481,8 +483,8 @@ export class CertificateService {
       y += 38;
     }
 
-    // QR Code com o hash SHA-256
-    const qrData = `SHA-256: ${originalHash}`;
+    // QR Code com o hash SHA-256 pós-metadados (o verificável no arquivo baixado)
+    const qrData = `SHA-256: ${finalHash ?? originalHash}`;
     const qrBuffer = await QRCode.toBuffer(qrData, {
       width: 200,
       margin: 2,
