@@ -43,7 +43,7 @@
   },
   "dependencies": {
     "@controle-share/shared": "file:../packages/shared",
-    "@keyv/redis": "^4.4.0",
+    "@keyv/redis": "^5.1.6",
     "@nestjs/cache-manager": "^3.0.1",
     "@nestjs/common": "^11.1.28",
     "@nestjs/core": "^11.1.28",
