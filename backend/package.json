@@ -43,7 +43,8 @@
     "mysql2": "^3.24.6",
     "nestjs-i18n": {
       "chokidar": "^4.0.3"
-    }
+    },
+    "once": "1.4.0"
   },
   "dependencies": {
     "@controle-share/shared": "file:../packages/shared",
