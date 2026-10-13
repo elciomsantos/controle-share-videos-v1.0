@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v5
 
-      - uses: actions/setup-node@ae0d4ed08881f17d1511386f5be3e62356acd4a6 # v6
+      - uses: actions/setup-node@94196ee1d15439c1b6651cd87ef14e88ec435966 # v6
         with:
           node-version: 24
           cache: npm
@@ -120,7 +120,7 @@ jobs:
     steps:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v5
 
-      - uses: actions/setup-node@ae0d4ed08881f17d1511386f5be3e62356acd4a6 # v6
+      - uses: actions/setup-node@94196ee1d15439c1b6651cd87ef14e88ec435966 # v6
         with:
           node-version: 24
           cache: npm
@@ -163,7 +163,7 @@ jobs:
     steps:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v5
 
-      - uses: actions/setup-node@ae0d4ed08881f17d1511386f5be3e62356acd4a6 # v6
+      - uses: actions/setup-node@94196ee1d15439c1b6651cd87ef14e88ec435966 # v6
         with:
           node-version: 24
           cache: npm
@@ -330,7 +330,7 @@ jobs:
     steps:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v5
 
-      - uses: actions/setup-node@ae0d4ed08881f17d1511386f5be3e62356acd4a6 # v6
+      - uses: actions/setup-node@94196ee1d15439c1b6651cd87ef14e88ec435966 # v6
         with:
           node-version: 24
 
