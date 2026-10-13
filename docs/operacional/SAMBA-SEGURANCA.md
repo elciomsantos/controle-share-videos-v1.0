@@ -46,6 +46,10 @@
 - **VFS `full_audit`:** registra connect/disconnect/opendir/mkdir/rmdir/unlink/rename/pwrite
   com prefixo `usuário|IP|share|timestamp`.
 - Destino: syslog `local7` → `/etc/rsyslog.d/30-samba-audit.conf` → `/var/log/samba/audit.log`.
+- **Debian 13 (trixie):** o rsyslog **não vem instalado por padrão** (priority
+  optional desde o bookworm) — o `scripts/provision/samba.sh` instala
+  `samba rsyslog` explicitamente para que o `audit.log` exista. Samba do trixie: 4.22
+  (as diretivas acima permanecem válidas).
 
 ### Permissões POSIX
 - Diretório `1002:1002` + setgid (`2775`); arquivos `0664`.

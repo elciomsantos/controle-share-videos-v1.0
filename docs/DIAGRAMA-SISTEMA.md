@@ -14,7 +14,7 @@ flowchart TB
         U["👤 Usuários\n(admin/operador/auditor)"]
     end
 
-    subgraph HOST["Servidor on-premise (Ubuntu + Docker + Swarm secrets)"]
+    subgraph HOST["Servidor on-premise (Debian 13 + Docker + Swarm secrets)"]
         direction TB
 
         subgraph EDGE["Edge"]

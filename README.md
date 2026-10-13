@@ -12,7 +12,7 @@
 
 # Controle Share Videos
 
-Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-BR. Fork independente do Pingvin Share X v1.21.1, adaptado para upload exclusivamente pelo dono autenticado e armazenamento apenas local (servidor Ubuntu).
+Sistema de compartilhamento seguro de arquivos para uso interno restrito, em PT-BR. Fork independente do Pingvin Share X v1.21.1, adaptado para upload exclusivamente pelo dono autenticado e armazenamento apenas local (servidor Debian 13).
 
 > **Documentação:** ver `docs/VISAO-GERAL.md` (visão arquitetural),
 > `docs/operacional/DEPLOY.md` (guia de implantação),
@@ -267,13 +267,13 @@ Requisitos: backend precisa do `prisma generate` antes do primeiro run (Postinst
 
 ## Implantação em servidor Linux (passo a passo)
 
-Guia do zero até o sistema no ar em um servidor Ubuntu/Debian. **Não é
+Guia do zero até o sistema no ar em um servidor Debian 13 (trixie). **Não é
 necessário instalar Node.js, npm, Prisma ou SQLite no host** — tudo roda
 dentro de containers Docker.
 
 ### 1. Pré-requisitos do servidor
 
-- Ubuntu 22.04/24.04 ou Debian 12 (64-bit)
+- Debian 13 "trixie" (64-bit) — ambiente-alvo da implantação; Ubuntu 22.04/24.04 LTS também suportado
 - 2 GB RAM, 2 vCPU, 20 GB de disco (mínimo recomendado)
 - Portas **80** e **443** livres (Caddy escuta ambas)
 - Domínio com DNS **A/AAAA apontando para o IP** do servidor (necessário para
@@ -287,18 +287,18 @@ ssh usuario@seu-servidor
 sudo apt-get update && sudo apt-get upgrade -y
 ```
 
-### 3. Instalar Docker Engine + Docker Compose v2 (Ubuntu)
+### 3. Instalar Docker Engine + Docker Compose v2 (Debian 13)
 
 ```bash
 # Dependências do apt
 sudo apt-get install -y ca-certificates curl
 
-# Adicionar o repositório oficial do Docker
+# Adicionar o repositório oficial do Docker (trixie)
 sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
 sudo chmod a+r /etc/apt/keyrings/docker.asc
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
-https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
 | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 # Instalar Docker Engine + Compose plugin
@@ -306,8 +306,10 @@ sudo apt-get update
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 ```
 
-> **Debian:** troque `ubuntu` por `debian` nas duas linhas do repositório
-> (`/etc/apt/keyrings/docker.asc` e `download.docker.com/linux/debian`).
+> Em Debian 13, `$(. /etc/os-release && echo "$VERSION_CODENAME")` resolve para
+> `trixie` (repositório oficialmente suportado pelo Docker Engine).
+> **Ubuntu:** troque `debian` por `ubuntu` nas duas linhas do repositório
+> (`/etc/apt/keyrings/docker.asc` e `download.docker.com/linux/ubuntu`).
 
 Verifique a instalação:
 

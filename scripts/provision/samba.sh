@@ -54,7 +54,9 @@ fi
 # --- 1. Install Samba -------------------------------------------------------
 echo "[1/6] Installing Samba..."
 apt-get update -y
-apt-get install -y samba
+# Debian 13 (trixie): rsyslog não vem por padrão (priority optional) — o
+# roteamento do full_audit para /var/log/samba/audit.log depende dele.
+apt-get install -y samba rsyslog
 systemctl enable --now smbd nmbd
 
 # --- 2. Create host user `uploader` (UID 1102) ------------------------------

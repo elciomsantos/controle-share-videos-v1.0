@@ -58,7 +58,15 @@ ss -tulpn > "$VOLATILE_DIR/network-sockets.txt" 2>&1 || \
     netstat -tulpn > "$VOLATILE_DIR/network-sockets.txt" 2>&1 || true
 ip addr > "$VOLATILE_DIR/network-interfaces.txt" 2>&1 || true
 ip neigh > "$VOLATILE_DIR/network-neighbors.txt" 2>&1 || true
-last -Fai > "$VOLATILE_DIR/logins.txt" 2>&1 || true
+# Debian 13 (trixie): util-linux não fornece mais `last` — wtmpdb é o padrão
+# (priority standard) e libpam-wtmpdb registra as sessões de login.
+if command -v last >/dev/null 2>&1; then
+    last -Fai > "$VOLATILE_DIR/logins.txt" 2>&1 || true
+elif command -v wtmpdb >/dev/null 2>&1; then
+    wtmpdb last > "$VOLATILE_DIR/logins.txt" 2>&1 || true
+fi
+# Sessões SSH direto do journald (presente em qualquer host systemd)
+journalctl -u ssh -u sshd --no-pager > "$VOLATILE_DIR/ssh-sessions.txt" 2>&1 || true
 docker ps -a --no-trunc > "$VOLATILE_DIR/docker-ps.txt" 2>&1 || true
 docker images --no-trunc > "$VOLATILE_DIR/docker-images.txt" 2>&1 || true
 
@@ -126,13 +134,16 @@ fi
 if [[ "$UPLOAD" == true ]]; then
     log "[4/5] Enviando para bucket imutável..."
     if command -v aws >/dev/null 2>&1 && [[ -n "${EVIDENCE_BUCKET:-}" ]]; then
-        tar -czf "/tmp/${INCIDENT_ID}_${TIMESTAMP}.tar.gz" -C "$OUTPUT_DIR" "${INCIDENT_ID}_${TIMESTAMP}"
-        aws s3 cp "/tmp/${INCIDENT_ID}_${TIMESTAMP}.tar.gz" \
+        # Debian 13 (trixie): /tmp é tmpfs (~50% RAM) — não usar para o
+        # tarball de evidências; criar ao lado do diretório de saída.
+        TARBALL="${OUTPUT_DIR}/${INCIDENT_ID}_${TIMESTAMP}.tar.gz"
+        tar -czf "$TARBALL" -C "$OUTPUT_DIR" "${INCIDENT_ID}_${TIMESTAMP}"
+        aws s3 cp "$TARBALL" \
             "s3://${EVIDENCE_BUCKET}/evidence/" --sse aws:kms \
             --metadata incident-id="$INCIDENT_ID",captured-at="$TIMESTAMP" \
             && log "Upload concluído" \
             || log "ERRO: upload falhou — artefatos permanecem em $EVIDENCE_DIR"
-        shred -u "/tmp/${INCIDENT_ID}_${TIMESTAMP}.tar.gz" 2>/dev/null || rm -f "/tmp/${INCIDENT_ID}_${TIMESTAMP}.tar.gz"
+        shred -u "$TARBALL" 2>/dev/null || rm -f "$TARBALL"
     else
         log "AVISO: aws CLI ou EVIDENCE_BUCKET ausente — pulando upload"
     fi

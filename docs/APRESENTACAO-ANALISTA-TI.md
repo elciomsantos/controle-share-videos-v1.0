@@ -84,7 +84,7 @@ Dificuldades eliminadas:
 ```text
  Rede interna (RFC1918)
  ┌─────────────────────────────┐        ┌──────────────────────────────────────────┐
- │ 🖥️ Estação Windows          │        │ Servidor Ubuntu + Docker                 │
+ │ 🖥️ Estação Windows          │        │ Servidor Debian 13 + Docker              │
  │    (coleção de vídeos)      │──SMB3──│                                          │
  │ 👤 Usuários web             │─HTTPS─▶│ EDGE:  Caddy :443                        │
  └─────────────────────────────┘  443   │          │ /api/*        │ páginas       │

@@ -13,7 +13,8 @@ SOURCE_DIRS=(
     "/opt/app/backend/data/uploads"
     "/opt/app/frontend/public/img"
 )
-BACKUP_BASE_DIR="${BACKUP_BASE_DIR:-/tmp/files-backups}"
+# Debian 13 (trixie): /tmp é tmpfs (~50% RAM) — backups não podem ir para lá.
+BACKUP_BASE_DIR="${BACKUP_BASE_DIR:-/var/tmp/files-backups}"
 S3_BUCKET="${S3_BUCKET:-s3://controle-share-videos-backups/files}"
 KMS_KEY_ID="${KMS_KEY_ID:-arn:aws:kms:us-east-1:123456789012:key/abcd-efgh-1234}"
 RETENTION_DAYS="${RETENTION_DAYS:-90}"

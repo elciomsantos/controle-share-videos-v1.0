@@ -17,7 +17,7 @@
 
 | # | Item | Como validar | Evidência |
 |---|---|---|---|
-| 1.1 | Host provisionado conforme `docs/ESPECIFICACAO_SEGURANCA_DOCKER_HOST_v1.0.md` | Checklist do doc assinado | ☐ |
+| 1.1 | Host **Debian 13 "trixie"** provisionado conforme `docs/operacional/HOST-PROVISIONING-ONPREMISE.md` + `docs/ESPECIFICACAO_SEGURANCA_DOCKER_HOST_v1.0.md` | Checklists dos dois docs assinados | ☐ |
 | 1.2 | DNS apontando para o host (A/AAAA) com propagação verificada | `dig +short DOMINIO` | ☐ |
 | 1.3 | Portas abertas apenas 80/443 (+ SSH restrito) | `nmap -p- DOMINIO` a partir de rede externa | ☐ |
 | 1.4 | Firewall do host ativo (ufw/nftables) | `sudo ufw status` | ☐ |

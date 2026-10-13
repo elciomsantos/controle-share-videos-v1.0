@@ -23,7 +23,7 @@ Seu propósito é fornecer uma compreensão ampla do projeto para desenvolvedore
 
 # 2. Objetivo do Sistema
 
-O sistema tem como finalidade gerenciar e compartilhar **arquivos de qualquer tipo** (não apenas vídeos) armazenados **exclusivamente de forma local** no servidor Ubuntu (drive D:), permitindo a distribuição controlada por meio de links seguros com autenticação, expiração, limites de download e senha.
+O sistema tem como finalidade gerenciar e compartilhar **arquivos de qualquer tipo** (não apenas vídeos) armazenados **exclusivamente de forma local** no servidor Debian 13 (disco local), permitindo a distribuição controlada por meio de links seguros com autenticação, expiração, limites de download e senha.
 
 Todo o gerenciamento é centralizado em uma interface web administrativa desenvolvida em **Next.js 16 (React 19) + Mantine 9**, consumindo API REST construída com **NestJS 11 (Node.js 24 + TypeScript 6)**.
 
@@ -34,7 +34,7 @@ O sistema garante:
 * Registro completo de auditoria (download logs com usuário/IP/timestamp + `AuditLog` com 17 eventos mínimos: login, MFA, sessões, senha, permissões, shares)
 * Upload nativo via navegador (chunked, multipart, resumível) — **somente pelo dono** do share (autenticado)
 * Integração com **ClamAV** para varredura antivírus — **rejeitada** (fora de escopo; ver `docs/Padronizacao-07-clamav.md` §0)
-* **Armazenamento apenas local** no servidor Ubuntu (drive D:), sem buckets S3 externos
+* **Armazenamento apenas local** no servidor Debian 13 (disco local), sem buckets S3 externos
 * Facilidade de administração via painel web (shares, usuários, logs, configurações, saúde, sessões ativas, auditoria)
 * Escalabilidade horizontal via containers Docker
 * Alta disponibilidade com healthchecks e restart automático
@@ -100,7 +100,7 @@ As funcionalidades abaixo **não** fazem parte desta versão:
 * Compressão automática de arquivos
 * **Varredura antivírus ClamAV** — removida do escopo (upload esclusivamente de vídeos, origem confiável interna, destinatários só baixam; ver `docs/Padronizacao-07-clamav.md`)
 * Upload reverso de arquivos (reverse shares) — **removido intencionalmente**, upload apenas pelo dono
-* Integração com serviços de armazenamento em nuvem (S3 e compatíveis foram **removidos** — apenas storage local em servidor Ubuntu)
+* Integração com serviços de armazenamento em nuvem (S3 e compatíveis foram **removidos** — apenas storage local em servidor Debian 13)
 * Reprodução online de vídeo no navegador (player nativo do browser apenas)
 * Compartilhamento público sem autenticação (todo acesso exige token válido)
 * LDAP/OAuth/Social login (removidos intencionalmente — apenas auth local)
@@ -239,7 +239,7 @@ Permissões:
 ## Sistema Operacional
 
 * **Alpine Linux** (base `node:24-alpine` no Docker)
-* **Ubuntu Server 24.04 LTS** (host recomendado para produção)
+* **Debian 13 "trixie"** (host de produção)
 
 ## Ferramentas / Ecossistema
 
@@ -311,7 +311,7 @@ O sistema segue arquitetura **monolítica modular** containerizada, com separaç
                 │  (local disk)│      │ (daemon 3310) │
                 │  ./data/     │      │  opcional     │
                 │  uploads/    │      │  auto-detect  │
-                │  Ubuntu (D:) │       └───────────────┘
+                │  Debian 13   │       └───────────────┘
                 └───────────────┘
 ```
 
@@ -456,7 +456,7 @@ Não há job específico de expiração de certificados — o ciclo de vida é o
 
 ## Software
 
-* **Ubuntu Server 24.04 LTS** (ou Alpine/Debian/RHEL compatível)
+* **Debian 13 "trixie"** (host de produção; Alpine/Ubuntu/RHEL compatíveis)
 * **Docker Engine 24+** + **Docker Compose 2+** (plugin)
 * **Git** (deploy via clone + compose up)
 * **OpenSSL** (certificados, geração de segredos JWT)
@@ -478,7 +478,7 @@ Não há job específico de expiração de certificados — o ciclo de vida é o
 | `SMTP_*` | Configurações e-mail | (opcional) |
 | `PUID`/`PGID` | User/Group ID não-root no container | `1000`/`1000` |
 
-> **Nota:** a categoria de variáveis `S3_*` foi **removida** — armazenamento é apenas local em servidor Ubuntu (drive D:).
+> **Nota:** a categoria de variáveis `S3_*` foi **removida** — armazenamento é apenas local em servidor Debian 13 (disco local).
 
 ---
 
@@ -540,7 +540,7 @@ O sistema opera continuamente com mecanismos de resiliência:
 
 # 15. Premissas do Projeto
 
-* Todos os arquivos permanecem armazenados **exclusivamente de forma local** no servidor (volume `data/` montado no drive D: do Ubuntu Server) — sem buckets S3 ou provedores externos
+* Todos os arquivos permanecem armazenados **exclusivamente de forma local** no servidor (volume `data/` em disco local do servidor Debian 13) — sem buckets S3 ou provedores externos
 * Arquivos **não são modificados** pelo sistema (apenas movidos de temp para final, ZIP criado on-demand)
 * Apenas usuários autenticados acessam a área administrativa e criam shares
 * Todo download é registrado em `DownloadLog` (usuário identificado ou IP anônimo)
@@ -579,7 +579,7 @@ A stack tecnológica consolidada é:
 | Proxy / TLS | Caddy 2 (auto-HTTPS, Let's Encrypt) |
 | Container | Docker multi-stage (Alpine, non-root UID 1002) + Compose |
 | Auth | **Sessões opacas server-side** (256-bit, SHA-256 persistido) + Argon2id + TOTP (obrigatório admin) + Refresh hash + Reautenticação |
-| Storage | Local FS apenas (servidor Ubuntu, drive D:) — S3 removido |
+| Storage | Local FS apenas (servidor Debian 13, disco local) — S3 removido |
 | Antivírus | ClamAV — removido do escopo (ver `docs/Padronizacao-07-clamav.md`) |
 | PWA | Serwist (Workbox) |
 | i18n | PT-BR único (nestjs-i18n + react-intl) |

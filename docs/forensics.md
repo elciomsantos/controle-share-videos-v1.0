@@ -41,6 +41,13 @@ sudo ./scripts/incident/forensic-snapshot.sh \
 | 3 | Volumes | tar de `uploads/` com timestamps/permissões preservados | Arquivos compartilhados |
 | 4 | Manifest | `MANIFEST.sha256` + `manifest.json` (hashes + metadados) | Baseline de integridade |
 
+> **Debian 13 (trixie):** `last`/`lastb`/`lastlog` foram removidos do
+> util-linux/login. O script captura logins via `wtmpdb last` (padrão no
+> trixie — `libpam-wtmpdb` registra as sessões) e via
+> `journalctl -u ssh -u sshd` (`ssh-sessions.txt`). O tarball de upload é
+> criado ao lado de `--output` (não em `/tmp`, que no trixie é tmpfs limitado
+> à RAM).
+
 ---
 
 ## 3. Procedimento de Cadeia de Custódia

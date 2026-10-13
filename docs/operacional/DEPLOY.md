@@ -9,6 +9,7 @@
 
 | Item | Obrigatório | Observação |
 |---|---|---|
+| Debian 13 "trixie" (64-bit) | ✅ | Host suportado; provisionamento em `docs/operacional/HOST-PROVISIONING-ONPREMISE.md` (Ubuntu 22.04/24.04 LTS também funciona) |
 | Docker Engine ≥ 24 | ✅ | `docker --version` |
 | Docker Compose v2 | ✅ | `docker compose version` |
 | Portas 80 e 443 livres no host | ✅ | Caddy escuta ambas |

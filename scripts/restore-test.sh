@@ -58,7 +58,10 @@ fi
 log "backup mais recente: ${latest}"
 
 # --- Workspace temporário ----------------------------------------------------
-TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/restore-test.XXXXXX")"
+# Debian 13 (trixie): /tmp é tmpfs (limite ~50% da RAM) — usar /var/tmp em
+# disco para restaurar bancos potencialmente grandes. TMPDIR ainda tem
+# precedência.
+TMP_DIR="$(mktemp -d "${TMPDIR:-/var/tmp}/restore-test.XXXXXX")"
 trap 'rm -rf -- "${TMP_DIR}"' EXIT
 
 restored_db="${TMP_DIR}/restored.db"

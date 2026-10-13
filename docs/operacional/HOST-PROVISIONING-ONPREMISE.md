@@ -1,7 +1,7 @@
 # Provisionamento do Host On-Premise — Guia Executável
 
 **Cenário:** servidor físico da organização (GML), domínio próprio a definir, SMTP interno disponível.
-**Pré-requisito:** Ubuntu Server 22.04/24.04 LTS (ou Debian 12) instalado, acesso SSH.
+**Pré-requisito:** Debian 13 "trixie" (64-bit) instalado, acesso SSH. Ubuntu Server 22.04/24.04 LTS também funciona com os mesmos passos.
 **Complemento obrigatório:** `docs/ESPECIFICACAO_SEGURANCA_DOCKER_HOST_v1.0.md` (requisitos formais).
 
 ---
@@ -10,10 +10,19 @@
 
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y ca-certificates curl gnupg ufw fail2ban git rsync
+sudo apt install -y ca-certificates curl gnupg ufw fail2ban git rsync sudo
 # Usuário dedicado ao deploy (sem root direto)
 sudo adduser deploy && sudo usermod -aG sudo deploy
 ```
+
+> **Notas específicas do Debian 13 (trixie):**
+> - Se o instalador definiu senha de root, o `sudo` pode não vir instalado —
+>   por isso ele entra na linha de `apt install` acima.
+> - `/tmp` agora é **tmpfs** (limite ~50% da RAM, limpo após ~10 dias): não use
+>   `/tmp` para dumps ou arquivos grandes; use os diretórios em `/opt`.
+> - `/etc/sysctl.conf` **não é mais lido** pelo systemd-sysctl — parâmetros de
+>   kernel locais devem ficar em `/etc/sysctl.d/*.conf`.
+> - OpenSSH 10: chaves **DSA não são mais aceitas** — use ed25519 (o passo 5 já usa).
 
 ## 2. Docker + Swarm (o compose de produção usa secrets de Swarm)
 
@@ -24,6 +33,11 @@ sudo usermod -aG docker deploy
 sudo docker swarm init --advertise-addr <IP-INTERNO-DO-HOST>
 ```
 
+> O `get.docker.com` registra o repositório oficial
+> (`download.docker.com/linux/debian`, suite `trixie` — suportada oficialmente
+> pelo Docker Engine) e as atualizações passam a vir via `apt`. Para instalação
+> manual do repositório, use o passo 3 do `README.md`.
+
 ## 3. Firewall e SSH
 
 ```bash
@@ -32,10 +46,19 @@ sudo ufw allow 22/tcp comment 'SSH'
 sudo ufw allow 80/tcp comment 'HTTP -> redirect TLS'
 sudo ufw allow 443/tcp comment 'HTTPS'
 sudo ufw enable
-# SSH: desabilitar senha, manter chave
-sudo sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
-sudo systemctl restart ssh
+# SSH: desabilitar senha, manter chave (drop-in tem precedência no Debian 13)
+sudo tee /etc/ssh/sshd_config.d/00-hardening.conf >/dev/null <<'EOF'
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+EOF
+sudo sshd -t && sudo systemctl restart ssh
 ```
+
+> **Docker × firewall no Debian 13:** o Docker avisa que regras criadas com
+> `nft` puro não são suportadas em host com Docker — `ufw` é frontend de
+> iptables e continua compatível. Portas **publicadas** pelo Docker não passam
+> pelas regras do ufw: exponha apenas 80/443 (Caddy) no compose e, para filtrar
+> tráfego de containers, use a chain `DOCKER-USER`.
 
 ## 4. Diretórios e secrets do Swarm
 

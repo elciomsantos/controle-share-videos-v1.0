@@ -35,7 +35,9 @@ ufw status verbose
 # ---------------------------------------------------------------------------
 echo "[2/3] Installing & configuring Fail2ban..."
 apt-get update -y
-apt-get install -y fail2ban
+# Debian 13 (trixie): sem rsyslog instalado por padrão, /var/log/auth.log
+# não existe — o backend systemd (journald) requer python3-systemd.
+apt-get install -y fail2ban python3-systemd
 
 cat > /etc/fail2ban/jail.local << 'JAIL'
 [DEFAULT]
@@ -47,7 +49,9 @@ maxretry = 5
 enabled   = true
 port      = ssh
 filter    = sshd
-logpath   = /var/log/auth.log
+# Debian 13 (trixie): /var/log/auth.log não existe sem rsyslog —
+# ler tentativas de login direto do journald.
+backend   = systemd
 maxretry  = 3
 bantime   = 86400
 
@@ -90,20 +94,29 @@ fail2ban-client status
 echo "[3/3] Hardening SSH configuration..."
 cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak.$(date +%Y%m%d)
 
-sed -i 's/^#\?PermitRootLogin .*/PermitRootLogin no/' /etc/ssh/sshd_config
-sed -i 's/^#\?PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config
-sed -i 's/^#\?PubkeyAuthentication .*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
-sed -i 's/^#\?ChallengeResponseAuthentication .*/ChallengeResponseAuthentication no/' /etc/ssh/sshd_config
-sed -i 's/^#\?UsePAM .*/UsePAM no/' /etc/ssh/sshd_config
-sed -i 's/^#\?X11Forwarding .*/X11Forwarding no/' /etc/ssh/sshd_config
-sed -i 's/^#\?ClientAliveInterval .*/ClientAliveInterval 300/' /etc/ssh/sshd_config
-sed -i 's/^#\?ClientAliveCountMax .*/ClientAliveCountMax 2/' /etc/ssh/sshd_config
-sed -i 's/^#\?MaxAuthTries .*/MaxAuthTries 3/' /etc/ssh/sshd_config
-sed -i 's/^#\?MaxSessions .*/MaxSessions 10/' /etc/ssh/sshd_config
+# Debian 13 (trixie): o Include de /etc/ssh/sshd_config.d/*.conf vem no topo
+# do sshd_config e o primeiro valor lido vence — um drop-in 00- tem
+# precedência sobre arquivos do instalador/cloud-init e sobre o próprio
+# sshd_config (mais robusto que sed no arquivo principal).
+mkdir -p /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/00-hardening.conf << 'SSHD'
+PermitRootLogin no
+PasswordAuthentication no
+PubkeyAuthentication yes
+KbdInteractiveAuthentication no
+UsePAM no
+X11Forwarding no
+ClientAliveInterval 300
+ClientAliveCountMax 2
+MaxAuthTries 3
+MaxSessions 10
+SSHD
 
 # Restrict to specific users if desired:
-# echo "AllowUsers deploy" >> /etc/ssh/sshd_config
+# echo "AllowUsers deploy" >> /etc/ssh/sshd_config.d/00-hardening.conf
 
+# Valida a sintaxe antes de aplicar — evita perder o acesso remoto.
+sshd -t
 systemctl reload sshd
 
 # ---------------------------------------------------------------------------

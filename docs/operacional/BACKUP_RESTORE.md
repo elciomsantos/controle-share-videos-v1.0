@@ -107,14 +107,15 @@ APP_DATA=/opt/app/backend/data
 LATEST=$(ls -1t "${BACKUP_DIR}"/controle-videos_*.db.gz.gpg | head -n1)
 
 # 2. Descriptografar + descomprimir
-gpg --decrypt "${LATEST}" | gzip -dc > /tmp/controle-videos-restore.db
+# (Debian 13: /tmp é tmpfs limitado à RAM — usar /var/tmp, em disco)
+gpg --decrypt "${LATEST}" | gzip -dc > /var/tmp/controle-videos-restore.db
 
 # 3. Parar o backend (evita escrita concorrente no SQLite)
 docker compose -f docker-compose.prod.yml stop backend
 
 # 4. Restaurar (backup de produção do arquivo atual antes de sobrescrever)
 cp "${APP_DATA}/controle-videos.db" "${APP_DATA}/controle-videos.db.pre-restore"
-sqlite3 "${APP_DATA}/controle-videos.db" ".restore '/tmp/controle-videos-restore.db'"
+sqlite3 "${APP_DATA}/controle-videos.db" ".restore '/var/tmp/controle-videos-restore.db'"
 
 # 5. Validar integridade
 sqlite3 "${APP_DATA}/controle-videos.db" "PRAGMA integrity_check;"   # -> ok
