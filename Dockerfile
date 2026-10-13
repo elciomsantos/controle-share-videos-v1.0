@@ -20,6 +20,12 @@ RUN --mount=type=cache,target=/root/.npm npm ci --prefer-offline
 COPY packages/shared/tsconfig.json ./
 COPY packages/shared/src ./src
 RUN npm run build
+# Prune build tooling before the stage output is consumed: the runner stages
+# copy this directory into the production images, and TypeScript 7's native
+# tsc (@typescript/typescript-linux-x64, a Go binary) must not ship in them
+# (image scanners flag Go stdlib CVEs on it). Only dayjs is required at
+# runtime (same rationale as `npm prune --production` in the backend stage).
+RUN npm prune --production
 
 # =============================================================================
 # Stage 1: Frontend dependencies
