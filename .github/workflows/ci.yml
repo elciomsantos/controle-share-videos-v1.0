@@ -49,7 +49,34 @@ jobs:
         run: npm audit --audit-level=high
 
       - name: Security audit (block high/critical)
-        run: npm audit --audit-level=high
+        run: |
+          # GHSA-vfj7-8cjw-p6xm (braces — DoS por recursão em globs aninhados):
+          # sem versão corrigida upstream (todas as versões <=3.0.3 são
+          # vulneráveis; verificado em 2026-10-13). No frontend a cadeia é
+          # 100% dev-time (eslint-config-next -> @next/eslint-plugin-next ->
+          # fast-glob -> micromatch -> braces) e os padrões avaliados são
+          # paths internos do linter, sem input controlável por atacante.
+          # No backend a cadeia foi eliminada via override de chokidar@4 no
+          # nestjs-i18n; a exclusão é no-op lá. Remover quando upstream
+          # publicar correção.
+          npm audit --audit-level=high --json > npm-audit.json || true
+          node -e '
+            const fs = require("fs");
+            const EXCLUDED = ["GHSA-vfj7-8cjw-p6xm"];
+            const a = JSON.parse(fs.readFileSync("npm-audit.json", "utf8"));
+            const vs = a.vulnerabilities || {};
+            const blocked = Object.entries(vs).filter(([name, v]) =>
+              ["high", "critical"].includes(v.severity) &&
+              v.via.some(x => typeof x === "object" &&
+                !EXCLUDED.some(id => (x.url || "").includes(id)))
+            );
+            if (blocked.length) {
+              for (const [name, v] of blocked)
+                console.error(`${v.severity.toUpperCase()} ${name} ${v.range}`);
+              process.exit(1);
+            }
+            console.log("Audit OK (GHSA excluida: " + EXCLUDED.join(", ") + ")");
+          '
 
       - name: Verify signatures and provenance
         run: npm audit signatures
@@ -183,7 +210,34 @@ jobs:
         run: npm audit --audit-level=high
 
       - name: Security audit (block high/critical)
-        run: npm audit --audit-level=high
+        run: |
+          # GHSA-vfj7-8cjw-p6xm (braces — DoS por recursão em globs aninhados):
+          # sem versão corrigida upstream (todas as versões <=3.0.3 são
+          # vulneráveis; verificado em 2026-10-13). No frontend a cadeia é
+          # 100% dev-time (eslint-config-next -> @next/eslint-plugin-next ->
+          # fast-glob -> micromatch -> braces) e os padrões avaliados são
+          # paths internos do linter, sem input controlável por atacante.
+          # No backend a cadeia foi eliminada via override de chokidar@4 no
+          # nestjs-i18n; a exclusão é no-op lá. Remover quando upstream
+          # publicar correção.
+          npm audit --audit-level=high --json > npm-audit.json || true
+          node -e '
+            const fs = require("fs");
+            const EXCLUDED = ["GHSA-vfj7-8cjw-p6xm"];
+            const a = JSON.parse(fs.readFileSync("npm-audit.json", "utf8"));
+            const vs = a.vulnerabilities || {};
+            const blocked = Object.entries(vs).filter(([name, v]) =>
+              ["high", "critical"].includes(v.severity) &&
+              v.via.some(x => typeof x === "object" &&
+                !EXCLUDED.some(id => (x.url || "").includes(id)))
+            );
+            if (blocked.length) {
+              for (const [name, v] of blocked)
+                console.error(`${v.severity.toUpperCase()} ${name} ${v.range}`);
+              process.exit(1);
+            }
+            console.log("Audit OK (GHSA excluida: " + EXCLUDED.join(", ") + ")");
+          '
 
       - name: Verify signatures and provenance
         run: npm audit signatures

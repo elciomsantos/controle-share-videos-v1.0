@@ -101,12 +101,18 @@ jobs:
 
       - name: Check for HIGH/CRITICAL vulnerabilities
         run: |
-          CRITICAL_COUNT=$(jq '[.results[].packages[].vulnerabilities[] | select(.severity == "CRITICAL")] | length' osv-results.json 2>/dev/null || echo 0)
-          HIGH_COUNT=$(jq '[.results[].packages[].vulnerabilities[] | select(.severity == "HIGH")] | length' osv-results.json 2>/dev/null || echo 0)
+          # GHSA-vfj7-8cjw-p6xm (braces): exclusa apos revisao — sem versao
+          # corrigida upstream (todas <=3.0.3 vulneraveis; verificado em
+          # 2026-10-13). No frontend a cadeia e 100% dev-time (eslint); no
+          # backend foi eliminada via override de chokidar@4 no nestjs-i18n.
+          # Remover quando upstream publicar correcao.
+          OSV_EXCLUDED='GHSA-vfj7-8cjw-p6xm'
+          CRITICAL_COUNT=$(jq --arg ex "$OSV_EXCLUDED" '[.results[].packages[].vulnerabilities[] | select(.severity == "CRITICAL") | select(.id != $ex)] | length' osv-results.json 2>/dev/null || echo 0)
+          HIGH_COUNT=$(jq --arg ex "$OSV_EXCLUDED" '[.results[].packages[].vulnerabilities[] | select(.severity == "HIGH") | select(.id != $ex)] | length' osv-results.json 2>/dev/null || echo 0)
           
           if [ "$CRITICAL_COUNT" -gt 0 ] || [ "$HIGH_COUNT" -gt 0 ]; then
             echo "::error::Found $CRITICAL_COUNT CRITICAL and $HIGH_COUNT HIGH vulnerabilities"
-            cat osv-results.json | jq '.results[].packages[] | select(.vulnerabilities[]?.severity == "CRITICAL" or .vulnerabilities[]?.severity == "HIGH") | {package: .package.name, version: .package.version, vulnerabilities: .vulnerabilities[] | select(.severity == "CRITICAL" or .severity == "HIGH") | {id: .id, severity: .severity, summary: .summary}}'
+            cat osv-results.json | jq --arg ex "$OSV_EXCLUDED" '.results[].packages[] | select(.vulnerabilities[]?.severity == "CRITICAL" or .vulnerabilities[]?.severity == "HIGH") | {package: .package.name, version: .package.version, vulnerabilities: .vulnerabilities[] | select(.severity == "CRITICAL" or .severity == "HIGH") | select(.id != $ex) | {id: .id, severity: .severity, summary: .summary}}'
             exit 1
           fi
           

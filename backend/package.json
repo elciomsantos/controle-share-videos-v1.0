@@ -39,7 +39,11 @@
     "sharp": "^0.35.3",
     "find-my-way": "^9.7.0",
     "glob": "^11.0.0",
-    "minimatch": "^10.0.3"
+    "minimatch": "^10.0.3",
+    "mysql2": "^3.24.6",
+    "nestjs-i18n": {
+      "chokidar": "^4.0.3"
+    }
   },
   "dependencies": {
     "@controle-share/shared": "file:../packages/shared",
@@ -74,7 +78,7 @@
     "helmet": "^8.3.0",
     "mime-types": "^3.0.1",
     "nestjs-i18n": "^10.8.5",
-    "nodemailer": "^9.0.1",
+    "nodemailer": "^10.1.0",
     "otplib": "^13.3.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
@@ -127,8 +131,8 @@
     "better-sqlite3@12.11.1": true,
     "argon2@0.45.1": true,
     "better-sqlite3@13.0.3": true,
-    "@prisma/engines@7.9.1": true,
-    "prisma@7.9.1": true,
+    "@prisma/engines@7.10.0": true,
+    "prisma@7.10.0": true,
     "unrs-resolver@1.12.2": true,
     "@scarf/scarf@1.4.0": false,
     "esbuild@0.28.1": true,
