@@ -103,9 +103,11 @@ COPY --from=frontend-builder /opt/app/frontend/public/img /tmp/img
 # npm bundle ships vulnerable transitive deps (undici/tar/ip-address/...)
 # that image scanners flag. Same rationale as P3 INFRA-Low-01 in the runner
 # stage below.
+# Full apk upgrade: the security-gate Trivy scan (SARIF) fails on ANY severity,
+# so stale base-image packages (e.g. zlib CVE-2026-85091) must be bumped.
 RUN rm -rf /usr/local/lib/node_modules/npm \
         /usr/local/bin/npm /usr/local/bin/npx /root/.npm && \
-    apk upgrade --no-cache openssl libcrypto3 libssl3
+    apk upgrade --no-cache
 
 # =============================================================================
 # Stage 6: Backend runner (NestJS)
@@ -113,8 +115,9 @@ RUN rm -rf /usr/local/lib/node_modules/npm \
 FROM ${NODE_BASE_IMAGE} AS backend-runner
 ENV NODE_ENV=production
 # ffmpeg: embute o certificado (PDF/hash) como metadados inseparáveis do vídeo
-# openssl upgrade: corrige CVE-2026-14456 (libcrypto3/libssl3 3.5.7→3.5.8)
-RUN apk add --no-cache ffmpeg && apk upgrade --no-cache openssl libcrypto3 libssl3
+# Full apk upgrade: the security-gate Trivy scan (SARIF) fails on ANY severity,
+# so stale base-image packages must be bumped (mirrors the runner stage).
+RUN apk add --no-cache ffmpeg && apk upgrade --no-cache
 # Non-root user
 RUN addgroup -g 1001 -S appgroup && \
     adduser -u 1001 -S appuser -G appgroup
