@@ -12,6 +12,6 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
-    "otplib": "^13.3.0"
+    "otplib": "^13.5.0"
   }
 }
