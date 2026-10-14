@@ -475,6 +475,7 @@ Detalhes em `docs/operacional/DEPLOY.md` §6.3.
 - `docs/DIAGRAMA-SISTEMA.md` — diagramas Mermaid (implantação, fluxo de share, camadas de segurança)
 - `docs/VISAO-GERAL.md` — visão arquitetural completa
 - `docs/operacional/DEPLOY.md` — guia de implantação (modelo final de produção)
+- `docs/operacional/FORK-EMPRESA.md` — transferência do repositório para a organização da empresa (fork + configuração pós-fork)
 - `docs/GOLIVE-CHECKLIST.md` — checklist executável de go-live (5 fases com evidências)
 - `docs/operacional/HOST-PROVISIONING-ONPREMISE.md` — provisionamento do servidor on-premise (Swarm secrets, deploy key, backup)
 - `docs/api-versioning.md` — política de versionamento da API (`/api/v{N}`)

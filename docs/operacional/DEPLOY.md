@@ -7,6 +7,10 @@
 
 ## 1. Pré-requisitos
 
+> **Deploy para a empresa:** antes de implantar a partir de um repositório de
+> organização corporativa, siga `docs/operacional/FORK-EMPRESA.md` (fork do
+> repositório, habilitação de Actions/secrets e repontuação das URLs).
+
 | Item | Obrigatório | Observação |
 |---|---|---|
 | Debian 13 "trixie" (64-bit) | ✅ | Host suportado; provisionamento em `docs/operacional/HOST-PROVISIONING-ONPREMISE.md` (Ubuntu 22.04/24.04 LTS também funciona) |

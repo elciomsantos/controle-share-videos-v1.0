@@ -9,9 +9,10 @@
 
 | # | Item | Como validar | Evidência |
 |---|---|---|---|
-| 0.1 | CI verde no commit de release | `gh run list --limit 2` → workflows `CI` e `Security Gate` concluídos (`✓`) | ☐ |
-| 0.2 | Tag de release criada (dispara SLSA provenance + assinatura cosign + SBOM) | `gh release create vX.Y.Z --target main` (publica tag + release; **push de tag isolado não dispara o pipeline** — jobs de assinatura rodam só em `release: published`) | ☐ |
-| 0.3 | Imagem publicada no registry com provenance SLSA3 + atestação cosign | `cosign verify-blob --bundle ...` ou check da release | ☐ |
+| 0.1 | Fork para a organização da empresa concluído (antes de qualquer deploy) | `docs/operacional/FORK-EMPRESA.md` §9 concluído: Actions/secrets habilitados, URLs repontuadas, branch protection ativa | ☐ |
+| 0.2 | CI verde no commit de release (**no repo da empresa**) | `gh run list --limit 2` → workflows `CI` e `Security Gate` concluídos (`✓`) | ☐ |
+| 0.3 | Tag de release criada (dispara SLSA provenance + assinatura cosign + SBOM) | `gh release create vX.Y.Z --target main` (publica tag + release; **push de tag isolado não dispara o pipeline** — jobs de assinatura rodam só em `release: published`) | ☐ |
+| 0.4 | Imagem publicada no registry com provenance SLSA3 + atestação cosign | `cosign verify-blob --bundle ...` ou check da release | ☐ |
 
 ## Fase 1 — Infraestrutura do host de produção
 
