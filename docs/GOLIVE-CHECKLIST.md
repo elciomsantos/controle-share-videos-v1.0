@@ -11,8 +11,10 @@
 |---|---|---|---|
 | 0.1 | Fork para a organização da empresa concluído (antes de qualquer deploy) | `docs/operacional/FORK-EMPRESA.md` §9 concluído: Actions/secrets habilitados, URLs repontuadas, branch protection ativa | ☐ |
 | 0.2 | CI verde no commit de release (**no repo da empresa**) | `gh run list --limit 2` → workflows `CI` e `Security Gate` concluídos (`✓`) | ☐ |
-| 0.3 | Tag de release criada (dispara SLSA provenance + assinatura cosign + SBOM) | `gh release create vX.Y.Z --target main` (publica tag + release; **push de tag isolado não dispara o pipeline** — jobs de assinatura rodam só em `release: published`) | ☐ |
-| 0.4 | Imagem publicada no registry com provenance SLSA3 + atestação cosign | `cosign verify-blob --bundle ...` ou check da release | ☐ |
+| 0.3 | RC de validação da cadeia de release (`v1.0.0-rc.1`, pre-release, **no repo da empresa**): jobs `Sign Release Artifacts` (GHCR + cosign) e `Generate SLSA Provenance` verdes | `gh release create v1.0.0-rc.1 --target main --prerelease` → run do Security Gate verde; `cosign verify` com a identidade do repo da empresa (fluxo completo em `docs/operacional/FORK-EMPRESA.md` §4.6) | ☐ |
+| 0.4 | Notificação de falha do CI validada (secret `SLACK_WEBHOOK` configurado e webhook entregando) | curl de teste no webhook retorna `200` e mensagem chega ao canal; passo `Send Slack notification` visível no run de um Security Gate que falhou (teste controlado em `docs/operacional/FORK-EMPRESA.md` §4.7) | ☐ |
+| 0.5 | Tag de release final criada (dispara SLSA provenance + assinatura cosign + SBOM) | `gh release create vX.Y.Z --target main` (publica tag + release; **push de tag isolado não dispara o pipeline** — jobs de assinatura rodam só em `release: published`) | ☐ |
+| 0.6 | Imagem publicada no registry com provenance SLSA3 + atestação cosign | `cosign verify-blob --bundle ...` ou check da release | ☐ |
 
 ## Fase 1 — Infraestrutura do host de produção
 

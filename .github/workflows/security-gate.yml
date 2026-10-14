@@ -524,11 +524,21 @@ jobs:
     runs-on: ubuntu-latest
     needs: [secret-scan, dependency-audit, sast, codeql, dockerfile-lint, container-scan, sbom, prod-readiness, provenance]
     if: failure()
+    # Secret no env do JOB (visível no `if` do passo). Correção: o passo antes
+    # checava env.SLACK_WEBHOOK, que não era definido em nenhum nível — o
+    # passo era SEMPRE pulado e a notificação nunca disparava (código morto).
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
     steps:
       - name: Send Slack notification
         if: env.SLACK_WEBHOOK != ''
-        uses: slackapi/slack-github-action@v4.0.0
+        # v4.0.0 alterou a interface do modo incoming-webhook: a URL agora é
+        # input (webhook + webhook-type), não mais a env SLACK_WEBHOOK_URL.
+        # Pin por SHA como todas as demais actions (supply chain).
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
+          webhook: ${{ secrets.SLACK_WEBHOOK }}
+          webhook-type: incoming-webhook
           payload: |
             {
               "text": "🚨 *Security Gate FAILED*",
@@ -542,5 +552,3 @@ jobs:
                 }
               ]
             }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}

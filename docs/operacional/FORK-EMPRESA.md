@@ -100,7 +100,7 @@ git ls-remote https://github.com/minha-empresa/controle-share-videos-v1.0.git HE
 | `DEPLOY_USER` | Secret | Usuário deploy no host |
 | `DEPLOY_PORT` | Secret | Porta SSH (default 22) |
 | `DEPLOY_SSH_KEY` | Secret | Chave privada SSH (deploy key do host) |
-| `SLACK_WEBHOOK` | Secret | Opcional — notificações de falha do Security Gate |
+| `SLACK_WEBHOOK` | Secret | Notificações de falha do Security Gate — configuração e testes em §4.7 |
 
 **Settings → Secrets and variables → Actions → Variables:**
 
@@ -124,14 +124,110 @@ Settings → Branches → Add branch ruleset (ou classic rule) para `main`:
 ### 4.5 Primeira execução de validação
 
 ```bash
-# Dispara CI + Security Gate no repo da empresa sem alterar código:
-gh workflow run "CI" --repo minha-empresa/controle-share-videos-v1.0 \
-  --ref main
-# ou um commit vazio:
+# O workflow CI não tem workflow_dispatch (só push/PR) — dispare via commit vazio:
 git commit --allow-empty -m "chore(ci): primeira execução no repo da empresa" && git push
 ```
 
 Confirme: `gh run list --repo minha-empresa/controle-share-videos-v1.0 --limit 3` → todos ✓.
+(O Security Gate aceita dispatch manual — usado no teste controlado do §4.7.)
+
+### 4.6 RC de validação da cadeia de release (sign-artifacts + SLSA)
+
+> Os jobs `Sign Release Artifacts` (GHCR push + assinatura cosign) e
+> `Generate SLSA Provenance` **não têm switch** — são acionados pelo evento
+> `release: published`. A única forma de testá-los é publicar um release.
+> Como a identidade do certificado cosign é **por repositório** (emissor:
+> `https://github.com/<org>/<repo>/...`), a validação precisa rodar no repo
+> da empresa — um ensaio no repo pessoal valida a mecânica, mas as
+> assinaturas/atestações de go-live são as do repo da empresa.
+
+**Pré-requisitos** (causas mais comuns de falha aqui):
+
+- §4.1 ok: "Send ID tokens to workflows" **e** "Read and write permissions"
+  (cosign keyless + push para GHCR com `GITHUB_TOKEN`)
+- Se a org usar "Allow select actions": permitir `slsa-framework/slsa-github-generator`
+  (workflow reutilizável de terceiro usado pelo job `provenance`) — com
+  "Allow all actions" (§4.1) já está coberto
+- Primeiro push cria os pacotes
+  `ghcr.io/minha-empresa/controle-share-videos-v1.0-backend`/`-frontend`
+  (visibilidade private por padrão; ajuste em Packages se o host precisar puxar)
+
+**Executar o RC:**
+
+```bash
+gh release create v1.0.0-rc.1 \
+  --repo minha-empresa/controle-share-videos-v1.0 \
+  --target main --prerelease \
+  --title "v1.0.0-rc.1 — validação da cadeia de release" \
+  --notes "RC de validação; não usar em produção."
+```
+
+**Checklist de verificação do run do Security Gate:**
+
+- [ ] `container-scan` e `sbom` verdes (também rodam no evento release)
+- [ ] `Sign Release Artifacts` verde → imagens
+      `ghcr.io/minha-empresa/controle-share-videos-v1.0-backend|frontend:v1.0.0-rc.1`
+      publicadas e assinadas
+- [ ] `Generate SLSA Provenance` verde → atestados `*.intoto.jsonl` anexados
+      como assets da release (`upload-assets: true`)
+- [ ] `Production Readiness Check` verde
+
+**Verificação criptográfica local:**
+
+```bash
+cosign verify \
+  --certificate-identity-regexp '^https://github.com/minha-empresa/controle-share-videos-v1.0/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ghcr.io/minha-empresa/controle-share-videos-v1.0-backend:v1.0.0-rc.1
+```
+
+**Depois da validação:** mantenha o RC como candidato de go-live (evidence para
+GOLIVE 0.3) ou remova com `gh release delete v1.0.0-rc.1 --cleanup-tag`.
+
+### 4.7 Notificação de falha (Slack) — configuração e teste
+
+O job `Notify on Failure` roda em **qualquer falha** dos gates e envia via
+Slack incoming webhook (corrigido em 2026-10-14: a condição antiga checava
+`env.SLACK_WEBHOOK` nunca definida — passo sempre pulado; agora o secret é
+promovido a env do job e a action v4 usa os inputs `webhook`/`webhook-type`).
+
+**Configurar:**
+
+1. Crie um Slack app ([api.slack.com/apps](https://api.slack.com/apps)) com o
+   scope `incoming-webhook`; instale no workspace e aponte para o canal de ops
+2. Salve a URL gerada como secret `SLACK_WEBHOOK` no repo da empresa (§4.3)
+
+**Teste 1 — webhook entrega (rápido):**
+
+```bash
+SLACK_WEBHOOK='https://hooks.slack.com/services/...'  # colar a URL real
+curl -sS -o /dev/null -w '%{http_code}\n' \
+  -X POST -H 'Content-Type: application/json' \
+  -d '{"text":"✅ teste do webhook de falha do Security Gate (controle-share-videos)"}' \
+  "$SLACK_WEBHOOK"
+# esperado: 200 + mensagem no canal
+```
+
+**Teste 2 — ponta a ponta (controlado, opcional):** crie uma branch
+descartável com um **segredo falso evidente** (ex.: `AKIAFAKEFAKEFAKEFAKE00` em
+um arquivo novo), publique a branch e dispare o Security Gate nela — o
+`secret-scan` falha, o `Notify on Failure` roda e a mensagem deve chegar:
+
+```bash
+git checkout -b test/notify-slack
+echo 'aws_key = "AKIAFAKEFAKEFAKEFAKE00"  # valor FALSO p/ teste de notificação' > fake-secret.txt
+git add fake-secret.txt && git commit -m "test: dispara notify-failure (valor falso)"
+git push origin test/notify-slack
+gh workflow run "Security Gate" --repo minha-empresa/controle-share-videos-v1.0 \
+  --ref test/notify-slack
+# confirmar mensagem no Slack; depois:
+git push origin --delete test/notify-slack && git checkout main && git branch -D test/notify-slack
+```
+
+> ⚠️ Use **somente** valores falsos e óbvios; nunca um segredo real. Se a org
+> tiver push protection de secret scanning, o push pode ser bloqueado — nesse
+> caso o Teste 1 + a próxima falha legítima de CI servem como validação.
+> Qualquer falha real futura do Security Gate também é uma validação natural.
 
 ---
 
@@ -216,10 +312,12 @@ lá). Nunca configure `DEPLOY_ENABLED` no repo pessoal — o upstream não deplo
 4. [ ] §4.5 — Primeiro run verde no repo da empresa
 5. [ ] §5 — Script de repontuação + commit + push
 6. [ ] §4.3–4.4 — Secrets/variables de deploy + branch protection
-7. [ ] §6 — Host de produção apontando para o repo da empresa (+ deploy key)
-8. [ ] Prosseguir com o `docs/GOLIVE-CHECKLIST.md` a partir da Fase 1
-   (a Fase 0 passa a referenciar o **repo da empresa**: CI verde, tag de release
-   e imagem no GHCR da org, com SLSA/cosign)
+7. [ ] §4.6 — RC de validação da cadeia de release (`v1.0.0-rc.1`): sign-artifacts + SLSA verdes e `cosign verify` OK
+8. [ ] §4.7 — Slack `SLACK_WEBHOOK` configurado e teste de entrega (curl ≥ teste 1)
+9. [ ] §6 — Host de produção apontando para o repo da empresa (+ deploy key)
+10. [ ] Prosseguir com o `docs/GOLIVE-CHECKLIST.md` a partir da Fase 1
+    (a Fase 0 passa a referenciar o **repo da empresa**: CI verde, RC validado,
+    tag de release final e imagem no GHCR da org, com SLSA/cosign)
 
 ---
 
